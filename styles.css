@@ -1,0 +1,56 @@
+#conversation-navigator-sidebar {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 300px;
+  height: 100vh;
+  background: #111827;
+  color: white;
+  z-index: 999999;
+  padding: 12px;
+  box-sizing: border-box;
+  font-size: 14px;
+  overflow-y: auto;
+  border-left: 1px solid #374151;
+}
+
+#conversation-navigator-sidebar h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+#conversation-navigator-sidebar button {
+  width: 100%;
+  padding: 8px;
+  cursor: pointer;
+}
+
+/* Hidden State */
+.hidden {
+  display: none;
+}
+
+#toggle-sidebar-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  z-index: 1000000;
+  border-radius: 50%;
+  background: #3e578d;
+  color: gray;
+  border: none;
+}
+
+.navigator-item {
+  padding: 8px;
+  margin-top: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.navigator-item:hover {
+  background: #374151;
+}
