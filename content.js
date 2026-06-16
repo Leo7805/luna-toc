@@ -21,10 +21,100 @@ function injectFetchHook() {
   document.documentElement.appendChild(script);
 }
 
+// async function fetchCurrentConversation() {
+//   const match = location.pathname.match(/\/c\/([^/]+)/);
+//   const conversationId = match?.[1];
+
+//   if (!conversationId) {
+//     console.log('[Navigator] no conversation id in url');
+//     return;
+//   }
+
+//   const url = `/backend-api/conversation/${conversationId}`;
+
+//   console.log('[Navigator] manual fetch:', url);
+
+//   const res = await fetch(url);
+
+//   if (!res.ok) {
+//     console.warn('[Navigator] manual fetch failed:', res.status, url);
+//     return;
+//   }
+
+//   const data = await res.json();
+//   const messages = extractUserMessages(data);
+
+//   buildNavigator(messages);
+// }
+
+// async function fetchCurrentConversation() {
+//   const match = location.pathname.match(/\/c\/([^/]+)/);
+//   const conversationId = match?.[1];
+
+//   if (!conversationId) {
+//     console.log('[Navigator] no conversation id in url');
+//     return;
+//   }
+
+//   const url = `/backend-api/conversation/${conversationId}`;
+
+//   console.log('[Navigator] manual fetch:', url);
+
+//   try {
+//     const res = await fetch(url);
+
+//     if (!res.ok) {
+//       console.warn('[Navigator] manual fetch failed:', res.status);
+//       return;
+//     }
+
+//     const data = await res.json();
+//     const messages = extractUserMessages(data);
+
+//     // updateNavigator('manual-fetch', messages);
+//     buildNavigator(messages);
+//   } catch (error) {
+//     console.warn('[Navigator] manual fetch error:', error);
+//   }
+// }
+
+/**
+ * Listens for URL changes to detect when the user switches conversations or starts a new one.
+ */
+// function listenForUrlChanges() {
+//   let lastUrl = location.href;
+
+//   setInterval(() => {
+//     if (location.href !== lastUrl) {
+//       lastUrl = location.href;
+//       console.log('[Navigator] url changed:', lastUrl);
+//       fetchCurrentConversation();
+//     }
+//   }, 500);
+// }
+
+function waitForBody() {
+  return new Promise((resolve) => {
+    if (document.body) {
+      resolve(document.body);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      if (document.body) {
+        clearInterval(timer);
+        resolve(document.body);
+      }
+    }, 50);
+  });
+}
+
 /**
  * Creates the floating sidebar.
  */
-function createSidebar() {
+async function createSidebar() {
+  await waitForBody();
+
   const sidebar = document.createElement('div');
 
   sidebar.id = 'conversation-navigator-sidebar';
@@ -199,8 +289,11 @@ function buildNavigator() {
     // item.addEventListener('click', () => {
     //   jumpToMessage(message.id);
     // });
+    // item.addEventListener('click', () => {
+    //   jumpToPromptByIndex(index);
+    // });
     item.addEventListener('click', () => {
-      jumpToPromptByIndex(index);
+      jumpToUserMessageByText(message.text, index);
     });
 
     item.addEventListener('mouseenter', (event) => {
@@ -213,6 +306,48 @@ function buildNavigator() {
 
     list.appendChild(item);
   });
+}
+
+function normalizeText(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function jumpToUserMessageByText(text, index) {
+  const targetText = normalizeText(text);
+
+  const userMessageElements = Array.from(
+    document.querySelectorAll('[data-message-author-role="user"]')
+  );
+
+  const matchedElement = userMessageElements.find((element) => {
+    const domText = normalizeText(element.innerText);
+
+    return domText.includes(targetText) || targetText.includes(domText);
+  });
+
+  if (matchedElement) {
+    matchedElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+
+    matchedElement.style.outline = '2px solid #60a5fa';
+    matchedElement.style.borderRadius = '8px';
+
+    setTimeout(() => {
+      matchedElement.style.outline = '';
+      matchedElement.style.borderRadius = '';
+    }, 1200);
+
+    return;
+  }
+
+  console.log('[Navigator] Text match failed, fallback to prompt index:', {
+    index,
+    text,
+  });
+
+  jumpToPromptByIndex(index);
 }
 
 function showTooltip(text, event) {
@@ -281,11 +416,9 @@ function handleConversationData(data) {
     return;
   }
 
-  console.log('[Navigator] Conversation refreshed');
-
   conversationMessages = extractUserMessages(data);
 
-  console.log('[Navigator] User messages:', conversationMessages.length);
+  console.log('✅ [Navigator] update navigator', conversationMessages.length);
 
   buildNavigator();
 }
@@ -300,20 +433,6 @@ function listenForConversationData() {
     if (event.data?.type === 'CHATGPT_CONVERSATION_DATA') {
       handleConversationData(event.data.payload);
     }
-
-    // ❤️ Test - Listen for conversation update events
-    // if (event.data?.type === 'CHATGPT_NEW_USER_MESSAGE') {
-    //   const newMessage = event.data.payload;
-
-    //   const exists = conversationMessages.some(
-    //     (message) => message.id === newMessage.id
-    //   );
-
-    //   if (!exists) {
-    //     conversationMessages.push(newMessage);
-    //     buildNavigator();
-    //   }
-    // }
 
     if (event.data?.type === 'CHATGPT_NEW_USER_MESSAGE') {
       const newMessage = event.data.payload;
@@ -330,7 +449,19 @@ function listenForConversationData() {
       );
 
       if (!exists) {
-        conversationMessages.push(newMessage);
+        // conversationMessages.push(newMessage);
+        const rawText =
+          newMessage.text || newMessage.content?.parts?.join('\n') || '';
+
+        const normalizedMessage = {
+          id: newMessage.id,
+          text: rawText.trim(),
+          createTime: newMessage.create_time ?? Date.now(),
+        };
+
+        conversationMessages.push(normalizedMessage);
+        buildNavigator();
+
         console.log('❤️[Navigator] after:', conversationMessages.length);
         buildNavigator();
       } else {
@@ -363,19 +494,40 @@ function jumpToPromptByIndex(index) {
 
   const button = buttons[index];
 
-  if (!button) {
-    console.log('[Navigator] Prompt button not found:', index + 1);
+  if (button) {
+    button.click();
     return;
   }
 
-  button.click();
+  jumpToUserMessageFallback(index);
 }
 
-function main() {
+function jumpToUserMessageFallback(index) {
+  const messages = Array.from(
+    document.querySelectorAll('[data-message-author-role="user"]')
+  );
+
+  const message = messages[index];
+
+  if (!message) {
+    console.log('[Navigator] User message not found:', index + 1);
+    return;
+  }
+
+  message.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
+}
+
+async function main() {
   injectFetchHook(); // Start intercepting conversation data
+  // fetchCurrentConversation(); // Fetch current conversation data on load (in case we missed it in the hook)
+  // listenForUrlChanges(); // Listen for URL changes to detect conversation switches
+
   listenForConversationData(); // Listen for data sent from the fetch hook
 
-  const sidebar = createSidebar();
+  const sidebar = await createSidebar();
 
   createToggleButton(sidebar);
 

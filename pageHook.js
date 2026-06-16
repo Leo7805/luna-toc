@@ -11,6 +11,7 @@
   }
 
   window[HOOK_FLAG] = true;
+  console.log('✅ [Navigator] hook installed');
 
   const originalFetch = window.fetch.bind(window);
 
@@ -35,10 +36,14 @@
       const isSendMessage = method === 'POST' && pathname === SEND_MESSAGE_PATH;
 
       if (isConversationGet) {
+        console.log('✅ [Navigator] fetch:', url);
+
         postConversationData(response);
       }
 
       if (isSendMessage) {
+        console.log('✅ [Navigator] fetch:', url);
+
         streamBuffer = '';
         inspectStream(response); // ❤️ Test - Inspect the message sending response stream
       }
