@@ -34,24 +34,32 @@ function createToggleButton(sidebar) {
 }
 
 function getVisibleUserMessages() {
-  return Array.from(
-    document.querySelectorAll('[data-message-author-role="user"]')
-  );
+  return Array.from(document.querySelectorAll('section[data-turn="user"]'));
+}
+
+function getMessageText(turn) {
+  const content =
+    turn.querySelector('[data-testid="collapsible-user-message-content"]') ||
+    turn.querySelector('[data-message-author-role="user"]');
+
+  if (!content) return '';
+
+  return content.innerText.trim();
 }
 
 function scanDomMessages() {
   collectedMessages.clear();
 
-  const messages = getVisibleUserMessages();
+  const turns = getVisibleUserMessages();
 
-  messages.forEach((msg, index) => {
-    const text = msg.innerText.trim();
+  turns.forEach((turn, index) => {
+    const text = getMessageText(turn);
 
     if (!text) return;
 
     collectedMessages.set(`${index}-${text}`, {
       text,
-      element: msg,
+      element: turn,
     });
   });
 
