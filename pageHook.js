@@ -150,7 +150,8 @@
             type: 'CHATGPT_NEW_USER_MESSAGE',
             payload: {
               id: message.id,
-              text: message.content?.parts?.join('\n') || '',
+              content: message.content,
+              metadata: message.metadata,
               createTime: message.create_time || Date.now(),
             },
           },

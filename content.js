@@ -5,6 +5,7 @@ let conversationMessages = [];
 let tooltipHideTimer = null; // Hide tooltip with a delay to allow mouseenter on the tooltip itself when moving from the item to the tooltip
 let tooltipShowTimer = null; // show tooltip with a delay to avoid flickering when quickly moving mouse in and out of the item
 let navigatorSearchQuery = ''; // filter navigator items by this query, set by the search input in the sidebar
+let currentConversationKey = null;
 
 /* Use to highlight current prompt*/
 let navigatorItems = [];
@@ -152,6 +153,12 @@ function getConversationTitle() {
   );
 }
 
+function getCurrentConversationKey() {
+  const match = location.pathname.match(/\/c\/([^/]+)/);
+
+  return match?.[1] || `new-chat:${location.pathname}`;
+}
+
 function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (char) => {
     const entities = {
@@ -168,6 +175,51 @@ function escapeHtml(text) {
 
 function reloadCurrentPageData() {
   location.reload();
+}
+
+function resetNavigatorStateForCurrentRoute() {
+  // ChatGPT is a SPA, so switching chats can keep this content script alive.
+  // Clear per-conversation state when the route changes.
+  conversationMessages = [];
+  navigatorItems = [];
+  navigatorSearchQuery = '';
+
+  const search = document.getElementById('navigator-search');
+  const title = document.getElementById('navigator-title');
+
+  if (search) {
+    search.value = '';
+  }
+
+  if (title) {
+    title.textContent = getConversationTitle();
+  }
+
+  hideTooltip();
+  buildNavigator();
+}
+
+function syncNavigatorRouteState() {
+  const nextConversationKey = getCurrentConversationKey();
+
+  if (currentConversationKey === null) {
+    currentConversationKey = nextConversationKey;
+    return;
+  }
+
+  if (nextConversationKey === currentConversationKey) {
+    return;
+  }
+
+  currentConversationKey = nextConversationKey;
+  resetNavigatorStateForCurrentRoute();
+}
+
+function listenForRouteChanges() {
+  currentConversationKey = getCurrentConversationKey();
+
+  // ChatGPT route changes do not always trigger a full page load.
+  setInterval(syncNavigatorRouteState, 250);
 }
 
 function createTooltip() {
@@ -199,6 +251,9 @@ function createToggleButton(sidebar) {
   document.body.appendChild(toggleBtn);
 }
 
+/**
+ * Converts mixed message parts into simple TOC text labels.
+ */
 function getMessageDisplayText(message) {
   const content = message.content;
   const parts = content?.parts || [];
@@ -218,7 +273,7 @@ function getMessageDisplayText(message) {
         return `[${part.content_type}]`;
       }
 
-      return '';
+      return '[Attachment]';
     })
     .filter(Boolean);
 
@@ -578,6 +633,8 @@ function listenForConversationData() {
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
 
+    syncNavigatorRouteState();
+
     if (event.data?.type === 'CHATGPT_CONVERSATION_DATA') {
       handleConversationData(event.data.payload);
     }
@@ -587,7 +644,7 @@ function listenForConversationData() {
 
       console.log(
         '[Navigator] Captured input message:',
-        newMessage.content?.parts?.join('\n')
+        getMessageDisplayText(newMessage)
       );
       console.log('[Navigator] New user message:', newMessage);
       console.log('[Navigator] before:', conversationMessages.length);
@@ -597,8 +654,7 @@ function listenForConversationData() {
       );
 
       if (!exists) {
-        const rawText =
-          newMessage.text || newMessage.content?.parts?.join('\n') || '';
+        const rawText = getMessageDisplayText(newMessage);
 
         const normalizedMessage = {
           id: newMessage.id,
@@ -740,6 +796,7 @@ async function main() {
   const sidebar = await createSidebar();
 
   initSidebarResize(sidebar);
+  listenForRouteChanges();
   initActivePromptTracking();
   createToggleButton(sidebar);
 
