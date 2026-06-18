@@ -12,11 +12,27 @@ let navigatorItems = [];
 let activePromptObserver = null;
 let activePromptMutationObserver = null;
 let activePromptMutationTimer = null;
+let activeNativeTocObserver = null;
+let activeNativeTocTimer = null;
+let lockedNavigatorIndex = null;
+let lockedNavigatorTimer = null;
+let lastNonTextHighlightIndex = null;
+let lastNonTextHighlightElement = null;
 
 const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 const TOOLTIP_SHOW_DELAY_MS = 500;
 const TOOLTIP_HIDE_DELAY_MS = 200;
 const WIDTH_SPOOF_MESSAGE_TYPE = 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF';
+const NATIVE_PROMPT_BUTTON_SELECTORS = [
+  'button[aria-label^="Prompt "]',
+  'button[aria-label^="prompt "]',
+  'button[aria-description^="Prompt "]',
+  'button[aria-description^="prompt "]',
+];
+const NATIVE_PROMPT_BUTTON_SELECTOR = NATIVE_PROMPT_BUTTON_SELECTORS.join(',');
+const ACTIVE_NATIVE_PROMPT_BUTTON_SELECTOR = NATIVE_PROMPT_BUTTON_SELECTORS
+  .map((selector) => `${selector}[data-toc-active]`)
+  .join(',');
 
 /**
  * Injects pageHook.js into the real page context.
@@ -67,7 +83,7 @@ async function createSidebar() {
     <div class="navigator-topbar">
       <div class="navigator-header">
         <h2 id="navigator-title">${conversationTitle}</h2>
-        <button id="refresh-toc-btn" type="button" aria-label="Refresh TOC">
+        <button class="navigator-icon-btn" id="refresh-toc-btn" type="button" aria-label="Refresh TOC">
           <span aria-hidden="true">⟳</span>
         </button>
       </div>
@@ -84,6 +100,19 @@ async function createSidebar() {
       />
     </div>
 
+    <div class="navigator-action-rail">
+      <button class="navigator-icon-btn" id="jump-chat-top-btn" type="button" aria-label="Jump to top">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M6 5h12M12 19V9M7 14l5-5 5 5" />
+        </svg>
+      </button>
+      <button class="navigator-icon-btn" id="jump-chat-bottom-btn" type="button" aria-label="Jump to bottom">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M6 19h12M12 5v10M7 10l5 5 5-5" />
+        </svg>
+      </button>
+    </div>
+
     <div id="navigator-list"></div>
 	`;
 
@@ -91,6 +120,12 @@ async function createSidebar() {
   document
     .getElementById('refresh-toc-btn')
     .addEventListener('click', reloadCurrentPageData);
+  document
+    .getElementById('jump-chat-top-btn')
+    .addEventListener('click', () => jumpToConversationEdge('top'));
+  document
+    .getElementById('jump-chat-bottom-btn')
+    .addEventListener('click', () => jumpToConversationEdge('bottom'));
 
   document
     .getElementById('navigator-search')
@@ -184,6 +219,25 @@ function escapeHtml(text) {
 
 function reloadCurrentPageData() {
   location.reload();
+}
+
+/**
+ * Jumps to the first or last prompt using ChatGPT's native TOC when available.
+ * @param {'top' | 'bottom'} edge
+ */
+function jumpToConversationEdge(edge) {
+  const buttons = getNativePromptButtons();
+  const button = edge === 'top' ? buttons[0] : buttons.at(-1);
+
+  if (button) {
+    button.click();
+    return;
+  }
+
+  window.scrollTo({
+    top: edge === 'top' ? 0 : document.documentElement.scrollHeight,
+    behavior: 'smooth',
+  });
 }
 
 /**
@@ -291,33 +345,86 @@ function createToggleButton(sidebar) {
  * appear in the navigator.
  */
 function getMessageDisplayText(message) {
-  const content = message.content;
-  const parts = content?.parts || [];
+  const parts = message.content?.parts || [];
   const attachments = message.metadata?.attachments || [];
-
+  const hasImageAttachment = attachments.some(isImageAttachment);
+  const attachmentParts = attachments.map(getAttachmentDisplayText);
   const textParts = parts
-    .map((part) => {
-      if (typeof part === 'string') {
-        return part.trim();
-      }
-
-      if (part?.content_type === 'image_asset_pointer') {
-        return '[Image]';
-      }
-
-      if (part?.content_type) {
-        return `[${part.content_type}]`;
-      }
-
-      return '[Attachment]';
-    })
+    .map((part) => getContentPartDisplayText(part, hasImageAttachment))
     .filter(Boolean);
 
-  const attachmentParts = attachments.map((file) => {
-    return `[File] ${file.name || 'Uploaded file'}`;
-  });
-
   return [...attachmentParts, ...textParts].join('\n').trim();
+}
+
+function getAttachmentDisplayText(file) {
+  const label = isImageAttachment(file) ? 'Image' : 'File';
+
+  return `[${label}] ${file.name || 'Uploaded file'}`;
+}
+
+function getContentPartDisplayText(part, hasImageAttachment) {
+  if (typeof part === 'string') {
+    return part.trim();
+  }
+
+  if (part?.content_type === 'image_asset_pointer') {
+    return hasImageAttachment ? '' : '[Image]';
+  }
+
+  if (part?.content_type) {
+    return `[${part.content_type}]`;
+  }
+
+  return '[Attachment]';
+}
+
+function isImageAttachment(file) {
+  const mimeType = file.mime_type || file.mimeType || '';
+  const name = file.name || '';
+
+  return (
+    mimeType.startsWith('image/') ||
+    /\.(apng|avif|gif|jpe?g|png|svg|webp)$/i.test(name)
+  );
+}
+
+function getMessageTextParts(message) {
+  return (message.content?.parts || [])
+    .filter((part) => typeof part === 'string')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function hasRenderableMessageText(message) {
+  return getMessageTextParts(message).length > 0;
+}
+
+function hasNonTextMessageContent(message) {
+  const parts = message.content?.parts || [];
+  const attachments = message.metadata?.attachments || [];
+
+  return (
+    attachments.length > 0 ||
+    parts.some((part) => typeof part !== 'string')
+  );
+}
+
+function isTextMatchableMessage(message) {
+  return (
+    hasRenderableMessageText(message) &&
+    !hasNonTextMessageContent(message)
+  );
+}
+
+function createNavigatorMessage(message) {
+  const text = getMessageDisplayText(message);
+
+  return {
+    id: message.id,
+    text,
+    canMatchByText: isTextMatchableMessage(message),
+    createTime: message.create_time ?? message.createTime ?? 0,
+  };
 }
 
 /**
@@ -358,14 +465,7 @@ function extractUserMessages(data) {
   return orderedNodes
     .filter((node) => node.message?.author?.role === 'user')
     .map((node) => {
-      const message = node.message;
-      const text = getMessageDisplayText(message);
-
-      return {
-        id: message.id,
-        text,
-        createTime: message.create_time ?? 0,
-      };
+      return createNavigatorMessage(node.message);
     })
     .filter((message) => message.text.length > 0);
 }
@@ -448,10 +548,10 @@ function normalizeText(text) {
 }
 
 /**
- * Set the navigator item at the given index as active, and remove active state from others.
+ * Applies active styling immediately, ignoring any temporary navigation lock.
  * @param {number} index
  */
-function setActiveNavigatorItem(index) {
+function forceActiveNavigatorItem(index) {
   navigatorItems.forEach((item) => {
     item.classList.remove('navigator-item-active');
   });
@@ -466,6 +566,41 @@ function setActiveNavigatorItem(index) {
 }
 
 /**
+ * Sets the active navigator item unless a click-triggered navigation lock is
+ * temporarily preserving another item.
+ * @param {number} index
+ */
+function setActiveNavigatorItem(index) {
+  if (
+    lockedNavigatorIndex !== null &&
+    index !== lockedNavigatorIndex &&
+    lockedNavigatorTimer
+  ) {
+    return;
+  }
+
+  forceActiveNavigatorItem(index);
+}
+
+/**
+ * Keeps a clicked navigator item highlighted while ChatGPT performs its own
+ * virtualized scroll.
+ * @param {number} index
+ * @param {number} duration
+ */
+function lockActiveNavigatorItem(index, duration = 1800) {
+  clearTimeout(lockedNavigatorTimer);
+
+  lockedNavigatorIndex = index;
+  forceActiveNavigatorItem(index);
+
+  lockedNavigatorTimer = setTimeout(() => {
+    lockedNavigatorIndex = null;
+    lockedNavigatorTimer = null;
+  }, duration);
+}
+
+/**
  * Scroll the given navigator item into view if it's not fully visible in the sidebar.
  * @param {HTMLElement} item
  */
@@ -473,6 +608,7 @@ function scrollNavigatorItemIntoView(item) {
   const scrollContainer = document.getElementById('navigator-list');
 
   if (!scrollContainer) return;
+  if (scrollContainer.matches(':hover')) return;
 
   const itemRect = item.getBoundingClientRect();
   const containerRect = scrollContainer.getBoundingClientRect();
@@ -506,11 +642,85 @@ function scrollNavigatorItemIntoView(item) {
 function findConversationIndexByElement(element) {
   const domText = normalizeText(element.innerText);
 
-  return conversationMessages.findIndex((message) => {
+  const textMatchedIndex = conversationMessages.findIndex((message) => {
+    if (!message.canMatchByText) return false;
+
     const messageText = normalizeText(message.text);
 
     return domText === messageText || domText.includes(messageText);
   });
+
+  if (textMatchedIndex !== -1) {
+    return textMatchedIndex;
+  }
+
+  const visibleUserMessages = Array.from(
+    document.querySelectorAll('[data-message-author-role="user"]')
+  );
+
+  if (visibleUserMessages.length === conversationMessages.length) {
+    return visibleUserMessages.indexOf(element);
+  }
+
+  return -1;
+}
+
+/**
+ * Returns ChatGPT's built-in prompt navigator buttons in display order.
+ * This native TOC is the reliable index source for virtualized file/image
+ * prompts because ChatGPT owns that state.
+ * @returns {HTMLElement[]}
+ */
+function getNativePromptButtons() {
+  return Array.from(document.querySelectorAll(NATIVE_PROMPT_BUTTON_SELECTOR));
+}
+
+/**
+ * Parses ChatGPT's native one-based prompt label into ChatTOC's zero-based index.
+ * @param {HTMLElement} button
+ * @returns {number}
+ */
+function getNativePromptIndexFromButton(button) {
+  const label =
+    button.getAttribute('aria-label') ||
+    button.getAttribute('aria-description') ||
+    '';
+  const match = label.match(/^prompt\s+(\d+)$/i);
+
+  return match ? Number(match[1]) - 1 : -1;
+}
+
+/**
+ * Reads the active prompt index from ChatGPT's built-in TOC.
+ * @returns {number} The active prompt index, or -1 if no native active item exists.
+ */
+function findActiveNativePromptIndex() {
+  const activeButton = document.querySelector(
+    ACTIVE_NATIVE_PROMPT_BUTTON_SELECTOR
+  );
+
+  if (!activeButton) return -1;
+
+  const labelIndex = getNativePromptIndexFromButton(activeButton);
+
+  if (labelIndex !== -1) return labelIndex;
+
+  const buttons = getNativePromptButtons();
+
+  return activeButton ? buttons.indexOf(activeButton) : -1;
+}
+
+/**
+ * Syncs ChatTOC's active item from ChatGPT's native TOC when available.
+ * @returns {boolean} true when native TOC provided an active index.
+ */
+function syncActiveNavigatorItemFromNativeToc() {
+  const index = findActiveNativePromptIndex();
+
+  if (index === -1) return false;
+
+  setActiveNavigatorItem(index);
+  return true;
 }
 
 /**
@@ -532,6 +742,8 @@ function observeVisibleUserMessages() {
 
       if (!topEntry) return;
 
+      if (syncActiveNavigatorItemFromNativeToc()) return;
+
       const index = findConversationIndexByElement(topEntry.target);
 
       if (index === -1) return;
@@ -548,6 +760,33 @@ function observeVisibleUserMessages() {
     .forEach((element) => {
       activePromptObserver.observe(element);
     });
+}
+
+/**
+ * Observes ChatGPT's built-in TOC active marker and mirrors it to ChatTOC.
+ * This is the primary active-state source for image/file prompts.
+ */
+function initNativeTocActiveTracking() {
+  if (activeNativeTocObserver) {
+    activeNativeTocObserver.disconnect();
+  }
+
+  activeNativeTocObserver = new MutationObserver(() => {
+    clearTimeout(activeNativeTocTimer);
+
+    activeNativeTocTimer = setTimeout(() => {
+      syncActiveNavigatorItemFromNativeToc();
+    }, 100);
+  });
+
+  activeNativeTocObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['data-toc-active'],
+    childList: true,
+    subtree: true,
+  });
+
+  syncActiveNavigatorItemFromNativeToc();
 }
 
 /**
@@ -572,6 +811,7 @@ function initActivePromptTracking() {
   });
 
   observeVisibleUserMessages();
+  initNativeTocActiveTracking();
 }
 
 /**
@@ -701,13 +941,7 @@ function listenForConversationData() {
       );
 
       if (!exists) {
-        const rawText = getMessageDisplayText(newMessage);
-
-        const normalizedMessage = {
-          id: newMessage.id,
-          text: rawText.trim(),
-          createTime: newMessage.createTime ?? Date.now(),
-        };
+        const normalizedMessage = createNavigatorMessage(newMessage);
 
         conversationMessages.push(normalizedMessage);
         buildNavigator();
@@ -720,6 +954,20 @@ function listenForConversationData() {
   });
 }
 
+/**
+ * Applies a temporary highlight effect to a rendered prompt element.
+ * @param {HTMLElement} element
+ */
+function highlightMatchedElement(element) {
+  element.style.outline = '2px solid #60a5fa';
+  element.style.borderRadius = '8px';
+
+  setTimeout(() => {
+    element.style.outline = '';
+    element.style.borderRadius = '';
+  }, 1200);
+}
+
 /** Scrolls to the given element and applies a temporary highlight effect.
  * @param {HTMLElement} element
  */
@@ -729,13 +977,7 @@ function scrollToMatchedElement(element) {
     block: 'center',
   });
 
-  element.style.outline = '2px solid #60a5fa';
-  element.style.borderRadius = '8px';
-
-  setTimeout(() => {
-    element.style.outline = '';
-    element.style.borderRadius = '';
-  }, 1200);
+  highlightMatchedElement(element);
 }
 
 /**
@@ -746,12 +988,19 @@ function scrollToMatchedElement(element) {
  * @param {number} index
  */
 function jumpToMessage(message, index) {
+  lockActiveNavigatorItem(index, message.canMatchByText ? 1800 : 4000);
+
   if (jumpToPromptByIndex(index)) {
-    retryJumpToUserMessageByText(message.text);
+    retryHighlightJumpTarget(
+      message,
+      index,
+      getNonTextJumpStartElement(message)
+    );
+
     return;
   }
 
-  if (jumpToUserMessageByText(message.text)) return;
+  if (message.canMatchByText && jumpToUserMessageByText(message.text)) return;
 
   jumpToVisibleUserMessageByIndex(index);
 }
@@ -764,17 +1013,7 @@ function jumpToMessage(message, index) {
  * @returns true if jump succeeded, false otherwise
  */
 function jumpToPromptByIndex(index) {
-  const buttons = Array.from(
-    document.querySelectorAll(
-      [
-        '[aria-label^="Prompt"]',
-        '[aria-label^="prompt"]',
-        '[aria-description^="Prompt"]',
-        '[aria-description^="prompt"]',
-      ].join(',')
-    )
-  );
-
+  const buttons = getNativePromptButtons();
   const button = buttons[index];
 
   if (!button) {
@@ -834,18 +1073,96 @@ function jumpToVisibleUserMessageByIndex(index) {
 }
 
 /**
- * Retries jumping to a user message by text content, with a limited number of attempts.
- * @param {string} text
+ * Retries highlighting after ChatGPT's built-in prompt navigator scrolls.
+ * Pure text prompts can be matched by DOM text; prompts with files/images fall
+ * back to the user message closest to the viewport center after the scroll.
+ * @param {Object} message
+ * @param {number} index
+ * @param {HTMLElement | null} startElement
  * @param {number} attempts
  */
-function retryJumpToUserMessageByText(text, attempts = 8) {
-  if (jumpToUserMessageByText(text)) return;
+function retryHighlightJumpTarget(
+  message,
+  index,
+  startElement = null,
+  attempts = 14
+) {
+  if (message.canMatchByText && jumpToUserMessageByText(message.text)) return;
+
+  if (
+    !message.canMatchByText &&
+    highlightNonTextJumpTarget(index, startElement, attempts)
+  ) {
+    return;
+  }
 
   if (attempts <= 1) return;
 
   setTimeout(() => {
-    retryJumpToUserMessageByText(text, attempts - 1);
-  }, 150);
+    retryHighlightJumpTarget(message, index, startElement, attempts - 1);
+  }, message.canMatchByText ? 150 : 250);
+}
+
+/**
+ * Captures the current center message before a non-text prompt jump starts so
+ * retry logic can avoid highlighting the old scroll position.
+ * @param {Object} message
+ * @returns {HTMLElement | null}
+ */
+function getNonTextJumpStartElement(message) {
+  return message.canMatchByText ? null : getCenteredVisibleUserMessage();
+}
+
+/**
+ * Highlights the non-text jump target without scrolling. ChatGPT's built-in
+ * prompt navigator owns the actual scroll for file/image prompts.
+ * @param {number} index
+ * @param {HTMLElement | null} startElement
+ * @param {number} attempts
+ */
+function highlightNonTextJumpTarget(index, startElement, attempts) {
+  const message = getCenteredVisibleUserMessage();
+
+  if (!message) return false;
+
+  const isRepeatClick =
+    index === lastNonTextHighlightIndex &&
+    message === lastNonTextHighlightElement;
+  const shouldWaitForScroll = attempts > 1 && !isRepeatClick;
+
+  if (shouldWaitForScroll && message === startElement) {
+    return false;
+  }
+
+  highlightMatchedElement(message);
+  lastNonTextHighlightIndex = index;
+  lastNonTextHighlightElement = message;
+  return true;
+}
+
+/**
+ * Returns the visible user message whose center is closest to the viewport
+ * center, or null if no user message is currently rendered.
+ */
+function getCenteredVisibleUserMessage() {
+  const messages = Array.from(
+    document.querySelectorAll('[data-message-author-role="user"]')
+  );
+
+  if (messages.length === 0) return null;
+
+  const viewportCenter = window.innerHeight / 2;
+  return messages
+    .map((element) => {
+      const rect = element.getBoundingClientRect();
+      const center = rect.top + rect.height / 2;
+
+      return {
+        element,
+        distance: Math.abs(center - viewportCenter),
+      };
+    })
+    .sort((a, b) => a.distance - b.distance)[0]?.element;
 }
 
 async function main() {

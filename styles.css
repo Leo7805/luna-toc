@@ -62,7 +62,18 @@
   white-space: nowrap;
 }
 
-#refresh-toc-btn {
+.navigator-action-rail {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+
+.navigator-icon-btn {
   width: 32px;
   height: 32px;
   padding: 0;
@@ -79,11 +90,17 @@
   transform: translateY(2px);
 }
 
-#refresh-toc-btn:hover {
+.navigator-action-rail .navigator-icon-btn {
+  background: rgba(17, 24, 39, 0.2);
+  justify-self: auto;
+  transform: none;
+}
+
+.navigator-icon-btn:hover {
   background: #374151;
 }
 
-#refresh-toc-btn:active {
+.navigator-icon-btn:active {
   background: #4b5563;
 }
 
@@ -133,11 +150,29 @@
   color: white;
 }
 
-#refresh-toc-btn span {
+.navigator-icon-btn span {
   display: block;
   font-size: 24px;
   line-height: 1;
+}
+
+#refresh-toc-btn span {
   transform: translate(2px, -2px);
+}
+
+.navigator-action-rail .navigator-icon-btn span {
+  font-size: 22px;
+  transform: translateY(-1px);
+}
+
+.navigator-icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .navigator-item {
@@ -160,21 +195,23 @@
   right: 320px;
   top: 80px;
 
-  width: 420px;
-  max-height: 70vh;
+  width: 380px;
+  max-height: 60vh;
 
   overflow-y: auto;
 
-  background: #0b1d42;
-  color: white;
+  background: #020617;
+  color: #d1d5db;
 
-  border: 1px solid #374151;
-  border-radius: 10px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
 
-  padding: 12px;
+  padding: 10px 11px;
 
   white-space: pre-wrap;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.45;
 
   z-index: 1000001;
 
