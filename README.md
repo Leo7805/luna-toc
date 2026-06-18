@@ -13,6 +13,7 @@ ChatTOC helps you navigate long conversations by automatically turning your prom
 ## Features
 
 - Automatically generates a TOC from user prompts
+- Expand prompts to navigate answer headings
 - Click any prompt to instantly jump to its location
 - Pin important prompts for quick visual reference
 - Search and filter prompts
