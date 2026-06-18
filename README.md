@@ -14,6 +14,7 @@ ChatTOC helps you navigate long conversations by automatically turning your prom
 
 - Automatically generates a TOC from user prompts
 - Click any prompt to instantly jump to its location
+- Pin important prompts for quick visual reference
 - Search and filter prompts
 - Highlights the prompt currently visible in the conversation
 - Preview full prompt content on hover

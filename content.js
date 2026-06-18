@@ -2,6 +2,7 @@ console.log('ChatGPT Conversation Navigator loaded');
 
 // const collectedMessages = new Map();
 let conversationMessages = [];
+let pinnedPromptIds = new Set();
 let tooltipHideTimer = null; // Hide tooltip with a delay to allow mouseenter on the tooltip itself when moving from the item to the tooltip
 let tooltipShowTimer = null; // show tooltip with a delay to avoid flickering when quickly moving mouse in and out of the item
 let navigatorSearchQuery = ''; // filter navigator items by this query, set by the search input in the sidebar
@@ -23,6 +24,7 @@ const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 const TOOLTIP_SHOW_DELAY_MS = 500;
 const TOOLTIP_HIDE_DELAY_MS = 200;
 const WIDTH_SPOOF_MESSAGE_TYPE = 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF';
+const PINNED_PROMPTS_STORAGE_PREFIX = 'chatToc:pinned:';
 const NATIVE_PROMPT_BUTTON_SELECTORS = [
   'button[aria-label^="Prompt "]',
   'button[aria-label^="prompt "]',
@@ -221,6 +223,43 @@ function reloadCurrentPageData() {
   location.reload();
 }
 
+function getPinnedPromptsStorageKey() {
+  return `${PINNED_PROMPTS_STORAGE_PREFIX}${getCurrentConversationKey()}`;
+}
+
+function loadPinnedPromptIds() {
+  try {
+    const rawValue = localStorage.getItem(getPinnedPromptsStorageKey());
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+
+    return new Set(Array.isArray(parsedValue) ? parsedValue : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function savePinnedPromptIds() {
+  try {
+    localStorage.setItem(
+      getPinnedPromptsStorageKey(),
+      JSON.stringify([...pinnedPromptIds])
+    );
+  } catch {}
+}
+
+function togglePinnedPrompt(messageId) {
+  if (!messageId) return false;
+
+  if (pinnedPromptIds.has(messageId)) {
+    pinnedPromptIds.delete(messageId);
+  } else {
+    pinnedPromptIds.add(messageId);
+  }
+
+  savePinnedPromptIds();
+  return pinnedPromptIds.has(messageId);
+}
+
 /**
  * Jumps to the first or last prompt using ChatGPT's native TOC when available.
  * @param {'top' | 'bottom'} edge
@@ -260,6 +299,7 @@ function resetNavigatorStateForCurrentRoute() {
   // ChatGPT is a SPA, so switching chats can keep this content script alive.
   // Clear per-conversation state when the route changes.
   conversationMessages = [];
+  pinnedPromptIds = loadPinnedPromptIds();
   navigatorItems = [];
   navigatorSearchQuery = '';
 
@@ -304,6 +344,7 @@ function syncNavigatorRouteState() {
  */
 function listenForRouteChanges() {
   currentConversationKey = getCurrentConversationKey();
+  pinnedPromptIds = loadPinnedPromptIds();
 
   // ChatGPT route changes do not always trigger a full page load.
   setInterval(syncNavigatorRouteState, 250);
@@ -511,10 +552,31 @@ function buildNavigator() {
     const fullText = message.text.replace(/\s+/g, ' ');
 
     const item = document.createElement('div');
+    const itemText = document.createElement('span');
+    const pinButton = document.createElement('button');
 
     item.dataset.messageIndex = String(index);
     item.className = 'navigator-item';
-    item.textContent = `${index + 1}. ${fullText}`;
+
+    itemText.className = 'navigator-item-text';
+    itemText.textContent = `${index + 1}. ${fullText}`;
+
+    pinButton.className = 'navigator-pin-btn';
+    pinButton.type = 'button';
+    pinButton.innerHTML = `
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <g transform="rotate(45 12 12)">
+          <path d="M8 4h8l-1 7 3 3v2H6v-2l3-3-1-7Z" />
+          <path d="M12 16v5" />
+        </g>
+      </svg>
+    `;
+
+    setPinnedNavigatorItemState(
+      item,
+      pinButton,
+      pinnedPromptIds.has(message.id)
+    );
 
     navigatorItems[index] = item;
 
@@ -523,9 +585,19 @@ function buildNavigator() {
       jumpToMessage(message, index);
     });
 
+    pinButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+
+      const isPinned = togglePinnedPrompt(message.id);
+
+      setPinnedNavigatorItemState(item, pinButton, isPinned);
+      pinButton.blur();
+    });
+
+    item.append(itemText, pinButton);
     list.appendChild(item);
 
-    if (isTextTruncated(item)) {
+    if (isTextTruncated(itemText)) {
       item.addEventListener('mouseenter', (event) => {
         showTooltip(message.text, event);
       });
@@ -537,6 +609,16 @@ function buildNavigator() {
   });
 
   observeVisibleUserMessages(); // Re-observe messages after rebuilding the navigator
+}
+
+function setPinnedNavigatorItemState(item, pinButton, isPinned) {
+  item.classList.toggle('navigator-item-pinned', isPinned);
+  pinButton.classList.toggle('navigator-pin-btn-active', isPinned);
+  pinButton.setAttribute('aria-pressed', String(isPinned));
+  pinButton.setAttribute(
+    'aria-label',
+    isPinned ? 'Unpin prompt' : 'Pin prompt'
+  );
 }
 
 function isTextTruncated(element) {
@@ -1167,6 +1249,7 @@ function getCenteredVisibleUserMessage() {
 
 async function main() {
   injectFetchHook(); // Start intercepting conversation data
+  pinnedPromptIds = loadPinnedPromptIds();
 
   listenForConversationData(); // Listen for data sent from the fetch hook
 

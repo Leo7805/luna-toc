@@ -176,11 +176,18 @@
 }
 
 .navigator-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 6px;
   padding: 8px;
   margin-top: 6px;
   border-radius: 6px;
   cursor: pointer;
   line-height: 1.4;
+}
+
+.navigator-item-text {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
@@ -188,6 +195,55 @@
 
 .navigator-item:hover {
   background: #374151;
+}
+
+.navigator-item.navigator-item-pinned {
+  background: rgba(234, 179, 8, 0.12);
+  color: #fde68a;
+}
+
+.navigator-item.navigator-item-active.navigator-item-pinned {
+  background: #1f3b73;
+  box-shadow: inset 3px 0 0 #facc15;
+  color: white;
+}
+
+.navigator-pin-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  display: grid;
+  opacity: 0;
+  place-items: center;
+  transition:
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.navigator-item:hover .navigator-pin-btn,
+.navigator-pin-btn:focus-visible,
+.navigator-pin-btn.navigator-pin-btn-active {
+  opacity: 1;
+}
+
+.navigator-pin-btn:hover,
+.navigator-pin-btn.navigator-pin-btn-active {
+  color: #facc15;
+}
+
+.navigator-pin-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 #navigator-tooltip {
