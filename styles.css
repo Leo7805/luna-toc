@@ -44,23 +44,8 @@
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 80vh;
-}
-
-#navigator-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-#navigator-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#navigator-list::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.25);
-  border-radius: 9999px;
-}
-
-#navigator-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.45);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.25) transparent;
 }
 
 .navigator-header {
@@ -82,16 +67,21 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
+  color: #cbd5e1;
   text-align: center;
   font-family: inherit;
   font-size: 15px;
   line-height: 1.3;
-  color: #eef2f7;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  transition: color 150ms ease;
+}
+
+#navigator-title:hover {
+  color: #93c5fd;
 }
 
 #navigator-title:active {
@@ -199,10 +189,19 @@
   transition: transform 120ms ease;
 }
 
-.sidebar-pin-btn.sidebar-pin-active,
-.sidebar-pin-btn.sidebar-pin-active:hover {
+.sidebar-pin-btn.sidebar-pin-active {
   color: #93c5fd;
   opacity: 1;
+}
+
+.sidebar-pin-btn.sidebar-pin-active:hover {
+  color: #bfdbfe;
+  opacity: 1;
+}
+
+.sidebar-pin-btn.sidebar-pin-active:active {
+  color: #ffffff;
+  transform: scale(0.9);
 }
 
 .sidebar-pin-btn.sidebar-pin-active svg {
@@ -459,7 +458,7 @@
   fill: currentColor;
 }
 
-#navigator-tooltip {
+#navigator-preview-tooltip {
   position: fixed;
   right: 320px;
   top: 80px;
@@ -487,8 +486,47 @@
   display: none;
 }
 
-#navigator-tooltip.visible {
+#navigator-preview-tooltip.visible {
   display: block;
+}
+
+.navigator-preview-tooltip-title {
+  font-weight: 600;
+  color: #f8fafc;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.navigator-preview-tooltip-content {
+  white-space: pre-wrap;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+/* Button & Icon general tooltip widget */
+#navigator-button-tooltip {
+  position: fixed;
+  background: #000000;
+  color: #ffffff;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 10000002;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms ease;
+  display: none;
+}
+
+#navigator-button-tooltip.visible {
+  display: block;
+  opacity: 1;
 }
 
 .navigator-item.navigator-item-active {
@@ -497,6 +535,7 @@
 }
 
 #navigator-search {
+  display: none; /* Hidden by default, toggled via magnifying glass */
   width: 100%;
   box-sizing: border-box;
   height: 28px;
@@ -526,4 +565,295 @@
   color: #9ca3af;
   font-size: 13px;
   line-height: 1.4;
+}
+
+/* My Prompts Styling */
+#toggle-view-mode-btn.mode-myprompts-active {
+  color: #3b82f6;
+}
+
+#toggle-view-mode-btn.mode-myprompts-active svg {
+  fill: currentColor;
+}
+
+.my-prompts-sort-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px 10px;
+  border-bottom: 1px solid #374151;
+  margin-bottom: 8px;
+  color: #9ca3af;
+}
+
+#search-toggle-btn {
+  justify-self: end;
+}
+
+.sort-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-bar-left .sort-icon {
+  width: 14px;
+  height: 14px;
+  color: #9ca3af;
+}
+
+.my-prompts-sort-select {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.my-prompts-sort-select:hover {
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.my-prompts-sort-select:focus {
+  border-color: #60a5fa;
+  color: #f1f5f9;
+}
+
+#myprompt-add-new-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #3b82f6;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  margin: 0;
+  padding: 0;
+  transition: all 150ms ease;
+}
+
+#myprompt-add-new-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+#myprompt-add-new-btn:active {
+  transform: scale(0.95);
+}
+
+/* My Prompts Item Actions */
+.my-prompts-item-row {
+  position: relative;
+}
+
+.my-prompts-item-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  margin-left: auto;
+}
+
+.my-prompts-item-row:hover .my-prompts-item-actions {
+  opacity: 1;
+}
+
+.myprompt-action-btn {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: #9ca3af;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.myprompt-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.edit-myprompt-btn:hover {
+  color: #60a5fa;
+  background-color: rgba(96, 165, 250, 0.12);
+}
+
+.delete-myprompt-btn:hover {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.12);
+}
+
+/* Modal Dialog */
+.myprompt-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 10000000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.myprompt-modal-content {
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid #374151;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  color: #e2e8f0;
+}
+
+.myprompt-modal-title {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #93c5fd;
+  border-bottom: 1px solid #374151;
+  padding-bottom: 10px;
+}
+
+.myprompt-modal-field {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.myprompt-modal-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.myprompt-modal-field input,
+.myprompt-modal-field textarea {
+  background: #090d16;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  color: #f1f5f9;
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.myprompt-modal-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.myprompt-modal-field input:focus,
+.myprompt-modal-field textarea:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+}
+
+.myprompt-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.myprompt-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 80ms ease;
+  border: none;
+  outline: none;
+}
+
+.myprompt-btn-secondary {
+  background: #374151;
+  color: #e2e8f0;
+}
+
+.myprompt-btn-secondary:hover {
+  background: #4b5563;
+}
+
+.myprompt-btn-primary {
+  background: #2563eb;
+  color: white;
+}
+
+.myprompt-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.myprompt-btn:active {
+  transform: scale(0.97);
+}
+
+/* Autocomplete suggestions menu */
+#chat-toc-autocomplete-menu {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1000000;
+  display: none;
+}
+
+.autocomplete-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  transition: background-color 120ms ease;
+  text-align: left;
+}
+
+.autocomplete-menu-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-menu-item:hover,
+.autocomplete-menu-item.autocomplete-menu-item-active {
+  background-color: rgba(96, 165, 250, 0.15);
+}
+
+.autocomplete-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 2px;
+}
+
+.autocomplete-item-preview {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

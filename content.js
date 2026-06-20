@@ -9,6 +9,7 @@ let currentConversationKey = null;
 let pendingNewChatRouteKey = null;
 let pendingNewChatMessage = null;
 let activeNavigatorIndex = null;
+let viewMode = 'toc'; // 'toc' or 'myPrompts'
 
 /* Use to highlight current prompt*/
 let navigatorItems = [];
@@ -101,19 +102,18 @@ async function createSidebar() {
           id="navigator-title"
           type="button"
           aria-label="Reset TOC view"
-          title="${conversationTitle}"
         >
           ${conversationTitle}
         </button>
         <button
           class="navigator-icon-btn navigator-header-icon-btn"
-          id="refresh-toc-btn"
+          id="search-toggle-btn"
           type="button"
-          aria-label="Refresh TOC"
+          aria-label="Toggle search"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M20 6v5h-5" />
-            <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
         </button>
       </div>
@@ -128,12 +128,18 @@ async function createSidebar() {
         placeholder="Search prompts..."
         autocomplete="off"
       />
+      <div id="myprompts-toolbar-container"></div>
     </div>
 
     <div class="navigator-jump-controls">
       <button class="navigator-icon-btn" id="jump-chat-top-btn" type="button" aria-label="Jump to top">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M6 5h12M12 19V9M7 14l5-5 5 5" />
+        </svg>
+      </button>
+      <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
         </svg>
       </button>
       <button class="navigator-icon-btn" id="jump-chat-bottom-btn" type="button" aria-label="Jump to bottom">
@@ -151,11 +157,23 @@ async function createSidebar() {
   initNavigatorJump();
 
   document
-    .getElementById('refresh-toc-btn')
-    .addEventListener('click', reloadCurrentPageData);
+    .getElementById('search-toggle-btn')
+    .addEventListener('click', () => {
+      const searchInput = document.getElementById('navigator-search');
+      if (!searchInput) return;
+      const isHidden = window.getComputedStyle(searchInput).display === 'none';
+      searchInput.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        searchInput.focus();
+      } else {
+        searchInput.value = '';
+        navigatorSearchQuery = '';
+        buildNavigator();
+      }
+    });
   document
     .getElementById('navigator-title')
-    .addEventListener('click', resetNavigatorView);
+    .addEventListener('click', handleTitleClick);
   document
     .getElementById('jump-chat-top-btn')
     .addEventListener('click', () =>
@@ -166,6 +184,9 @@ async function createSidebar() {
     .addEventListener('click', () =>
       window.ChatTocJump.jumpToConversationEdge('bottom')
     );
+  document
+    .getElementById('toggle-view-mode-btn')
+    .addEventListener('click', toggleViewMode);
 
   document
     .getElementById('navigator-search')
@@ -362,10 +383,9 @@ function setNavigatorTitle() {
 
   if (!title) return;
 
-  const nextTitle = getConversationTitle();
+  const nextTitle = viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
 
   title.textContent = nextTitle;
-  title.title = nextTitle;
 }
 
 /**
@@ -375,13 +395,14 @@ function reloadCurrentPageData() {
   location.reload();
 }
 
+
 /**
  * Restores the sidebar list to its default browsing state without changing the
  * active ChatGPT scroll position.
  */
 function resetNavigatorView() {
   navigatorSearchQuery = '';
-  window.ChatTocTooltip.hide();
+  window.ChatTocPreviewTooltip.hide();
   window.ChatTocOutline?.collapseAll?.();
 
   const search = document.getElementById('navigator-search');
@@ -399,6 +420,23 @@ function resetNavigatorView() {
     top: 0,
     behavior: 'smooth',
   });
+}
+
+/**
+ * Click handler for the navigator title.
+ * - In My Prompts view: scrolls the list to the top.
+ * - In TOC view: resets and refreshes the list.
+ */
+function handleTitleClick() {
+  if (viewMode === 'myPrompts') {
+    const list = document.getElementById('navigator-list');
+    list?.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  } else {
+    resetNavigatorView();
+  }
 }
 
 /**
@@ -423,7 +461,7 @@ function resetNavigatorStateForCurrentRoute() {
 
   setNavigatorTitle();
 
-  window.ChatTocTooltip.hide();
+  window.ChatTocPreviewTooltip.hide();
   buildNavigator({
     refreshObservers: true,
   });
@@ -492,6 +530,14 @@ function buildNavigator({ refreshObservers = false } = {}) {
 
   if (!list) return;
 
+  if (viewMode === 'myPrompts') {
+    if (hint) hint.hidden = true;
+    window.ChatTocMyPrompts.renderMyPrompts(list, navigatorSearchQuery, () => {
+      buildNavigator();
+    });
+    return;
+  }
+
   list.innerHTML = '';
   navigatorItems = []; // Reset navigator items for new build
   window.ChatTocOutline?.resetPromptItems?.();
@@ -558,8 +604,22 @@ function buildNavigator({ refreshObservers = false } = {}) {
       handleNavigatorItemClick(message, index);
 
       if (isTextTruncated(itemText) && item.matches(':hover')) {
-        window.ChatTocTooltip.show(message.text, event, itemMain);
+        window.ChatTocPreviewTooltip.show(message.text, event, itemMain);
       }
+    });
+
+    item.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      window.ChatTocMyPrompts.showDialog({
+        content: message.text,
+        title: message.text.slice(0, 30)
+      }, () => {
+        if (viewMode !== 'myPrompts') {
+          toggleViewMode();
+        } else {
+          buildNavigator();
+        }
+      });
     });
 
     itemMain.append(
@@ -577,12 +637,12 @@ function buildNavigator({ refreshObservers = false } = {}) {
 
     item.addEventListener('mouseenter', (event) => {
       if (isTextTruncated(itemText)) {
-        window.ChatTocTooltip.show(message.text, event, itemMain);
+        window.ChatTocPreviewTooltip.show(message.text, event, itemMain);
       }
     });
 
     item.addEventListener('mouseleave', () => {
-      window.ChatTocTooltip.hide();
+      window.ChatTocPreviewTooltip.hide();
     });
   });
 
@@ -597,7 +657,7 @@ function buildNavigator({ refreshObservers = false } = {}) {
  * @param {number} index
  */
 function handleNavigatorItemClick(message, index) {
-  window.ChatTocTooltip.hide();
+  window.ChatTocPreviewTooltip.hide();
 
   const outlineAction = window.ChatTocOutline?.handlePromptNavigation?.(
     index,
@@ -989,9 +1049,48 @@ async function main() {
     getPageKey: getCurrentConversationKey,
   });
 
-  window.ChatTocTooltip.init({
+  window.ChatTocPreviewTooltip.init({
     anchorSelector: '#navigator-list',
   });
+  window.ChatTocButtonTooltip.init();
+
+  window.ChatTocMyPrompts.initAutocomplete();
+}
+
+/**
+ * Toggles the display mode between Conversation TOC and My Prompts list.
+ */
+function toggleViewMode() {
+  const btn = document.getElementById('toggle-view-mode-btn');
+  if (!btn) return;
+
+  window.ChatTocPreviewTooltip.hide();
+
+  if (viewMode === 'toc') {
+    viewMode = 'myPrompts';
+    btn.classList.add('mode-myprompts-active');
+    btn.setAttribute('aria-label', 'Switch to Table of Contents');
+    btn.title = 'Switch to Table of Contents';
+  } else {
+    viewMode = 'toc';
+    btn.classList.remove('mode-myprompts-active');
+    btn.setAttribute('aria-label', 'Switch to My Prompts');
+    btn.title = 'Switch to My Prompts';
+    
+    const toolbarContainer = document.getElementById('myprompts-toolbar-container');
+    if (toolbarContainer) {
+      toolbarContainer.innerHTML = '';
+    }
+  }
+
+  const searchInput = document.getElementById('navigator-search');
+  if (searchInput) {
+    searchInput.value = '';
+    navigatorSearchQuery = '';
+  }
+
+  setNavigatorTitle();
+  buildNavigator();
 }
 
 main();

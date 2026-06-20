@@ -55,3 +55,27 @@ Query the first/last user prompt messages in the DOM (`[data-message-author-role
 ### Consequences
 * Fallback edge-jumping now functions correctly even if ChatGPT modifies its layout containers.
 * The extension maintains its primary path of clicking ChatGPT's native navigation buttons (which supports React virtualized list mounting) and only falls back to element-based scrolling when native buttons are absent.
+
+---
+
+## ADR 04: Persistent Prompts Manager ("My Prompts") and Autocompleter
+* **Date**: 2026-06-19
+
+### Context
+Users need a way to persistently save custom prompt templates (surviving browser restarts and tab closures), manage them inside the sidebar, quickly add existing prompts to their personal collection, and easily autocomplete/reuse them inside ChatGPT's text input box.
+
+### Decision
+1. **Persistent Storage**: Use `chrome.storage.local` to store templates under the key `chatToc:myPrompts` (re-adding `"storage"` permission in the manifest).
+2. **Sorting & Filtering**: Provide 4 sorting filters (Alphabetical A-Z/Z-A, Update Time Asc/Desc) inside the My Prompts view.
+3. **Right-Click Quick Add**: Intercept `contextmenu` events on the TOC list item and directly open the Create Custom Prompt modal pre-filled with the prompt's content, avoiding UI clutter from redundant hover buttons.
+4. **Autocomplete Overlay**: Listen to the `input` event on ChatGPT's `#prompt-textarea`. Trigger autocomplete overlays on a slash command (`//` or `#`) or when matching prompt titles, and insert contents using `document.execCommand('insertText')` to integrate with React's state management.
+
+### Rationale
+* Autocomplete increases text insertion speed and fits current typing workflows.
+* Right-click straight to the creation modal reduces UI clutter in the sidebar.
+* Storing prompts in `chrome.storage.local` matches the expectation of a permanent user-defined database, unlike session-bound states.
+
+### Consequences
+* `"storage"` permission was restored in `manifest.json`.
+* New file `myPrompts.js` was introduced to isolate prompts management and keep content.js focused on TOC layout.
+* Storage is automatically migrated from `chatToc:favorites` to `chatToc:myPrompts` on first load.
