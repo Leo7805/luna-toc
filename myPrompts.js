@@ -9,14 +9,31 @@
   let filteredPromptsForMenu = [];
   let currentTextarea = null;
 
+  /**
+   * Helper to check if the extension context is still valid.
+   * @returns {boolean}
+   */
+  function isContextValid() {
+    return typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+  }
+
   // Migrate storage from chatToc:favorites to chatToc:myPrompts on startup
-  chrome.storage.local.get(['chatToc:favorites', 'chatToc:myPrompts'], (result) => {
-    if (result['chatToc:favorites'] && !result['chatToc:myPrompts']) {
-      chrome.storage.local.set({ 'chatToc:myPrompts': result['chatToc:favorites'] }, () => {
-        chrome.storage.local.remove('chatToc:favorites');
+  try {
+    if (isContextValid()) {
+      chrome.storage.local.get(['chatToc:favorites', 'chatToc:myPrompts'], (result) => {
+        if (chrome.runtime.lastError) return;
+        if (result['chatToc:favorites'] && !result['chatToc:myPrompts']) {
+          chrome.storage.local.set({ 'chatToc:myPrompts': result['chatToc:favorites'] }, () => {
+            if (!chrome.runtime.lastError) {
+              chrome.storage.local.remove('chatToc:favorites');
+            }
+          });
+        }
       });
     }
-  });
+  } catch (e) {
+    // Context invalidated, ignore gracefully
+  }
 
   /**
    * Retrieves prompts from chrome.storage.local.
@@ -24,9 +41,21 @@
    */
   async function getMyPrompts() {
     return new Promise((resolve) => {
-      chrome.storage.local.get(['chatToc:myPrompts'], (result) => {
-        resolve(result['chatToc:myPrompts'] || []);
-      });
+      try {
+        if (!isContextValid()) {
+          resolve([]);
+          return;
+        }
+        chrome.storage.local.get(['chatToc:myPrompts'], (result) => {
+          if (chrome.runtime.lastError) {
+            resolve([]);
+          } else {
+            resolve(result['chatToc:myPrompts'] || []);
+          }
+        });
+      } catch (e) {
+        resolve([]);
+      }
     });
   }
 
@@ -37,9 +66,17 @@
    */
   async function saveMyPrompts(prompts) {
     return new Promise((resolve) => {
-      chrome.storage.local.set({ 'chatToc:myPrompts': prompts }, () => {
+      try {
+        if (!isContextValid()) {
+          resolve();
+          return;
+        }
+        chrome.storage.local.set({ 'chatToc:myPrompts': prompts }, () => {
+          resolve();
+        });
+      } catch (e) {
         resolve();
-      });
+      }
     });
   }
 
@@ -221,13 +258,27 @@
 
     textarea.focus();
 
+    let textToInsert = text;
+    const currentVal = textarea.value || '';
+
+    if (currentVal.trim() !== '') {
+      // Move cursor to the end of the text
+      textarea.selectionStart = textarea.selectionEnd = currentVal.length;
+      if (currentVal.endsWith('\n')) {
+        textToInsert = text;
+      } else {
+        textToInsert = '\n' + text;
+      }
+    }
+
     // Use document.execCommand to trigger React input state updates
     try {
-      document.execCommand('insertText', false, text);
+      document.execCommand('insertText', false, textToInsert);
     } catch (e) {
       // Fallback
-      textarea.value = text;
+      textarea.value = currentVal + textToInsert;
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
     }
   }
 
