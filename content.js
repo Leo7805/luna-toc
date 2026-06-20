@@ -180,9 +180,19 @@ async function createSidebar() {
       window.ChatTocJump.jumpToConversationEdge('top')
     );
   document
+    .getElementById('jump-chat-top-btn')
+    .addEventListener('dblclick', () =>
+      window.ChatTocJump.jumpToAbsoluteEdge('top', 'auto')
+    );
+  document
     .getElementById('jump-chat-bottom-btn')
     .addEventListener('click', () =>
       window.ChatTocJump.jumpToConversationEdge('bottom')
+    );
+  document
+    .getElementById('jump-chat-bottom-btn')
+    .addEventListener('dblclick', () =>
+      window.ChatTocJump.jumpToAbsoluteEdge('bottom', 'auto')
     );
   document
     .getElementById('toggle-view-mode-btn')

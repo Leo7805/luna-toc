@@ -289,9 +289,78 @@
       .sort((a, b) => a.distance - b.distance)[0]?.element;
   }
 
+  /**
+   * Scroll the ChatGPT chat feed to the absolute top or bottom.
+   * @param {'top' | 'bottom'} edge
+   * @param {'smooth' | 'auto'} [behavior='auto']
+   */
+  function jumpToAbsoluteEdge(edge, behavior = 'auto') {
+    window.ChatTocFollow.keepFollowing();
+
+    const container = getChatScrollContainer();
+    if (container) {
+      const targetTop = edge === 'top' ? 0 : container.scrollHeight;
+      container.scrollTo({
+        top: targetTop,
+        behavior,
+      });
+
+      // Override any pending smooth scrolls from click events
+      if (behavior === 'auto') {
+        setTimeout(() => {
+          container.scrollTo({ top: targetTop, behavior: 'auto' });
+        }, 50);
+        setTimeout(() => {
+          container.scrollTo({ top: targetTop, behavior: 'auto' });
+        }, 100);
+      }
+    }
+  }
+
+  /**
+   * Finds the scrollable container of ChatGPT's main message feed.
+   * @returns {HTMLElement|null}
+   */
+  function getChatScrollContainer() {
+    // 1. Try to find a message element and traverse up to its scrollable parent
+    const sampleMessage = document.querySelector('[data-message-author-role="user"]') || 
+                          document.querySelector('[data-message-author-role="assistant"]');
+    if (sampleMessage) {
+      let parent = sampleMessage.parentElement;
+      while (parent && parent !== document.body) {
+        const style = window.getComputedStyle(parent);
+        if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+          return parent;
+        }
+        parent = parent.parentElement;
+      }
+    }
+
+    // 2. Fallback to selectors
+    const reactScrollDiv = document.querySelector('main div.overflow-y-auto') || 
+                           document.querySelector('[class*="react-scroll-to-bottom"]') ||
+                           document.querySelector('main [class*="react-scroll-to-bottom"]');
+    if (reactScrollDiv) return reactScrollDiv;
+
+    // 3. Fallback to searching main divs
+    const main = document.querySelector('main');
+    if (main) {
+      const divs = Array.from(main.querySelectorAll('div'));
+      for (const div of divs) {
+        const style = window.getComputedStyle(div);
+        if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+          return div;
+        }
+      }
+    }
+
+    return null;
+  }
+
   window.ChatTocJump = {
     init,
     jumpToConversationEdge,
+    jumpToAbsoluteEdge,
     lockPromptIndex,
     jumpToPromptIndex,
     jumpToMessage,
