@@ -4,9 +4,11 @@ A lightweight Chrome extension that adds a Table of Contents (TOC) sidebar to Ch
 
 ChatTOC helps you navigate long conversations by automatically turning your prompts into a searchable, clickable outline.
 
+👉 [Install from Chrome Web Store](https://chromewebstore.google.com/detail/chattoc/ibfdglfgljonajofiiaonlimoiolkcpa)
+
 [![Release](https://img.shields.io/badge/release-latest-blue)](https://github.com/Leo7805/chat-toc/releases/latest)
 
-![Demo](assets/demo.gif)
+![Demo](assets/demo2.gif)
 
 ---
 
