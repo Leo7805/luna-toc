@@ -21,6 +21,8 @@ let activeNativeTocTimer = null;
 let lockedNavigatorIndex = null;
 let lockedNavigatorTimer = null;
 
+const JUMP_CONTROLS_POSITION_STORAGE_KEY = 'chatTocJumpControlsPosition';
+
 const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 const NATIVE_PROMPT_BUTTON_SELECTORS = [
   'button[aria-label^="Prompt "]',
@@ -230,6 +232,216 @@ function initNavigatorJump() {
     normalizeText,
     lockActiveIndex: lockActiveNavigatorItem,
   });
+}
+
+/**
+ * Enables vertical dragging for the jump-controls panel and restores its
+ * relative session position.
+ */
+function initJumpControlsPositioning() {
+  const jumpControls = document.querySelector('.navigator-jump-controls');
+
+  if (!jumpControls) return;
+
+  restoreJumpControlsPosition(jumpControls);
+
+  window.addEventListener('resize', () => {
+    keepJumpControlsInViewport(jumpControls);
+  });
+
+  jumpControls.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest('button')) return;
+
+    event.preventDefault();
+
+    const rect = jumpControls.getBoundingClientRect();
+    const startY = event.clientY;
+    const startTop = rect.top;
+    let didDrag = false;
+
+    jumpControls.setPointerCapture(event.pointerId);
+    jumpControls.classList.add('navigator-jump-controls-dragging');
+
+    function handlePointerMove(moveEvent) {
+      const deltaY = moveEvent.clientY - startY;
+
+      if (!didDrag && Math.abs(deltaY) < 4) {
+        return;
+      }
+
+      didDrag = true;
+
+      const nextTop = clampJumpControlsTop(
+        startTop + deltaY,
+        rect.height
+      );
+
+      setJumpControlsPosition(jumpControls, nextTop);
+    }
+
+    function handlePointerUp() {
+      try {
+        jumpControls.releasePointerCapture(event.pointerId);
+      } catch {}
+
+      jumpControls.classList.remove('navigator-jump-controls-dragging');
+      jumpControls.removeEventListener('pointermove', handlePointerMove);
+      jumpControls.removeEventListener('pointerup', handlePointerUp);
+      jumpControls.removeEventListener('pointercancel', handlePointerUp);
+
+      if (!didDrag) return;
+
+      saveJumpControlsPosition(jumpControls);
+    }
+
+    jumpControls.addEventListener('pointermove', handlePointerMove);
+    jumpControls.addEventListener('pointerup', handlePointerUp);
+    jumpControls.addEventListener('pointercancel', handlePointerUp);
+  });
+}
+
+/**
+ * Stores the jump-controls panel at the current viewport height using a
+ * relative top ratio so it reflows with different window sizes.
+ * @param {HTMLElement} jumpControls
+ */
+function saveJumpControlsPosition(jumpControls) {
+  const rect = jumpControls.getBoundingClientRect();
+  const topRatio = getJumpControlsTopRatio(rect.top, rect.height);
+
+  storageSet(JUMP_CONTROLS_POSITION_STORAGE_KEY, {
+    topRatio,
+  });
+}
+
+/**
+ * Restores the jump-controls panel from sessionStorage.
+ * @param {HTMLElement} jumpControls
+ */
+function restoreJumpControlsPosition(jumpControls) {
+  const savedPosition = storageGet(JUMP_CONTROLS_POSITION_STORAGE_KEY);
+
+  if (!savedPosition || typeof savedPosition !== 'object') return;
+
+  const nextTop = getSavedJumpControlsTop(savedPosition, jumpControls);
+
+  if (nextTop == null) return;
+
+  setJumpControlsPosition(jumpControls, nextTop);
+}
+
+/**
+ * Keeps the panel inside the viewport after resize or zoom changes.
+ * @param {HTMLElement} jumpControls
+ */
+function keepJumpControlsInViewport(jumpControls) {
+  const rect = jumpControls.getBoundingClientRect();
+  const savedPosition = storageGet(JUMP_CONTROLS_POSITION_STORAGE_KEY);
+  const nextTop = getSavedJumpControlsTop(savedPosition, jumpControls, rect);
+
+  if (nextTop == null) return;
+
+  if (Math.abs(nextTop - rect.top) < 1) {
+    return;
+  }
+
+  setJumpControlsPosition(jumpControls, nextTop);
+  saveJumpControlsPosition(jumpControls);
+}
+
+/**
+ * Applies a fixed vertical position to the jump-controls panel.
+ * @param {HTMLElement} jumpControls
+ * @param {number} top
+ */
+function setJumpControlsPosition(jumpControls, top) {
+  jumpControls.style.top = `${top}px`;
+}
+
+/**
+ * Reads a JSON value from sessionStorage.
+ * @param {string} key
+ * @returns {unknown}
+ */
+function storageGet(key) {
+  try {
+    const rawValue = sessionStorage.getItem(key);
+
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes a JSON value to sessionStorage.
+ * @param {string} key
+ * @param {unknown} value
+ */
+function storageSet(key, value) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+/**
+ * Returns a clamped top coordinate for the jump-controls panel.
+ * @param {number} top
+ * @param {number} height
+ * @returns {number}
+ */
+function clampJumpControlsTop(top, height) {
+  const minTop = 8;
+  const maxTop = Math.max(minTop, window.innerHeight - height - 8);
+
+  return Math.min(maxTop, Math.max(minTop, top));
+}
+
+/**
+ * Converts a top coordinate to a relative ratio for storage.
+ * @param {number} top
+ * @param {number} height
+ * @returns {number}
+ */
+function getJumpControlsTopRatio(top, height) {
+  const minTop = 8;
+  const maxTop = Math.max(minTop, window.innerHeight - height - 8);
+  const range = maxTop - minTop;
+
+  if (range <= 0) return 0;
+
+  return (clampJumpControlsTop(top, height) - minTop) / range;
+}
+
+/**
+ * Resolves the saved top coordinate for the jump-controls panel.
+ * @param {unknown} savedPosition
+ * @param {HTMLElement} jumpControls
+ * @param {DOMRect} [rect]
+ * @returns {number | null}
+ */
+function getSavedJumpControlsTop(savedPosition, jumpControls, rect) {
+  if (!savedPosition || typeof savedPosition !== 'object') return null;
+
+  const panelRect = rect || jumpControls.getBoundingClientRect();
+
+  if (Number.isFinite(savedPosition.topRatio)) {
+    const minTop = 8;
+    const maxTop = Math.max(minTop, window.innerHeight - panelRect.height - 8);
+    const range = maxTop - minTop;
+
+    return clampJumpControlsTop(
+      minTop + savedPosition.topRatio * range,
+      panelRect.height
+    );
+  }
+
+  if (Number.isFinite(savedPosition.top)) {
+    return clampJumpControlsTop(savedPosition.top, panelRect.height);
+  }
+
+  return null;
 }
 
 /**
@@ -1052,6 +1264,7 @@ async function main() {
   const sidebar = await createSidebar();
 
   initSidebarResize(sidebar);
+  initJumpControlsPositioning();
   listenForRouteChanges();
   initActivePromptTracking();
   const toggleBtn = window.ChatTocToggleButton.create();
