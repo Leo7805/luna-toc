@@ -1253,9 +1253,29 @@ function listenForConversationData() {
 }
 
 /**
+ * Reads the saved theme from storage and applies data-theme to <html>.
+ * Falls back to 'dark' if no preference is stored.
+ */
+function initTheme() {
+  const THEME_KEY = 'chatToc:theme';
+  chrome.storage.local.get(THEME_KEY, (result) => {
+    const theme = result[THEME_KEY] || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  });
+
+  // React instantly when the user changes theme in the popup
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[THEME_KEY]) return;
+    const theme = changes[THEME_KEY].newValue || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  });
+}
+
+/**
  * Starts ChatTOC after all helper modules have been loaded by manifest.json.
  */
 async function main() {
+  initTheme();
   injectFetchHook(); // Start intercepting conversation data
   initMarkedPrompts();
 
