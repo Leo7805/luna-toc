@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ChatTOC",
   "short_name": "ChatTOC",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Add a clickable table-of-contents sidebar to ChatGPT conversations.",
   "icons": {
     "16": "icons/icon16.png",
