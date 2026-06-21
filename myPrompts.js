@@ -516,7 +516,7 @@
     if (!autocompleteMenu) {
       autocompleteMenu = document.createElement('div');
       autocompleteMenu.id = 'chat-toc-autocomplete-menu';
-      document.body.appendChild(autocompleteMenu);
+      document.documentElement.appendChild(autocompleteMenu);
     }
 
     renderAutocompleteMenuContent();

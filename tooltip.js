@@ -170,7 +170,7 @@
 
     tooltipElement = document.createElement('div');
     tooltipElement.id = 'navigator-button-tooltip';
-    document.body.appendChild(tooltipElement);
+    document.documentElement.appendChild(tooltipElement);
   }
 
   /**

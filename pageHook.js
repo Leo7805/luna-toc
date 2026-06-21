@@ -35,6 +35,13 @@
 
   window.fetch = async function (...args) {
     const requestMeta = getRequestMeta(args);
+
+    try {
+      if (requestMeta?.isSendMessage) {
+        extractOutgoingMessage(args, requestMeta.routeKey);
+      }
+    } catch {}
+
     const response = await originalFetch(...args);
 
     try {
@@ -50,6 +57,39 @@
 
     return response;
   };
+
+  /**
+   * Attempts to parse the outgoing POST request body to immediately capture
+   * the user's prompt before the server responds.
+   */
+  function extractOutgoingMessage(args, routeKey) {
+    try {
+      const init = args[1] || {};
+      if (typeof init.body === 'string') {
+        const data = JSON.parse(init.body);
+        const messages = data.messages || [];
+        const userMessage = messages.find((m) => m.author?.role === 'user');
+        
+        if (userMessage) {
+          window.postMessage(
+            {
+              type: 'CHATGPT_NEW_USER_MESSAGE',
+              routeKey,
+              payload: {
+                id: userMessage.id,
+                content: userMessage.content,
+                metadata: userMessage.metadata,
+                createTime: userMessage.create_time || Date.now(),
+              },
+            },
+            '*'
+          );
+        }
+      }
+    } catch {}
+  }
+
+
 
   /**
    * Captures request metadata before the page fetch resolves so routeKey belongs
