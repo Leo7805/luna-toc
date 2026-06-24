@@ -29,6 +29,143 @@
   }
 
   /**
+   * Returns a Markdown fence that does not occur in the prompt content.
+   * @param {string} content
+   * @returns {string}
+   */
+  function getMarkdownFence(content) {
+    const backtickRuns = content.match(/`+/g) || [];
+    const longestRun = backtickRuns.reduce(
+      (length, run) => Math.max(length, run.length),
+      0
+    );
+    return '`'.repeat(Math.max(3, longestRun + 1));
+  }
+
+  /**
+   * Formats prompts as editable Markdown sections.
+   * @param {Array} prompts
+   * @returns {string}
+   */
+  function formatPromptsAsMarkdown(prompts) {
+    return prompts
+      .map(({ title, content }) => {
+        const fence = getMarkdownFence(content);
+        const closingNewline = content.endsWith('\n') ? '' : '\n';
+        return `# ${title}\n\n${fence}prompt\n${content}${closingNewline}${fence}`;
+      })
+      .join('\n\n');
+  }
+
+  /**
+   * Downloads saved prompts as an editable Markdown file.
+   * @returns {Promise<void>}
+   */
+  async function exportMyPrompts() {
+    const prompts = await getMyPrompts();
+    const file = new Blob([formatPromptsAsMarkdown(prompts)], {
+      type: 'text/markdown;charset=utf-8',
+    });
+    const downloadUrl = URL.createObjectURL(file);
+    const link = document.createElement('a');
+
+    link.href = downloadUrl;
+    link.download = `chat-toc-prompts-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+  }
+
+  /**
+   * Parses prompt sections from the Markdown format created by the exporter.
+   * @param {string} markdown
+   * @returns {Array<{title: string, content: string}>}
+   */
+  function parseMarkdownPrompts(markdown) {
+    const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+    const prompts = [];
+
+    for (let index = 0; index < lines.length; index += 1) {
+      if (!lines[index].startsWith('# ')) continue;
+
+      const title = lines[index].slice(2).trim();
+      index += 1;
+      while (lines[index] === '') index += 1;
+
+      const openingFence = lines[index]?.match(/^(`{3,})prompt\s*$/);
+      if (!title || !openingFence) continue;
+
+      const fence = openingFence[1];
+      const contentLines = [];
+      index += 1;
+
+      while (index < lines.length && lines[index] !== fence) {
+        contentLines.push(lines[index]);
+        index += 1;
+      }
+
+      if (index === lines.length) break;
+
+      const content = contentLines.join('\n');
+      if (content.trim()) {
+        prompts.push({ title, content });
+      }
+    }
+
+    return prompts;
+  }
+
+  /**
+   * Opens a Markdown file and appends its prompts to the current collection.
+   * @param {() => void} onImport
+   * @returns {void}
+   */
+  function importMyPrompts(onImport) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,text/markdown,text/plain';
+    input.hidden = true;
+
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) return;
+
+      try {
+        const promptsToImport = parseMarkdownPrompts(await file.text());
+        if (!promptsToImport.length) {
+          window.alert('No valid prompts found in the selected Markdown file.');
+          return;
+        }
+
+        const existingPrompts = await getMyPrompts();
+        const importedAt = Date.now();
+        const importedPrompts = promptsToImport.map((prompt, index) => ({
+          id: `prompt-${importedAt}-${index}`,
+          title: prompt.title,
+          content: prompt.content,
+          createdAt: importedAt,
+          updatedAt: importedAt,
+        }));
+
+        await saveMyPrompts([...existingPrompts, ...importedPrompts]);
+        onImport();
+        window.alert(
+          `Imported ${importedPrompts.length} prompt${importedPrompts.length === 1 ? '' : 's'}.`
+        );
+      } catch (error) {
+        window.alert('Unable to import prompts from the selected file.');
+      }
+    });
+
+    input.addEventListener('cancel', () => input.remove(), { once: true });
+
+    document.body.appendChild(input);
+    input.click();
+  }
+
+  /**
    * Sorts the prompts list based on the chosen mode.
    * @param {Array} list
    * @param {string} sortMode
@@ -90,7 +227,15 @@
           <option value="name_desc">Title (Z-A)</option>
         </select>
       </div>
-      <button id="myprompt-add-new-btn">+</button>
+      <div class="my-prompts-toolbar-actions">
+        <button id="myprompt-import-btn" class="myprompt-canvas-btn" type="button" aria-label="Import prompts" title="Import prompts">
+          <canvas width="14" height="14" aria-hidden="true"></canvas>
+        </button>
+        <button id="myprompt-export-btn" class="myprompt-canvas-btn" type="button" aria-label="Export prompts" title="Export prompts">
+          <canvas width="14" height="14" aria-hidden="true"></canvas>
+        </button>
+        <button id="myprompt-add-new-btn" type="button" aria-label="Add prompt" title="Add prompt">+</button>
+      </div>
     `;
 
     const select = bar.querySelector('#myprompt-sort-select');
@@ -105,7 +250,47 @@
       onAddNew();
     });
 
+    bar
+      .querySelector('#myprompt-export-btn')
+      .addEventListener('click', exportMyPrompts);
+
+    bar.querySelector('#myprompt-import-btn').addEventListener('click', () => {
+      importMyPrompts(onSortChange);
+    });
+
+    drawToolbarIcon(bar.querySelector('#myprompt-import-btn canvas'), 'import');
+    drawToolbarIcon(bar.querySelector('#myprompt-export-btn canvas'), 'export');
+
     return bar;
+  }
+
+  /**
+   * Draws an import or export arrow icon on a toolbar canvas.
+   * @param {HTMLCanvasElement} canvas
+   * @param {'import'|'export'} direction
+   */
+  function drawToolbarIcon(canvas, direction) {
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    context.strokeStyle = '#2563eb';
+    context.lineWidth = 1.7;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+
+    const arrowPoints = direction === 'import'
+      ? { startY: 11, endY: 5, headY: 7 }
+      : { startY: 3, endY: 9, headY: 7 };
+
+    context.beginPath();
+    context.moveTo(7, arrowPoints.startY);
+    context.lineTo(7, arrowPoints.endY);
+    context.moveTo(4.5, arrowPoints.headY);
+    context.lineTo(7, arrowPoints.endY);
+    context.lineTo(9.5, arrowPoints.headY);
+    context.moveTo(3, direction === 'import' ? 3 : 11);
+    context.lineTo(11, direction === 'import' ? 3 : 11);
+    context.stroke();
   }
 
   /**

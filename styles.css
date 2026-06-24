@@ -851,6 +851,42 @@ html[data-theme='light'] {
   transition: all 150ms ease;
 }
 
+.my-prompts-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.myprompt-canvas-btn {
+  background: var(--ct-bg-add-btn);
+  border: 1px solid var(--ct-border-select);
+  color: var(--ct-accent-strong);
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  margin: 0;
+  padding: 0;
+  transition: all 150ms ease;
+}
+
+.myprompt-canvas-btn canvas {
+  display: block;
+}
+
+.myprompt-canvas-btn:hover {
+  background: var(--ct-bg-item-hover);
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-accent);
+}
+
+.myprompt-canvas-btn:active {
+  transform: scale(0.95);
+}
+
 #myprompt-add-new-btn:hover {
   background: var(--ct-bg-item-hover);
   border-color: var(--ct-accent-strong);

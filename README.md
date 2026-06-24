@@ -20,6 +20,7 @@ ChatTOC helps you navigate long conversations by automatically turning your prom
 - Mark important prompts for quick visual reference
 - Search and filter prompts
 - Save and reuse custom prompt templates
+- Import and export saved prompts as editable Markdown files
 - Autocomplete saved prompts inside ChatGPT's input box
 - Highlights the prompt currently visible in the conversation
 - Preview full prompt content on hover
@@ -59,11 +60,12 @@ ChatTOC helps you navigate long conversations by automatically turning your prom
 4. Use the search box to filter prompts.
 5. Switch to My Prompts to manage saved prompt templates.
 6. Right-click a prompt item to add it to My Prompts.
-7. Type `#` or `//` in the ChatGPT input box to autocomplete a saved prompt.
-8. Hover over a truncated prompt to preview the full content.
-9. Drag the left edge of the sidebar to resize it.
-10. Use the sidebar pin button to keep the sidebar open or enable auto-hide.
-11. Hover the floating button to reveal an auto-hidden sidebar, or drag it to reposition it for the current tab.
+7. Use the My Prompts import and export buttons to transfer saved prompts as Markdown.
+8. Type `#` or `//` in the ChatGPT input box to autocomplete a saved prompt.
+9. Hover over a truncated prompt to preview the full content.
+10. Drag the left edge of the sidebar to resize it.
+11. Use the sidebar pin button to keep the sidebar open or enable auto-hide.
+12. Hover the floating button to reveal an auto-hidden sidebar, or drag it to reposition it for the current tab.
 
 ---
 
