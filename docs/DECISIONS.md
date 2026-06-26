@@ -81,4 +81,3 @@ Users need a way to persistently save custom prompt templates (surviving browser
 ### Consequences
 * `"storage"` permission was restored in `manifest.json`.
 * New file `myPrompts.js` was introduced to isolate prompts management and keep content.js focused on TOC layout.
-* Storage is automatically migrated from `chatToc:favorites` to `chatToc:myPrompts` on first load.

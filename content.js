@@ -10,6 +10,7 @@ let pendingNewChatRouteKey = null;
 let pendingNewChatMessage = null;
 let activeNavigatorIndex = null;
 let viewMode = 'toc'; // 'toc' or 'myPrompts'
+let myPromptsRefreshQueued = false;
 
 /* Use to highlight current prompt*/
 let navigatorItems = [];
@@ -1295,6 +1296,17 @@ async function main() {
   window.ChatTocButtonTooltip.init();
 
   window.ChatTocMyPrompts.initAutocomplete();
+  window.ChatTocMyPrompts.onPromptsChanged(() => {
+    if (viewMode === 'myPrompts' && !myPromptsRefreshQueued) {
+      myPromptsRefreshQueued = true;
+      queueMicrotask(() => {
+        myPromptsRefreshQueued = false;
+        if (viewMode !== 'myPrompts') return;
+
+        buildNavigator();
+      });
+    }
+  });
 }
 
 /**

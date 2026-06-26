@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ChatGPT Table of Contents - ChatTOC",
   "short_name": "ChatTOC",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Add a table of contents, prompt navigator, and MyPrompts sidebar to long ChatGPT conversations.",
   "icons": {
     "16": "icons/icon16.png",

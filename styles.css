@@ -982,6 +982,18 @@ html[data-theme='light'] {
   padding-bottom: 10px;
 }
 
+.myprompt-message-modal-content {
+  max-width: 420px;
+}
+
+.myprompt-modal-message {
+  margin: 0;
+  color: var(--ct-text-modal);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .myprompt-modal-field {
   margin-bottom: 16px;
   display: flex;

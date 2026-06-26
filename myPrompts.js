@@ -9,6 +9,7 @@
   let filteredPromptsForMenu = [];
   let currentTextarea = null;
   let isProgrammaticInsert = false;
+  let renderVersion = 0;
   const promptsStore = window.ChatTocPromptStore.create();
 
   /**
@@ -26,6 +27,15 @@
    */
   async function saveMyPrompts(prompts) {
     return promptsStore.saveAll(prompts);
+  }
+
+  /**
+   * Registers a listener for prompt store changes.
+   * @param {(prompts: Array) => void} listener
+   * @returns {() => void}
+   */
+  function onPromptsChanged(listener) {
+    return promptsStore.subscribe(listener);
   }
 
   /**
@@ -135,7 +145,10 @@
       try {
         const promptsToImport = parseMarkdownPrompts(await file.text());
         if (!promptsToImport.length) {
-          window.alert('No valid prompts found in the selected Markdown file.');
+          await showPromptModal({
+            title: 'Import Prompts',
+            message: 'No valid prompts found in the selected Markdown file.',
+          });
           return;
         }
 
@@ -151,11 +164,15 @@
 
         await saveMyPrompts([...existingPrompts, ...importedPrompts]);
         onImport();
-        window.alert(
-          `Imported ${importedPrompts.length} prompt${importedPrompts.length === 1 ? '' : 's'}.`
-        );
+        await showPromptModal({
+          title: 'Import Prompts',
+          message: `Imported ${importedPrompts.length} prompt${importedPrompts.length === 1 ? '' : 's'}.`,
+        });
       } catch (error) {
-        window.alert('Unable to import prompts from the selected file.');
+        await showPromptModal({
+          title: 'Import Prompts',
+          message: 'Unable to import prompts from the selected file.',
+        });
       }
     });
 
@@ -201,6 +218,75 @@
         "'": '&#39;',
       };
       return entities[char];
+    });
+  }
+
+  /**
+   * Shows a message or confirmation dialog using the My Prompts modal style.
+   * @param {Object} options
+   * @param {string} options.title
+   * @param {string} options.message
+   * @param {boolean} [options.confirm=false]
+   * @param {string} [options.confirmText='OK']
+   * @param {string} [options.cancelText='Cancel']
+   * @returns {Promise<boolean>}
+   */
+  function showPromptModal({
+    title,
+    message,
+    confirm = false,
+    confirmText = 'OK',
+    cancelText = 'Cancel',
+  }) {
+    return new Promise((resolve) => {
+      let modal = document.getElementById('chat-toc-myprompt-message-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'chat-toc-myprompt-message-modal';
+        modal.className = 'myprompt-modal-overlay';
+        document.body.appendChild(modal);
+      }
+
+      modal.innerHTML = `
+        <div class="myprompt-modal-content myprompt-message-modal-content">
+          <h3 class="myprompt-modal-title">${escapeHtml(title)}</h3>
+          <p class="myprompt-modal-message">${escapeHtml(message)}</p>
+          <div class="myprompt-modal-actions">
+            ${
+              confirm
+                ? `<button type="button" id="myprompt-message-cancel" class="myprompt-btn myprompt-btn-secondary">${escapeHtml(cancelText)}</button>`
+                : ''
+            }
+            <button type="button" id="myprompt-message-confirm" class="myprompt-btn myprompt-btn-primary">${escapeHtml(confirmText)}</button>
+          </div>
+        </div>
+      `;
+
+      modal.style.display = 'flex';
+
+      const handleBackdropClick = (event) => {
+        if (event.target === modal) {
+          close(false);
+        }
+      };
+
+      const close = (result) => {
+        modal.removeEventListener('click', handleBackdropClick);
+        modal.style.display = 'none';
+        resolve(result);
+      };
+
+      modal
+        .querySelector('#myprompt-message-confirm')
+        .addEventListener('click', () => close(true), { once: true });
+
+      modal
+        .querySelector('#myprompt-message-cancel')
+        ?.addEventListener('click', () => close(false), { once: true });
+
+      modal.addEventListener('click', handleBackdropClick);
+
+      modal.querySelector('#myprompt-message-confirm').focus();
     });
   }
 
@@ -358,28 +444,36 @@
 
       if (!title || !content) return;
 
-      const prompts = await getMyPrompts();
-      if (isNew) {
-        const newPrompt = {
-          id: 'prompt-' + Date.now(),
-          title,
-          content,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        prompts.push(newPrompt);
-      } else {
-        const index = prompts.findIndex((p) => p.id === item.id);
-        if (index !== -1) {
-          prompts[index].title = title;
-          prompts[index].content = content;
-          prompts[index].updatedAt = Date.now();
+      try {
+        const prompts = await getMyPrompts();
+        if (isNew) {
+          const now = Date.now();
+          const newPrompt = {
+            id: 'prompt-' + now,
+            title,
+            content,
+            createdAt: now,
+            updatedAt: now,
+          };
+          prompts.push(newPrompt);
+        } else {
+          const index = prompts.findIndex((p) => p.id === item.id);
+          if (index !== -1) {
+            prompts[index].title = title;
+            prompts[index].content = content;
+            prompts[index].updatedAt = Date.now();
+          }
         }
-      }
 
-      await saveMyPrompts(prompts);
-      closeModal();
-      onSave();
+        await saveMyPrompts(prompts);
+        closeModal();
+        onSave();
+      } catch (error) {
+        await showPromptModal({
+          title: 'Save Prompt',
+          message: 'Unable to save this prompt.',
+        });
+      }
     });
   }
 
@@ -479,7 +573,7 @@
     searchQuery = '',
     onRefresh = () => {}
   ) {
-    container.innerHTML = '';
+    const currentRenderVersion = ++renderVersion;
 
     const toolbarContainer = document.getElementById(
       'myprompts-toolbar-container'
@@ -493,6 +587,12 @@
     }
 
     let list = await getMyPrompts();
+
+    if (currentRenderVersion !== renderVersion) {
+      return;
+    }
+
+    container.innerHTML = '';
 
     const query = searchQuery.trim().toLowerCase();
     if (query) {
@@ -560,11 +660,25 @@
       deleteBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         window.ChatTocPreviewTooltip.hide();
-        if (confirm(`Are you sure you want to delete "${item.title}"?`)) {
-          const prompts = await getMyPrompts();
-          const filtered = prompts.filter((p) => p.id !== item.id);
-          await saveMyPrompts(filtered);
-          onRefresh();
+        const shouldDelete = await showPromptModal({
+          title: 'Delete Prompt',
+          message: `Are you sure you want to delete "${item.title}"?`,
+          confirm: true,
+          confirmText: 'Delete',
+        });
+
+        if (shouldDelete) {
+          try {
+            const prompts = await getMyPrompts();
+            const filtered = prompts.filter((p) => p.id !== item.id);
+            await saveMyPrompts(filtered);
+            onRefresh();
+          } catch (error) {
+            await showPromptModal({
+              title: 'Delete Prompt',
+              message: 'Unable to delete this prompt.',
+            });
+          }
         }
       });
 
@@ -892,6 +1006,7 @@
   window.ChatTocMyPrompts = {
     getMyPrompts,
     saveMyPrompts,
+    onPromptsChanged,
     showDialog,
     renderMyPrompts,
     initAutocomplete,
