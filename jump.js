@@ -62,6 +62,40 @@
   }
 
   /**
+   * Highlights an element after it enters the viewport, with a timeout fallback.
+   * @param {HTMLElement} element
+   */
+  function highlightWhenVisible(element) {
+    let didHighlight = false;
+    let observer = null;
+
+    const finish = () => {
+      if (didHighlight) return;
+
+      didHighlight = true;
+      observer?.disconnect();
+      highlightMatchedElement(element);
+    };
+
+    const fallbackTimer = setTimeout(finish, 900);
+
+    observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting || entry.intersectionRatio < 0.2) return;
+
+        clearTimeout(fallbackTimer);
+        finish();
+      },
+      {
+        threshold: [0.2],
+      }
+    );
+
+    observer.observe(element);
+  }
+
+  /**
    * Scrolls to the given element and applies a temporary highlight effect.
    * @param {HTMLElement} element
    * @param {ScrollBehavior} [behavior='smooth']
@@ -75,7 +109,7 @@
       block,
     });
 
-    highlightMatchedElement(element);
+    highlightWhenVisible(element);
   }
 
   /**
@@ -176,15 +210,15 @@
    */
   function jumpToUserMessageByText(text, options = {}) {
     const { behavior = 'smooth', block = 'center' } = options;
-    const targetText = normalizeText(text);
+    const targetText = normalizeTextForMatch(text);
 
     const userMessageElements = Array.from(
       document.querySelectorAll('[data-message-author-role="user"]')
     );
 
     const matchedElement = userMessageElements.find((element) => {
-      const domText = normalizeText(element.innerText);
-      return domText === targetText || domText.includes(targetText);
+      const domText = normalizeTextForMatch(element.innerText);
+      return isTextMatch(domText, targetText);
     });
 
     if (!matchedElement) {
@@ -193,6 +227,42 @@
 
     scrollToMatchedElement(matchedElement, behavior, block);
     return true;
+  }
+
+  /**
+   * Normalizes rendered/user text for DOM matching without changing display text.
+   * @param {string} text
+   * @returns {string}
+   */
+  function normalizeTextForMatch(text) {
+    return normalizeText(text)
+      .normalize('NFKC')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/[`*_~]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  /**
+   * Returns whether rendered DOM text matches the captured prompt text.
+   * @param {string} domText
+   * @param {string} targetText
+   * @returns {boolean}
+   */
+  function isTextMatch(domText, targetText) {
+    if (!domText || !targetText) return false;
+    if (domText === targetText || domText.includes(targetText)) return true;
+
+    const prefix = targetText.slice(0, 40).trim();
+    const suffix = targetText.slice(-30).trim();
+
+    return (
+      prefix.length >= 16 &&
+      suffix.length >= 12 &&
+      domText.includes(prefix) &&
+      domText.includes(suffix)
+    );
   }
 
   /**
