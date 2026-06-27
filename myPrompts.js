@@ -8,8 +8,11 @@
   let selectedMenuIndex = 0;
   let filteredPromptsForMenu = [];
   let currentTextarea = null;
+  let currentAutocompleteContext = null;
   let isProgrammaticInsert = false;
   let renderVersion = 0;
+  const autocompleteTriggerPattern =
+    /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/;
   const promptsStore = window.ChatTocPromptStore.create();
 
   /**
@@ -749,67 +752,192 @@
    * @param {HTMLElement} textarea
    */
   async function handleTextareaInput(textarea) {
-    let text = '';
-    let textBeforeCursor = '';
-
-    if (textarea.tagName === 'TEXTAREA') {
-      text = textarea.value;
-      textBeforeCursor = text.slice(0, textarea.selectionStart);
-    } else {
-      // For contenteditable div (ChatGPT's ProseMirror editor)
-      text = textarea.innerText || '';
-      try {
-        const selection = window.getSelection();
-        if (selection.rangeCount) {
-          const range = selection.getRangeAt(0);
-          const preCaretRange = range.cloneRange();
-          preCaretRange.selectNodeContents(textarea);
-          preCaretRange.setEnd(range.endContainer, range.endOffset);
-          textBeforeCursor = preCaretRange.toString();
-        } else {
-          textBeforeCursor = text;
-        }
-      } catch (e) {
-        textBeforeCursor = text;
-      }
-    }
-
-    // Look for command triggers near the cursor.
-    // A trigger is valid at the start of a line or after a natural boundary
-    // such as whitespace or punctuation.
-    const triggerMatch = textBeforeCursor.match(
-      /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/
-    );
+    const context = getAutocompleteContext(textarea);
 
     const prompts = sortMyPrompts(await getMyPrompts(), activeSort);
     let matches = [];
-    let triggerStart = -1;
 
-    if (triggerMatch) {
-      triggerStart = triggerMatch.index + triggerMatch[1].length;
-      const query = triggerMatch[3].toLowerCase();
+    if (context) {
       matches = prompts.filter(
         (p) =>
-          p.title.toLowerCase().startsWith(query) ||
-          p.content.toLowerCase().startsWith(query)
+          p.title.toLowerCase().startsWith(context.query) ||
+          p.content.toLowerCase().startsWith(context.query)
       );
     }
 
     if (matches.length > 0) {
-      showAutocompleteMenu(textarea, matches, triggerStart);
+      showAutocompleteMenu(textarea, matches, context);
     } else {
       closeAutocompleteMenu();
     }
   }
 
   /**
+   * Creates a complete autocomplete context from the current caret position.
+   * @param {HTMLElement} textarea
+   * @returns {Object | null}
+   */
+  function getAutocompleteContext(textarea) {
+    if (textarea.tagName === 'TEXTAREA') {
+      const cursorOffset = textarea.selectionStart;
+      const textBeforeCursor = textarea.value.slice(0, cursorOffset);
+      const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+
+      if (!triggerMatch) return null;
+
+      return {
+        query: triggerMatch[3].toLowerCase(),
+        triggerStart: triggerMatch.index + triggerMatch[1].length,
+        triggerEnd: cursorOffset,
+        anchorRect: null,
+        replaceRange: null,
+      };
+    }
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return null;
+
+    const range = selection.getRangeAt(0);
+    if (!textarea.contains(range.endContainer)) return null;
+
+    try {
+      const preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(textarea);
+      preCaretRange.setEnd(range.endContainer, range.endOffset);
+
+      const textBeforeCursor = preCaretRange.toString();
+      const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+
+      if (!triggerMatch) return null;
+
+      const triggerStart = triggerMatch.index + triggerMatch[1].length;
+      const triggerEnd = textBeforeCursor.length;
+
+      return {
+        query: triggerMatch[3].toLowerCase(),
+        triggerStart,
+        triggerEnd,
+        anchorRect: getRangeAnchorRect(textarea, range),
+        replaceRange:
+          createTextRangeFromOffsets(textarea, triggerStart, triggerEnd) ||
+          createCurrentTextNodeTriggerRange(range),
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Resolves a DOM text range from flat text offsets inside a contenteditable root.
+   * @param {HTMLElement} root
+   * @param {number} startOffset
+   * @param {number} endOffset
+   * @returns {Range | null}
+   */
+  function createTextRangeFromOffsets(root, startOffset, endOffset) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const replaceRange = document.createRange();
+    let currentOffset = 0;
+    let hasStart = false;
+    let node = walker.nextNode();
+
+    while (node) {
+      const textLength = node.textContent.length;
+      const nextOffset = currentOffset + textLength;
+
+      if (!hasStart && startOffset <= nextOffset) {
+        replaceRange.setStart(node, Math.max(0, startOffset - currentOffset));
+        hasStart = true;
+      }
+
+      if (hasStart && endOffset <= nextOffset) {
+        replaceRange.setEnd(node, Math.max(0, endOffset - currentOffset));
+        return replaceRange;
+      }
+
+      currentOffset = nextOffset;
+      node = walker.nextNode();
+    }
+
+    return null;
+  }
+
+  /**
+   * Falls back to the current text node when editor-generated line breaks make
+   * flat text offsets impossible to map back to DOM nodes.
+   * @param {Range} range
+   * @returns {Range | null}
+   */
+  function createCurrentTextNodeTriggerRange(range) {
+    if (range.endContainer.nodeType !== Node.TEXT_NODE) return null;
+
+    const textBeforeCursor = range.endContainer.textContent.slice(
+      0,
+      range.endOffset
+    );
+    const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+
+    if (!triggerMatch) return null;
+
+    const replaceRange = document.createRange();
+    replaceRange.setStart(
+      range.endContainer,
+      triggerMatch.index + triggerMatch[1].length
+    );
+    replaceRange.setEnd(range.endContainer, range.endOffset);
+
+    return replaceRange;
+  }
+
+  /**
+   * Finds a visible rectangle near the caret for positioning the menu.
+   * @param {HTMLElement} textarea
+   * @param {Range} range
+   * @returns {DOMRect | null}
+   */
+  function getRangeAnchorRect(textarea, range) {
+    const caretRange = range.cloneRange();
+    caretRange.collapse(false);
+
+    const caretRect = getVisibleRangeRect(caretRange);
+    if (caretRect) return caretRect;
+
+    if (
+      range.endContainer.nodeType === Node.TEXT_NODE &&
+      range.endOffset > 0
+    ) {
+      const characterRange = document.createRange();
+      characterRange.setStart(range.endContainer, range.endOffset - 1);
+      characterRange.setEnd(range.endContainer, range.endOffset);
+
+      return getVisibleRangeRect(characterRange);
+    }
+
+    return null;
+  }
+
+  /**
+   * Returns the first visible rectangle for a DOM range.
+   * @param {Range} range
+   * @returns {DOMRect | null}
+   */
+  function getVisibleRangeRect(range) {
+    const rect = range.getBoundingClientRect();
+    if (rect && (rect.width || rect.height)) return rect;
+
+    const rects = range.getClientRects();
+    return rects.length ? rects[rects.length - 1] : null;
+  }
+
+  /**
    * Displays the autocomplete floating overlay.
    * @param {HTMLElement} textarea
    * @param {Array} matches
-   * @param {number} triggerStart
+   * @param {Object} context
    */
-  function showAutocompleteMenu(textarea, matches, triggerStart) {
+  function showAutocompleteMenu(textarea, matches, context) {
     filteredPromptsForMenu = matches;
+    currentAutocompleteContext = context;
     selectedMenuIndex = Math.min(selectedMenuIndex, matches.length - 1);
 
     if (!autocompleteMenu) {
@@ -820,13 +948,38 @@
 
     renderAutocompleteMenuContent();
 
-    const rect = textarea.getBoundingClientRect();
-    autocompleteMenu.style.position = 'fixed';
-    autocompleteMenu.style.left = `${rect.left}px`;
-    autocompleteMenu.style.width = `${rect.width}px`;
-    autocompleteMenu.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+    const inputRect = textarea.getBoundingClientRect();
+    const anchorRect = context.anchorRect || inputRect;
+    const menuGap = 8;
+    const maxMenuWidth = 420;
+    const menuWidth = Math.min(
+      inputRect.width,
+      maxMenuWidth,
+      window.innerWidth - menuGap * 2
+    );
+    const anchorLeft = context.anchorRect ? anchorRect.left : inputRect.left;
+    const left = Math.max(
+      menuGap,
+      Math.min(anchorLeft, window.innerWidth - menuWidth - menuGap)
+    );
+
     autocompleteMenu.style.display = 'block';
-    autocompleteMenu.dataset.triggerStart = String(triggerStart);
+    autocompleteMenu.style.visibility = 'hidden';
+    autocompleteMenu.style.position = 'fixed';
+    autocompleteMenu.style.width = `${menuWidth}px`;
+
+    const menuHeight = autocompleteMenu.offsetHeight;
+    const preferredTop = anchorRect.top - menuHeight - menuGap;
+    const fallbackTop = anchorRect.bottom + menuGap;
+    const top =
+      preferredTop >= menuGap
+        ? preferredTop
+        : Math.min(fallbackTop, window.innerHeight - menuHeight - menuGap);
+
+    autocompleteMenu.style.left = `${left}px`;
+    autocompleteMenu.style.top = `${Math.max(menuGap, top)}px`;
+    autocompleteMenu.style.bottom = '';
+    autocompleteMenu.style.visibility = 'visible';
   }
 
   /**
@@ -864,76 +1017,33 @@
    * @param {Object} p
    */
   function selectAutocompleteItem(p) {
-    if (!currentTextarea || !autocompleteMenu) return;
+    if (!currentTextarea || !autocompleteMenu || !currentAutocompleteContext) {
+      return;
+    }
 
     const textarea = currentTextarea;
-    const triggerStart = Number(autocompleteMenu.dataset.triggerStart || -1);
+    const context = currentAutocompleteContext;
 
     isProgrammaticInsert = true;
     try {
       if (textarea.tagName === 'TEXTAREA') {
         const text = textarea.value;
-        const selectionStart = textarea.selectionStart;
-        const textBeforeCursor = text.slice(0, selectionStart);
-        const textAfterCursor = text.slice(selectionStart);
-
-        if (triggerStart !== -1) {
-          const newTextBeforeCursor = textBeforeCursor.slice(0, triggerStart);
-          textarea.focus();
-          textarea.value = newTextBeforeCursor + p.content + textAfterCursor;
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          const newCursorPos = triggerStart + p.content.length;
-          textarea.setSelectionRange(newCursorPos, newCursorPos);
-        }
+        textarea.focus();
+        textarea.value =
+          text.slice(0, context.triggerStart) +
+          p.content +
+          text.slice(context.triggerEnd);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        const newCursorPos = context.triggerStart + p.content.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
       } else {
         // For contenteditable div (ChatGPT's ProseMirror editor)
         textarea.focus();
         const selection = window.getSelection();
-        if (selection.rangeCount) {
-          const range = selection.getRangeAt(0);
-          let textNode = range.endContainer;
-
-          // If selection container is not a text node (e.g. wrapper element), find the text node
-          if (textNode.nodeType !== Node.TEXT_NODE) {
-            const offset = range.endOffset;
-            if (textNode.childNodes[offset - 1]) {
-              textNode = textNode.childNodes[offset - 1];
-              while (textNode && textNode.nodeType !== Node.TEXT_NODE) {
-                textNode = textNode.lastChild;
-              }
-            }
-          }
-
-          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-            const textContent = textNode.textContent;
-            const offset =
-              range.endContainer === textNode
-                ? range.endOffset
-                : textNode.textContent.length;
-            const textBefore = textContent.slice(0, offset);
-            const relativeTriggerMatch = textBefore.match(
-              /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/
-            );
-
-            if (relativeTriggerMatch) {
-              const relativeTriggerStart =
-                relativeTriggerMatch.index + relativeTriggerMatch[1].length;
-
-              // Select exactly the trigger text (e.g. "//" or "#" or words matching title)
-              const replaceRange = document.createRange();
-              replaceRange.setStart(textNode, relativeTriggerStart);
-              replaceRange.setEnd(textNode, offset);
-
-              selection.removeAllRanges();
-              selection.addRange(replaceRange);
-
-              // Replace selection with prompt content
-              document.execCommand('insertText', false, p.content);
-            }
-          } else {
-            // Direct fallback insertion at current cursor
-            document.execCommand('insertText', false, p.content);
-          }
+        if (selection && context.replaceRange) {
+          selection.removeAllRanges();
+          selection.addRange(context.replaceRange);
+          document.execCommand('insertText', false, p.content);
         }
       }
     } finally {
@@ -997,6 +1107,7 @@
     if (autocompleteMenu) {
       autocompleteMenu.style.display = 'none';
       filteredPromptsForMenu = [];
+      currentAutocompleteContext = null;
       selectedMenuIndex = 0;
       delete autocompleteMenu.dataset.triggerStart;
     }
