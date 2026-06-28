@@ -42,10 +42,10 @@
    * Creates the tooltip element if it does not already exist.
    */
   function create() {
-    if (document.getElementById('navigator-preview-tooltip')) return;
+    if (document.getElementById('luna-toc-preview-tooltip')) return;
 
     const tooltip = document.createElement('div');
-    tooltip.id = 'navigator-preview-tooltip';
+    tooltip.id = 'luna-toc-preview-tooltip';
     document.body.appendChild(tooltip);
   }
 
@@ -64,7 +64,7 @@
 
     hideTimer = null;
     showTimer = null;
-    tooltip.classList.remove('visible');
+    tooltip.classList.remove('luna-toc-tooltip-visible');
 
     const clientX = event.clientX;
     const clientY = event.clientY;
@@ -88,7 +88,7 @@
         contentEl.textContent = text;
         tooltip.appendChild(contentEl);
       }
-      tooltip.classList.add('visible');
+      tooltip.classList.add('luna-toc-tooltip-visible');
       positionTooltip(tooltip, clientX, clientY, anchorElement);
     }, SHOW_DELAY_MS);
   }
@@ -106,7 +106,7 @@
     if (!tooltip) return;
 
     hideTimer = setTimeout(() => {
-      tooltip.classList.remove('visible');
+      tooltip.classList.remove('luna-toc-tooltip-visible');
       hideTimer = null;
     }, HIDE_DELAY_MS);
   }
@@ -147,7 +147,7 @@
    * @returns {HTMLElement | null}
    */
   function getTooltip() {
-    return document.getElementById('navigator-preview-tooltip');
+    return document.getElementById('luna-toc-preview-tooltip');
   }
 
   window.ChatTocPreviewTooltip = {
@@ -166,10 +166,10 @@
    * Creates the button tooltip element.
    */
   function create() {
-    if (document.getElementById('navigator-button-tooltip')) return;
+    if (document.getElementById('luna-toc-button-tooltip')) return;
 
     tooltipElement = document.createElement('div');
-    tooltipElement.id = 'navigator-button-tooltip';
+    tooltipElement.id = 'luna-toc-button-tooltip';
     document.documentElement.appendChild(tooltipElement);
   }
 
@@ -191,8 +191,8 @@
       }
 
       // Ignore elements outside our extension sidebar and toggle buttons
-      const isInsideSidebar = target.closest('#conversation-navigator-sidebar');
-      const isSidebarToggle = target.closest('#toggle-sidebar-btn');
+      const isInsideSidebar = target.closest('#luna-toc-sidebar');
+      const isSidebarToggle = target.closest('#luna-toc-toggle-btn');
       const isControls = target.closest('.navigator-jump-controls');
       if (!isInsideSidebar && !isSidebarToggle && !isControls) return;
 
@@ -239,7 +239,7 @@
     if (!tooltipElement) create();
 
     tooltipElement.textContent = text;
-    tooltipElement.classList.add('visible');
+    tooltipElement.classList.add('luna-toc-tooltip-visible');
 
     positionTooltip(element);
   }
@@ -249,7 +249,7 @@
    */
   function hide() {
     if (tooltipElement) {
-      tooltipElement.classList.remove('visible');
+      tooltipElement.classList.remove('luna-toc-tooltip-visible');
     }
   }
 

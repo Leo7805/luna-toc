@@ -83,16 +83,16 @@ async function createSidebar() {
   const sidebar = document.createElement('div');
   const conversationTitle = escapeHtml(getConversationTitle());
 
-  sidebar.id = 'conversation-navigator-sidebar';
-  sidebar.className = 'navigator-initializing';
+  sidebar.id = 'luna-toc-sidebar';
+  sidebar.className = 'luna-toc-navigator-initializing';
 
   sidebar.innerHTML = `
     <div id="navigator-resizer"></div>
     <div class="navigator-topbar">
       <div class="navigator-header">
         <button
-          class="navigator-icon-btn navigator-header-icon-btn sidebar-pin-btn"
-          id="sidebar-pin-btn"
+          class="navigator-icon-btn navigator-header-icon-btn luna-toc-sidebar-pin-btn"
+          id="luna-toc-sidebar-pin-btn"
           type="button"
           aria-label="Enable sidebar auto-hide"
           aria-pressed="true"
@@ -261,7 +261,7 @@ function initNavigatorFollow() {
   window.ChatTocFollow.init({
     listSelector: '#navigator-list',
     ignoredScrollSelector:
-      '#conversation-navigator-sidebar, #navigator-tooltip',
+      '#luna-toc-sidebar, #luna-toc-preview-tooltip, #luna-toc-button-tooltip',
     getNativeActiveIndex: findActiveNativePromptIndex,
     setActiveIndex: setActiveNavigatorItem,
   });

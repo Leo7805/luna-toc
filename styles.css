@@ -175,7 +175,7 @@ html[data-theme='light'] {
   cursor: ew-resize;
 }
 
-#conversation-navigator-sidebar {
+#luna-toc-sidebar {
   position: fixed;
   right: 0;
   top: 0;
@@ -200,7 +200,7 @@ html[data-theme='light'] {
   transition: none;
 }
 
-#conversation-navigator-sidebar.navigator-ready {
+#luna-toc-sidebar.luna-toc-navigator-ready {
   transition: transform 160ms ease;
 }
 
@@ -366,45 +366,45 @@ html[data-theme='light'] {
   height: 14px;
 }
 
-.sidebar-pin-btn {
+.luna-toc-sidebar-pin-btn {
   justify-self: start;
 }
 
-.sidebar-pin-btn svg {
+.luna-toc-sidebar-pin-btn svg {
   transform: rotate(-35deg);
   transition: transform 120ms ease;
 }
 
-.sidebar-pin-btn.sidebar-pin-active {
+.luna-toc-sidebar-pin-btn.luna-toc-sidebar-pin-active {
   color: var(--ct-accent-hover);
   opacity: 1;
 }
 
-.sidebar-pin-btn.sidebar-pin-active:hover {
+.luna-toc-sidebar-pin-btn.luna-toc-sidebar-pin-active:hover {
   color: var(--ct-accent-active);
   opacity: 1;
 }
 
-.sidebar-pin-btn.sidebar-pin-active:active {
+.luna-toc-sidebar-pin-btn.luna-toc-sidebar-pin-active:active {
   color: #ffffff; /* active:active white flash - intentionally not themed */
   transform: scale(0.9);
 }
 
-.sidebar-pin-btn.sidebar-pin-active svg {
+.luna-toc-sidebar-pin-btn.luna-toc-sidebar-pin-active svg {
   transform: rotate(0deg);
 }
 
 /* Hidden State */
-#conversation-navigator-sidebar.navigator-hidden {
+#luna-toc-sidebar.luna-toc-navigator-hidden {
   pointer-events: none;
   transform: translateX(100%);
 }
 
-#conversation-navigator-sidebar.navigator-initializing {
+#luna-toc-sidebar.luna-toc-navigator-initializing {
   visibility: hidden;
 }
 
-#toggle-sidebar-btn {
+#luna-toc-toggle-btn {
   position: fixed;
   right: 0;
   top: calc(50% - 21px);
@@ -430,48 +430,48 @@ html[data-theme='light'] {
     transform 120ms ease;
 }
 
-#toggle-sidebar-btn:hover {
+#luna-toc-toggle-btn:hover {
   background: var(--ct-toggle-btn-hover-bg);
   color: var(--ct-accent-hover);
   opacity: 0.8;
   transform: translateY(-1px);
 }
 
-#toggle-sidebar-btn:active {
+#luna-toc-toggle-btn:active {
   background: var(--ct-toggle-btn-hover-active-bg);
   transform: translateY(0);
 }
 
-#toggle-sidebar-btn.toggle-sidebar-btn-dragging {
+#luna-toc-toggle-btn.luna-toc-toggle-btn-dragging {
   cursor: grabbing;
   transition: none;
   transform: none;
 }
 
-#toggle-sidebar-btn.sidebar-hidden {
+#luna-toc-toggle-btn.luna-toc-sidebar-hidden {
   color: var(--ct-toggle-btn-color);
   opacity: 0.42;
 }
 
-#toggle-sidebar-btn.sidebar-hidden:hover {
+#luna-toc-toggle-btn.luna-toc-sidebar-hidden:hover {
   background: var(--ct-toggle-btn-hover-bg);
   color: var(--ct-accent-hover);
   opacity: 0.68;
 }
 
-#toggle-sidebar-btn svg,
-#toggle-sidebar-btn .toggle-sidebar-label {
+#luna-toc-toggle-btn svg,
+#luna-toc-toggle-btn .toggle-sidebar-label {
   grid-area: 1 / 1;
 }
 
-#toggle-sidebar-btn svg {
+#luna-toc-toggle-btn svg {
   width: 42px;
   height: 42px;
   display: block;
   z-index: 0;
 }
 
-#toggle-sidebar-btn .toggle-sidebar-label {
+#luna-toc-toggle-btn .toggle-sidebar-label {
   font-size: 11px;
   font-weight: 700;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -664,7 +664,7 @@ html[data-theme='light'] {
   fill: currentColor;
 }
 
-#navigator-preview-tooltip {
+#luna-toc-preview-tooltip {
   position: fixed;
   right: 320px;
   top: 80px;
@@ -692,7 +692,7 @@ html[data-theme='light'] {
   display: none;
 }
 
-#navigator-preview-tooltip.visible {
+#luna-toc-preview-tooltip.luna-toc-tooltip-visible {
   display: block;
 }
 
@@ -713,7 +713,7 @@ html[data-theme='light'] {
 }
 
 /* Button & Icon general tooltip widget */
-#navigator-button-tooltip {
+#luna-toc-button-tooltip {
   position: fixed;
   background: var(--ct-bg-tooltip-button);
   color: var(--ct-text-tooltip-button);
@@ -730,7 +730,7 @@ html[data-theme='light'] {
   display: none;
 }
 
-#navigator-button-tooltip.visible {
+#luna-toc-button-tooltip.luna-toc-tooltip-visible {
   display: block;
   opacity: 1;
 }

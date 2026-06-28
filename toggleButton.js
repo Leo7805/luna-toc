@@ -13,8 +13,8 @@
   function create() {
     const toggleBtn = document.createElement('button');
 
-    toggleBtn.id = 'toggle-sidebar-btn';
-    toggleBtn.className = 'sidebar-visible';
+    toggleBtn.id = 'luna-toc-toggle-btn';
+    toggleBtn.className = 'luna-toc-sidebar-visible';
     toggleBtn.innerHTML = `
       <svg aria-hidden="true" viewBox="0 0 64 64">
         <path
@@ -52,7 +52,7 @@
       let didDrag = false;
 
       toggleBtn.setPointerCapture(event.pointerId);
-      toggleBtn.classList.add('toggle-sidebar-btn-dragging');
+      toggleBtn.classList.add('luna-toc-toggle-btn-dragging');
 
       function handlePointerMove(moveEvent) {
         const deltaX = moveEvent.clientX - startX;
@@ -76,7 +76,7 @@
 
       function handlePointerUp() {
         toggleBtn.releasePointerCapture(event.pointerId);
-        toggleBtn.classList.remove('toggle-sidebar-btn-dragging');
+        toggleBtn.classList.remove('luna-toc-toggle-btn-dragging');
         toggleBtn.removeEventListener('pointermove', handlePointerMove);
         toggleBtn.removeEventListener('pointerup', handlePointerUp);
         toggleBtn.removeEventListener('pointercancel', handlePointerUp);

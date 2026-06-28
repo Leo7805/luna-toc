@@ -20,7 +20,7 @@
   function init(sidebarElement, toggleButton) {
     sidebar = sidebarElement;
     toggleBtn = toggleButton;
-    pinBtn = document.getElementById('sidebar-pin-btn');
+    pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
 
     bindPinButton();
     bindToggleButton();
@@ -158,7 +158,7 @@
   }
 
   function updatePinButtonState() {
-    pinBtn?.classList.toggle('sidebar-pin-active', isPinned);
+    pinBtn?.classList.toggle('luna-toc-sidebar-pin-active', isPinned);
     pinBtn?.setAttribute('aria-pressed', String(isPinned));
     pinBtn?.setAttribute(
       'aria-label',
@@ -167,10 +167,10 @@
   }
 
   function finishInitializing() {
-    sidebar?.classList.remove('navigator-initializing');
+    sidebar?.classList.remove('luna-toc-navigator-initializing');
 
     window.requestAnimationFrame(() => {
-      sidebar?.classList.add('navigator-ready');
+      sidebar?.classList.add('luna-toc-navigator-ready');
     });
   }
 
@@ -180,13 +180,13 @@
   function setHidden(hidden) {
     isHidden = hidden;
 
-    sidebar?.classList.toggle('navigator-hidden', isHidden);
+    sidebar?.classList.toggle('luna-toc-navigator-hidden', isHidden);
     sidebar?.setAttribute('aria-hidden', String(isHidden));
     if (sidebar && 'inert' in sidebar) {
       sidebar.inert = isHidden;
     }
-    toggleBtn?.classList.toggle('sidebar-hidden', isHidden);
-    toggleBtn?.classList.toggle('sidebar-visible', !isHidden);
+    toggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
+    toggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
     setWideViewportSpoofEnabled(!isHidden);
   }
 
@@ -208,8 +208,12 @@
   }
 
   function isPointerInsidePreviewTooltip() {
-    const tooltip = document.getElementById('navigator-preview-tooltip');
-    return !!tooltip && tooltip.classList.contains('visible') && tooltip.matches(':hover');
+    const tooltip = document.getElementById('luna-toc-preview-tooltip');
+    return (
+      !!tooltip &&
+      tooltip.classList.contains('luna-toc-tooltip-visible') &&
+      tooltip.matches(':hover')
+    );
   }
 
   function handleDocumentPointerOver(event) {
@@ -231,7 +235,7 @@
     const target = event.target;
     if (!(target instanceof Element)) return false;
 
-    return !!target.closest('#navigator-preview-tooltip');
+    return !!target.closest('#luna-toc-preview-tooltip');
   }
 
   /**
