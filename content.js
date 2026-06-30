@@ -1058,26 +1058,26 @@ function scrollNavigatorItemIntoView(item) {
  * @returns {number} The index of the conversation message that matches the given element, or -1 if not found.
  */
 function findConversationIndexByElement(element) {
-  const domText = normalizeText(element.innerText);
-
-  const textMatchedIndex = conversationMessages.findIndex((message) => {
-    if (!message.canMatchByText) return false;
-
-    const messageText = normalizeText(message.text);
-
-    return domText === messageText || domText.includes(messageText);
-  });
-
-  if (textMatchedIndex !== -1) {
-    return textMatchedIndex;
-  }
-
   const visibleUserMessages = Array.from(
     document.querySelectorAll('[data-message-author-role="user"]')
   );
 
   if (visibleUserMessages.length === conversationMessages.length) {
     return visibleUserMessages.indexOf(element);
+  }
+
+  const domText = normalizeText(element.innerText);
+
+  for (let index = conversationMessages.length - 1; index >= 0; index--) {
+    const message = conversationMessages[index];
+
+    if (!message.canMatchByText) continue;
+
+    const messageText = normalizeText(message.text);
+
+    if (domText === messageText || domText.includes(messageText)) {
+      return index;
+    }
   }
 
   return -1;
