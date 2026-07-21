@@ -1,0 +1,26 @@
+{
+  "source": {
+    "sourceHash": "sha256:8d38e966a9d1fe1913f2c79ca047710478691de5633eb9e853aeeae8e0bb04dc",
+    "sourceHashKind": "text",
+    "programmingLanguage": "properties"
+  },
+  "defaults": {
+    "createdAt": "2026-07-21T13:28:40.585Z",
+    "updatedAt": "2026-07-21T13:28:40.585Z"
+  },
+  "fileNote": {
+    "userNote": "npm 的项目级配置文件，用来控制 npm 命令在当前项目中的行为。\n\n",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {
+    "line:1": {
+      "line": 1,
+      "anchorText": "message=%s",
+      "userNote": "专门控制 npm version 创建的 Commit 和 Tag 消息。\n\n让版本 Commit 和 Tag 的消息只显示版本号，不带 v。\n\n如果没有这项配置，npm 默认消息通常是：v1.6.5",
+      "createdBy": "user",
+      "createdAt": "2026-07-21T13:29:11.835Z",
+      "updatedAt": "2026-07-21T13:30:17.415Z"
+    }
+  }
+}

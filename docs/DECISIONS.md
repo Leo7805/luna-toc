@@ -91,3 +91,25 @@ Users need a way to persistently save custom prompt templates (surviving browser
 ### Consequences
 * `"storage"` permission was restored in `manifest.json`.
 * New file `myPrompts.js` was introduced to isolate prompts management and keep content.js focused on TOC layout.
+
+---
+
+## ADR 05: Tab-Scoped Conversation TOC Cache
+* **Date**: 2026-07-22
+
+### Context
+ChatGPT can restore previously visited conversations from client-side state
+without returning another complete conversation mapping. Clearing the TOC on
+every SPA route change therefore left revisited conversations without prompts
+until a full page refresh.
+
+### Decision
+Cache each conversation's normalized user-prompt list in memory for the current
+content-script lifetime. Restore that snapshot on history navigation, and let
+later complete conversation data replace it. Keep new-chat prompt migration
+separate so temporary `WEB:` routes retain newly submitted prompts.
+
+### Consequences
+* Revisiting a conversation in the same tab restores its TOC immediately.
+* Only compact user-prompt navigation data is cached; assistant responses are not.
+* The cache is discarded on page refresh or tab close and is never persisted.

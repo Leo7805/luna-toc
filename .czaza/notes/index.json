@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-21T13:27:28.559Z",
+  "updatedAt": "2026-07-21T14:05:27.231Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -8,17 +8,11 @@
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-07-21T13:27:28.559Z"
     },
-    "pageHook.js": {
-      "noteFile": "files/58c0d613b9e6-01ce1193.json",
-      "sourceHash": "sha256:bacac6b78ab36ef1c78cd65817d1d29f94c94462af012ec36eeca19b3b95af26",
-      "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T11:25:55.120Z"
-    },
     "content.js": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
-      "sourceHash": "sha256:dfc0c9ca9acd1d65c07a5b414e2c3dc485e9c755e3459d3868839ea05717aa6c",
+      "sourceHash": "sha256:c059316b5122332b165e36a9ee21a553865244dafb396c6cb9fd6c2bd5a579bf",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T13:20:28.045Z"
+      "updatedAt": "2026-07-21T13:37:11.000Z"
     },
     "release": {
       "noteFile": "files/a4d451ec2346-59fd6f24.json",
@@ -30,27 +24,40 @@
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-07-21T11:22:11.261Z"
     },
-    "src/content": {
-      "noteFile": "files/cce4dec05a79-2328f40d.json",
-      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-21T11:36:37.224Z"
-    },
-    "popup": {
-      "noteFile": "files/358771f2854c-7108dd99.json",
-      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-21T13:14:19.442Z"
-    },
     "src/app/navigatorController.js": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:5894ba869c5cff04e6bac7011f77a07c29a0268a54209a140ba2c2070cd2e46a",
+      "sourceHash": "sha256:f570076157ba6d0594f319a32fecab87da7b70cabe6c83001c906754eff74184",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T13:18:18.004Z"
+      "updatedAt": "2026-07-21T14:05:27.231Z"
     },
     "src/app/applicationShell.js": {
       "noteFile": "files/828b26418229-088e14cb.json",
       "sourceHash": "sha256:35dd1405bc344285188c050447d9132c1c944125d15630523b54ab68fd1b256a",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T13:21:11.643Z"
+      "updatedAt": "2026-07-21T13:36:29.285Z"
+    },
+    ".npmrc": {
+      "noteFile": "files/e813096d69c4-9409f8d8.json",
+      "sourceHash": "sha256:8d38e966a9d1fe1913f2c79ca047710478691de5633eb9e853aeeae8e0bb04dc",
+      "programmingLanguage": "properties",
+      "updatedAt": "2026-07-21T13:30:17.415Z"
+    },
+    "src/features/jump.js": {
+      "noteFile": "files/c2c1d180fe2f-1b2a1a9e.json",
+      "sourceHash": "sha256:b71dbc205b1d7d9e708989144645289402d8e77f7afdf941c3784e01e1b4fb5e",
+      "programmingLanguage": "javascript",
+      "updatedAt": "2026-07-21T13:35:28.029Z"
+    },
+    "src/popup": {
+      "noteFile": "files/c0a5d9bd44d3-7d630b4f.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-21T13:35:45.415Z"
+    },
+    "src/page/pageHook.js": {
+      "noteFile": "files/58c0d613b9e6-01ce1193.json",
+      "sourceHash": "sha256:c300965730bbfbff83c79b27bfe7b24ce6cd2f644f68dcaf67eb8045c2840207",
+      "programmingLanguage": "javascript",
+      "updatedAt": "2026-07-21T13:48:02.391Z"
     }
   }
 }

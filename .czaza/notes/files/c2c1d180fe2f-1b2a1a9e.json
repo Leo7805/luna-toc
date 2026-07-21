@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:b71dbc205b1d7d9e708989144645289402d8e77f7afdf941c3784e01e1b4fb5e",
+    "sourceHashKind": "text",
+    "programmingLanguage": "javascript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-21T13:35:28.029Z",
+    "updatedAt": "2026-07-21T13:35:28.029Z"
+  },
+  "fileNote": {
+    "userNote": "实际滚动和虚拟列表扫描",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

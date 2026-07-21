@@ -109,12 +109,15 @@
 
       const method = getFetchMethod(input, init);
       const pathname = new URL(url, window.location.origin).pathname;
+      const isConversationGet =
+        method === 'GET' && pathname.startsWith(CONVERSATION_API_PATH);
 
       return {
-        isConversationGet:
-          method === 'GET' && pathname.startsWith(CONVERSATION_API_PATH),
+        isConversationGet,
         isSendMessage: method === 'POST' && pathname === SEND_MESSAGE_PATH,
-        routeKey: getCurrentConversationKey(),
+        routeKey: isConversationGet
+          ? getConversationKeyFromApiPath(pathname)
+          : getCurrentConversationKey(),
       };
     } catch {
       return null;
@@ -159,6 +162,20 @@
     const match = location.pathname.match(/\/c\/([^/]+)/);
 
     return match?.[1] || `new-chat:${location.pathname}`;
+  }
+
+  /**
+   * Reads the target conversation ID from a conversation GET request so the
+   * response remains associated with its destination across SPA route timing.
+   * @param {string} pathname
+   * @returns {string}
+   */
+  function getConversationKeyFromApiPath(pathname) {
+    const match = pathname.match(/^\/backend-api\/conversation\/([^/]+)/);
+
+    return match
+      ? decodeURIComponent(match[1])
+      : getCurrentConversationKey();
   }
 
   /**

@@ -16,6 +16,7 @@
     NATIVE_PROMPT_BUTTON_SELECTORS.map(
       (selector) => `${selector}[data-toc-active]`
     ).join(',');
+  const conversationMessageCache = new Map();
 
   let conversationMessages = [];
   let searchQuery = '';
@@ -462,7 +463,10 @@
   }
 
   function isNewChatRouteKey(routeKey) {
-    return routeKey.startsWith('new-chat:');
+    return (
+      routeKey.startsWith('new-chat:') ||
+      routeKey.startsWith('WEB:')
+    );
   }
 
   function clearPendingNewChat() {
@@ -477,7 +481,32 @@
     conversationMessages.push(
       window.ChatTocMessages.createNavigatorMessage(newMessage)
     );
+    cacheConversationMessages(getCurrentConversationKey());
     return true;
+  }
+
+  /**
+   * Stores a snapshot of the current normalized prompts for one conversation.
+   * The cache is memory-only and lasts for this content script's lifetime.
+   * @param {string} conversationKey
+   */
+  function cacheConversationMessages(conversationKey) {
+    if (!conversationKey || conversationMessages.length === 0) return;
+
+    conversationMessageCache.set(conversationKey, [
+      ...conversationMessages,
+    ]);
+  }
+
+  /**
+   * Returns a cached prompt snapshot for a conversation.
+   * @param {string} conversationKey
+   * @returns {Object[]}
+   */
+  function getCachedConversationMessages(conversationKey) {
+    const cachedMessages = conversationMessageCache.get(conversationKey);
+
+    return cachedMessages ? [...cachedMessages] : [];
   }
 
   function flushPendingNewChatMessage() {
@@ -493,8 +522,21 @@
     });
   }
 
-  function resetStateForCurrentRoute() {
-    conversationMessages = [];
+  /**
+   * Resets route-scoped navigation state while optionally preserving prompts
+   * captured before a new chat receives its permanent conversation URL.
+   * @param {Object} [options]
+   * @param {boolean} [options.preserveMessages=false]
+   * @param {Object[]} [options.nextMessages=[]]
+   */
+  function resetStateForCurrentRoute({
+    preserveMessages = false,
+    nextMessages = [],
+  } = {}) {
+    if (!preserveMessages) {
+      conversationMessages = nextMessages;
+    }
+
     initMarkedPrompts();
     activeNavigatorIndex = null;
     window.ChatTocOutline?.reset?.();
@@ -513,18 +555,30 @@
     }
     if (nextConversationKey === currentConversationKey) return;
 
-    const isNewChatCreationRoute =
-      isNewChatRouteKey(currentConversationKey) &&
-      !isNewChatRouteKey(nextConversationKey);
-
-    if (isNewChatCreationRoute) {
+    const isNewChatRouteTransition = isNewChatRouteKey(
+      currentConversationKey
+    );
+    const shouldPreserveMessages =
+      isNewChatRouteTransition && conversationMessages.length > 0;
+    const cachedMessages = getCachedConversationMessages(
+      nextConversationKey
+    );
+    if (isNewChatRouteTransition) {
       pendingNewChatRouteKey = currentConversationKey;
     } else {
       clearPendingNewChat();
     }
 
     currentConversationKey = nextConversationKey;
-    resetStateForCurrentRoute();
+    resetStateForCurrentRoute({
+      nextMessages: cachedMessages,
+      preserveMessages: shouldPreserveMessages,
+    });
+
+    if (shouldPreserveMessages) {
+      cacheConversationMessages(nextConversationKey);
+    }
+
     flushPendingNewChatMessage();
   }
 
@@ -538,8 +592,10 @@
 
   function handleConversationData(data) {
     if (!data?.mapping) return;
+
     onTitleChanged();
     conversationMessages = window.ChatTocMessages.extractUserMessages(data);
+    cacheConversationMessages(getCurrentConversationKey());
     render({ refreshObservers: true });
   }
 
