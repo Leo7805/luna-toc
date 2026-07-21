@@ -24,6 +24,8 @@ graph TD
         vis[sidebarVisibility.js]
         btn[toggleButton.js]
         tip[tooltip.js]
+        navigator[navigatorController.js]
+        shell[applicationShell.js]
     end
 
     subgraph mainWorld["Main World (Page Context)"]
@@ -31,8 +33,10 @@ graph TD
         chatgpt[ChatGPT Application]
     end
 
-    content -.->|DOM Injection| hook
-    hook ===>|window.postMessage| content
+    content --> shell
+    shell --> navigator
+    shell -.->|DOM Injection| hook
+    hook ===>|window.postMessage| navigator
     chatgpt -.->|Fetch API / History API| hook
 ```
 
@@ -57,7 +61,9 @@ graph TD
   - [toggleButton.js](../src/features/toggleButton.js): Manages the floating circular toggle button and session-bound drag position.
   - [sidebarVisibility.js](../src/features/sidebarVisibility.js): Manages sidebar showing, auto-hiding, pinning, and inert accessibility state.
   - [myPrompts.js](../src/features/myPrompts.js): Manages persistent custom prompt templates (CRUD modal dialogs, list rendering with sort selectors, and input autocomplete popup).
-  - [content.js](../content.js): Entry point. Injects the Main World script, creates the sidebar DOM, and ties all modules together.
+  - [navigatorController.js](../src/app/navigatorController.js): Owns conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
+  - [applicationShell.js](../src/app/applicationShell.js): Creates the sidebar shell, manages view modes and shared UI, and initializes the feature modules.
+  - [content.js](../content.js): Minimal entry point that starts the application shell.
 
 ---
 

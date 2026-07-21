@@ -4,10 +4,10 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T11:20:41.340Z",
-    "updatedAt": "2026-07-21T11:20:41.340Z"
+    "updatedAt": "2026-07-21T13:19:26.606Z"
   },
   "fileNote": {
-    "userNote": "用于打包上传到 Chrome Extension 商店的目录， 不 git 跟踪.",
+    "userNote": "用于打包上传到 Chrome Extension 商店的目录， 不进行 git 跟踪.\n\n里面的 zip 文件用于上传审核\n\n上传前先加载这个目录中的 zip 文件解压出来的内容，验证一下",
     "createdBy": "user"
   },
   "sectionNotes": {},
