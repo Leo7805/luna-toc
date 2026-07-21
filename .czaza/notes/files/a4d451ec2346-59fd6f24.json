@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-21T11:20:41.340Z",
+    "updatedAt": "2026-07-21T11:20:41.340Z"
+  },
+  "fileNote": {
+    "userNote": "用于打包上传到 Chrome Extension 商店的目录， 不 git 跟踪.",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

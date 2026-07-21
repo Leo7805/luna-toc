@@ -12,7 +12,7 @@
   },
 
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -24,25 +24,25 @@
     {
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
       "js": [
-        "outline.js",
-        "follow.js",
-        "message.js",
-        "promptMark.js",
-        "jump.js",
-        "tooltip.js",
-        "toggleButton.js",
-        "sidebarVisibility.js",
-        "promptStore.js",
-        "myPrompts.js",
+        "src/features/outline.js",
+        "src/features/follow.js",
+        "src/features/message.js",
+        "src/features/promptMark.js",
+        "src/features/jump.js",
+        "src/features/tooltip.js",
+        "src/features/toggleButton.js",
+        "src/features/sidebarVisibility.js",
+        "src/features/promptStore.js",
+        "src/features/myPrompts.js",
         "content.js"
       ],
-      "css": ["styles.css"],
+      "css": ["styles/content.css"],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["pageHook.js"],
+      "resources": ["src/page/pageHook.js"],
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"]
     }
   ]

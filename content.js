@@ -44,7 +44,7 @@ const ACTIVE_NATIVE_PROMPT_BUTTON_SELECTOR = NATIVE_PROMPT_BUTTON_SELECTORS.map(
 function injectFetchHook() {
   const script = document.createElement('script');
 
-  script.src = chrome.runtime.getURL('pageHook.js');
+  script.src = chrome.runtime.getURL('src/page/pageHook.js');
 
   script.onload = () => {
     script.remove(); // Clean up after execution
@@ -159,21 +159,19 @@ async function createSidebar() {
   initNavigatorFollow();
   initNavigatorJump();
 
-  document
-    .getElementById('search-toggle-btn')
-    .addEventListener('click', () => {
-      const searchInput = document.getElementById('navigator-search');
-      if (!searchInput) return;
-      const isHidden = window.getComputedStyle(searchInput).display === 'none';
-      searchInput.style.display = isHidden ? 'block' : 'none';
-      if (isHidden) {
-        searchInput.focus();
-      } else {
-        searchInput.value = '';
-        navigatorSearchQuery = '';
-        buildNavigator();
-      }
-    });
+  document.getElementById('search-toggle-btn').addEventListener('click', () => {
+    const searchInput = document.getElementById('navigator-search');
+    if (!searchInput) return;
+    const isHidden = window.getComputedStyle(searchInput).display === 'none';
+    searchInput.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+      searchInput.focus();
+    } else {
+      searchInput.value = '';
+      navigatorSearchQuery = '';
+      buildNavigator();
+    }
+  });
   document
     .getElementById('navigator-title')
     .addEventListener('click', handleTitleClick);
@@ -188,9 +186,7 @@ async function createSidebar() {
     .addEventListener('click', () => handleJumpControlClick('bottom'));
   document
     .getElementById('jump-chat-bottom-btn')
-    .addEventListener('dblclick', () =>
-      handleJumpControlDoubleClick('bottom')
-    );
+    .addEventListener('dblclick', () => handleJumpControlDoubleClick('bottom'));
   document
     .getElementById('toggle-view-mode-btn')
     .addEventListener('click', toggleViewMode);
@@ -318,10 +314,7 @@ function initJumpControlsPositioning() {
 
       didDrag = true;
 
-      const nextTop = clampJumpControlsTop(
-        startTop + deltaY,
-        rect.height
-      );
+      const nextTop = clampJumpControlsTop(startTop + deltaY, rect.height);
 
       setJumpControlsPosition(jumpControls, nextTop);
     }
@@ -651,7 +644,8 @@ function setNavigatorTitle() {
 
   if (!title) return;
 
-  const nextTitle = viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
+  const nextTitle =
+    viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
 
   title.textContent = nextTitle;
 }
@@ -662,7 +656,6 @@ function setNavigatorTitle() {
 function reloadCurrentPageData() {
   location.reload();
 }
-
 
 /**
  * Restores the sidebar list to its default browsing state without changing the
@@ -877,16 +870,19 @@ function buildNavigator({ refreshObservers = false } = {}) {
 
     item.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      window.ChatTocMyPrompts.showDialog({
-        content: message.text,
-        title: message.text.slice(0, 30)
-      }, () => {
-        if (viewMode !== 'myPrompts') {
-          toggleViewMode();
-        } else {
-          buildNavigator();
+      window.ChatTocMyPrompts.showDialog(
+        {
+          content: message.text,
+          title: message.text.slice(0, 30),
+        },
+        () => {
+          if (viewMode !== 'myPrompts') {
+            toggleViewMode();
+          } else {
+            buildNavigator();
+          }
         }
-      });
+      );
     });
 
     itemMain.append(
@@ -1406,8 +1402,10 @@ function toggleViewMode() {
     btn.classList.remove('mode-myprompts-active');
     btn.setAttribute('aria-label', 'Switch to My Prompts');
     btn.title = 'Switch to My Prompts';
-    
-    const toolbarContainer = document.getElementById('myprompts-toolbar-container');
+
+    const toolbarContainer = document.getElementById(
+      'myprompts-toolbar-container'
+    );
     if (toolbarContainer) {
       toolbarContainer.innerHTML = '';
     }

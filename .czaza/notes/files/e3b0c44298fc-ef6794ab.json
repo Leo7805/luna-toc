@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-21T10:46:17.827Z",
+    "updatedAt": "2026-07-21T11:28:45.412Z"
+  },
+  "fileNote": {
+    "userNote": "\nluna-toc/\n├── manifest.json      Chrome 插件的配置和资源清单 🔥\n├── content.js         插件内容脚本的总入口 ❤️\n├── src/               插件核心源代码\n│   ├── content/       侧栏各项功能模块\n│   └── page/          注入 ChatGPT 页面环境的脚本\n├── styles/            侧栏和页面组件样式\n├── popup/             插件弹出窗口的页面与逻辑 ❤️\n├── icons/             插件图标资源 ❤️\n├── assets/            演示图片和其他静态资源\n├── docs/              架构说明和技术决策文档\n├── release/           插件发布产物\n├── README.md          项目介绍和使用说明\n├── LICENSE            项目开源许可证\n├── PRIVACY.md         隐私政策 (Chrome 上架要求)\n├── AGENTS.md          AI 开发与项目协作规范\n└── 其他配置文件           ",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -1,0 +1,19 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-21T11:30:16.749Z",
+    "updatedAt": "2026-07-21T11:36:37.224Z"
+  },
+  "fileNote": {
+    "userNote": "content.js（总控制器）\n   ├── follow.js               滚动跟随\n   ├── jump.js                 跳转消息\n   ├── message.js              解析会话数据\n   ├── myPrompts.js            自定义 Prompt\n   ├── outline.js              回复标题大纲\n   ├── promptMark.js           标记 Prompt\n   ├── sidebarVisibility.js    侧栏显隐\n   ├── toggleButton.js         浮动开关\n   └── tooltip.js              悬浮提示\n",
+    "createdBy": "user",
+    "status": {
+      "content": "current",
+      "anchor": "orphaned"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
