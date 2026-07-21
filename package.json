@@ -1,0 +1,8 @@
+{
+  "name": "luna-toc",
+  "version": "1.6.3",
+  "private": true,
+  "scripts": {
+    "version": "node scripts/version.js"
+  }
+}

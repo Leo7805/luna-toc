@@ -93,6 +93,20 @@ LunaTOC provides a lightweight navigation layer that lets you:
 
 ---
 
+## Versioning
+
+The native npm version commands require a clean Git working tree, synchronize
+`package.json` and `manifest.json`, create a version commit, and tag that commit.
+They do not push the commit or tag.
+
+```bash
+npm version patch
+npm version minor
+npm version major
+```
+
+---
+
 ## Privacy
 
 LunaTOC runs entirely in your browser.
