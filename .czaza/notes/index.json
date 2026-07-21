@@ -1,18 +1,12 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-21T14:05:27.231Z",
+  "updatedAt": "2026-07-21T14:16:50.872Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
       "noteFile": "files/e3b0c44298fc-ef6794ab.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-21T13:27:28.559Z"
-    },
-    "content.js": {
-      "noteFile": "files/15c947723c16-72bdec3c.json",
-      "sourceHash": "sha256:c059316b5122332b165e36a9ee21a553865244dafb396c6cb9fd6c2bd5a579bf",
-      "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T13:37:11.000Z"
+      "updatedAt": "2026-07-21T14:16:50.872Z"
     },
     "release": {
       "noteFile": "files/a4d451ec2346-59fd6f24.json",
@@ -22,13 +16,13 @@
     "src": {
       "noteFile": "files/25a6634263c1-e0366a0a.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-21T11:22:11.261Z"
+      "updatedAt": "2026-07-21T14:15:24.046Z"
     },
     "src/app/navigatorController.js": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
       "sourceHash": "sha256:f570076157ba6d0594f319a32fecab87da7b70cabe6c83001c906754eff74184",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T14:05:27.231Z"
+      "updatedAt": "2026-07-21T14:12:29.263Z"
     },
     "src/app/applicationShell.js": {
       "noteFile": "files/828b26418229-088e14cb.json",
@@ -57,7 +51,13 @@
       "noteFile": "files/58c0d613b9e6-01ce1193.json",
       "sourceHash": "sha256:c300965730bbfbff83c79b27bfe7b24ce6cd2f644f68dcaf67eb8045c2840207",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T13:48:02.391Z"
+      "updatedAt": "2026-07-21T14:13:06.811Z"
+    },
+    "src/content.js": {
+      "noteFile": "files/15c947723c16-72bdec3c.json",
+      "sourceHash": "sha256:c059316b5122332b165e36a9ee21a553865244dafb396c6cb9fd6c2bd5a579bf",
+      "programmingLanguage": "javascript",
+      "updatedAt": "2026-07-21T14:12:54.154Z"
     }
   }
 }

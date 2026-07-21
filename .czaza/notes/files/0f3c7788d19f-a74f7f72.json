@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T13:16:33.200Z",
-    "updatedAt": "2026-07-21T14:05:27.231Z"
+    "updatedAt": "2026-07-21T14:12:29.263Z"
   },
   "fileNote": {
     "userNote": "包含会话数据、目录填充、跳转协调、路由迁移和高亮跟踪。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

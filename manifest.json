@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ChatGPT Table of Contents - LunaTOC",
   "short_name": "LunaTOC",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Add a table of contents, prompt navigator, and MyPrompts sidebar to long ChatGPT conversations.",
   "icons": {
     "16": "src/icons/icon16.png",
@@ -36,7 +36,7 @@
         "src/features/myPrompts.js",
         "src/app/navigatorController.js",
         "src/app/applicationShell.js",
-        "content.js"
+        "src/content.js"
       ],
       "css": ["src/styles/content.css"],
       "run_at": "document_start"

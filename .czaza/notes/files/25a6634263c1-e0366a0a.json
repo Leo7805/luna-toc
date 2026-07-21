@@ -4,10 +4,10 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T11:22:11.261Z",
-    "updatedAt": "2026-07-21T11:22:11.261Z"
+    "updatedAt": "2026-07-21T14:15:24.046Z"
   },
   "fileNote": {
-    "userNote": "集中存放插件的核心业务代码",
+    "userNote": "集中存放插件的核心业务代码\n\nsrc/\n├── app/          应用初始化、目录状态和模块协调逻辑\n├── features/     跳转、大纲、标记等独立功能模块\n├── icons/        Chrome 工具栏和扩展图标\n├── page/         注入 ChatGPT 主页面环境的 Hook 脚本\n├── popup/        插件弹出窗口的页面、样式和逻辑\n├── styles/       注入 ChatGPT 页面的侧栏与组件样式\n└── content.js    插件内容脚本的总入口 ❤️",
     "createdBy": "user"
   },
   "sectionNotes": {},

@@ -4,10 +4,10 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T10:46:17.827Z",
-    "updatedAt": "2026-07-21T13:27:28.559Z"
+    "updatedAt": "2026-07-21T14:16:50.872Z"
   },
   "fileNote": {
-    "userNote": "luna-toc/\n├── manifest.json      Chrome 插件的配置和资源清单\n├── content.js         插件内容脚本的总入口 ❤️\n├── src/               全部运行时代码和资源 🔥\n├── assets/            演示图片和其他静态资源\n├── docs/              架构说明和技术决策文档\n├── release/           插件发布产物\n├── README.md          项目介绍和使用说明\n├── LICENSE            项目开源许可证\n├── PRIVACY.md         隐私政策 (Chrome 上架要求)\n├── AGENTS.md          AI 开发与项目协作规范\n└── 项目元数据和配置",
+    "userNote": "luna-toc/\n├── assets/            演示图片和其他静态资源\n├── docs/              架构说明和技术决策文档\n├── release/           插件发布产物\n├── src/               全部运行时代码和资源 🔥\n├── manifest.json      Chrome 插件的配置和资源清单\n├── README.md          项目介绍和使用说明\n├── LICENSE            项目开源许可证\n├── PRIVACY.md         隐私政策 (Chrome 上架要求)\n├── AGENTS.md          AI 开发与项目协作规范\n└── 项目元数据和配置",
     "createdBy": "user"
   },
   "sectionNotes": {},

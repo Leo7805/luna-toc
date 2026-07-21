@@ -63,7 +63,7 @@ graph TD
   - [myPrompts.js](../src/features/myPrompts.js): Manages persistent custom prompt templates (CRUD modal dialogs, list rendering with sort selectors, and input autocomplete popup).
   - [navigatorController.js](../src/app/navigatorController.js): Owns conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
   - [applicationShell.js](../src/app/applicationShell.js): Creates the sidebar shell, manages view modes and shared UI, and initializes the feature modules.
-  - [content.js](../content.js): Minimal entry point that starts the application shell.
+  - [content.js](../src/content.js): Minimal entry point that starts the application shell.
 
 ---
 
