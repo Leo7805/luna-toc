@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-21T13:21:11.643Z",
+  "updatedAt": "2026-07-21T13:27:28.559Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
       "noteFile": "files/e3b0c44298fc-ef6794ab.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-21T11:28:45.412Z"
+      "updatedAt": "2026-07-21T13:27:28.559Z"
     },
     "pageHook.js": {
       "noteFile": "files/58c0d613b9e6-01ce1193.json",
