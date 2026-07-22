@@ -3,6 +3,8 @@
  * headings. This file intentionally keeps outline parsing separate from the
  * main content script UI code.
  */
+import { isPromptMarked } from './conversationPrompts/promptMark';
+
 (() => {
   const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
   const HEADING_HIGHLIGHT_CLASS = 'chat-toc-outline-heading-highlight';
@@ -185,7 +187,7 @@
     const messageId = promptMessageIds.get(index);
 
     return Boolean(
-      messageId && window.ChatTocPromptMark?.isMarked?.(messageId)
+      messageId && isPromptMarked(messageId)
     );
   }
 

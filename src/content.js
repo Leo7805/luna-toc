@@ -3,8 +3,6 @@
  */
 import './features/outline.js';
 import './features/follow.js';
-import './features/conversationPrompts/message.js';
-import './features/conversationPrompts/promptMark.js';
 import './features/jump.js';
 import './features/tooltip.js';
 import './features/toggleButton.js';

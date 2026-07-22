@@ -142,6 +142,11 @@ TypeScript and named imports/exports. `applicationShell.js` now imports the
 composed `myPrompts` API directly; unrelated feature globals remain until their
 own focused migrations.
 
+The second incremental migration converts conversation message normalization
+and prompt marking to TypeScript. `navigatorController.js` imports those APIs
+directly, while Outline imports the mark-state query and mark-change updates
+are injected as a callback to avoid a circular module dependency.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -151,4 +156,6 @@ own focused migrations.
 * `dist/` and `node_modules/` remain untracked generated directories.
 * Future JavaScript-to-TypeScript migration can proceed one module at a time.
 * My Prompts no longer publishes internal modules or its composed API on
+  `window`.
+* Conversation message and prompt-mark modules no longer publish APIs on
   `window`.

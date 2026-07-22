@@ -67,8 +67,8 @@ graph TD
 - **Source modules**:
   - [outline.js](../src/features/outline.js): Extracts header trees (`H1`-`H6`) from assistant answers and manages outline expands/collapses.
   - [follow.js](../src/features/follow.js): Manages scroll tracking on the chat feed and coordinates when the sidebar is allowed to auto-scroll.
-  - [message.js](../src/features/conversationPrompts/message.js): Parses ChatGPT's JSON payloads and normalizes user inputs/files/images into TOC labels.
-  - [promptMark.js](../src/features/conversationPrompts/promptMark.js): Handles session-scoped prompt marking (flag icon).
+  - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
+  - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
   - [jump.js](../src/features/jump.js): Controls smooth scrolling to messages, utilizing ChatGPT's native buttons (primary) or direct DOM `scrollIntoView` (fallback).
   - [tooltip.js](../src/features/tooltip.js): Shows full-text preview tooltips for truncated prompt lines.
   - [toggleButton.js](../src/features/toggleButton.js): Manages the floating circular toggle button and session-bound drag position.

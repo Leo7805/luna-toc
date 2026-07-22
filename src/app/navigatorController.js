@@ -2,6 +2,15 @@
  * Coordinates conversation data, TOC rendering, prompt navigation, and active
  * prompt tracking for the LunaTOC sidebar.
  */
+import {
+  createNavigatorMessage,
+  extractUserMessages,
+} from '../features/conversationPrompts/message';
+import {
+  createPromptMarkButton,
+  initializePromptMark,
+} from '../features/conversationPrompts/promptMark';
+
 (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
   const NATIVE_PROMPT_BUTTON_SELECTORS = [
@@ -205,7 +214,7 @@
     itemText.className = 'navigator-item-text';
     itemText.textContent = `${index + 1}. ${message.text.replace(/\s+/g, ' ')}`;
 
-    const markButton = window.ChatTocPromptMark.createButton({
+    const markButton = createPromptMarkButton({
       item,
       messageId: message.id,
     });
@@ -478,9 +487,7 @@
     if (conversationMessages.some((message) => message.id === newMessage.id)) {
       return false;
     }
-    conversationMessages.push(
-      window.ChatTocMessages.createNavigatorMessage(newMessage)
-    );
+    conversationMessages.push(createNavigatorMessage(newMessage));
     cacheConversationMessages(getCurrentConversationKey());
     return true;
   }
@@ -517,8 +524,9 @@
   }
 
   function initMarkedPrompts() {
-    window.ChatTocPromptMark.init({
+    initializePromptMark({
       conversationKey: getCurrentConversationKey(),
+      onMarkChanged: () => window.ChatTocOutline?.syncMarkState?.(),
     });
   }
 
@@ -594,7 +602,7 @@
     if (!data?.mapping) return;
 
     onTitleChanged();
-    conversationMessages = window.ChatTocMessages.extractUserMessages(data);
+    conversationMessages = extractUserMessages(data);
     cacheConversationMessages(getCurrentConversationKey());
     render({ refreshObservers: true });
   }
