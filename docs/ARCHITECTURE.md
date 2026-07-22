@@ -14,7 +14,10 @@ Because Chrome Extensions run content scripts in an **Isolated World** (preventi
 
 ```mermaid
 graph TD
-    subgraph isolatedWorld["Isolated World (Content Scripts)"]
+    manifest[manifest.json]
+    vite[Vite + CRXJS]
+
+    subgraph sourceModules["Source Modules"]
         content[content.js]
         outline[outline.js]
         follow[follow.js]
@@ -28,21 +31,30 @@ graph TD
         shell[applicationShell.js]
     end
 
+    subgraph isolatedWorld["Isolated World"]
+        contentBundle[dist content bundle]
+    end
+
     subgraph mainWorld["Main World (Page Context)"]
-        hook[pageHook.js]
+        hook[pageHook.iife.js]
         chatgpt[ChatGPT Application]
     end
 
+    manifest --> vite
+    content --> outline
+    content --> follow
+    content --> jump
     content --> shell
     shell --> navigator
-    shell -.->|DOM Injection| hook
+    vite --> contentBundle
+    vite --> hook
     hook ===>|window.postMessage| navigator
     chatgpt -.->|Fetch API / History API| hook
 ```
 
-### Main World (`pageHook.js`)
+### Main World (`pageHook.iife.js`)
 
-- **Purpose**: Injected directly into the ChatGPT page DOM. It intercepts ChatGPT's own native API calls and events.
+- **Purpose**: Declared as a `MAIN` world IIFE content script and injected by Chrome at `document_start`. It intercepts ChatGPT's own native API calls and events.
 - **Responsibilities**:
   1. **Fetch Hooking**: Overrides `window.fetch` to intercept chat history payloads (`/backend-api/conversation/*`) and SSE streamed responses (`/backend-api/f/conversation`), posting raw message data back to the Isolated World.
   2. **History Hooking**: Overrides `history.pushState` and `history.replaceState` to notify the content script of SPA route transitions.
@@ -50,8 +62,9 @@ graph TD
 
 ### Isolated World (Content Scripts)
 
-- **Purpose**: Declared in `manifest.json`. Runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global Javascript scope.
-- **Module Scripts (injected in sequence)**:
+- **Purpose**: `src/content.js` is declared in `manifest.json` and runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global JavaScript scope.
+- **Loading**: `src/content.js` imports the feature modules in dependency order. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
+- **Source modules**:
   - [outline.js](../src/features/outline.js): Extracts header trees (`H1`-`H6`) from assistant answers and manages outline expands/collapses.
   - [follow.js](../src/features/follow.js): Manages scroll tracking on the chat feed and coordinates when the sidebar is allowed to auto-scroll.
   - [message.js](../src/features/conversationPrompts/message.js): Parses ChatGPT's JSON payloads and normalizes user inputs/files/images into TOC labels.
@@ -66,7 +79,15 @@ graph TD
   - [myPrompts.js](../src/features/myPrompts/myPrompts.js): Composes the My Prompts modules and exposes their unified public API.
   - [navigatorController.js](../src/app/navigatorController.js): Owns conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
   - [applicationShell.js](../src/app/applicationShell.js): Creates the sidebar shell, manages view modes and shared UI, and initializes the feature modules.
-  - [content.js](../src/content.js): Minimal entry point that starts the application shell.
+  - [content.js](../src/content.js): Imports the isolated-world modules and starts the application shell.
+
+### Build Outputs
+
+- `manifest.json` is the source Manifest and authoritative extension version.
+- `vite.config.js` uses Vite and CRXJS to discover the Chrome extension entries.
+- `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
+- `dist/` is generated and ignored by Git; run `npm run build` before loading or packaging the extension.
+- TypeScript is configured with `allowJs` so source files can migrate from JavaScript incrementally.
 
 ---
 

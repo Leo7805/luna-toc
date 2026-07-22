@@ -1,0 +1,8 @@
+.prettierrc
+.DS_Store
+.vscode/
+
+release/
+icons/v*/
+node_modules/
+dist/

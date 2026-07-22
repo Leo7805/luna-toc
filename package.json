@@ -2,7 +2,17 @@
   "name": "luna-toc",
   "version": "1.7.3",
   "private": true,
+  "type": "module",
   "scripts": {
-    "version": "node scripts/version.js"
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "version": "node scripts/version.js && git add -- manifest.json"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.7.1",
+    "@types/chrome": "^0.2.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
   }
 }

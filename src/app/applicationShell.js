@@ -11,17 +11,6 @@
   let myPromptsRefreshQueued = false;
 
   /**
-   * Injects the page-context hook used to observe ChatGPT network and routing
-   * activity from outside the content script's isolated world.
-   */
-  function injectPageHook() {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('src/page/pageHook.js');
-    script.onload = () => script.remove();
-    document.documentElement.appendChild(script);
-  }
-
-  /**
    * Resolves when document.body exists during document_start execution.
    * @returns {Promise<HTMLElement>}
    */
@@ -484,8 +473,6 @@
       onSavePrompt: handleSavePrompt,
       onTitleChanged: setNavigatorTitle,
     });
-    injectPageHook();
-
     const sidebar = await createSidebar();
     initSidebarResize(sidebar);
     initJumpControlsPositioning();

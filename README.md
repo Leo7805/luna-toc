@@ -40,15 +40,22 @@ LunaTOC helps you navigate long conversations by automatically turning your prom
 ### Option 1: Load Unpacked (Developer Mode)
 
 1. Download or clone this repository.
-2. Open Chrome and navigate to:
+2. Install dependencies and build the extension:
+
+   ```bash
+   npm install
+   npm run build
+   ```
+
+3. Open Chrome and navigate to:
 
    ```text
    chrome://extensions
    ```
 
-3. Enable **Developer Mode**.
-4. Click **Load unpacked**.
-5. Select the LunaTOC folder.
+4. Enable **Developer Mode**.
+5. Click **Load unpacked**.
+6. Select the generated `luna-toc/dist` directory.
 
 ---
 
@@ -85,11 +92,34 @@ LunaTOC provides a lightweight navigation layer that lets you:
 ## Tech Stack
 
 - JavaScript
+- ES Modules
+- TypeScript-ready configuration
+- Vite and CRXJS
 - Chrome Extension (Manifest V3)
 - DOM Manipulation
 - MutationObserver
 - Fetch Hooking
 - Server-Sent Events (SSE)
+
+---
+
+## Development
+
+Start the Vite development process:
+
+```bash
+npm run dev
+```
+
+Create a production extension in `dist/`:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+The root `manifest.json` is the source Manifest. Chrome loads the generated
+`dist/` directory.
 
 ---
 

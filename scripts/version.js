@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const projectRoot = path.resolve(__dirname, '..');
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(scriptDirectory, '..');
 const packagePath = path.join(projectRoot, 'package.json');
 const manifestPath = path.join(projectRoot, 'manifest.json');
 

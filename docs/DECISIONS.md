@@ -113,3 +113,34 @@ separate so temporary `WEB:` routes retain newly submitted prompts.
 * Revisiting a conversation in the same tab restores its TOC immediately.
 * Only compact user-prompt navigation data is cached; assistant responses are not.
 * The cache is discarded on page refresh or tab close and is never persisted.
+
+---
+
+## ADR 06: Vite-Based Extension Build
+* **Date**: 2026-07-22
+
+### Context
+The source was split into focused JavaScript files, but Manifest-declared
+classic scripts depended on global `window.ChatToc...` APIs and an implicit
+loading order. The growing script array made dependencies difficult to trace
+and made later TypeScript adoption unnecessarily expensive.
+
+### Decision
+Use Vite with CRXJS to build the extension. Keep `src/content.js` as the single
+Isolated World source entry, and declare `src/page/pageHook.iife.js` as a
+separate `MAIN` world entry at `document_start`. Keep the root `manifest.json`
+as the source Manifest and version authority; load the generated `dist/`
+directory in Chrome.
+
+Configure TypeScript with `allowJs` so modules can migrate incrementally. The
+initial build migration preserves the existing internal global APIs; explicit
+named imports and exports are a separate refactor.
+
+### Consequences
+* Feature source files no longer need individual entries in `manifest.json`.
+* The page hook is injected directly by Chrome instead of through a DOM script
+  element created by the application shell.
+* Development and release installation require `npm run build` and loading
+  `dist/` in Chrome.
+* `dist/` and `node_modules/` remain untracked generated directories.
+* Future JavaScript-to-TypeScript migration can proceed one module at a time.

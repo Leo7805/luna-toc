@@ -68,6 +68,8 @@ After implementation:
 1. Describe how the feature can be tested manually.
 2. Mention edge cases when relevant.
 3. Do not claim something is tested unless it was actually tested.
+4. Run `npm run typecheck` and `npm run build` for source changes when relevant.
+5. Load the generated `dist/` directory, not the repository root, for Chrome testing.
 
 ## Maintainability
 

@@ -23,31 +23,16 @@
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": [
-        "src/features/outline.js",
-        "src/features/follow.js",
-        "src/features/conversationPrompts/message.js",
-        "src/features/conversationPrompts/promptMark.js",
-        "src/features/jump.js",
-        "src/features/tooltip.js",
-        "src/features/toggleButton.js",
-        "src/features/sidebarVisibility.js",
-        "src/features/myPrompts/promptStore.js",
-        "src/features/myPrompts/promptLibrary.js",
-        "src/features/myPrompts/promptAutocomplete.js",
-        "src/features/myPrompts/myPrompts.js",
-        "src/app/navigatorController.js",
-        "src/app/applicationShell.js",
-        "src/content.js"
-      ],
-      "css": ["src/styles/content.css"],
-      "run_at": "document_start"
-    }
-  ],
-  "web_accessible_resources": [
+      "js": ["src/page/pageHook.iife.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
-      "resources": ["src/page/pageHook.js"],
-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"]
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/content.js"],
+      "css": ["src/styles/content.css"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
     }
   ]
 }
