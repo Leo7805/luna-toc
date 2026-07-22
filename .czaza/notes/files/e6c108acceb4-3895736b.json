@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:c1db4ede6f293dfc291d737d7bffd45fcdb5ddb8769bf6bb9ba1a35d1c5454cc",
+    "sourceHash": "sha256:9d13ddd5b8bc436927bec6a742bdca7d9ee0c72a74665ba9eb30118546dda970",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-22T11:41:58.504Z",
-    "updatedAt": "2026-07-22T11:41:58.504Z"
+    "updatedAt": "2026-07-22T12:53:30.963Z"
   },
   "fileNote": {
     "userNote": "继续负责读取、创建、更新和保存 Prompt。",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

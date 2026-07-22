@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:b7f8bc2fc57b637887777bf49e827834337a70f33c16581c0bf23ce9dde5fa88",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T12:56:35.264Z",
+    "updatedAt": "2026-07-22T12:56:35.264Z"
+  },
+  "fileNote": {
+    "userNote": "记录 prompt 使用次数和最后使用时间",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

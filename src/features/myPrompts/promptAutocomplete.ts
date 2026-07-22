@@ -4,8 +4,8 @@
  */
 import type { SavedPrompt } from './promptStore';
 import { promptAutocompleteViewController } from './promptAutocompleteView';
+import type { PromptUsageMap } from './promptUsageStore';
 
-type SortMode = 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
 type PromptComposer = HTMLTextAreaElement | HTMLElement;
 
 interface AutocompleteContext {
@@ -18,8 +18,8 @@ interface AutocompleteContext {
 
 interface PromptAutocompleteDependencies {
   getMyPrompts: () => Promise<SavedPrompt[]>;
-  sortMyPrompts: (prompts: SavedPrompt[], sortMode: SortMode) => SavedPrompt[];
-  getActiveSort: () => SortMode;
+  getPromptUsage: () => Promise<PromptUsageMap>;
+  recordPromptUse: (promptId: string) => Promise<void>;
 }
 
 let selectedMenuIndex = 0;
@@ -28,11 +28,9 @@ let currentTextarea: PromptComposer | null = null;
 let currentAutocompleteContext: AutocompleteContext | null = null;
 let isProgrammaticInsert = false;
 let getMyPrompts: () => Promise<SavedPrompt[]> = async () => [];
-let sortMyPrompts: (
-  prompts: SavedPrompt[],
-  sortMode: SortMode
-) => SavedPrompt[] = (prompts) => prompts;
-let getActiveSort: () => SortMode = () => 'updated_desc';
+let getPromptUsage: () => Promise<PromptUsageMap> = async () => ({});
+let recordPromptUse: (promptId: string) => Promise<void> = async () => {};
+let autocompleteRequestVersion = 0;
 const autocompleteTriggerPattern =
   /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/;
 
@@ -40,16 +38,15 @@ const autocompleteTriggerPattern =
  * Connects autocomplete to the prompt library.
  * @param {Object} dependencies
  * @param {() => Promise<Array>} dependencies.getMyPrompts
- * @param {(prompts: Array, sortMode: string) => Array}
- *     dependencies.sortMyPrompts
- * @param {() => string} dependencies.getActiveSort
+ * @param {() => Promise<Object>} dependencies.getPromptUsage
+ * @param {(promptId: string) => Promise<void>} dependencies.recordPromptUse
  */
 export function initializePromptAutocomplete(
   dependencies: PromptAutocompleteDependencies
 ): void {
   getMyPrompts = dependencies.getMyPrompts;
-  sortMyPrompts = dependencies.sortMyPrompts;
-  getActiveSort = dependencies.getActiveSort;
+  getPromptUsage = dependencies.getPromptUsage;
+  recordPromptUse = dependencies.recordPromptUse;
 }
 
 /**
@@ -161,23 +158,80 @@ function placeCursorAtEnd(element: HTMLElement): void {
  * @param {HTMLElement} textarea
  */
 async function handleTextareaInput(textarea: PromptComposer): Promise<void> {
+  const requestVersion = ++autocompleteRequestVersion;
   const context = getAutocompleteContext(textarea);
-  const prompts = sortMyPrompts(await getMyPrompts(), getActiveSort());
-  let matches: SavedPrompt[] = [];
-
-  if (context) {
-    matches = prompts.filter(
-      (prompt) =>
-        prompt.title.toLowerCase().startsWith(context.query) ||
-        prompt.content.toLowerCase().startsWith(context.query)
-    );
+  if (!context) {
+    closeAutocompleteMenu();
+    return;
   }
 
-  if (context && matches.length > 0) {
+  const [prompts, usage] = await Promise.all([
+    getMyPrompts(),
+    getPromptUsage(),
+  ]);
+  if (requestVersion !== autocompleteRequestVersion) return;
+
+  const matches = getRankedAutocompletePrompts(prompts, usage, context.query);
+  if (matches.length > 0) {
     showAutocompleteMenu(textarea, matches, context);
   } else {
     closeAutocompleteMenu();
   }
+}
+
+/**
+ * Filters by title and ranks equal matches by usage and title.
+ */
+function getRankedAutocompletePrompts(
+  prompts: SavedPrompt[],
+  usage: PromptUsageMap,
+  query: string
+): SavedPrompt[] {
+  const normalizedQuery = query.toLocaleLowerCase();
+
+  return prompts
+    .map((prompt) => ({
+      prompt,
+      matchRank: getTitleMatchRank(prompt.title, normalizedQuery),
+    }))
+    .filter(
+      (candidate): candidate is { prompt: SavedPrompt; matchRank: number } =>
+        candidate.matchRank !== null
+    )
+    .sort((left, right) => {
+      if (left.matchRank !== right.matchRank) {
+        return left.matchRank - right.matchRank;
+      }
+
+      const leftUsage = usage[left.prompt.id];
+      const rightUsage = usage[right.prompt.id];
+      const countDifference =
+        (rightUsage?.usageCount ?? 0) - (leftUsage?.usageCount ?? 0);
+      if (countDifference !== 0) return countDifference;
+
+      const recencyDifference =
+        (rightUsage?.lastUsedAt ?? 0) - (leftUsage?.lastUsedAt ?? 0);
+      if (recencyDifference !== 0) return recencyDifference;
+
+      return left.prompt.title.localeCompare(right.prompt.title, undefined, {
+        sensitivity: 'base',
+      });
+    })
+    .map(({ prompt }) => prompt);
+}
+
+/**
+ * Ranks exact, word-prefix, and substring title matches in that order.
+ */
+function getTitleMatchRank(title: string, query: string): number | null {
+  if (!query) return 0;
+
+  const normalizedTitle = title.toLocaleLowerCase();
+  if (normalizedTitle === query) return 0;
+
+  const words = normalizedTitle.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (words.some((word) => word.startsWith(query))) return 1;
+  return normalizedTitle.includes(query) ? 2 : null;
 }
 
 /**
@@ -416,6 +470,7 @@ function selectAutocompleteItem(prompt: SavedPrompt): void {
       }
     }
   } finally {
+    void recordPromptUse(prompt.id).catch(() => undefined);
     closeAutocompleteMenu();
     isProgrammaticInsert = false;
   }
@@ -456,6 +511,7 @@ function handleTextareaKeydown(event: KeyboardEvent): void {
  * Closes and resets the autocomplete menu.
  */
 function closeAutocompleteMenu(): void {
+  autocompleteRequestVersion += 1;
   promptAutocompleteViewController.close();
   filteredPromptsForMenu = [];
   currentAutocompleteContext = null;

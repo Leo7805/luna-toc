@@ -73,6 +73,7 @@ Native prompt buttons remain the only reliable way to navigate virtualized file/
 
 ## ADR 04: Persistent Prompts Manager ("My Prompts") and Autocompleter
 * **Date**: 2026-06-19
+* **Updated**: 2026-07-22
 
 ### Context
 Users need a way to persistently save custom prompt templates (surviving browser restarts and tab closures), manage them inside the sidebar, quickly add existing prompts to their personal collection, and easily autocomplete/reuse them inside ChatGPT's text input box.
@@ -82,15 +83,23 @@ Users need a way to persistently save custom prompt templates (surviving browser
 2. **Sorting & Filtering**: Provide 4 sorting filters (Alphabetical A-Z/Z-A, Update Time Asc/Desc) inside the My Prompts view.
 3. **Right-Click Quick Add**: Intercept `contextmenu` events on the TOC list item and directly open the Create Custom Prompt modal pre-filled with the prompt's content, avoiding UI clutter from redundant hover buttons.
 4. **Autocomplete Overlay**: Listen to the `input` event on ChatGPT's `#prompt-textarea`. Trigger autocomplete overlays on a slash command (`//` or `#`) or when matching prompt titles, and insert contents using `document.execCommand('insertText')` to integrate with React's state management.
+5. **Autocomplete Ranking**: Match query text anywhere in prompt titles. Rank
+   exact and word-prefix matches first, then usage count, last-used time, and
+   title. With an empty query, rank by usage count, last-used time, and title.
+   Store usage metadata separately from prompt content.
 
 ### Rationale
 * Autocomplete increases text insertion speed and fits current typing workflows.
 * Right-click straight to the creation modal reduces UI clutter in the sidebar.
 * Storing prompts in `chrome.storage.local` matches the expectation of a permanent user-defined database, unlike session-bound states.
+* Usage-aware ordering surfaces frequently selected prompts without allowing a
+  weaker title match to outrank a stronger one.
 
 ### Consequences
 * `"storage"` permission was restored in `manifest.json`.
 * New file `myPrompts.js` was introduced to isolate prompts management and keep content.js focused on TOC layout.
+* Usage metadata is local-only, is not included in prompt exports, and is
+  removed on a best-effort basis when its prompt is deleted.
 
 ---
 
@@ -234,3 +243,5 @@ interface is migrated behind that React boundary.
 * The My Prompts composer suggestion menu is rendered by React inside the same
   Shadow Root. Trigger parsing, caret positioning data, keyboard handling, and
   prompt insertion remain in `promptAutocomplete.ts`.
+* Autocomplete rows show titles only for faster scanning; prompt content is
+  available through the native hover title.

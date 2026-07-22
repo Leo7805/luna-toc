@@ -7,6 +7,7 @@ import type {
   PromptStore,
   SavedPrompt,
 } from './promptStore';
+import type { PromptUsageStore } from './promptUsageStore';
 import {
   promptEditorController,
   type PromptEditorValues,
@@ -19,6 +20,7 @@ type VoidCallback = () => void;
 
 interface PromptLibraryDependencies {
   promptsStore: PromptStore;
+  promptUsageStore: PromptUsageStore;
   insertIntoChatGPTInput: (text: string) => void;
 }
 
@@ -44,18 +46,21 @@ function getRequiredElement<T extends Element>(
 let activeSort: SortMode = 'updated_desc';
 let renderVersion = 0;
 let promptsStore: PromptStore | null = null;
+let promptUsageStore: PromptUsageStore | null = null;
 let insertIntoChatGPTInput: (text: string) => void = () => {};
 
 /**
  * Connects the prompt library to its storage and input dependencies.
  * @param {Object} dependencies
  * @param {Object} dependencies.promptsStore
+ * @param {Object} dependencies.promptUsageStore
  * @param {(text: string) => void} dependencies.insertIntoChatGPTInput
  */
 export function initializePromptLibrary(
   dependencies: PromptLibraryDependencies
 ): void {
   promptsStore = dependencies.promptsStore;
+  promptUsageStore = dependencies.promptUsageStore;
   insertIntoChatGPTInput = dependencies.insertIntoChatGPTInput;
 }
 
@@ -90,6 +95,13 @@ function requirePromptStore(): PromptStore {
     throw new Error('Prompt library has not been initialized');
   }
   return promptsStore;
+}
+
+function requirePromptUsageStore(): PromptUsageStore {
+  if (!promptUsageStore) {
+    throw new Error('Prompt usage store has not been initialized');
+  }
+  return promptUsageStore;
 }
 
 /**
@@ -645,6 +657,7 @@ export async function renderMyPrompts(
           const prompts = await getMyPrompts();
           const filtered = prompts.filter((p) => p.id !== item.id);
           await saveMyPrompts(filtered);
+          void requirePromptUsageStore().remove(item.id).catch(() => undefined);
           onRefresh();
         } catch (error) {
           await showPromptModal({

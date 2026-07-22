@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T12:36:11.484Z",
+  "updatedAt": "2026-07-22T12:56:35.264Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -120,15 +120,33 @@
     },
     "src/features/myPrompts/promptLibrary.ts": {
       "noteFile": "files/e6c108acceb4-3895736b.json",
-      "sourceHash": "sha256:c1db4ede6f293dfc291d737d7bffd45fcdb5ddb8769bf6bb9ba1a35d1c5454cc",
+      "sourceHash": "sha256:9d13ddd5b8bc436927bec6a742bdca7d9ee0c72a74665ba9eb30118546dda970",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T11:41:58.504Z"
+      "updatedAt": "2026-07-22T12:53:30.963Z"
     },
     "src/features/myPrompts/promptAutocomplete.ts": {
       "noteFile": "files/ae96953807c0-216dbed1.json",
-      "sourceHash": "sha256:f8f93c2047621e551dc820df2777facf903c143651759eac4f02c392f4b6e3e6",
+      "sourceHash": "sha256:281c1d9fc6ad151140911df8268ef39c298296e40d1e5cf4b307ed126f4bd142",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T12:29:11.397Z"
+      "updatedAt": "2026-07-22T12:53:30.256Z"
+    },
+    "src/features/myPrompts/promptAutocompleteView.ts": {
+      "noteFile": "files/613dfd5012b2-89ceb3d7.json",
+      "sourceHash": "sha256:2626c205811c55102aeccdbd8636f38d08b139eb785e8c427d842292f0e6d0b3",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T12:44:32.357Z"
+    },
+    "src/components/my-prompts/PromptAutocomplete.tsx": {
+      "noteFile": "files/055a5ea96141-ead01416.json",
+      "sourceHash": "sha256:4ff698f02ffe7769c55cdb4113350f0eecc0ccf0c8b35bfe8098368c976fffe6",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-22T12:52:56.432Z"
+    },
+    "src/features/myPrompts/promptUsageStore.ts": {
+      "noteFile": "files/467078f42907-e57968c4.json",
+      "sourceHash": "sha256:b7f8bc2fc57b637887777bf49e827834337a70f33c16581c0bf23ce9dde5fa88",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T12:56:35.264Z"
     }
   }
 }

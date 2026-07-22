@@ -46,7 +46,12 @@ function PromptAutocompleteMenu({
       state.position.anchorBottom + MENU_GAP,
       state.position.viewportHeight - menuHeight - MENU_GAP
     );
-    setTop(Math.max(MENU_GAP, preferredTop >= MENU_GAP ? preferredTop : fallbackTop));
+    setTop(
+      Math.max(
+        MENU_GAP,
+        preferredTop >= MENU_GAP ? preferredTop : fallbackTop
+      )
+    );
   }, [state.position]);
 
   useLayoutEffect(() => {
@@ -78,17 +83,15 @@ function PromptAutocompleteMenu({
             }}
             role="option"
             aria-selected={isSelected}
-            className={`cursor-pointer border-b border-[var(--ct-border-autocomplete-item)] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[var(--ct-bg-item-hover)] ${
+            title={prompt.content}
+            className={`cursor-pointer border-b border-[var(--ct-border-autocomplete-item)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--ct-bg-item-hover)] ${
               isSelected ? 'bg-[var(--ct-bg-item-hover)]' : ''
             }`}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => promptAutocompleteViewController.select(index)}
           >
-            <div className="mb-0.5 text-[13px] font-semibold text-[var(--ct-text-autocomplete-title)]">
+            <div className="truncate text-[13px] font-semibold text-[var(--ct-text-autocomplete-title)]">
               {prompt.title}
-            </div>
-            <div className="truncate text-[11px] text-[var(--ct-text-autocomplete-preview)]">
-              {prompt.content}
             </div>
           </div>
         );
