@@ -228,3 +228,6 @@ interface is migrated behind that React boundary.
   container provided by the React host instead of `document.body`.
 * Existing relative imports can remain; new modules may use the project-wide
   `@/` alias.
+* The My Prompts create/edit dialog is the first migrated React interface. Its
+  controller bridges the legacy `showDialog()` API to React, while prompt
+  persistence remains in `promptLibrary.ts`.

@@ -7,7 +7,12 @@ import type {
   PromptStore,
   SavedPrompt,
 } from './promptStore';
-import { previewTooltip } from '../tooltip';
+import {
+  promptEditorController,
+  type PromptEditorValues,
+} from './promptEditor';
+
+import { previewTooltip } from '@/features/tooltip';
 
 type SortMode = 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
 type VoidCallback = () => void;
@@ -485,114 +490,49 @@ export function showDialog(
   item: Partial<SavedPrompt> | null = null,
   onSave: VoidCallback = () => {}
 ): void {
-  let modal = document.getElementById('chat-toc-myprompt-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'chat-toc-myprompt-modal';
-    modal.className = 'myprompt-modal-overlay';
-    document.body.appendChild(modal);
-  }
-
-  const isNew = !item || !item.id;
-  const titleText = item?.title ?? '';
-  const contentText = item?.content ?? '';
-
-  modal.innerHTML = `
-    <div class="myprompt-modal-content">
-      <h3 class="myprompt-modal-title">${
-        isNew ? 'Create Custom Prompt' : 'Edit Custom Prompt'
-      }</h3>
-      <form id="myprompt-modal-form">
-        <div class="myprompt-modal-field">
-          <label for="myprompt-form-title">Title</label>
-          <input type="text" id="myprompt-form-title" placeholder="e.g. Code Review Helper" value="${escapeHtml(
-            titleText
-          )}" required />
-        </div>
-        <div class="myprompt-modal-field">
-          <label for="myprompt-form-content">Prompt Content</label>
-          <textarea id="myprompt-form-content" placeholder="Type or paste your prompt content here..." required>${escapeHtml(
-            contentText
-          )}</textarea>
-        </div>
-        <div class="myprompt-modal-actions">
-          <button type="button" id="myprompt-form-cancel" class="myprompt-btn myprompt-btn-secondary">Cancel</button>
-          <button type="submit" id="myprompt-form-submit" class="myprompt-btn myprompt-btn-primary">Save</button>
-        </div>
-      </form>
-    </div>
-  `;
-
-  modal.style.display = 'flex';
-  const form = getRequiredElement<HTMLFormElement>(
-    modal,
-    '#myprompt-modal-form'
-  );
-  const cancelBtn = getRequiredElement<HTMLButtonElement>(
-    modal,
-    '#myprompt-form-cancel'
-  );
-  const titleInput = getRequiredElement<HTMLInputElement>(
-    modal,
-    '#myprompt-form-title'
-  );
-  const contentInput = getRequiredElement<HTMLTextAreaElement>(
-    modal,
-    '#myprompt-form-content'
-  );
-
-  // Focus the title input field
-  titleInput.focus();
-
-  const closeModal = () => {
-    modal.style.display = 'none';
-  };
-
-  cancelBtn.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      closeModal();
-    }
+  promptEditorController.open(item, async (values) => {
+    await savePromptEditorValues(item, values);
+    onSave();
   });
+}
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const title = titleInput.value.trim();
-    const content = contentInput.value.trim();
+/**
+ * Applies values from the React editor to the existing prompt collection.
+ */
+async function savePromptEditorValues(
+  item: Partial<SavedPrompt> | null,
+  { title, content }: PromptEditorValues
+): Promise<void> {
+  try {
+    const prompts = await getMyPrompts();
+    const isNew = !item?.id;
 
-    if (!title || !content) return;
-
-    try {
-      const prompts = await getMyPrompts();
-      if (isNew) {
-        const now = Date.now();
-        const newPrompt: SavedPrompt = {
-          id: 'prompt-' + now,
-          title,
-          content,
-          createdAt: now,
-          updatedAt: now,
-        };
-        prompts.push(newPrompt);
-      } else {
-        const index = prompts.findIndex((p) => p.id === item.id);
-        if (index !== -1) {
-          prompts[index].title = title;
-          prompts[index].content = content;
-          prompts[index].updatedAt = Date.now();
-        }
-      }
-
-      await saveMyPrompts(prompts);
-      closeModal();
-      onSave();
-    } catch (error) {
-      await showPromptModal({
-        title: 'Save Prompt',
-        message: 'Unable to save this prompt.',
+    if (isNew) {
+      const now = Date.now();
+      prompts.push({
+        id: `prompt-${now}`,
+        title,
+        content,
+        createdAt: now,
+        updatedAt: now,
       });
+    } else {
+      const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
+      if (existingPrompt) {
+        existingPrompt.title = title;
+        existingPrompt.content = content;
+        existingPrompt.updatedAt = Date.now();
+      }
     }
-  });
+
+    await saveMyPrompts(prompts);
+  } catch (error) {
+    await showPromptModal({
+      title: 'Save Prompt',
+      message: 'Unable to save this prompt.',
+    });
+    throw error;
+  }
 }
 
 /**

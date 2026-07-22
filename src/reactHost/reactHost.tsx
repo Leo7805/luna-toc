@@ -3,6 +3,8 @@
  * Tailwind styles, and portal content from the host page.
  */
 import { createRoot } from 'react-dom/client';
+
+import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
 import tailwindCss from '@/styles/tailwind.css?inline';
 
 const REACT_HOST_ID = 'luna-toc-react-host';
@@ -43,7 +45,7 @@ export async function initializeReactHost(): Promise<void> {
   shadowRoot.append(style, reactContainer, portalContainer);
   document.body.append(host);
 
-  createRoot(reactContainer).render(null);
+  createRoot(reactContainer).render(<PromptEditorDialogHost />);
 }
 
 /**

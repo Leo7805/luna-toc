@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:80095e01baac092ba00a58f6cde05778c719343e22197b398f40c3f344e8a5e1",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T11:40:39.498Z",
+    "updatedAt": "2026-07-22T11:43:20.264Z"
+  },
+  "fileNote": {
+    "userNote": "连接传统 TypeScript 逻辑与 React 弹窗，不包含具体界面。\n\n旧侧边栏点击新增或编辑\n        ↓\npromptLibrary.showDialog()\n        ↓\npromptEditor 打开 React 弹窗\n        ↓\nPromptEditorDialog.tsx\n        ↓\n提交标题和内容\n        ↓\npromptLibrary 保存到 promptStore\n        ↓\n关闭弹窗并刷新旧列表",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

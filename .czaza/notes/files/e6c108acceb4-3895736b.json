@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:c1db4ede6f293dfc291d737d7bffd45fcdb5ddb8769bf6bb9ba1a35d1c5454cc",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T11:41:58.504Z",
+    "updatedAt": "2026-07-22T11:41:58.504Z"
+  },
+  "fileNote": {
+    "userNote": "继续负责读取、创建、更新和保存 Prompt。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

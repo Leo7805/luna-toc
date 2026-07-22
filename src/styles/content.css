@@ -994,47 +994,6 @@ html[data-theme='light'] {
   white-space: pre-wrap;
 }
 
-.myprompt-modal-field {
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.myprompt-modal-field label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.myprompt-modal-field input,
-.myprompt-modal-field textarea {
-  background: var(--ct-bg-modal-input);
-  border: 1px solid var(--ct-border-modal);
-  border-radius: 6px;
-  color: var(--ct-text-modal-input);
-  padding: 8px 12px;
-  font-size: 14px;
-  outline: none;
-  font-family: inherit;
-  transition:
-    border-color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.myprompt-modal-field textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-.myprompt-modal-field input:focus,
-.myprompt-modal-field textarea:focus {
-  border-color: var(--ct-accent);
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
-}
-
 .myprompt-modal-actions {
   display: flex;
   justify-content: flex-end;
