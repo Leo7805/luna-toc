@@ -32,6 +32,7 @@ import {
   syncActivePrompt,
   syncMarkState,
 } from '../features/outline';
+import { previewTooltip } from '../features/tooltip';
 
 (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
@@ -139,7 +140,7 @@ import {
    */
   function resetView() {
     searchQuery = '';
-    window.ChatTocPreviewTooltip.hide();
+    previewTooltip.hide();
     collapseAll();
     render({ refreshObservers: true });
 
@@ -263,7 +264,7 @@ import {
     item.addEventListener('click', (event) => {
       handleNavigatorItemClick(message, index);
       if (isTextTruncated(itemText) && item.matches(':hover')) {
-        window.ChatTocPreviewTooltip.show(message.text, event, itemMain);
+        previewTooltip.show(message.text, event, itemMain);
       }
     });
     item.addEventListener('contextmenu', (event) => {
@@ -272,11 +273,11 @@ import {
     });
     item.addEventListener('mouseenter', (event) => {
       if (isTextTruncated(itemText)) {
-        window.ChatTocPreviewTooltip.show(message.text, event, itemMain);
+        previewTooltip.show(message.text, event, itemMain);
       }
     });
     item.addEventListener('mouseleave', () => {
-      window.ChatTocPreviewTooltip.hide();
+      previewTooltip.hide();
     });
 
     return item;
@@ -288,7 +289,7 @@ import {
    * @param {number} index
    */
   function handleNavigatorItemClick(message, index) {
-    window.ChatTocPreviewTooltip.hide();
+    previewTooltip.hide();
     const outlineAction = handlePromptNavigation(index, activeNavigatorIndex);
 
     jumpToMessage(message, index);
@@ -571,7 +572,7 @@ import {
     resetOutline();
     navigatorItems = [];
     searchQuery = '';
-    window.ChatTocPreviewTooltip?.hide?.();
+    previewTooltip.hide();
     onRouteChanged();
     render({ refreshObservers: true });
   }

@@ -152,6 +152,10 @@ TypeScript. `navigatorController.js` imports their named APIs directly, and the
 navigation dependency chain is explicit: Outline depends on Jump, and Jump
 depends on Follow.
 
+The fourth incremental migration converts Tooltip, Toggle Button, and Sidebar
+Visibility to TypeScript. The application shell and tooltip consumers import
+their named APIs directly instead of reading UI helpers from `window`.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -166,3 +170,5 @@ depends on Follow.
   `window`.
 * Follow, Jump, and Outline no longer publish APIs on `window` or depend on
   source-script loading order.
+* Tooltip, Toggle Button, and Sidebar Visibility no longer publish APIs on
+  `window` or require side-effect imports from `content.js`.

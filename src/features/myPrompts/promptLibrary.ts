@@ -7,6 +7,7 @@ import type {
   PromptStore,
   SavedPrompt,
 } from './promptStore';
+import { previewTooltip } from '../tooltip';
 
 type SortMode = 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
 type VoidCallback = () => void;
@@ -33,24 +34,6 @@ function getRequiredElement<T extends Element>(
     throw new Error(`Required My Prompts element not found: ${selector}`);
   }
   return element;
-}
-
-declare global {
-  interface Window {
-    ChatTocPreviewTooltip: {
-      hide(): void;
-      show(
-        content:
-          | string
-          | {
-              title: string;
-              content: string;
-            },
-        event: MouseEvent,
-        anchor?: HTMLElement
-      ): void;
-    };
-  }
 }
 
 let activeSort: SortMode = 'updated_desc';
@@ -693,7 +676,7 @@ export async function renderMyPrompts(
     `;
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      window.ChatTocPreviewTooltip.hide();
+      previewTooltip.hide();
       showDialog(item, onRefresh);
     });
 
@@ -709,7 +692,7 @@ export async function renderMyPrompts(
     `;
     deleteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      window.ChatTocPreviewTooltip.hide();
+      previewTooltip.hide();
       const shouldDelete = await showPromptModal({
         title: 'Delete Prompt',
         message: `Are you sure you want to delete "${item.title}"?`,
@@ -740,12 +723,12 @@ export async function renderMyPrompts(
     row.appendChild(rowMain);
 
     row.addEventListener('click', () => {
-      window.ChatTocPreviewTooltip.hide();
+      previewTooltip.hide();
       insertIntoChatGPTInput(item.content);
     });
 
     row.addEventListener('mouseenter', (event) => {
-      window.ChatTocPreviewTooltip.show(
+      previewTooltip.show(
         {
           title: item.title,
           content: item.content,
@@ -756,7 +739,7 @@ export async function renderMyPrompts(
     });
 
     row.addEventListener('mouseleave', () => {
-      window.ChatTocPreviewTooltip.hide();
+      previewTooltip.hide();
     });
 
     listContainer.appendChild(row);

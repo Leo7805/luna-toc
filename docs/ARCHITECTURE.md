@@ -24,9 +24,9 @@ graph TD
         jump[jump.ts]
         msg[message.ts]
         mark[promptMark.ts]
-        vis[sidebarVisibility.js]
-        btn[toggleButton.js]
-        tip[tooltip.js]
+        vis[sidebarVisibility.ts]
+        btn[toggleButton.ts]
+        tip[tooltip.ts]
         navigator[navigatorController.js]
         shell[applicationShell.js]
     end
@@ -43,6 +43,9 @@ graph TD
     manifest --> vite
     content --> shell
     shell --> navigator
+    shell --> vis
+    shell --> btn
+    shell --> tip
     navigator --> outline
     navigator --> jump
     navigator --> follow
@@ -72,9 +75,9 @@ graph TD
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
   - [jump.ts](../src/features/jump.ts): Provides typed prompt navigation using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
-  - [tooltip.js](../src/features/tooltip.js): Shows full-text preview tooltips for truncated prompt lines.
-  - [toggleButton.js](../src/features/toggleButton.js): Manages the floating circular toggle button and session-bound drag position.
-  - [sidebarVisibility.js](../src/features/sidebarVisibility.js): Manages sidebar showing, auto-hiding, pinning, and inert accessibility state.
+  - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
+  - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
+  - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.
   - [promptStore.ts](../src/features/myPrompts/promptStore.ts): Defines the saved-prompt model and provides typed persistence, caching, and change notifications.
   - [promptLibrary.ts](../src/features/myPrompts/promptLibrary.ts): Manages the saved prompt list, dialogs, CRUD operations, sorting, import, and export through named exports.
   - [promptAutocomplete.ts](../src/features/myPrompts/promptAutocomplete.ts): Manages composer matching, autocomplete UI, keyboard navigation, and prompt insertion through named exports.

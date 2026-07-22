@@ -2,10 +2,12 @@
  * Builds the LunaTOC sidebar shell and coordinates application-level features.
  */
 import { myPrompts } from '../features/myPrompts/myPrompts';
+import { initializeSidebarVisibility } from '../features/sidebarVisibility';
+import { createToggleButton } from '../features/toggleButton';
+import { buttonTooltip, previewTooltip } from '../features/tooltip';
 
 (() => {
-  const JUMP_CONTROLS_POSITION_STORAGE_KEY =
-    'chatTocJumpControlsPosition';
+  const JUMP_CONTROLS_POSITION_STORAGE_KEY = 'chatTocJumpControlsPosition';
   const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 
   let viewMode = 'toc';
@@ -111,18 +113,21 @@ import { myPrompts } from '../features/myPrompts/myPrompts';
   function bindSidebarControls() {
     const searchInput = document.getElementById('navigator-search');
 
-    document.getElementById('search-toggle-btn').addEventListener('click', () => {
-      const isHidden = window.getComputedStyle(searchInput).display === 'none';
-      searchInput.style.display = isHidden ? 'block' : 'none';
+    document
+      .getElementById('search-toggle-btn')
+      .addEventListener('click', () => {
+        const isHidden =
+          window.getComputedStyle(searchInput).display === 'none';
+        searchInput.style.display = isHidden ? 'block' : 'none';
 
-      if (isHidden) {
-        searchInput.focus();
-        return;
-      }
+        if (isHidden) {
+          searchInput.focus();
+          return;
+        }
 
-      clearSearch();
-      renderCurrentView();
-    });
+        clearSearch();
+        renderCurrentView();
+      });
     document
       .getElementById('navigator-title')
       .addEventListener('click', handleTitleClick);
@@ -137,7 +142,9 @@ import { myPrompts } from '../features/myPrompts/myPrompts';
       .addEventListener('click', () => handleJumpControlClick('bottom'));
     document
       .getElementById('jump-chat-bottom-btn')
-      .addEventListener('dblclick', () => handleJumpControlDoubleClick('bottom'));
+      .addEventListener('dblclick', () =>
+        handleJumpControlDoubleClick('bottom')
+      );
     document
       .getElementById('toggle-view-mode-btn')
       .addEventListener('click', toggleViewMode);
@@ -233,7 +240,7 @@ import { myPrompts } from '../features/myPrompts/myPrompts';
     const button = document.getElementById('toggle-view-mode-btn');
     if (!button) return;
 
-    window.ChatTocPreviewTooltip.hide();
+    previewTooltip.hide();
     viewMode = viewMode === 'toc' ? 'myPrompts' : 'toc';
     const isMyPrompts = viewMode === 'myPrompts';
 
@@ -479,10 +486,10 @@ import { myPrompts } from '../features/myPrompts/myPrompts';
     initSidebarResize(sidebar);
     initJumpControlsPositioning();
 
-    const toggleButton = window.ChatTocToggleButton.create();
-    window.ChatTocSidebarVisibility.init(sidebar, toggleButton);
-    window.ChatTocPreviewTooltip.init({ anchorSelector: '#navigator-list' });
-    window.ChatTocButtonTooltip.init();
+    const toggleButton = createToggleButton();
+    initializeSidebarVisibility(sidebar, toggleButton);
+    previewTooltip.init({ anchorSelector: '#navigator-list' });
+    buttonTooltip.init();
     myPrompts.initAutocomplete();
     window.LunaTocNavigatorController.attach();
 

@@ -1,24 +1,29 @@
 /**
  * Shared tooltips for ChatTOC:
- * 1. ChatTocPreviewTooltip: For viewing truncated prompt text in the sidebar.
- * 2. ChatTocButtonTooltip: For showing fast, custom floating tooltips on buttons and icons.
+ * 1. Preview tooltip: For viewing truncated prompt text in the sidebar.
+ * 2. Button tooltip: For showing fast, custom floating tooltips on buttons and icons.
  */
 
 // 1. Preview Tooltip Module
-(function () {
+export interface PreviewTooltipContent {
+  title: string;
+  content: string;
+}
+
+export const previewTooltip = (() => {
   const SHOW_DELAY_MS = 500;
   const HIDE_DELAY_MS = 200;
 
-  let hideTimer = null;
-  let showTimer = null;
-  let anchorSelector = null;
+  let hideTimer: ReturnType<typeof setTimeout> | null = null;
+  let showTimer: ReturnType<typeof setTimeout> | null = null;
+  let anchorSelector: string | null = null;
 
   /**
    * Creates the tooltip element and wires tooltip hover behavior.
    * @param {Object} options
    * @param {string} options.anchorSelector Selector used to position the tooltip beside the sidebar.
    */
-  function init(options = {}) {
+  function init(options: { anchorSelector?: string } = {}): void {
     anchorSelector = options.anchorSelector || null;
 
     create();
@@ -30,7 +35,7 @@
     tooltip.dataset.initialized = 'true';
 
     tooltip.addEventListener('mouseenter', () => {
-      clearTimeout(hideTimer);
+      if (hideTimer !== null) clearTimeout(hideTimer);
     });
 
     tooltip.addEventListener('mouseleave', () => {
@@ -41,7 +46,7 @@
   /**
    * Creates the tooltip element if it does not already exist.
    */
-  function create() {
+  function create(): void {
     if (document.getElementById('luna-toc-preview-tooltip')) return;
 
     const tooltip = document.createElement('div');
@@ -55,12 +60,16 @@
    * @param {MouseEvent} event
    * @param {HTMLElement} [anchorElement] Element whose top edge anchors the tooltip vertically.
    */
-  function show(text, event, anchorElement) {
+  function show(
+    text: string | PreviewTooltipContent,
+    event: MouseEvent,
+    anchorElement?: HTMLElement
+  ): void {
     const tooltip = getTooltip();
     if (!tooltip) return;
 
-    clearTimeout(hideTimer);
-    clearTimeout(showTimer);
+    if (hideTimer !== null) clearTimeout(hideTimer);
+    if (showTimer !== null) clearTimeout(showTimer);
 
     hideTimer = null;
     showTimer = null;
@@ -96,9 +105,9 @@
   /**
    * Hides the tooltip after a short delay so pointer transitions are not abrupt.
    */
-  function hide() {
-    clearTimeout(hideTimer);
-    clearTimeout(showTimer);
+  function hide(): void {
+    if (hideTimer !== null) clearTimeout(hideTimer);
+    if (showTimer !== null) clearTimeout(showTimer);
 
     showTimer = null;
 
@@ -118,10 +127,17 @@
    * @param {number} clientY
    * @param {HTMLElement} [anchorElement]
    */
-  function positionTooltip(tooltip, clientX, clientY, anchorElement) {
+  function positionTooltip(
+    tooltip: HTMLElement,
+    clientX: number,
+    clientY: number,
+    anchorElement?: HTMLElement
+  ): void {
     const gap = 8;
     const margin = 16;
-    const anchor = anchorSelector ? document.querySelector(anchorSelector) : null;
+    const anchor = anchorSelector
+      ? document.querySelector(anchorSelector)
+      : null;
     const anchorRect = anchor?.getBoundingClientRect();
     const tooltipAnchorRect = anchorElement?.getBoundingClientRect();
 
@@ -146,11 +162,11 @@
    * Returns the shared tooltip element.
    * @returns {HTMLElement | null}
    */
-  function getTooltip() {
+  function getTooltip(): HTMLElement | null {
     return document.getElementById('luna-toc-preview-tooltip');
   }
 
-  window.ChatTocPreviewTooltip = {
+  return {
     hide,
     init,
     show,
@@ -158,14 +174,14 @@
 })();
 
 // 2. Button/Icon Label Tooltip Module
-(function () {
-  let tooltipElement = null;
-  let activeTarget = null;
+export const buttonTooltip = (() => {
+  let tooltipElement: HTMLDivElement | null = null;
+  let activeTarget: HTMLElement | null = null;
 
   /**
    * Creates the button tooltip element.
    */
-  function create() {
+  function create(): void {
     if (document.getElementById('luna-toc-button-tooltip')) return;
 
     tooltipElement = document.createElement('div');
@@ -176,12 +192,12 @@
   /**
    * Sets up event delegation for button tooltips.
    */
-  function init() {
+  function init(): void {
     create();
 
     // Listen globally for mouseover to implement instant popup
-    document.body.addEventListener('mouseover', (e) => {
-      const target = e.target.closest('[title], [data-tooltip]');
+    document.body.addEventListener('mouseover', (event) => {
+      const target = getClosestElement(event, '[title], [data-tooltip]');
       if (!target) {
         if (activeTarget) {
           hide();
@@ -202,7 +218,7 @@
       // Extract title and convert to data-tooltip to disable native slow tooltip
       if (target.hasAttribute('title')) {
         const titleText = target.getAttribute('title');
-        target.setAttribute('data-tooltip', titleText);
+        if (titleText) target.setAttribute('data-tooltip', titleText);
         target.removeAttribute('title');
       }
 
@@ -212,8 +228,8 @@
       show(target, text);
     });
 
-    document.body.addEventListener('mouseout', (e) => {
-      const target = e.target.closest('[data-tooltip]');
+    document.body.addEventListener('mouseout', (event) => {
+      const target = getClosestElement(event, '[data-tooltip]');
       if (target && target === activeTarget) {
         hide();
         activeTarget = null;
@@ -221,8 +237,8 @@
     });
 
     // Instantly hide tooltip if the user clicks the button
-    document.body.addEventListener('click', (e) => {
-      const target = e.target.closest('[data-tooltip]');
+    document.body.addEventListener('click', (event) => {
+      const target = getClosestElement(event, '[data-tooltip]');
       if (target) {
         hide();
         activeTarget = null;
@@ -235,8 +251,10 @@
    * @param {HTMLElement} element
    * @param {string} text
    */
-  function show(element, text) {
+  function show(element: HTMLElement, text: string): void {
     if (!tooltipElement) create();
+
+    if (!tooltipElement) return;
 
     tooltipElement.textContent = text;
     tooltipElement.classList.add('luna-toc-tooltip-visible');
@@ -247,7 +265,7 @@
   /**
    * Hides the button tooltip instantly.
    */
-  function hide() {
+  function hide(): void {
     if (tooltipElement) {
       tooltipElement.classList.remove('luna-toc-tooltip-visible');
     }
@@ -257,7 +275,8 @@
    * Positions the button tooltip relative to its trigger element.
    * @param {HTMLElement} element
    */
-  function positionTooltip(element) {
+  function positionTooltip(element: HTMLElement): void {
+    if (!tooltipElement) return;
     const rect = element.getBoundingClientRect();
     const tooltipRect = tooltipElement.getBoundingClientRect();
     const gap = 6;
@@ -286,7 +305,8 @@
     } else if (position === 'bottom') {
       x = rect.left + (rect.width - tooltipRect.width) / 2;
       y = rect.bottom + gap;
-    } else { // 'top'
+    } else {
+      // 'top'
       x = rect.left + (rect.width - tooltipRect.width) / 2;
       y = rect.top - tooltipRect.height - gap;
     }
@@ -299,7 +319,16 @@
     tooltipElement.style.top = `${y}px`;
   }
 
-  window.ChatTocButtonTooltip = {
+  function getClosestElement(
+    event: Event,
+    selector: string
+  ): HTMLElement | null {
+    return event.target instanceof Element
+      ? event.target.closest<HTMLElement>(selector)
+      : null;
+  }
+
+  return {
     init,
     hide,
   };
