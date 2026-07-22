@@ -128,7 +128,7 @@ and made later TypeScript adoption unnecessarily expensive.
 
 ### Decision
 Use Vite with CRXJS to build the extension. Keep `src/content.ts` as the single
-Isolated World source entry, and declare `src/page/pageHook.iife.js` as a
+Isolated World source entry, and declare `src/page/pageHook.iife.ts` as a
 separate `MAIN` world entry at `document_start`. Keep the root `manifest.json`
 as the source Manifest and version authority; load the generated `dist/`
 directory in Chrome.
@@ -160,6 +160,10 @@ The fifth incremental migration converts the Content entry, Application Shell,
 and Navigator Controller to TypeScript. `content.ts` calls the exported
 application initializer, and the shell imports the controller directly.
 
+The sixth incremental migration converts the Popup and Main World page hook to
+TypeScript. With every executable file under `src/` migrated, JavaScript is now
+generated only as a build artifact in `dist/`.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -178,3 +182,5 @@ application initializer, and the shell imports the controller directly.
   `window` or require side-effect imports from the Content Script entry.
 * The Isolated World source graph no longer publishes custom APIs on `window`;
   only the compiled JavaScript bundle is executed by Chrome.
+* `allowJs` is no longer needed in the TypeScript configuration because no
+  executable JavaScript remains under `src/`.

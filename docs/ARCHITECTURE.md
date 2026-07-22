@@ -29,6 +29,7 @@ graph TD
         tip[tooltip.ts]
         navigator[navigatorController.ts]
         shell[applicationShell.ts]
+        popup[popup.ts]
     end
 
     subgraph isolatedWorld["Isolated World"]
@@ -36,7 +37,7 @@ graph TD
     end
 
     subgraph mainWorld["Main World (Page Context)"]
-        hook[pageHook.iife.js]
+        hook[pageHook.iife.ts]
         chatgpt[ChatGPT Application]
     end
 
@@ -57,7 +58,7 @@ graph TD
     chatgpt -.->|Fetch API / History API| hook
 ```
 
-### Main World (`pageHook.iife.js`)
+### Main World (`pageHook.iife.ts`)
 
 - **Purpose**: Declared as a `MAIN` world IIFE content script and injected by Chrome at `document_start`. It intercepts ChatGPT's own native API calls and events.
 - **Responsibilities**:
@@ -85,6 +86,7 @@ graph TD
   - [navigatorController.ts](../src/app/navigatorController.ts): Provides typed conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
   - [applicationShell.ts](../src/app/applicationShell.ts): Provides the typed sidebar shell, view-mode coordination, shared UI, and application initializer.
   - [content.ts](../src/content.ts): Calls the application initializer as the minimal Isolated World entry.
+  - [popup.ts](../src/popup/popup.ts): Provides typed popup theme selection and persistent theme storage.
 
 ### Build Outputs
 
@@ -92,7 +94,7 @@ graph TD
 - `vite.config.js` uses Vite and CRXJS to discover the Chrome extension entries.
 - `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
 - `dist/` is generated and ignored by Git; run `npm run build` before loading or packaging the extension.
-- TypeScript is configured with `allowJs` so source files can migrate from JavaScript incrementally.
+- All executable files under `src/` are TypeScript; Chrome runs only the JavaScript generated in `dist/`.
 
 ---
 

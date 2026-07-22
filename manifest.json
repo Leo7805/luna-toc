@@ -23,7 +23,7 @@
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": ["src/page/pageHook.iife.js"],
+      "js": ["src/page/pageHook.iife.ts"],
       "run_at": "document_start",
       "world": "MAIN"
     },

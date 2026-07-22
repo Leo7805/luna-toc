@@ -91,9 +91,8 @@ LunaTOC provides a lightweight navigation layer that lets you:
 
 ## Tech Stack
 
-- JavaScript
+- TypeScript
 - ES Modules
-- TypeScript-ready configuration
 - Vite and CRXJS
 - Chrome Extension (Manifest V3)
 - DOM Manipulation
