@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:ac0df81bb77d7bb4fc5c11712b5ba8a482f1ae10a4fb6548dc8f9d52d168b26c",
+    "sourceHash": "sha256:400dec15353e803ae7a6aa1b0f2b967d1d5dfa956f7bd219622e8fe61dfd148d",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-22T12:24:19.911Z",
-    "updatedAt": "2026-07-22T13:04:54.254Z"
+    "updatedAt": "2026-07-22T13:10:09.074Z"
   },
   "fileNote": {
     "userNote": "promptAutocomplete.ts\n├── 监听 ChatGPT 输入框\n├── 解析 //、# 和查询文字\n├── 查找匹配的 Prompts\n├── 计算光标及输入框位置\n├── 处理上下键、Enter、Tab、Escape\n└── 将选中的 Prompt 插入 ChatGPT\n\npromptAutocompleteView.ts\n├── 保存弹出框显示状态\n├── 保存匹配结果\n├── 保存当前选中项\n├── 保存位置和宽度\n└── 连接旧输入逻辑与 React\n\nPromptAutocomplete.tsx\n├── 渲染建议列表\n├── 渲染标题和内容预览\n├── Hover 和选中状态\n├── 鼠标点击选择\n└── 保证键盘选中项可见\n\n用户在 ChatGPT 输入 // 或 #\n        ↓\npromptAutocomplete.ts 解析查询\n        ↓\n读取并过滤 My Prompts\n        ↓\n计算输入光标的位置\n        ↓\npromptAutocompleteView 更新状态\n        ↓\nPromptAutocomplete.tsx 在 Shadow Root 中显示",

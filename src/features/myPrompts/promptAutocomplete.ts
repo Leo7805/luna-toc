@@ -265,10 +265,13 @@ function getAutocompleteContext(
   if (!textarea.contains(range.endContainer)) return null;
 
   try {
-    const currentTextNodeContext = getCurrentTextNodeAutocompleteContext(range);
-    if (currentTextNodeContext) {
+    const currentLineContext = getCurrentLineAutocompleteContext(
+      textarea,
+      range
+    );
+    if (currentLineContext) {
       return {
-        ...currentTextNodeContext,
+        ...currentLineContext,
         anchorRect: getRangeAnchorRect(textarea, range),
       };
     }
@@ -299,31 +302,51 @@ function getAutocompleteContext(
 }
 
 /**
- * Resolves an autocomplete trigger from the caret's current text node.
- * ChatGPT represents Enter-created lines as DOM blocks rather than newline
- * characters, so matching the current node preserves the logical line start.
+ * Resolves an autocomplete trigger from the caret's current DOM line.
+ * ChatGPT represents Enter-created lines as separate paragraph elements rather
+ * than newline characters, and the caret may be anchored to either the
+ * paragraph or one of its text nodes.
  */
-function getCurrentTextNodeAutocompleteContext(
+function getCurrentLineAutocompleteContext(
+  root: HTMLElement,
   range: Range
 ): Omit<AutocompleteContext, 'anchorRect'> | null {
-  if (range.endContainer.nodeType !== Node.TEXT_NODE) return null;
+  let lineNode: Node = range.endContainer;
+  if (lineNode === root) {
+    lineNode = root.childNodes.item(range.endOffset - 1);
+    if (!lineNode) return null;
+  }
 
-  const textBeforeCursor = (range.endContainer.textContent ?? '').slice(
-    0,
-    range.endOffset
-  );
+  while (lineNode.parentNode && lineNode.parentNode !== root) {
+    lineNode = lineNode.parentNode;
+  }
+  if (lineNode === root || lineNode.parentNode !== root) return null;
+
+  const lineRange = range.cloneRange();
+  lineRange.selectNodeContents(lineNode);
+  lineRange.setEnd(range.endContainer, range.endOffset);
+
+  const textBeforeCursor = lineRange.toString();
   const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
   if (!triggerMatch) return null;
 
   const triggerStart = (triggerMatch.index ?? 0) + triggerMatch[1].length;
-  const replaceRange = document.createRange();
-  replaceRange.setStart(range.endContainer, triggerStart);
-  replaceRange.setEnd(range.endContainer, range.endOffset);
+  const triggerEnd = textBeforeCursor.length;
+  const lineElement =
+    lineNode instanceof HTMLElement ? lineNode : lineNode.parentElement;
+  if (!lineElement) return null;
+
+  const replaceRange = createTextRangeFromOffsets(
+    lineElement,
+    triggerStart,
+    triggerEnd
+  );
+  if (!replaceRange) return null;
 
   return {
     query: triggerMatch[3].toLowerCase(),
     triggerStart,
-    triggerEnd: range.endOffset,
+    triggerEnd,
     replaceRange,
   };
 }
