@@ -93,15 +93,15 @@ function PromptEditorDialog({
       <DialogContent
         portalContainer={getReactPortalContainer()}
         overlayClassName="bg-black/65 backdrop-blur-sm"
-        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[480px] flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-120 sm:max-w-120 flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
       >
         <DialogHeader className="shrink-0 gap-2 border-b border-border px-6 py-5 pr-12">
           <DialogTitle className="text-lg text-primary">
             {isNew ? 'Create Custom Prompt' : 'Edit Custom Prompt'}
           </DialogTitle>
-          <DialogDescription>
+          {/* <DialogDescription>
             Save reusable instructions for quick access in ChatGPT.
-          </DialogDescription>
+          </DialogDescription> */}
         </DialogHeader>
 
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
