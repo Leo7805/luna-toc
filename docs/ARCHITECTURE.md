@@ -73,10 +73,10 @@ graph TD
   - [tooltip.js](../src/features/tooltip.js): Shows full-text preview tooltips for truncated prompt lines.
   - [toggleButton.js](../src/features/toggleButton.js): Manages the floating circular toggle button and session-bound drag position.
   - [sidebarVisibility.js](../src/features/sidebarVisibility.js): Manages sidebar showing, auto-hiding, pinning, and inert accessibility state.
-  - [promptStore.js](../src/features/myPrompts/promptStore.js): Provides persistent storage, caching, and change notifications for custom prompt templates.
-  - [promptLibrary.js](../src/features/myPrompts/promptLibrary.js): Manages the saved prompt list, dialogs, CRUD operations, sorting, import, and export.
-  - [promptAutocomplete.js](../src/features/myPrompts/promptAutocomplete.js): Manages composer matching, autocomplete UI, keyboard navigation, and prompt insertion.
-  - [myPrompts.js](../src/features/myPrompts/myPrompts.js): Composes the My Prompts modules and exposes their unified public API.
+  - [promptStore.ts](../src/features/myPrompts/promptStore.ts): Defines the saved-prompt model and provides typed persistence, caching, and change notifications.
+  - [promptLibrary.ts](../src/features/myPrompts/promptLibrary.ts): Manages the saved prompt list, dialogs, CRUD operations, sorting, import, and export through named exports.
+  - [promptAutocomplete.ts](../src/features/myPrompts/promptAutocomplete.ts): Manages composer matching, autocomplete UI, keyboard navigation, and prompt insertion through named exports.
+  - [myPrompts.ts](../src/features/myPrompts/myPrompts.ts): Composes the typed My Prompts modules and exports the unified `myPrompts` API consumed by the application shell.
   - [navigatorController.js](../src/app/navigatorController.js): Owns conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
   - [applicationShell.js](../src/app/applicationShell.js): Creates the sidebar shell, manages view modes and shared UI, and initializes the feature modules.
   - [content.js](../src/content.js): Imports the isolated-world modules and starts the application shell.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T06:09:26.323Z",
+  "updatedAt": "2026-07-22T06:25:31.055Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -26,9 +26,9 @@
     },
     "src/app/applicationShell.js": {
       "noteFile": "files/828b26418229-088e14cb.json",
-      "sourceHash": "sha256:edf657160cca237044e73db2d3d7b223ab0dadd3d08f2ab73df0114d43aa3a78",
+      "sourceHash": "sha256:1271d1ffccee301ed5d77d1b16b021e48e6d672c5338ff18334453036b03713d",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-22T06:09:26.323Z"
+      "updatedAt": "2026-07-22T06:25:31.055Z"
     },
     ".npmrc": {
       "noteFile": "files/e813096d69c4-9409f8d8.json",
@@ -55,9 +55,9 @@
     },
     "src/content.js": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
-      "sourceHash": "sha256:3a1e10c5a8ab9bc82ef3c781232b6a394d1434729535302cda0c0f5c169c16f3",
+      "sourceHash": "sha256:b0ebc0b4c50808ca441adcca9df17e354d5d57f26b4178e8f694f5b9add1cf3e",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-22T06:09:25.430Z"
+      "updatedAt": "2026-07-22T06:25:30.343Z"
     },
     "src/features": {
       "noteFile": "files/12a2c1d30664-767f859b.json",

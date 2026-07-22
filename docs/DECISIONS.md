@@ -118,6 +118,7 @@ separate so temporary `WEB:` routes retain newly submitted prompts.
 
 ## ADR 06: Vite-Based Extension Build
 * **Date**: 2026-07-22
+* **Updated**: 2026-07-22
 
 ### Context
 The source was split into focused JavaScript files, but Manifest-declared
@@ -136,6 +137,11 @@ Configure TypeScript with `allowJs` so modules can migrate incrementally. The
 initial build migration preserves the existing internal global APIs; explicit
 named imports and exports are a separate refactor.
 
+The first incremental migration converts the four My Prompts modules to
+TypeScript and named imports/exports. `applicationShell.js` now imports the
+composed `myPrompts` API directly; unrelated feature globals remain until their
+own focused migrations.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -144,3 +150,5 @@ named imports and exports are a separate refactor.
   `dist/` in Chrome.
 * `dist/` and `node_modules/` remain untracked generated directories.
 * Future JavaScript-to-TypeScript migration can proceed one module at a time.
+* My Prompts no longer publishes internal modules or its composed API on
+  `window`.

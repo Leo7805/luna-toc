@@ -1,6 +1,8 @@
 /**
  * Builds the LunaTOC sidebar shell and coordinates application-level features.
  */
+import { myPrompts } from '../features/myPrompts/myPrompts';
+
 (() => {
   const JUMP_CONTROLS_POSITION_STORAGE_KEY =
     'chatTocJumpControlsPosition';
@@ -167,7 +169,7 @@
     if (!list) return;
     if (hint) hint.hidden = true;
 
-    window.ChatTocMyPrompts.renderMyPrompts(list, searchQuery, () => {
+    myPrompts.renderMyPrompts(list, searchQuery, () => {
       renderCurrentView();
     });
   }
@@ -212,7 +214,7 @@
    * @param {Object} message
    */
   function handleSavePrompt(message) {
-    window.ChatTocMyPrompts.showDialog(
+    myPrompts.showDialog(
       {
         content: message.text,
         title: message.text.slice(0, 30),
@@ -481,10 +483,10 @@
     window.ChatTocSidebarVisibility.init(sidebar, toggleButton);
     window.ChatTocPreviewTooltip.init({ anchorSelector: '#navigator-list' });
     window.ChatTocButtonTooltip.init();
-    window.ChatTocMyPrompts.initAutocomplete();
+    myPrompts.initAutocomplete();
     window.LunaTocNavigatorController.attach();
 
-    window.ChatTocMyPrompts.onPromptsChanged(() => {
+    myPrompts.onPromptsChanged(() => {
       if (viewMode !== 'myPrompts' || myPromptsRefreshQueued) return;
       myPromptsRefreshQueued = true;
       queueMicrotask(() => {
