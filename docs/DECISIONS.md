@@ -245,3 +245,32 @@ interface is migrated behind that React boundary.
   prompt insertion remain in `promptAutocomplete.ts`.
 * Autocomplete rows show titles only for faster scanning; prompt content is
   available through the native hover title.
+
+---
+
+## ADR 08: React Popup and Follow-ChatGPT Theme
+* **Date**: 2026-07-22
+
+### Context
+The static Popup exposed separate Dark and Light buttons and required users to
+choose an extension theme independently from ChatGPT. ChatGPT exposes its
+resolved theme through the `light` or `dark` class on the document root.
+
+### Decision
+Render the Popup with React while preserving its existing Tips and Note visual
+design. Store a theme preference containing a follow-ChatGPT flag and the last
+manual Dark/Light choice. Detect and observe ChatGPT's root class in the Content
+Script, and share the latest resolved theme with the Popup through
+`chrome.storage.local`.
+
+Keep existing users on their saved manual theme during migration. Default new
+users to following ChatGPT. Present manual Dark/Light selection as one toggle
+button and disable it while following ChatGPT.
+
+### Consequences
+* ChatGPT theme changes update LunaTOC immediately when following is enabled.
+* Disabling follow mode restores the user's last manual theme.
+* The Popup is now a React entry styled with Tailwind utilities; `popup.css`
+  remains the Tailwind entry and retains only theme tokens and document-level
+  base rules.
+* No additional extension permissions are required.

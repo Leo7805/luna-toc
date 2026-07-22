@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:a33fa7f386070ce967f107939ac51f1c446ea086766da782d29177e95460b85a",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T13:39:35.587Z",
+    "updatedAt": "2026-07-22T13:39:35.587Z"
+  },
+  "fileNote": {
+    "userNote": "检测并监听 ChatGPT 当前实际生效的 Light/Dark 主题",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

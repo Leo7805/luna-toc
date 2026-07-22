@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:214dc114141bf81740b59e9f9db8fca155534ed059d8f3426a481fefd72deeed",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T13:36:58.657Z",
+    "updatedAt": "2026-07-22T13:40:08.238Z"
+  },
+  "fileNote": {
+    "userNote": "Popup 的 React 启动入口",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

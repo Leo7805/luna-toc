@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:1041d63335f19a145effc6d3f4cd6c761c5562a3bf70f91e0603589953f95ea7",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T13:39:16.940Z",
+    "updatedAt": "2026-07-22T13:39:16.940Z"
+  },
+  "fileNote": {
+    "userNote": "定义主题类型，并负责主题设置的读取、保存和旧数据迁移",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -6,6 +6,17 @@ import type { NavigatorMessage } from '../features/conversationPrompts/message';
 import { initializeSidebarVisibility } from '../features/sidebarVisibility';
 import { createToggleButton } from '../features/toggleButton';
 import { buttonTooltip, previewTooltip } from '../features/tooltip';
+import {
+  getChatGPTTheme,
+  observeChatGPTTheme,
+  writeResolvedChatGPTTheme,
+} from '@/features/theme/chatGptTheme';
+import {
+  readThemeSettings,
+  subscribeThemeSettings,
+  type ResolvedTheme,
+  type ThemeSettings,
+} from '@/features/theme/themeSettings';
 import { navigatorController } from './navigatorController';
 
 type ConversationEdge = 'top' | 'bottom';
@@ -488,21 +499,28 @@ function getSavedJumpControlsTop(
 }
 
 function initTheme(): void {
-  const themeKey = 'chatToc:theme';
-  chrome.storage.local.get(themeKey, (result) => {
-    document.documentElement.setAttribute(
-      'data-theme',
-      typeof result[themeKey] === 'string' ? result[themeKey] : 'dark'
+  let settings: ThemeSettings | null = null;
+
+  const applyTheme = (theme: ResolvedTheme): void => {
+    document.documentElement.dataset.theme = theme;
+  };
+  const handleChatGPTTheme = (theme: ResolvedTheme): void => {
+    void writeResolvedChatGPTTheme(theme);
+    if (settings?.followChatGPT) applyTheme(theme);
+  };
+  const applySettings = (nextSettings: ThemeSettings): void => {
+    settings = nextSettings;
+    applyTheme(
+      nextSettings.followChatGPT
+        ? getChatGPTTheme()
+        : nextSettings.manualTheme
     );
-  });
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes[themeKey]) return;
-    document.documentElement.setAttribute(
-      'data-theme',
-      typeof changes[themeKey].newValue === 'string'
-        ? changes[themeKey].newValue
-        : 'dark'
-    );
+  };
+
+  observeChatGPTTheme(handleChatGPTTheme);
+  void readThemeSettings().then(applySettings);
+  subscribeThemeSettings((nextSettings) => {
+    applySettings(nextSettings);
   });
 }
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T13:10:09.074Z",
+  "updatedAt": "2026-07-22T13:57:07.115Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -52,9 +52,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/828b26418229-088e14cb.json",
-      "sourceHash": "sha256:ac8b1e6226748c0ee4922c9fbe38aa8e3be3dbf6911398dcf70e08795644cb8c",
+      "sourceHash": "sha256:40a5c5ab6a668f70c975c663b31f43cb352a25f6190969a4081398cdc262d13a",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T08:15:26.799Z"
+      "updatedAt": "2026-07-22T13:35:37.607Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
@@ -147,6 +147,48 @@
       "sourceHash": "sha256:b7f8bc2fc57b637887777bf49e827834337a70f33c16581c0bf23ce9dde5fa88",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-22T12:56:35.264Z"
+    },
+    "src/popup/popup.tsx": {
+      "noteFile": "files/c6dcafe132ff-45b8fb6f.json",
+      "sourceHash": "sha256:214dc114141bf81740b59e9f9db8fca155534ed059d8f3426a481fefd72deeed",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-22T13:40:08.238Z"
+    },
+    "src/components/popup/PopupApp.tsx": {
+      "noteFile": "files/b65e4b46b3a3-36665232.json",
+      "sourceHash": "sha256:a7ee7f915f386e76a06361cd592d59b570e8e7a1acb1ed0162c40bfd8197b40c",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-22T13:46:19.893Z"
+    },
+    "src/components/popup/ThemeSettings.tsx": {
+      "noteFile": "files/0044ae0a939f-6ab610c3.json",
+      "sourceHash": "sha256:9d31d01d96dd50417f59d0e9a5c5e3a7d8a3a8fb9f72a10805e24769127123d7",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-22T13:38:49.580Z"
+    },
+    "src/features/theme/themeSettings.ts": {
+      "noteFile": "files/7e3fb88c921c-80fdda6d.json",
+      "sourceHash": "sha256:1041d63335f19a145effc6d3f4cd6c761c5562a3bf70f91e0603589953f95ea7",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T13:39:16.940Z"
+    },
+    "src/features/theme/chatGptTheme.ts": {
+      "noteFile": "files/838a3319a019-313ee57d.json",
+      "sourceHash": "sha256:a33fa7f386070ce967f107939ac51f1c446ea086766da782d29177e95460b85a",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T13:39:35.587Z"
+    },
+    "src/popup/popup.html": {
+      "noteFile": "files/231bee292e0d-f27f3dfb.json",
+      "sourceHash": "sha256:8ee832748f79c9f764a361d5cac962dde1bb39050c00e6e36047ffedb64460c3",
+      "programmingLanguage": "html",
+      "updatedAt": "2026-07-22T13:39:50.297Z"
+    },
+    "src/popup/popup.css": {
+      "noteFile": "files/84de4f7ad44f-802c776c.json",
+      "sourceHash": "sha256:8202376e60953b8a4d0cdd74fb752dd782cbba95518bbc8acb10f85e5295c549",
+      "programmingLanguage": "css",
+      "updatedAt": "2026-07-22T13:57:07.115Z"
     }
   }
 }

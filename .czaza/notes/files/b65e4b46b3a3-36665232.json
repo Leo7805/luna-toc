@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:a7ee7f915f386e76a06361cd592d59b570e8e7a1acb1ed0162c40bfd8197b40c",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T13:38:02.485Z",
+    "updatedAt": "2026-07-22T13:46:19.893Z"
+  },
+  "fileNote": {
+    "userNote": "Popup 的 React 主组件，组织主题设置、Tips 和 Note",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

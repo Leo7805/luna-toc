@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:9d31d01d96dd50417f59d0e9a5c5e3a7d8a3a8fb9f72a10805e24769127123d7",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T13:38:45.151Z",
+    "updatedAt": "2026-07-22T13:38:49.580Z"
+  },
+  "fileNote": {
+    "userNote": "管理“跟随 ChatGPT”和手动 Dark/Light 的交互界面\n",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -29,7 +29,7 @@ graph TD
         tip[tooltip.ts]
         navigator[navigatorController.ts]
         shell[applicationShell.ts]
-        popup[popup.ts]
+        popup[popup.tsx]
     end
 
     subgraph isolatedWorld["Isolated World"]
@@ -89,7 +89,9 @@ graph TD
   - [navigatorController.ts](../src/app/navigatorController.ts): Provides typed conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
   - [applicationShell.ts](../src/app/applicationShell.ts): Provides the typed sidebar shell, view-mode coordination, shared UI, and application initializer.
   - [content.ts](../src/content.ts): Calls the application initializer as the minimal Isolated World entry.
-  - [popup.ts](../src/popup/popup.ts): Provides typed popup theme selection and persistent theme storage.
+  - [themeSettings.ts](../src/features/theme/themeSettings.ts): Defines, persists, and migrates the follow/manual theme preference shared by the Popup and Content Script.
+  - [chatGptTheme.ts](../src/features/theme/chatGptTheme.ts): Detects ChatGPT's resolved root-class theme and shares the latest value with the Popup.
+  - [popup.tsx](../src/popup/popup.tsx): Mounts the React Popup application.
 
 ### React UI Foundation
 
@@ -98,6 +100,8 @@ graph TD
 - [reactHost.tsx](../src/reactHost/reactHost.tsx) owns the React Shadow Root, injects the compiled Tailwind stylesheet, and exposes the internal Portal container.
 - [PromptEditorDialog.tsx](../src/components/my-prompts/PromptEditorDialog.tsx) renders the first migrated My Prompts interface while saving remains in the feature layer.
 - [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature.
+- [PopupApp.tsx](../src/components/popup/PopupApp.tsx) renders the extension Popup, including the follow-ChatGPT and manual theme controls.
+- Popup layout and component styling use Tailwind utilities; `popup.css` remains the Tailwind entry and retains only theme tokens and document-level base rules.
 - `@/` resolves to the entire `src/` directory for browser code, React components, styles, and utilities.
 - Tailwind CSS is loaded as an inline string inside the React Shadow Root, so generated global rules cannot affect ChatGPT or the legacy Content Script UI.
 - shadcn theme variables are scoped to `.luna-toc-ui`, which is applied to both the React and Portal containers inside the Shadow Root.

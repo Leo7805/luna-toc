@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:8ee832748f79c9f764a361d5cac962dde1bb39050c00e6e36047ffedb64460c3",
+    "sourceHashKind": "text",
+    "programmingLanguage": "html"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T13:39:50.297Z",
+    "updatedAt": "2026-07-22T13:39:50.297Z"
+  },
+  "fileNote": {
+    "userNote": "提供 Popup 页面和 React 根挂载节点",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
