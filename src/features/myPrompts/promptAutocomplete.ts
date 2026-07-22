@@ -3,6 +3,7 @@
  * insertion in the ChatGPT composer.
  */
 import type { SavedPrompt } from './promptStore';
+import { promptAutocompleteViewController } from './promptAutocompleteView';
 
 type SortMode = 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
 type PromptComposer = HTMLTextAreaElement | HTMLElement;
@@ -21,7 +22,6 @@ interface PromptAutocompleteDependencies {
   getActiveSort: () => SortMode;
 }
 
-let autocompleteMenu: HTMLDivElement | null = null;
 let selectedMenuIndex = 0;
 let filteredPromptsForMenu: SavedPrompt[] = [];
 let currentTextarea: PromptComposer | null = null;
@@ -73,9 +73,9 @@ export function initAutocomplete(): void {
 
   document.addEventListener('click', (event) => {
     if (
-      autocompleteMenu &&
+      promptAutocompleteViewController.getSnapshot() &&
       event.target instanceof Node &&
-      !autocompleteMenu.contains(event.target) &&
+      !isAutocompleteMenuEvent(event) &&
       event.target !== currentTextarea
     ) {
       closeAutocompleteMenu();
@@ -353,14 +353,6 @@ function showAutocompleteMenu(
   currentAutocompleteContext = context;
   selectedMenuIndex = Math.min(selectedMenuIndex, matches.length - 1);
 
-  if (!autocompleteMenu) {
-    autocompleteMenu = document.createElement('div');
-    autocompleteMenu.id = 'chat-toc-autocomplete-menu';
-    document.documentElement.appendChild(autocompleteMenu);
-  }
-
-  renderAutocompleteMenuContent();
-
   const inputRect = textarea.getBoundingClientRect();
   const anchorRect = context.anchorRect || inputRect;
   const menuGap = 8;
@@ -376,50 +368,18 @@ function showAutocompleteMenu(
     Math.min(anchorLeft, window.innerWidth - menuWidth - menuGap)
   );
 
-  autocompleteMenu.style.display = 'block';
-  autocompleteMenu.style.visibility = 'hidden';
-  autocompleteMenu.style.position = 'fixed';
-  autocompleteMenu.style.width = `${menuWidth}px`;
-
-  const menuHeight = autocompleteMenu.offsetHeight;
-  const preferredTop = anchorRect.top - menuHeight - menuGap;
-  const fallbackTop = anchorRect.bottom + menuGap;
-  const top =
-    preferredTop >= menuGap
-      ? preferredTop
-      : Math.min(fallbackTop, window.innerHeight - menuHeight - menuGap);
-
-  autocompleteMenu.style.left = `${left}px`;
-  autocompleteMenu.style.top = `${Math.max(menuGap, top)}px`;
-  autocompleteMenu.style.bottom = '';
-  autocompleteMenu.style.visibility = 'visible';
-}
-
-/**
- * Renders the autocomplete suggestion items.
- */
-function renderAutocompleteMenuContent(): void {
-  if (!autocompleteMenu) return;
-
-  const menu = autocompleteMenu;
-  menu.innerHTML = '';
-  filteredPromptsForMenu.forEach((prompt, index) => {
-    const item = document.createElement('div');
-    item.className = 'autocomplete-menu-item';
-    if (index === selectedMenuIndex) {
-      item.classList.add('autocomplete-menu-item-active');
-    }
-
-    item.innerHTML = `
-      <div class="autocomplete-item-title">${escapeHtml(prompt.title)}</div>
-      <div class="autocomplete-item-preview">${escapeHtml(
-        prompt.content.slice(0, 80)
-      )}${prompt.content.length > 80 ? '...' : ''}</div>
-    `;
-
-    item.addEventListener('click', () => selectAutocompleteItem(prompt));
-    menu.appendChild(item);
-  });
+  promptAutocompleteViewController.show(
+    matches,
+    selectedMenuIndex,
+    {
+      left,
+      width: menuWidth,
+      anchorTop: anchorRect.top,
+      anchorBottom: anchorRect.bottom,
+      viewportHeight: window.innerHeight,
+    },
+    selectAutocompleteItem
+  );
 }
 
 /**
@@ -427,7 +387,7 @@ function renderAutocompleteMenuContent(): void {
  * @param {Object} prompt
  */
 function selectAutocompleteItem(prompt: SavedPrompt): void {
-  if (!currentTextarea || !autocompleteMenu || !currentAutocompleteContext) {
+  if (!currentTextarea || !currentAutocompleteContext) {
     return;
   }
 
@@ -466,22 +426,20 @@ function selectAutocompleteItem(prompt: SavedPrompt): void {
  * @param {KeyboardEvent} event
  */
 function handleTextareaKeydown(event: KeyboardEvent): void {
-  if (!autocompleteMenu || autocompleteMenu.style.display === 'none') return;
+  if (!promptAutocompleteViewController.getSnapshot()) return;
 
   if (event.key === 'ArrowDown') {
     event.preventDefault();
     event.stopPropagation();
     selectedMenuIndex = (selectedMenuIndex + 1) % filteredPromptsForMenu.length;
-    renderAutocompleteMenuContent();
-    scrollActiveAutocompleteItemIntoView();
+    promptAutocompleteViewController.setSelectedIndex(selectedMenuIndex);
   } else if (event.key === 'ArrowUp') {
     event.preventDefault();
     event.stopPropagation();
     selectedMenuIndex =
       (selectedMenuIndex - 1 + filteredPromptsForMenu.length) %
       filteredPromptsForMenu.length;
-    renderAutocompleteMenuContent();
-    scrollActiveAutocompleteItemIntoView();
+    promptAutocompleteViewController.setSelectedIndex(selectedMenuIndex);
   } else if (event.key === 'Enter' || event.key === 'Tab') {
     event.preventDefault();
     event.stopPropagation();
@@ -495,44 +453,22 @@ function handleTextareaKeydown(event: KeyboardEvent): void {
 }
 
 /**
- * Keeps the keyboard-selected item visible.
- */
-function scrollActiveAutocompleteItemIntoView(): void {
-  if (!autocompleteMenu) return;
-  const activeItem = autocompleteMenu.querySelector(
-    '.autocomplete-menu-item-active'
-  );
-  if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
-}
-
-/**
  * Closes and resets the autocomplete menu.
  */
 function closeAutocompleteMenu(): void {
-  if (!autocompleteMenu) return;
-
-  autocompleteMenu.style.display = 'none';
+  promptAutocompleteViewController.close();
   filteredPromptsForMenu = [];
   currentAutocompleteContext = null;
   selectedMenuIndex = 0;
-  delete autocompleteMenu.dataset.triggerStart;
 }
 
 /**
- * Escapes text inserted into autocomplete HTML templates.
- * @param {string} text
- * @returns {string}
+ * Detects menu clicks through the open Shadow DOM event path.
  */
-function escapeHtml(text: string): string {
-  if (!text) return '';
-  return text.replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return entities[character];
-  });
+function isAutocompleteMenuEvent(event: MouseEvent): boolean {
+  return event.composedPath().some(
+    (target) =>
+      target instanceof HTMLElement &&
+      target.dataset.lunaTocAutocomplete === 'true'
+  );
 }

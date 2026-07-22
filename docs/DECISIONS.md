@@ -231,3 +231,6 @@ interface is migrated behind that React boundary.
 * The My Prompts create/edit dialog is the first migrated React interface. Its
   controller bridges the legacy `showDialog()` API to React, while prompt
   persistence remains in `promptLibrary.ts`.
+* The My Prompts composer suggestion menu is rendered by React inside the same
+  Shadow Root. Trigger parsing, caret positioning data, keyboard handling, and
+  prompt insertion remain in `promptAutocomplete.ts`.

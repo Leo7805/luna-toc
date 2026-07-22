@@ -4,6 +4,7 @@
  */
 import { createRoot } from 'react-dom/client';
 
+import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomplete';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
 import tailwindCss from '@/styles/tailwind.css?inline';
 
@@ -45,7 +46,12 @@ export async function initializeReactHost(): Promise<void> {
   shadowRoot.append(style, reactContainer, portalContainer);
   document.body.append(host);
 
-  createRoot(reactContainer).render(<PromptEditorDialogHost />);
+  createRoot(reactContainer).render(
+    <>
+      <PromptAutocompleteHost />
+      <PromptEditorDialogHost />
+    </>
+  );
 }
 
 /**

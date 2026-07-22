@@ -1,21 +1,17 @@
 {
   "source": {
-    "sourceHash": "sha256:abb1dedf92978ea1fc2783097c14a16fd8ccfcae006854f59029647c32e11eed",
+    "sourceHash": "sha256:c39c46b38538ecb9620784173f93b963a5f46bb49111816391dd2496685f04fa",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
     "createdAt": "2026-07-22T11:18:24.674Z",
-    "updatedAt": "2026-07-22T11:40:01.659Z"
+    "updatedAt": "2026-07-22T12:28:20.405Z"
   },
   "fileNote": {
     "userNote": "创建 Shadow Root、注入样式并启动 React\n\n整体调用关系是：\ninitializeReactHost()\n├── waitForBody()\n├── synchronizeTheme()\n├── 创建 Shadow Root\n├── 注入 Tailwind CSS\n├── 创建 React 容器\n├── 创建 Portal 容器\n└── createRoot().render(null)\n\n如:\n在 React Root 中挂载 Prompt Editor，并提供 Shadow Root 内的 Portal 容器。",
     "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    },
-    "updatedAt": "2026-07-22T11:44:13.862Z"
+    "updatedAt": "2026-07-22T12:33:01.031Z"
   },
   "sectionNotes": {
     "section:user:21-47": {
@@ -63,17 +59,16 @@
       },
       "createdAt": "2026-07-22T11:27:29.530Z"
     },
-    "section:user:87-98": {
+    "section:user:91-106": {
       "title": "",
       "range": {
-        "startLine": 87,
-        "endLine": 98
+        "startLine": 91,
+        "endLine": 106
       },
-      "anchorHash": "sha256:9b2899e6405576ac8d75a68ae22223e8eee0ea80c55ed6fc844281b1ab272a46",
-      "userNote": "将网页根元素的 data-theme 同步到 Shadow Host，并监听后续变化，让 React 组件能够跟随 LunaTOC 的亮色和暗色主题切换。",
+      "anchorHash": "sha256:f03973e8ef09655749f7c74ba5da7b970667ddd070749f6efc8117f6e4663647",
       "createdBy": "user",
-      "createdAt": "2026-07-22T11:28:07.521Z",
-      "updatedAt": "2026-07-22T12:21:28.915Z"
+      "createdAt": "2026-07-22T12:36:11.484Z",
+      "updatedAt": "2026-07-22T12:36:11.484Z"
     }
   },
   "lineNotes": {}

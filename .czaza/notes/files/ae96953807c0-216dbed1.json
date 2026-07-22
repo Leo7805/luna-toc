@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:f8f93c2047621e551dc820df2777facf903c143651759eac4f02c392f4b6e3e6",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T12:24:19.911Z",
+    "updatedAt": "2026-07-22T12:29:11.397Z"
+  },
+  "fileNote": {
+    "userNote": "promptAutocomplete.ts\n├── 监听 ChatGPT 输入框\n├── 解析 //、# 和查询文字\n├── 查找匹配的 Prompts\n├── 计算光标及输入框位置\n├── 处理上下键、Enter、Tab、Escape\n└── 将选中的 Prompt 插入 ChatGPT\n\npromptAutocompleteView.ts\n├── 保存弹出框显示状态\n├── 保存匹配结果\n├── 保存当前选中项\n├── 保存位置和宽度\n└── 连接旧输入逻辑与 React\n\nPromptAutocomplete.tsx\n├── 渲染建议列表\n├── 渲染标题和内容预览\n├── Hover 和选中状态\n├── 鼠标点击选择\n└── 保证键盘选中项可见",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
