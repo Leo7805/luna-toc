@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -95,18 +94,15 @@ function PromptEditorDialog({
         overlayClassName="bg-black/65 backdrop-blur-sm"
         className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-120 sm:max-w-120 flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
       >
-        <DialogHeader className="shrink-0 gap-2 border-b border-border px-6 py-5 pr-12">
+        <DialogHeader className="shrink-0 gap-0 border-b border-border px-5 py-4 pr-12">
           <DialogTitle className="text-lg text-primary">
             {isNew ? 'Create Custom Prompt' : 'Edit Custom Prompt'}
           </DialogTitle>
-          {/* <DialogDescription>
-            Save reusable instructions for quick access in ChatGPT.
-          </DialogDescription> */}
         </DialogHeader>
 
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
-          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-5">
-            <div className="grid gap-2">
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto px-5 py-4">
+            <div className="grid gap-1.5">
               <Label
                 htmlFor={titleId}
                 className="text-xs tracking-wide text-muted-foreground uppercase"
@@ -125,7 +121,7 @@ function PromptEditorDialog({
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label
                 htmlFor={contentId}
                 className="text-xs tracking-wide text-muted-foreground uppercase"
@@ -137,14 +133,14 @@ function PromptEditorDialog({
                 value={content}
                 onChange={(event) => setContent(event.currentTarget.value)}
                 placeholder="Type or paste your prompt content here..."
-                className="min-h-[120px] max-h-[50dvh] resize-y overflow-auto bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 dark:bg-background"
+                className="min-h-[180px] max-h-[50dvh] resize-y overflow-auto bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 dark:bg-background"
                 required
                 disabled={isSubmitting}
               />
             </div>
           </div>
 
-          <DialogFooter className="m-0 shrink-0 rounded-none border-t border-border bg-popover/95 px-6 py-4">
+          <DialogFooter className="m-0 shrink-0 rounded-none border-t border-border bg-popover/95 px-5 py-3">
             <Button
               type="button"
               variant="outline"
@@ -157,7 +153,7 @@ function PromptEditorDialog({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="cursor-pointer bg-primary text-primary-foreground hover:bg-primary/85 hover:shadow-md active:translate-y-px"
+              className="w-full cursor-pointer bg-primary text-primary-foreground hover:bg-primary/85 hover:shadow-md active:translate-y-px sm:w-auto sm:min-w-20"
             >
               {isSubmitting ? 'Saving...' : 'Save'}
             </Button>

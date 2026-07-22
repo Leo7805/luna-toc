@@ -69,14 +69,11 @@
         "startLine": 87,
         "endLine": 98
       },
-      "anchorHash": "sha256:b1cd99b43caee055a3df7aaff343ab0bea825ee4d3c897f9188a0fe386fadf6c",
+      "anchorHash": "sha256:9b2899e6405576ac8d75a68ae22223e8eee0ea80c55ed6fc844281b1ab272a46",
       "userNote": "将网页根元素的 data-theme 同步到 Shadow Host，并监听后续变化，让 React 组件能够跟随 LunaTOC 的亮色和暗色主题切换。",
       "createdBy": "user",
-      "status": {
-        "content": "stale",
-        "anchor": "needsConfirmation"
-      },
-      "createdAt": "2026-07-22T11:28:07.521Z"
+      "createdAt": "2026-07-22T11:28:07.521Z",
+      "updatedAt": "2026-07-22T12:21:28.915Z"
     }
   },
   "lineNotes": {}

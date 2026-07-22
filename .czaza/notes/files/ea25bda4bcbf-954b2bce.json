@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:1e8d4d03bbeb2e1ac11bd86e32ff5fe1f26daa62e219438bd202781074d3358b",
+    "sourceHash": "sha256:5b00b3ff45561729995eed3bb387bf2a6d03fcfc904826607dc4eaa6c7f2767d",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
     "createdAt": "2026-07-22T11:41:06.159Z",
-    "updatedAt": "2026-07-22T12:10:10.628Z"
+    "updatedAt": "2026-07-22T12:21:04.627Z"
   },
   "fileNote": {
     "userNote": "Myprompt 编辑框: 管理标题、内容、提交状态和弹窗交互。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}
