@@ -193,3 +193,32 @@ entry chunk names after CRXJS has completed its own bundle and Manifest work.
 * Browser code, build configuration, and release tooling are all type-checked.
 * Generated entry files use clean names such as `content-<hash>.js` and
   `popup-<hash>.js` while Chrome continues to load only JavaScript from `dist/`.
+
+---
+
+## ADR 07: Incremental React UI Foundation
+* **Date**: 2026-07-22
+
+### Context
+The extension's imperative DOM code and single large stylesheet make increasingly
+stateful interfaces harder to maintain, but a full UI rewrite would add unnecessary
+risk to the existing navigation and My Prompts behavior.
+
+### Decision
+Adopt React 19 incrementally with Tailwind CSS v4 and shadcn/ui using Base UI.
+Keep all React components under `src/components`, with shadcn primitives in
+`components/ui` and future shared or feature-specific components in sibling
+directories. Map `@/` to the complete `src/` directory.
+
+Prefix every Tailwind utility with `lt:`, omit Tailwind Preflight, and scope
+shadcn theme variables to `.luna-toc-ui`. Existing DOM features and CSS remain
+in place until each interface is migrated behind a dedicated React boundary.
+
+### Consequences
+* React interfaces can be migrated one at a time without rewriting the content
+  script or existing feature logic.
+* Generated utility selectors do not collide with ChatGPT's class names, and
+  Tailwind does not reset the host page.
+* Every React mount container must include the `.luna-toc-ui` class.
+* Existing relative imports can remain; new modules may use the project-wide
+  `@/` alias.

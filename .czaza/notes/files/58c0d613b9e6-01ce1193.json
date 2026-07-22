@@ -6,7 +6,7 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T11:08:58.335Z",
-    "updatedAt": "2026-07-22T06:38:48.875Z"
+    "updatedAt": "2026-07-22T08:16:54.161Z"
   },
   "fileNote": {
     "userNote": "拦截 ChatGPT 的请求和 SPA 路由变化.\n\n1️⃣为什么需要 pageHook.js\nChrome Content Script 运行在 Isolated World，虽然能操作 DOM，但不能直接修改 ChatGPT 页面自己的 window.fetch、history.pushState 等对象。\n\n所以：\ncontent.js 把 pageHook.js 注入页面环境。\npageHook.js 拦截 ChatGPT 的请求和 SPA 路由变化。\n两边通过 window.postMessage 通信。\n\n主要消息有：\nCHATGPT_CONVERSATION_DATA：完整会话数据。\nCHATGPT_NEW_USER_MESSAGE：刚发送的新 Prompt。\nCHATGPT_ROUTE_CHANGED：切换了会话页面。",

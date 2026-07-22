@@ -1,13 +1,22 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 const manifest = JSON.parse(
   fs.readFileSync(new URL('./manifest.json', import.meta.url), 'utf8')
 );
 
 export default defineConfig({
-  plugins: [crx({ manifest }), cleanEntryFileNames()],
+  plugins: [react(), tailwindcss(), crx({ manifest }), cleanEntryFileNames()],
+  resolve: {
+    alias: {
+      '@': path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'src'),
+    },
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

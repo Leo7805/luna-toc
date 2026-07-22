@@ -1,8 +1,11 @@
 /**
- * Shared prompt storage helper for ChatTOC My Prompts.
+ * Shared prompt storage helper for LumaTOC My Prompts.
  */
-const storageKey = 'chatToc:myPrompts';
+const storageKey = 'lumaToc:myPromptsV1';
 
+/**
+ * Represents a saved prompt in the LumaTOC My Prompts feature.
+ */
 export interface SavedPrompt {
   id: string;
   title: string;

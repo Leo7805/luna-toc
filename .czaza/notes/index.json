@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T06:52:56.186Z",
+  "updatedAt": "2026-07-22T10:33:34.163Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -18,40 +18,16 @@
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-07-21T14:15:24.046Z"
     },
-    "src/app/navigatorController.js": {
-      "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:7b7a48df3dab0bc0fd29ac5aaaea0f7d6450cf54c28e0896725913d39894e31d",
-      "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-22T06:52:16.781Z"
-    },
-    "src/app/applicationShell.js": {
-      "noteFile": "files/828b26418229-088e14cb.json",
-      "sourceHash": "sha256:911bb2fbaa2bfcccdb3eb92be9007be4f50a1a134bc4231336f2bbd31ee5fdd9",
-      "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-22T06:52:56.186Z"
-    },
     ".npmrc": {
       "noteFile": "files/e813096d69c4-9409f8d8.json",
       "sourceHash": "sha256:8d38e966a9d1fe1913f2c79ca047710478691de5633eb9e853aeeae8e0bb04dc",
       "programmingLanguage": "properties",
       "updatedAt": "2026-07-21T13:30:17.415Z"
     },
-    "src/features/jump.js": {
-      "noteFile": "files/c2c1d180fe2f-1b2a1a9e.json",
-      "sourceHash": "sha256:b71dbc205b1d7d9e708989144645289402d8e77f7afdf941c3784e01e1b4fb5e",
-      "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-21T13:35:28.029Z"
-    },
     "src/popup": {
       "noteFile": "files/c0a5d9bd44d3-7d630b4f.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-07-21T13:35:45.415Z"
-    },
-    "src/content.js": {
-      "noteFile": "files/15c947723c16-72bdec3c.json",
-      "sourceHash": "sha256:f2b56aa3080b74dc5b7300961eb6dc2ac4c9c7cef9a6adb7cc2afe9fa401093d",
-      "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-22T06:52:16.164Z"
     },
     "src/features": {
       "noteFile": "files/12a2c1d30664-767f859b.json",
@@ -68,11 +44,41 @@
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-07-22T05:05:24.962Z"
     },
-    "src/page/pageHook.iife.js": {
+    "src/features/jump.ts": {
+      "noteFile": "files/c2c1d180fe2f-1b2a1a9e.json",
+      "sourceHash": "sha256:b71dbc205b1d7d9e708989144645289402d8e77f7afdf941c3784e01e1b4fb5e",
+      "programmingLanguage": "javascript",
+      "updatedAt": "2026-07-22T08:14:19.998Z"
+    },
+    "src/app/applicationShell.ts": {
+      "noteFile": "files/828b26418229-088e14cb.json",
+      "sourceHash": "sha256:ac8b1e6226748c0ee4922c9fbe38aa8e3be3dbf6911398dcf70e08795644cb8c",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T08:15:26.799Z"
+    },
+    "src/app/navigatorController.ts": {
+      "noteFile": "files/0f3c7788d19f-a74f7f72.json",
+      "sourceHash": "sha256:ebcbb374cb050ddbcccfd1b9a2896d4b40087dbbc2957b799f8a3b3612472b38",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T08:15:40.877Z"
+    },
+    "src/content.ts": {
+      "noteFile": "files/15c947723c16-72bdec3c.json",
+      "sourceHash": "sha256:327aaba4fdb9725cfc9fe8c9d91bfdacf1505abdfcf4fb101d1a496558334c07",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T10:33:34.163Z"
+    },
+    "src/page/pageHook.iife.ts": {
       "noteFile": "files/58c0d613b9e6-01ce1193.json",
       "sourceHash": "sha256:c300965730bbfbff83c79b27bfe7b24ce6cd2f644f68dcaf67eb8045c2840207",
       "programmingLanguage": "javascript",
-      "updatedAt": "2026-07-22T06:38:48.875Z"
+      "updatedAt": "2026-07-22T08:16:54.161Z"
+    },
+    "src/features/conversationPrompts/message.ts": {
+      "noteFile": "files/192f643cfcf4-82e9e208.json",
+      "sourceHash": "sha256:98d72477e9a48f9fb1ec4f6669be34e3a543def72e42d1514987dfbe0269ce71",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-22T10:09:55.741Z"
     }
   }
 }

@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:911bb2fbaa2bfcccdb3eb92be9007be4f50a1a134bc4231336f2bbd31ee5fdd9",
+    "sourceHash": "sha256:ac8b1e6226748c0ee4922c9fbe38aa8e3be3dbf6911398dcf70e08795644cb8c",
     "sourceHashKind": "text",
-    "programmingLanguage": "javascript"
+    "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:17:02.107Z",
-    "updatedAt": "2026-07-22T06:52:56.186Z"
+    "updatedAt": "2026-07-22T08:15:26.799Z"
   },
   "fileNote": {
     "userNote": "纯 UI/启动层 - 负责侧栏 DOM、主题、拖动、视图切换、My Prompts 和整体初始化。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}
