@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T12:56:35.264Z",
+  "updatedAt": "2026-07-22T13:04:54.254Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -126,9 +126,9 @@
     },
     "src/features/myPrompts/promptAutocomplete.ts": {
       "noteFile": "files/ae96953807c0-216dbed1.json",
-      "sourceHash": "sha256:281c1d9fc6ad151140911df8268ef39c298296e40d1e5cf4b307ed126f4bd142",
+      "sourceHash": "sha256:ac0df81bb77d7bb4fc5c11712b5ba8a482f1ae10a4fb6548dc8f9d52d168b26c",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T12:53:30.256Z"
+      "updatedAt": "2026-07-22T13:04:54.254Z"
     },
     "src/features/myPrompts/promptAutocompleteView.ts": {
       "noteFile": "files/613dfd5012b2-89ceb3d7.json",

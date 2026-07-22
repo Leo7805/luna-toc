@@ -265,6 +265,14 @@ function getAutocompleteContext(
   if (!textarea.contains(range.endContainer)) return null;
 
   try {
+    const currentTextNodeContext = getCurrentTextNodeAutocompleteContext(range);
+    if (currentTextNodeContext) {
+      return {
+        ...currentTextNodeContext,
+        anchorRect: getRangeAnchorRect(textarea, range),
+      };
+    }
+
     const preCaretRange = range.cloneRange();
     preCaretRange.selectNodeContents(textarea);
     preCaretRange.setEnd(range.endContainer, range.endOffset);
@@ -288,6 +296,36 @@ function getAutocompleteContext(
   } catch (error) {
     return null;
   }
+}
+
+/**
+ * Resolves an autocomplete trigger from the caret's current text node.
+ * ChatGPT represents Enter-created lines as DOM blocks rather than newline
+ * characters, so matching the current node preserves the logical line start.
+ */
+function getCurrentTextNodeAutocompleteContext(
+  range: Range
+): Omit<AutocompleteContext, 'anchorRect'> | null {
+  if (range.endContainer.nodeType !== Node.TEXT_NODE) return null;
+
+  const textBeforeCursor = (range.endContainer.textContent ?? '').slice(
+    0,
+    range.endOffset
+  );
+  const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+  if (!triggerMatch) return null;
+
+  const triggerStart = (triggerMatch.index ?? 0) + triggerMatch[1].length;
+  const replaceRange = document.createRange();
+  replaceRange.setStart(range.endContainer, triggerStart);
+  replaceRange.setEnd(range.endContainer, range.endOffset);
+
+  return {
+    query: triggerMatch[3].toLowerCase(),
+    triggerStart,
+    triggerEnd: range.endOffset,
+    replaceRange,
+  };
 }
 
 /**
