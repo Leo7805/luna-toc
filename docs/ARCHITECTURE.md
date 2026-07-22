@@ -18,7 +18,7 @@ graph TD
     vite[Vite + CRXJS]
 
     subgraph sourceModules["Source Modules"]
-        content[content.js]
+        content[content.ts]
         outline[outline.ts]
         follow[follow.ts]
         jump[jump.ts]
@@ -27,8 +27,8 @@ graph TD
         vis[sidebarVisibility.ts]
         btn[toggleButton.ts]
         tip[tooltip.ts]
-        navigator[navigatorController.js]
-        shell[applicationShell.js]
+        navigator[navigatorController.ts]
+        shell[applicationShell.ts]
     end
 
     subgraph isolatedWorld["Isolated World"]
@@ -67,8 +67,8 @@ graph TD
 
 ### Isolated World (Content Scripts)
 
-- **Purpose**: `src/content.js` is declared in `manifest.json` and runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global JavaScript scope.
-- **Loading**: `src/content.js` starts the application shell, and each module imports its explicit dependencies. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
+- **Purpose**: `src/content.ts` is declared in `manifest.json` and runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global JavaScript scope.
+- **Loading**: `src/content.ts` starts the application shell, and each module imports its explicit dependencies. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
 - **Source modules**:
   - [outline.ts](../src/features/outline.ts): Provides typed answer-heading extraction, outline state, and child-heading navigation through named exports.
   - [follow.ts](../src/features/follow.ts): Provides typed chat-scroll tracking and sidebar auto-follow control through named exports.
@@ -82,9 +82,9 @@ graph TD
   - [promptLibrary.ts](../src/features/myPrompts/promptLibrary.ts): Manages the saved prompt list, dialogs, CRUD operations, sorting, import, and export through named exports.
   - [promptAutocomplete.ts](../src/features/myPrompts/promptAutocomplete.ts): Manages composer matching, autocomplete UI, keyboard navigation, and prompt insertion through named exports.
   - [myPrompts.ts](../src/features/myPrompts/myPrompts.ts): Composes the typed My Prompts modules and exports the unified `myPrompts` API consumed by the application shell.
-  - [navigatorController.js](../src/app/navigatorController.js): Owns conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
-  - [applicationShell.js](../src/app/applicationShell.js): Creates the sidebar shell, manages view modes and shared UI, and initializes the feature modules.
-  - [content.js](../src/content.js): Imports the isolated-world modules and starts the application shell.
+  - [navigatorController.ts](../src/app/navigatorController.ts): Provides typed conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
+  - [applicationShell.ts](../src/app/applicationShell.ts): Provides the typed sidebar shell, view-mode coordination, shared UI, and application initializer.
+  - [content.ts](../src/content.ts): Calls the application initializer as the minimal Isolated World entry.
 
 ### Build Outputs
 

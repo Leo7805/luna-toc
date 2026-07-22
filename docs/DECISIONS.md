@@ -127,7 +127,7 @@ loading order. The growing script array made dependencies difficult to trace
 and made later TypeScript adoption unnecessarily expensive.
 
 ### Decision
-Use Vite with CRXJS to build the extension. Keep `src/content.js` as the single
+Use Vite with CRXJS to build the extension. Keep `src/content.ts` as the single
 Isolated World source entry, and declare `src/page/pageHook.iife.js` as a
 separate `MAIN` world entry at `document_start`. Keep the root `manifest.json`
 as the source Manifest and version authority; load the generated `dist/`
@@ -156,6 +156,10 @@ The fourth incremental migration converts Tooltip, Toggle Button, and Sidebar
 Visibility to TypeScript. The application shell and tooltip consumers import
 their named APIs directly instead of reading UI helpers from `window`.
 
+The fifth incremental migration converts the Content entry, Application Shell,
+and Navigator Controller to TypeScript. `content.ts` calls the exported
+application initializer, and the shell imports the controller directly.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -171,4 +175,6 @@ their named APIs directly instead of reading UI helpers from `window`.
 * Follow, Jump, and Outline no longer publish APIs on `window` or depend on
   source-script loading order.
 * Tooltip, Toggle Button, and Sidebar Visibility no longer publish APIs on
-  `window` or require side-effect imports from `content.js`.
+  `window` or require side-effect imports from the Content Script entry.
+* The Isolated World source graph no longer publishes custom APIs on `window`;
+  only the compiled JavaScript bundle is executed by Chrome.

@@ -6,6 +6,11 @@ import {
   createNavigatorMessage,
   extractUserMessages,
 } from '../features/conversationPrompts/message';
+import type {
+  ChatMessage,
+  ConversationData,
+  NavigatorMessage,
+} from '../features/conversationPrompts/message';
 import {
   createPromptMarkButton,
   initializePromptMark,
@@ -34,7 +39,22 @@ import {
 } from '../features/outline';
 import { previewTooltip } from '../features/tooltip';
 
-(() => {
+interface NavigatorControllerOptions {
+  onRouteChanged?: () => void;
+  onSavePrompt?: (message: NavigatorMessage) => void;
+  onTitleChanged?: () => void;
+}
+
+interface RenderOptions {
+  refreshObservers?: boolean;
+}
+
+interface ResetRouteOptions {
+  preserveMessages?: boolean;
+  nextMessages?: NavigatorMessage[];
+}
+
+export const navigatorController = (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
   const NATIVE_PROMPT_BUTTON_SELECTORS = [
     'button[aria-label^="Prompt "]',
@@ -48,26 +68,26 @@ import { previewTooltip } from '../features/tooltip';
     NATIVE_PROMPT_BUTTON_SELECTORS.map(
       (selector) => `${selector}[data-toc-active]`
     ).join(',');
-  const conversationMessageCache = new Map();
+  const conversationMessageCache = new Map<string, NavigatorMessage[]>();
 
-  let conversationMessages = [];
+  let conversationMessages: NavigatorMessage[] = [];
   let searchQuery = '';
-  let currentConversationKey = null;
-  let pendingNewChatRouteKey = null;
-  let pendingNewChatMessage = null;
-  let activeNavigatorIndex = null;
-  let navigatorItems = [];
-  let activePromptObserver = null;
-  let activePromptMutationObserver = null;
-  let activePromptMutationTimer = null;
-  let activeNativeTocObserver = null;
-  let activeNativeTocTimer = null;
-  let lockedNavigatorIndex = null;
-  let lockedNavigatorTimer = null;
+  let currentConversationKey: string | null = null;
+  let pendingNewChatRouteKey: string | null = null;
+  let pendingNewChatMessage: ChatMessage | null = null;
+  let activeNavigatorIndex: number | null = null;
+  let navigatorItems: HTMLElement[] = [];
+  let activePromptObserver: IntersectionObserver | null = null;
+  let activePromptMutationObserver: MutationObserver | null = null;
+  let activePromptMutationTimer: ReturnType<typeof setTimeout> | null = null;
+  let activeNativeTocObserver: MutationObserver | null = null;
+  let activeNativeTocTimer: ReturnType<typeof setTimeout> | null = null;
+  let lockedNavigatorIndex: number | null = null;
+  let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
   let isInitialized = false;
   let isAttached = false;
   let onRouteChanged = () => {};
-  let onSavePrompt = () => {};
+  let onSavePrompt: (message: NavigatorMessage) => void = () => {};
   let onTitleChanged = () => {};
 
   /**
@@ -77,7 +97,7 @@ import { previewTooltip } from '../features/tooltip';
    * @param {Function} [options.onSavePrompt]
    * @param {Function} [options.onTitleChanged]
    */
-  function init(options = {}) {
+  function init(options: NavigatorControllerOptions = {}): void {
     if (isInitialized) return;
 
     onRouteChanged = options.onRouteChanged || onRouteChanged;
@@ -93,7 +113,7 @@ import { previewTooltip } from '../features/tooltip';
   /**
    * Connects navigation helpers and observers after the sidebar DOM exists.
    */
-  function attach() {
+  function attach(): void {
     if (isAttached) return;
 
     initializeFollow({
@@ -121,7 +141,7 @@ import { previewTooltip } from '../features/tooltip';
    * Returns the route key shared with prompt marking and page-hook messages.
    * @returns {string}
    */
-  function getCurrentConversationKey() {
+  function getCurrentConversationKey(): string {
     const match = location.pathname.match(/\/c\/([^/]+)/);
     return match?.[1] || `new-chat:${location.pathname}`;
   }
@@ -130,7 +150,7 @@ import { previewTooltip } from '../features/tooltip';
    * Updates the TOC search query and rebuilds the list.
    * @param {string} query
    */
-  function setSearchQuery(query) {
+  function setSearchQuery(query: string): void {
     searchQuery = query;
     render();
   }
@@ -138,7 +158,7 @@ import { previewTooltip } from '../features/tooltip';
   /**
    * Resets search and outline state without changing the chat scroll position.
    */
-  function resetView() {
+  function resetView(): void {
     searchQuery = '';
     previewTooltip.hide();
     collapseAll();
@@ -154,7 +174,7 @@ import { previewTooltip } from '../features/tooltip';
    * Jumps to a conversation edge using the matching prompt when available.
    * @param {'top' | 'bottom'} edge
    */
-  function jumpToEdge(edge) {
+  function jumpToEdge(edge: 'top' | 'bottom'): void {
     const index = edge === 'top' ? 0 : conversationMessages.length - 1;
     const message = conversationMessages[index];
 
@@ -170,7 +190,7 @@ import { previewTooltip } from '../features/tooltip';
    * Jumps directly to the absolute chat edge.
    * @param {'top' | 'bottom'} edge
    */
-  function jumpToAbsoluteEdge(edge) {
+  function jumpToAbsoluteEdge(edge: 'top' | 'bottom'): void {
     jumpToPageEdge(edge, 'auto');
   }
 
@@ -179,9 +199,9 @@ import { previewTooltip } from '../features/tooltip';
    * @param {Object} [options]
    * @param {boolean} [options.refreshObservers=false]
    */
-  function render({ refreshObservers = false } = {}) {
+  function render({ refreshObservers = false }: RenderOptions = {}): void {
     const list = document.getElementById('navigator-list');
-    const hint = document.querySelector('.navigator-hint');
+    const hint = document.querySelector<HTMLElement>('.navigator-hint');
 
     if (!list) return;
 
@@ -225,7 +245,10 @@ import { previewTooltip } from '../features/tooltip';
    * @param {number} index
    * @returns {HTMLElement}
    */
-  function createNavigatorItem(message, index) {
+  function createNavigatorItem(
+    message: NavigatorMessage,
+    index: number
+  ): HTMLElement {
     const item = document.createElement('div');
     const itemMain = document.createElement('div');
     const itemText = document.createElement('span');
@@ -288,7 +311,10 @@ import { previewTooltip } from '../features/tooltip';
    * @param {Object} message
    * @param {number} index
    */
-  function handleNavigatorItemClick(message, index) {
+  function handleNavigatorItemClick(
+    message: NavigatorMessage,
+    index: number
+  ): void {
     previewTooltip.hide();
     const outlineAction = handlePromptNavigation(index, activeNavigatorIndex);
 
@@ -298,15 +324,15 @@ import { previewTooltip } from '../features/tooltip';
     }
   }
 
-  function isTextTruncated(element) {
+  function isTextTruncated(element: HTMLElement): boolean {
     return element.scrollWidth > element.clientWidth;
   }
 
-  function normalizeText(text) {
+  function normalizeText(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
   }
 
-  function forceActiveNavigatorItem(index) {
+  function forceActiveNavigatorItem(index: number): void {
     const activeIndexChanged = index !== activeNavigatorIndex;
     activeNavigatorIndex = index;
     navigatorItems.forEach((item) => {
@@ -323,7 +349,7 @@ import { previewTooltip } from '../features/tooltip';
     scrollNavigatorItemIntoView(item);
   }
 
-  function setActiveNavigatorItem(index) {
+  function setActiveNavigatorItem(index: number): void {
     if (
       lockedNavigatorIndex !== null &&
       index !== lockedNavigatorIndex &&
@@ -334,8 +360,8 @@ import { previewTooltip } from '../features/tooltip';
     forceActiveNavigatorItem(index);
   }
 
-  function lockActiveNavigatorItem(index, duration = 1800) {
-    clearTimeout(lockedNavigatorTimer);
+  function lockActiveNavigatorItem(index: number, duration = 1800): void {
+    if (lockedNavigatorTimer !== null) clearTimeout(lockedNavigatorTimer);
     keepFollowing(duration);
     lockedNavigatorIndex = index;
     forceActiveNavigatorItem(index);
@@ -345,7 +371,7 @@ import { previewTooltip } from '../features/tooltip';
     }, duration);
   }
 
-  function scrollNavigatorItemIntoView(item) {
+  function scrollNavigatorItemIntoView(item: HTMLElement): void {
     const scrollContainer = document.getElementById('navigator-list');
     if (!scrollContainer || !isFollowing()) return;
 
@@ -371,9 +397,11 @@ import { previewTooltip } from '../features/tooltip';
     scrollContainer.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
   }
 
-  function findConversationIndexByElement(element) {
+  function findConversationIndexByElement(element: HTMLElement): number {
     const visibleUserMessages = Array.from(
-      document.querySelectorAll('[data-message-author-role="user"]')
+      document.querySelectorAll<HTMLElement>(
+        '[data-message-author-role="user"]'
+      )
     );
 
     if (visibleUserMessages.length === conversationMessages.length) {
@@ -392,11 +420,13 @@ import { previewTooltip } from '../features/tooltip';
     return -1;
   }
 
-  function getNativePromptButtons() {
+  function getNativePromptButtons(): HTMLButtonElement[] {
     const buttons = Array.from(
-      document.querySelectorAll(NATIVE_PROMPT_BUTTON_SELECTOR)
+      document.querySelectorAll<HTMLButtonElement>(
+        NATIVE_PROMPT_BUTTON_SELECTOR
+      )
     ).filter(isUsableNativePromptButton);
-    const indexedButtons = [];
+    const indexedButtons: HTMLButtonElement[] = [];
 
     buttons.forEach((button) => {
       const index = getNativePromptIndexFromButton(button);
@@ -406,7 +436,7 @@ import { previewTooltip } from '../features/tooltip';
     return indexedButtons.length > 0 ? indexedButtons : buttons;
   }
 
-  function isUsableNativePromptButton(button) {
+  function isUsableNativePromptButton(button: HTMLButtonElement): boolean {
     if (!button.isConnected || button.disabled) return false;
     if (button.closest('[aria-hidden="true"], [inert]')) return false;
     if (button.getClientRects().length === 0) return false;
@@ -419,7 +449,7 @@ import { previewTooltip } from '../features/tooltip';
     );
   }
 
-  function getNativePromptIndexFromButton(button) {
+  function getNativePromptIndexFromButton(button: HTMLButtonElement): number {
     const label =
       button.getAttribute('aria-label') ||
       button.getAttribute('aria-description') ||
@@ -428,8 +458,8 @@ import { previewTooltip } from '../features/tooltip';
     return match ? Number(match[1]) - 1 : -1;
   }
 
-  function findActiveNativePromptIndex() {
-    const activeButton = document.querySelector(
+  function findActiveNativePromptIndex(): number {
+    const activeButton = document.querySelector<HTMLButtonElement>(
       ACTIVE_NATIVE_PROMPT_BUTTON_SELECTOR
     );
     if (!activeButton) return -1;
@@ -439,14 +469,14 @@ import { previewTooltip } from '../features/tooltip';
     return getNativePromptButtons().indexOf(activeButton);
   }
 
-  function syncActiveNavigatorItemFromNativeToc() {
+  function syncActiveNavigatorItemFromNativeToc(): boolean {
     const index = findActiveNativePromptIndex();
     if (index === -1) return false;
     setActiveNavigatorItem(index);
     return true;
   }
 
-  function observeVisibleUserMessages() {
+  function observeVisibleUserMessages(): void {
     activePromptObserver?.disconnect();
     activePromptObserver = new IntersectionObserver(
       (entries) => {
@@ -455,6 +485,7 @@ import { previewTooltip } from '../features/tooltip';
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
         if (!topEntry || syncActiveNavigatorItemFromNativeToc()) return;
+        if (!(topEntry.target instanceof HTMLElement)) return;
         const index = findConversationIndexByElement(topEntry.target);
         if (index !== -1) setActiveNavigatorItem(index);
       },
@@ -462,14 +493,14 @@ import { previewTooltip } from '../features/tooltip';
     );
 
     document
-      .querySelectorAll('[data-message-author-role="user"]')
-      .forEach((element) => activePromptObserver.observe(element));
+      .querySelectorAll<HTMLElement>('[data-message-author-role="user"]')
+      .forEach((element) => activePromptObserver?.observe(element));
   }
 
-  function initNativeTocActiveTracking() {
+  function initNativeTocActiveTracking(): void {
     activeNativeTocObserver?.disconnect();
     activeNativeTocObserver = new MutationObserver(() => {
-      clearTimeout(activeNativeTocTimer);
+      if (activeNativeTocTimer !== null) clearTimeout(activeNativeTocTimer);
       activeNativeTocTimer = setTimeout(
         syncActiveNavigatorItemFromNativeToc,
         100
@@ -484,10 +515,11 @@ import { previewTooltip } from '../features/tooltip';
     syncActiveNavigatorItemFromNativeToc();
   }
 
-  function initActivePromptTracking() {
+  function initActivePromptTracking(): void {
     activePromptMutationObserver?.disconnect();
     activePromptMutationObserver = new MutationObserver(() => {
-      clearTimeout(activePromptMutationTimer);
+      if (activePromptMutationTimer !== null)
+        clearTimeout(activePromptMutationTimer);
       activePromptMutationTimer = setTimeout(observeVisibleUserMessages, 200);
     });
     activePromptMutationObserver.observe(document.body, {
@@ -498,16 +530,16 @@ import { previewTooltip } from '../features/tooltip';
     initNativeTocActiveTracking();
   }
 
-  function isNewChatRouteKey(routeKey) {
+  function isNewChatRouteKey(routeKey: string): boolean {
     return routeKey.startsWith('new-chat:') || routeKey.startsWith('WEB:');
   }
 
-  function clearPendingNewChat() {
+  function clearPendingNewChat(): void {
     pendingNewChatRouteKey = null;
     pendingNewChatMessage = null;
   }
 
-  function appendNavigatorMessage(newMessage) {
+  function appendNavigatorMessage(newMessage: ChatMessage): boolean {
     if (conversationMessages.some((message) => message.id === newMessage.id)) {
       return false;
     }
@@ -521,7 +553,7 @@ import { previewTooltip } from '../features/tooltip';
    * The cache is memory-only and lasts for this content script's lifetime.
    * @param {string} conversationKey
    */
-  function cacheConversationMessages(conversationKey) {
+  function cacheConversationMessages(conversationKey: string): void {
     if (!conversationKey || conversationMessages.length === 0) return;
 
     conversationMessageCache.set(conversationKey, [...conversationMessages]);
@@ -532,20 +564,22 @@ import { previewTooltip } from '../features/tooltip';
    * @param {string} conversationKey
    * @returns {Object[]}
    */
-  function getCachedConversationMessages(conversationKey) {
+  function getCachedConversationMessages(
+    conversationKey: string
+  ): NavigatorMessage[] {
     const cachedMessages = conversationMessageCache.get(conversationKey);
 
     return cachedMessages ? [...cachedMessages] : [];
   }
 
-  function flushPendingNewChatMessage() {
+  function flushPendingNewChatMessage(): void {
     if (!pendingNewChatMessage) return;
     const didAppend = appendNavigatorMessage(pendingNewChatMessage);
     clearPendingNewChat();
     if (didAppend) render({ refreshObservers: true });
   }
 
-  function initMarkedPrompts() {
+  function initMarkedPrompts(): void {
     initializePromptMark({
       conversationKey: getCurrentConversationKey(),
       onMarkChanged: syncMarkState,
@@ -562,7 +596,7 @@ import { previewTooltip } from '../features/tooltip';
   function resetStateForCurrentRoute({
     preserveMessages = false,
     nextMessages = [],
-  } = {}) {
+  }: ResetRouteOptions = {}): void {
     if (!preserveMessages) {
       conversationMessages = nextMessages;
     }
@@ -577,7 +611,7 @@ import { previewTooltip } from '../features/tooltip';
     render({ refreshObservers: true });
   }
 
-  function syncRouteState() {
+  function syncRouteState(): void {
     const nextConversationKey = getCurrentConversationKey();
     if (currentConversationKey === null) {
       currentConversationKey = nextConversationKey;
@@ -608,7 +642,7 @@ import { previewTooltip } from '../features/tooltip';
     flushPendingNewChatMessage();
   }
 
-  function listenForRouteChanges() {
+  function listenForRouteChanges(): void {
     window.addEventListener('popstate', syncRouteState);
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
@@ -616,7 +650,7 @@ import { previewTooltip } from '../features/tooltip';
     });
   }
 
-  function handleConversationData(data) {
+  function handleConversationData(data: ConversationData): void {
     if (!data?.mapping) return;
 
     onTitleChanged();
@@ -625,7 +659,7 @@ import { previewTooltip } from '../features/tooltip';
     render({ refreshObservers: true });
   }
 
-  function listenForConversationData() {
+  function listenForConversationData(): void {
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
       syncRouteState();
@@ -660,7 +694,7 @@ import { previewTooltip } from '../features/tooltip';
     });
   }
 
-  window.LunaTocNavigatorController = {
+  return {
     attach,
     getCurrentConversationKey,
     init,

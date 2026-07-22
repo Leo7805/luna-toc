@@ -53,7 +53,7 @@ let virtualScanToken = 0;
 const debugStorageKey = 'chatTocDebugJump';
 
 /**
- * Connects jump behavior to content.js state and native TOC helpers.
+ * Connects jump behavior to navigator state and native TOC helpers.
  * @param {Object} options
  * @param {() => HTMLElement[]} options.getNativePromptButtons
  * @param {(text: string) => string} options.normalizeText

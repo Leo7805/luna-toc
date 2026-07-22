@@ -29,7 +29,7 @@
     },
     {
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": ["src/content.js"],
+      "js": ["src/content.ts"],
       "css": ["src/styles/content.css"],
       "run_at": "document_start",
       "world": "ISOLATED"

@@ -2,7 +2,7 @@
  * Controls when ChatTOC's sidebar list is allowed to auto-scroll with the
  * active ChatGPT prompt.
  *
- * Active prompt highlighting belongs to content.js. This module only decides
+ * Active prompt highlighting belongs to the navigator controller. This module only decides
  * whether that active update may also move the sidebar scroll position.
  */
 interface FollowOptions {
