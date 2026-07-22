@@ -25,6 +25,20 @@ Before making any code changes:
 4. Avoid unnecessary abstractions for small projects.
 5. Add JSDoc comments for non-trivial JavaScript/TypeScript functions.
 
+### Import Paths
+
+1. Use the `@/` alias for imports that cross top-level directories under `src/`.
+2. Use `./` for imports within the same directory.
+3. Do not use `../` for imports that cross directory boundaries.
+
+```ts
+// Cross-directory import
+import { initializeApplication } from '@/app/applicationShell';
+
+// Same-directory import
+import { promptStore } from './promptStore';
+```
+
 ## Project Principles
 
 1. Simplicity over complexity.
@@ -79,3 +93,16 @@ After implementation:
 4. Avoid excessive refactoring during feature development or bug fixes.
 5. If a larger refactor is beneficial, propose it separately instead of mixing it with the current task.
 6. Do not introduce workarounds when a cleaner solution is reasonably achievable.
+
+## Generated Code Requirements
+
+When generating or modifying code:
+
+- Every source file must have a file-level comment.
+- Public APIs must include JSDoc.
+- Public APIs should include usage examples whenever practical.
+- Add comments only where they improve readability.
+- Prefer descriptive names over explanatory comments.
+- Avoid deeply nested control flow when a simpler structure is available.
+
+---

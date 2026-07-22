@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T11:05:43.426Z",
+    "updatedAt": "2026-07-22T11:06:38.618Z"
+  },
+  "fileNote": {
+    "userNote": "管理 React、Shadow DOM、样式和 Portal 运行环境\n\n├── reactHost.tsx          React 环境入口和 Shadow Root 生命周期\n├── LunaTocView.tsx        LunaTOC React 组件树的顶层组件\n└── portalContainer.ts     弹窗、菜单等 Portal 目标管理",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -4,33 +4,33 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "lt:group/button lt:inline-flex lt:shrink-0 lt:items-center lt:justify-center lt:rounded-lg lt:border lt:border-transparent lt:bg-clip-padding lt:text-sm lt:font-medium lt:whitespace-nowrap lt:transition-all lt:outline-none lt:select-none lt:focus-visible:border-ring lt:focus-visible:ring-3 lt:focus-visible:ring-ring/50 lt:active:not-aria-[haspopup]:translate-y-px lt:disabled:pointer-events-none lt:disabled:opacity-50 lt:aria-invalid:border-destructive lt:aria-invalid:ring-3 lt:aria-invalid:ring-destructive/20 lt:dark:aria-invalid:border-destructive/50 lt:dark:aria-invalid:ring-destructive/40 lt:[&_svg]:pointer-events-none lt:[&_svg]:shrink-0 lt:[&_svg:not([class*=size-])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "lt:bg-primary lt:text-primary-foreground lt:hover:bg-primary/80",
+        default: "bg-primary text-primary-foreground hover:bg-primary/80",
         outline:
-          "lt:border-border lt:bg-background lt:hover:bg-muted lt:hover:text-foreground lt:aria-expanded:bg-muted lt:aria-expanded:text-foreground lt:dark:border-input lt:dark:bg-input/30 lt:dark:hover:bg-input/50",
+          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
-          "lt:bg-secondary lt:text-secondary-foreground lt:hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] lt:aria-expanded:bg-secondary lt:aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "lt:hover:bg-muted lt:hover:text-foreground lt:aria-expanded:bg-muted lt:aria-expanded:text-foreground lt:dark:hover:bg-muted/50",
+          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
-          "lt:bg-destructive/10 lt:text-destructive lt:hover:bg-destructive/20 lt:focus-visible:border-destructive/40 lt:focus-visible:ring-destructive/20 lt:dark:bg-destructive/20 lt:dark:hover:bg-destructive/30 lt:dark:focus-visible:ring-destructive/40",
-        link: "lt:text-primary lt:underline-offset-4 lt:hover:underline",
+          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default:
-          "lt:h-8 lt:gap-1.5 lt:px-2.5 lt:has-data-[icon=inline-end]:pr-2 lt:has-data-[icon=inline-start]:pl-2",
-        xs: "lt:h-6 lt:gap-1 lt:rounded-[min(var(--radius-md),10px)] lt:px-2 lt:text-xs lt:in-data-[slot=button-group]:rounded-lg lt:has-data-[icon=inline-end]:pr-1.5 lt:has-data-[icon=inline-start]:pl-1.5 lt:[&_svg:not([class*=size-])]:size-3",
-        sm: "lt:h-7 lt:gap-1 lt:rounded-[min(var(--radius-md),12px)] lt:px-2.5 lt:text-[0.8rem] lt:in-data-[slot=button-group]:rounded-lg lt:has-data-[icon=inline-end]:pr-1.5 lt:has-data-[icon=inline-start]:pl-1.5 lt:[&_svg:not([class*=size-])]:size-3.5",
-        lg: "lt:h-9 lt:gap-1.5 lt:px-2.5 lt:has-data-[icon=inline-end]:pr-2 lt:has-data-[icon=inline-start]:pl-2",
-        icon: "lt:size-8",
+          "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        icon: "size-8",
         "icon-xs":
-          "lt:size-6 lt:rounded-[min(var(--radius-md),10px)] lt:in-data-[slot=button-group]:rounded-lg lt:[&_svg:not([class*=size-])]:size-3",
+          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
         "icon-sm":
-          "lt:size-7 lt:rounded-[min(var(--radius-md),12px)] lt:in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "lt:size-9",
+          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
+        "icon-lg": "size-9",
       },
     },
     defaultVariants: {

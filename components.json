@@ -8,7 +8,7 @@
     "css": "src/styles/tailwind.css",
     "baseColor": "neutral",
     "cssVariables": true,
-    "prefix": "lt"
+    "prefix": ""
   },
   "iconLibrary": "lucide",
   "rtl": false,

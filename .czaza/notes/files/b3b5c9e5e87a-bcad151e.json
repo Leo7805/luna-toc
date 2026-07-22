@@ -1,0 +1,66 @@
+{
+  "source": {
+    "sourceHash": "sha256:49277d6c5a4a86eaf4b1ff128be68fe495c1998ee6f42248bd06297850a4ed15",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T11:18:24.674Z",
+    "updatedAt": "2026-07-22T11:26:04.877Z"
+  },
+  "fileNote": {
+    "userNote": "创建 Shadow Root、注入样式并启动 React\n\n整体调用关系是：\ninitializeReactHost()\n├── waitForBody()\n├── synchronizeTheme()\n├── 创建 Shadow Root\n├── 注入 Tailwind CSS\n├── 创建 React 容器\n├── 创建 Portal 容器\n└── createRoot().render(null)",
+    "createdBy": "user",
+    "updatedAt": "2026-07-22T11:28:30.060Z"
+  },
+  "sectionNotes": {
+    "section:user:21-47": {
+      "title": "",
+      "range": {
+        "startLine": 21,
+        "endLine": 47
+      },
+      "anchorHash": "sha256:8415bda526508cc0899f0f2358054b676fe48f446062f1f6448ff526c993ceb3",
+      "userNote": "React 环境总入口。等待 document.body 出现，然后创建 Shadow Root、注入 Tailwind 样式、创建 React 和 Portal 容器，最后启动 React Root。",
+      "createdBy": "user",
+      "createdAt": "2026-07-22T11:24:13.443Z"
+    },
+    "section:user:57-63": {
+      "title": "",
+      "range": {
+        "startLine": 57,
+        "endLine": 63
+      },
+      "anchorHash": "sha256:b78f6ece364dc1d774e7dfcc805f90c36489e5192e378ad08c2ba701a654e6c0",
+      "userNote": "返回 Shadow Root 内的 Portal 容器。\n以后 Dialog、Popover、Tooltip 等浮层组件通过它渲染在 Shadow Root 内，避免跑到 document.body 导致样式丢失或污染页面。",
+      "createdBy": "user",
+      "createdAt": "2026-07-22T11:25:32.135Z",
+      "updatedAt": "2026-07-22T11:26:31.301Z"
+    },
+    "section:user:68-81": {
+      "title": "",
+      "range": {
+        "startLine": 68,
+        "endLine": 81
+      },
+      "anchorHash": "sha256:0f1529b56711b41d910ba837e8c2bb21e60c8030076f3581e8d87614478b97a4",
+      "userNote": "等待 document.body 可用。因为 Content Script 在 document_start 阶段运行，此时页面的 <body> 可能还没有创建。",
+      "createdBy": "user",
+      "createdAt": "2026-07-22T11:27:29.530Z",
+      "updatedAt": "2026-07-22T11:27:32.395Z"
+    },
+    "section:user:87-98": {
+      "title": "",
+      "range": {
+        "startLine": 87,
+        "endLine": 98
+      },
+      "anchorHash": "sha256:b1cd99b43caee055a3df7aaff343ab0bea825ee4d3c897f9188a0fe386fadf6c",
+      "userNote": "将网页根元素的 data-theme 同步到 Shadow Host，并监听后续变化，让 React 组件能够跟随 LunaTOC 的亮色和暗色主题切换。",
+      "createdBy": "user",
+      "createdAt": "2026-07-22T11:28:07.521Z",
+      "updatedAt": "2026-07-22T11:28:10.431Z"
+    }
+  },
+  "lineNotes": {}
+}

@@ -3,11 +3,11 @@
     "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "defaults": {
-    "createdAt": "2026-07-22T04:49:09.551Z",
-    "updatedAt": "2026-07-22T11:06:13.884Z"
+    "createdAt": "2026-07-22T11:09:16.984Z",
+    "updatedAt": "2026-07-22T11:09:16.984Z"
   },
   "fileNote": {
-    "userNote": "存放业务逻辑和浏览器交互.\nFeature 的集合, 比如: myPrompt, toggleButton, navigation, sidebar",
+    "userNote": "shadcn 基础组件",
     "createdBy": "user"
   },
   "sectionNotes": {},

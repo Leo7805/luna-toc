@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T10:48:17.823Z",
+  "updatedAt": "2026-07-22T11:28:30.060Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -16,7 +16,7 @@
     "src": {
       "noteFile": "files/25a6634263c1-e0366a0a.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-21T14:15:24.046Z"
+      "updatedAt": "2026-07-22T11:05:06.922Z"
     },
     ".npmrc": {
       "noteFile": "files/e813096d69c4-9409f8d8.json",
@@ -32,7 +32,7 @@
     "src/features": {
       "noteFile": "files/12a2c1d30664-767f859b.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-22T04:49:38.724Z"
+      "updatedAt": "2026-07-22T11:06:13.884Z"
     },
     "src/features/conversationPrompts": {
       "noteFile": "files/2c2f9633b9e9-2655e904.json",
@@ -64,9 +64,9 @@
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
-      "sourceHash": "sha256:8e66586d2368d5abf4b8d631ea96f18abf3ceb8765c8d7d14d93c183f0080667",
+      "sourceHash": "sha256:f4f8ebfac21ea5567129a32c31203569bb6f8662dd99f3cd0e3930913f1236fb",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T10:48:17.823Z"
+      "updatedAt": "2026-07-22T11:21:12.796Z"
     },
     "src/page/pageHook.iife.ts": {
       "noteFile": "files/58c0d613b9e6-01ce1193.json",
@@ -79,6 +79,32 @@
       "sourceHash": "sha256:98d72477e9a48f9fb1ec4f6669be34e3a543def72e42d1514987dfbe0269ce71",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-22T10:09:55.741Z"
+    },
+    "src/app": {
+      "noteFile": "files/f2cd6bd7313b-d8961206.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T11:05:31.807Z"
+    },
+    "src/reactHost": {
+      "noteFile": "files/2c490a82a364-a7498850.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T11:06:38.618Z"
+    },
+    "src/components": {
+      "noteFile": "files/44145b4646ba-65c2ad4c.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T11:05:53.687Z"
+    },
+    "src/components/ui": {
+      "noteFile": "files/66038c1e7aac-20e5fb45.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T11:09:16.984Z"
+    },
+    "src/reactHost/reactHost.tsx": {
+      "noteFile": "files/b3b5c9e5e87a-bcad151e.json",
+      "sourceHash": "sha256:49277d6c5a4a86eaf4b1ff128be68fe495c1998ee6f42248bd06297850a4ed15",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-22T11:28:30.060Z"
     }
   }
 }

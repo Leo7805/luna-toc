@@ -210,10 +210,11 @@ Keep all React components under `src/components`, with shadcn primitives in
 `components/ui` and future shared or feature-specific components in sibling
 directories. Map `@/` to the complete `src/` directory.
 
-Keep Tailwind out of the document-level Content Script styles. Future React UI
-must load its Tailwind/shadcn stylesheet inside a Shadow Root and scope shadcn
-theme variables to `.luna-toc-ui`. Existing DOM features and CSS remain in
-place until each interface is migrated behind that React boundary.
+Keep Tailwind out of the document-level Content Script styles. Load its
+compiled stylesheet as an inline string inside a dedicated React Shadow Root,
+and scope shadcn theme variables to `.luna-toc-ui`. Keep React portals inside
+the same Shadow Root. Existing DOM features and CSS remain in place until each
+interface is migrated behind that React boundary.
 
 ### Consequences
 * React interfaces can be migrated one at a time without rewriting the content
@@ -221,5 +222,9 @@ place until each interface is migrated behind that React boundary.
 * Tailwind and shadcn generated rules cannot modify ChatGPT's document styles.
 * Every React mount container must live inside the Shadow Root and include the
   `.luna-toc-ui` class.
+* Tailwind class prefixes are unnecessary because the Shadow Root provides the
+  CSS boundary.
+* Dialogs, popovers, tooltips, and other portals must target the Portal
+  container provided by the React host instead of `document.body`.
 * Existing relative imports can remain; new modules may use the project-wide
   `@/` alias.

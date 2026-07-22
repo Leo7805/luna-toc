@@ -92,9 +92,11 @@ graph TD
 
 - React is introduced incrementally: existing DOM-driven features remain unchanged until their individual UI boundaries are migrated.
 - [components/ui](../src/components/ui) contains shadcn/ui primitives; feature-specific and shared React components will live in sibling component directories.
+- [reactHost.tsx](../src/reactHost/reactHost.tsx) owns the React Shadow Root, injects the compiled Tailwind stylesheet, and exposes the internal Portal container.
 - `@/` resolves to the entire `src/` directory for browser code, React components, styles, and utilities.
-- Tailwind CSS is not loaded by the legacy Content Script UI. Future React UI must load its compiled Tailwind/shadcn styles inside its own Shadow Root so generated global rules cannot affect ChatGPT.
-- shadcn theme variables are scoped to `.luna-toc-ui`; every future React root must apply that class inside the Shadow Root.
+- Tailwind CSS is loaded as an inline string inside the React Shadow Root, so generated global rules cannot affect ChatGPT or the legacy Content Script UI.
+- shadcn theme variables are scoped to `.luna-toc-ui`, which is applied to both the React and Portal containers inside the Shadow Root.
+- The React host mirrors the document's `data-theme` value onto itself so Shadow DOM components follow LunaTOC theme changes without selecting across the boundary.
 
 ### Build Outputs
 
@@ -103,7 +105,7 @@ graph TD
 - `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
 - `dist/` is generated and ignored by Git; run `npm run build` before loading or packaging the extension.
 - All executable files under `src/` are TypeScript; Chrome runs only the JavaScript generated in `dist/`.
-- `src/content.ts` does not import the Tailwind entry while the extension has no React UI, preventing generated Tailwind internals from entering ChatGPT's document styles.
+- `src/content.ts` starts both the legacy application shell and the isolated React host; the Tailwind entry is imported only by the React host using Vite's `?inline` query.
 - `scripts/version.ts` is executed through `tsx`, while `tsconfig.node.json` strictly checks Node-side tooling separately from browser code.
 
 ---
