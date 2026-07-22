@@ -1,2 +1,30 @@
-/* React component theme tokens will be mapped to LunaTOC's existing tokens here. */
-
+/* Maps React component tokens to the existing LunaTOC theme system. */
+.luna-toc-ui {
+  --background: var(--ct-bg-modal-input);
+  --foreground: var(--ct-text-modal);
+  --card: var(--ct-bg-modal);
+  --card-foreground: var(--ct-text-modal);
+  --popover: var(--ct-bg-modal);
+  --popover-foreground: var(--ct-text-modal);
+  --primary: var(--ct-accent-strong);
+  --primary-foreground: #ffffff;
+  --secondary: var(--ct-bg-btn-secondary);
+  --secondary-foreground: var(--ct-text-btn-secondary);
+  --muted: var(--ct-bg-note);
+  --muted-foreground: var(--ct-text-muted);
+  --accent: var(--ct-bg-item-hover);
+  --accent-foreground: var(--ct-text-primary);
+  --destructive: #ef4444;
+  --border: var(--ct-border-modal);
+  --input: var(--ct-border-modal);
+  --ring: var(--ct-accent);
+  --radius: 0.75rem;
+  --sidebar: var(--ct-bg-sidebar-solid);
+  --sidebar-foreground: var(--ct-text-primary);
+  --sidebar-primary: var(--ct-accent-strong);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--ct-bg-item-hover);
+  --sidebar-accent-foreground: var(--ct-text-primary);
+  --sidebar-border: var(--ct-border-sidebar);
+  --sidebar-ring: var(--ct-accent);
+}

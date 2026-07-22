@@ -2,7 +2,7 @@
  * Renders the React create/edit dialog for saved My Prompts entries.
  */
 import { useId, useState, useSyncExternalStore } from 'react';
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -65,7 +65,7 @@ function PromptEditorDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isNew = !item?.id;
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const values = {
@@ -92,10 +92,11 @@ function PromptEditorDialog({
     >
       <DialogContent
         portalContainer={getReactPortalContainer()}
-        className="max-w-lg"
+        overlayClassName="bg-black/65 backdrop-blur-sm"
+        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[480px] flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
       >
-        <DialogHeader>
-          <DialogTitle>
+        <DialogHeader className="shrink-0 gap-2 border-b border-border px-6 py-5 pr-12">
+          <DialogTitle className="text-lg text-primary">
             {isNew ? 'Create Custom Prompt' : 'Edit Custom Prompt'}
           </DialogTitle>
           <DialogDescription>
@@ -103,43 +104,61 @@ function PromptEditorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-2">
-            <Label htmlFor={titleId}>Title</Label>
-            <Input
-              id={titleId}
-              value={title}
-              onChange={(event) => setTitle(event.currentTarget.value)}
-              placeholder="e.g. Code Review Helper"
-              autoFocus
-              required
-              disabled={isSubmitting}
-            />
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-5">
+            <div className="grid gap-2">
+              <Label
+                htmlFor={titleId}
+                className="text-xs tracking-wide text-muted-foreground uppercase"
+              >
+                Title
+              </Label>
+              <Input
+                id={titleId}
+                value={title}
+                onChange={(event) => setTitle(event.currentTarget.value)}
+                placeholder="e.g. Code Review Helper"
+                className="bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 dark:bg-background"
+                autoFocus
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label
+                htmlFor={contentId}
+                className="text-xs tracking-wide text-muted-foreground uppercase"
+              >
+                Prompt Content
+              </Label>
+              <Textarea
+                id={contentId}
+                value={content}
+                onChange={(event) => setContent(event.currentTarget.value)}
+                placeholder="Type or paste your prompt content here..."
+                className="min-h-[120px] max-h-[50dvh] resize-y overflow-auto bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 dark:bg-background"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor={contentId}>Prompt Content</Label>
-            <Textarea
-              id={contentId}
-              value={content}
-              onChange={(event) => setContent(event.currentTarget.value)}
-              placeholder="Type or paste your prompt content here..."
-              className="min-h-32 resize-y"
-              required
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="m-0 shrink-0 rounded-none border-t border-border bg-popover/95 px-6 py-4">
             <Button
               type="button"
               variant="outline"
               onClick={promptEditorController.close}
               disabled={isSubmitting}
+              className="cursor-pointer border-border bg-secondary text-secondary-foreground hover:border-primary hover:bg-secondary/80 active:translate-y-px dark:bg-secondary dark:hover:bg-secondary/80"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="cursor-pointer bg-primary text-primary-foreground hover:bg-primary/85 hover:shadow-md active:translate-y-px"
+            >
               {isSubmitting ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
