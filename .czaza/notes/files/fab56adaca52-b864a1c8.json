@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T04:58:43.985Z",
+    "updatedAt": "2026-07-22T05:05:24.962Z"
+  },
+  "fileNote": {
+    "userNote": "用户保存和复用 Prompt 的完整功能\n\nmyPrompts.js    管理 My Prompts 界面、增删改查、导入导出和输入提示\npromptStore.js  管理自定义 Prompt 在 chrome.storage 中的持久化存储\n\n\nnew arch\n\nsrc/features/myPrompts/\n├── myPrompts.js             My Prompts 总入口，初始化并向外提供统一 API\n├── promptLibrary.js         管理列表、弹窗、增删改查、排序和导入导出\n├── promptStore.js           管理持久化存储、缓存和数据变更通知\n└── promptAutocomplete.js    管理输入监听、搜索提示框、键盘操作和内容插入",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-21T14:16:50.872Z",
+  "updatedAt": "2026-07-22T05:19:26.237Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,6 +58,26 @@
       "sourceHash": "sha256:c059316b5122332b165e36a9ee21a553865244dafb396c6cb9fd6c2bd5a579bf",
       "programmingLanguage": "javascript",
       "updatedAt": "2026-07-21T14:12:54.154Z"
+    },
+    "src/features": {
+      "noteFile": "files/12a2c1d30664-767f859b.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T04:49:38.724Z"
+    },
+    "src/features/prompts": {
+      "noteFile": "files/51be098f78bb-19a4d057.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T05:19:26.237Z"
+    },
+    "src/features/conversationPrompts": {
+      "noteFile": "files/2c2f9633b9e9-2655e904.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T04:57:08.510Z"
+    },
+    "src/features/myPrompts": {
+      "noteFile": "files/fab56adaca52-b864a1c8.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-22T05:05:24.962Z"
     }
   }
 }

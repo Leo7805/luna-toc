@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T04:57:08.510Z",
+    "updatedAt": "2026-07-22T04:57:08.510Z"
+  },
+  "fileNote": {
+    "userNote": "当前 ChatGPT 会话中的 Prompt 处理\n\n├── message.js         解析会话数据，将用户消息转换成目录使用的数据\n└── promptMark.js      管理当前会话中 Prompt 的标记状态和标记按钮\n\n\n",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

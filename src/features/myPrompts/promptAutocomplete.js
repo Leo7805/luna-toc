@@ -1,0 +1,509 @@
+/**
+ * Manages My Prompts matching, autocomplete UI, keyboard navigation, and text
+ * insertion in the ChatGPT composer.
+ */
+(function () {
+  let autocompleteMenu = null;
+  let selectedMenuIndex = 0;
+  let filteredPromptsForMenu = [];
+  let currentTextarea = null;
+  let currentAutocompleteContext = null;
+  let isProgrammaticInsert = false;
+  let getMyPrompts = async () => [];
+  let sortMyPrompts = (prompts) => prompts;
+  let getActiveSort = () => 'updated_desc';
+  const autocompleteTriggerPattern =
+    /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/;
+
+  /**
+   * Connects autocomplete to the prompt library.
+   * @param {Object} dependencies
+   * @param {() => Promise<Array>} dependencies.getMyPrompts
+   * @param {(prompts: Array, sortMode: string) => Array} dependencies.sortMyPrompts
+   * @param {() => string} dependencies.getActiveSort
+   */
+  function initialize(dependencies) {
+    getMyPrompts = dependencies.getMyPrompts;
+    sortMyPrompts = dependencies.sortMyPrompts;
+    getActiveSort = dependencies.getActiveSort;
+  }
+
+  /**
+   * Initializes the autocomplete overlay on ChatGPT's input textarea.
+   */
+  function initAutocomplete() {
+    document.addEventListener('input', (event) => {
+      if (isProgrammaticInsert) {
+        closeAutocompleteMenu();
+        return;
+      }
+
+      const target = event.target;
+      if (target && target.id === 'prompt-textarea') {
+        currentTextarea = target;
+        handleTextareaInput(target);
+      }
+    });
+
+    document.addEventListener('keydown', handleTextareaKeydown, true);
+
+    document.addEventListener('click', (event) => {
+      if (
+        autocompleteMenu &&
+        !autocompleteMenu.contains(event.target) &&
+        event.target !== currentTextarea
+      ) {
+        closeAutocompleteMenu();
+      }
+    });
+  }
+
+  /**
+   * Inserts text into ChatGPT's main textarea or contenteditable composer.
+   * @param {string} text
+   */
+  function insertIntoChatGPTInput(text) {
+    const textarea = document.querySelector('#prompt-textarea');
+    if (!textarea) return;
+
+    isProgrammaticInsert = true;
+    try {
+      if (textarea.tagName === 'TEXTAREA') {
+        textarea.focus();
+        let textToInsert = text;
+        const currentValue = textarea.value || '';
+
+        if (currentValue.trim() !== '') {
+          textarea.selectionStart = textarea.selectionEnd = currentValue.length;
+          textToInsert = currentValue.endsWith('\n') ? text : `\n${text}`;
+        }
+
+        try {
+          document.execCommand('insertText', false, textToInsert);
+        } catch (error) {
+          textarea.value = currentValue + textToInsert;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.selectionStart = textarea.selectionEnd =
+            textarea.value.length;
+        }
+      } else {
+        textarea.focus();
+        let textToInsert = text;
+        const currentValue = textarea.innerText || '';
+
+        if (currentValue.trim() !== '') {
+          placeCursorAtEnd(textarea);
+          textToInsert = currentValue.endsWith('\n') ? text : `\n${text}`;
+        }
+
+        try {
+          document.execCommand('insertText', false, textToInsert);
+        } catch (error) {
+          const textNode = document.createTextNode(textToInsert);
+          textarea.appendChild(textNode);
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          placeCursorAtEnd(textarea);
+        }
+      }
+    } finally {
+      isProgrammaticInsert = false;
+    }
+  }
+
+  /**
+   * Places the cursor at the end of a contenteditable element.
+   * @param {HTMLElement} element
+   */
+  function placeCursorAtEnd(element) {
+    element.focus();
+    if (
+      typeof window.getSelection === 'undefined' ||
+      typeof document.createRange === 'undefined'
+    ) {
+      return;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  /**
+   * Parses the composer value and updates the autocomplete menu.
+   * @param {HTMLElement} textarea
+   */
+  async function handleTextareaInput(textarea) {
+    const context = getAutocompleteContext(textarea);
+    const prompts = sortMyPrompts(await getMyPrompts(), getActiveSort());
+    let matches = [];
+
+    if (context) {
+      matches = prompts.filter(
+        (prompt) =>
+          prompt.title.toLowerCase().startsWith(context.query) ||
+          prompt.content.toLowerCase().startsWith(context.query)
+      );
+    }
+
+    if (matches.length > 0) {
+      showAutocompleteMenu(textarea, matches, context);
+    } else {
+      closeAutocompleteMenu();
+    }
+  }
+
+  /**
+   * Creates the autocomplete context at the current caret position.
+   * @param {HTMLElement} textarea
+   * @returns {Object|null}
+   */
+  function getAutocompleteContext(textarea) {
+    if (textarea.tagName === 'TEXTAREA') {
+      const cursorOffset = textarea.selectionStart;
+      const textBeforeCursor = textarea.value.slice(0, cursorOffset);
+      const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+
+      if (!triggerMatch) return null;
+
+      return {
+        query: triggerMatch[3].toLowerCase(),
+        triggerStart: triggerMatch.index + triggerMatch[1].length,
+        triggerEnd: cursorOffset,
+        anchorRect: null,
+        replaceRange: null,
+      };
+    }
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return null;
+
+    const range = selection.getRangeAt(0);
+    if (!textarea.contains(range.endContainer)) return null;
+
+    try {
+      const preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(textarea);
+      preCaretRange.setEnd(range.endContainer, range.endOffset);
+
+      const textBeforeCursor = preCaretRange.toString();
+      const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+      if (!triggerMatch) return null;
+
+      const triggerStart = triggerMatch.index + triggerMatch[1].length;
+      const triggerEnd = textBeforeCursor.length;
+
+      return {
+        query: triggerMatch[3].toLowerCase(),
+        triggerStart,
+        triggerEnd,
+        anchorRect: getRangeAnchorRect(textarea, range),
+        replaceRange:
+          createTextRangeFromOffsets(textarea, triggerStart, triggerEnd) ||
+          createCurrentTextNodeTriggerRange(range),
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Resolves a DOM text range from flat offsets inside a contenteditable root.
+   * @param {HTMLElement} root
+   * @param {number} startOffset
+   * @param {number} endOffset
+   * @returns {Range|null}
+   */
+  function createTextRangeFromOffsets(root, startOffset, endOffset) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const replaceRange = document.createRange();
+    let currentOffset = 0;
+    let hasStart = false;
+    let node = walker.nextNode();
+
+    while (node) {
+      const textLength = node.textContent.length;
+      const nextOffset = currentOffset + textLength;
+
+      if (!hasStart && startOffset <= nextOffset) {
+        replaceRange.setStart(node, Math.max(0, startOffset - currentOffset));
+        hasStart = true;
+      }
+
+      if (hasStart && endOffset <= nextOffset) {
+        replaceRange.setEnd(node, Math.max(0, endOffset - currentOffset));
+        return replaceRange;
+      }
+
+      currentOffset = nextOffset;
+      node = walker.nextNode();
+    }
+
+    return null;
+  }
+
+  /**
+   * Falls back to the current text node when flat offsets cannot be mapped.
+   * @param {Range} range
+   * @returns {Range|null}
+   */
+  function createCurrentTextNodeTriggerRange(range) {
+    if (range.endContainer.nodeType !== Node.TEXT_NODE) return null;
+
+    const textBeforeCursor = range.endContainer.textContent.slice(
+      0,
+      range.endOffset
+    );
+    const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
+    if (!triggerMatch) return null;
+
+    const replaceRange = document.createRange();
+    replaceRange.setStart(
+      range.endContainer,
+      triggerMatch.index + triggerMatch[1].length
+    );
+    replaceRange.setEnd(range.endContainer, range.endOffset);
+    return replaceRange;
+  }
+
+  /**
+   * Finds a visible rectangle near the caret for positioning the menu.
+   * @param {HTMLElement} textarea
+   * @param {Range} range
+   * @returns {DOMRect|null}
+   */
+  function getRangeAnchorRect(textarea, range) {
+    const caretRange = range.cloneRange();
+    caretRange.collapse(false);
+
+    const caretRect = getVisibleRangeRect(caretRange);
+    if (caretRect) return caretRect;
+
+    if (
+      range.endContainer.nodeType === Node.TEXT_NODE &&
+      range.endOffset > 0
+    ) {
+      const characterRange = document.createRange();
+      characterRange.setStart(range.endContainer, range.endOffset - 1);
+      characterRange.setEnd(range.endContainer, range.endOffset);
+      return getVisibleRangeRect(characterRange);
+    }
+
+    return null;
+  }
+
+  /**
+   * Returns a visible rectangle for a DOM range.
+   * @param {Range} range
+   * @returns {DOMRect|null}
+   */
+  function getVisibleRangeRect(range) {
+    const rect = range.getBoundingClientRect();
+    if (rect && (rect.width || rect.height)) return rect;
+
+    const rects = range.getClientRects();
+    return rects.length ? rects[rects.length - 1] : null;
+  }
+
+  /**
+   * Displays the autocomplete menu near the current caret.
+   * @param {HTMLElement} textarea
+   * @param {Array} matches
+   * @param {Object} context
+   */
+  function showAutocompleteMenu(textarea, matches, context) {
+    filteredPromptsForMenu = matches;
+    currentAutocompleteContext = context;
+    selectedMenuIndex = Math.min(selectedMenuIndex, matches.length - 1);
+
+    if (!autocompleteMenu) {
+      autocompleteMenu = document.createElement('div');
+      autocompleteMenu.id = 'chat-toc-autocomplete-menu';
+      document.documentElement.appendChild(autocompleteMenu);
+    }
+
+    renderAutocompleteMenuContent();
+
+    const inputRect = textarea.getBoundingClientRect();
+    const anchorRect = context.anchorRect || inputRect;
+    const menuGap = 8;
+    const maxMenuWidth = 420;
+    const menuWidth = Math.min(
+      inputRect.width,
+      maxMenuWidth,
+      window.innerWidth - menuGap * 2
+    );
+    const anchorLeft = context.anchorRect ? anchorRect.left : inputRect.left;
+    const left = Math.max(
+      menuGap,
+      Math.min(anchorLeft, window.innerWidth - menuWidth - menuGap)
+    );
+
+    autocompleteMenu.style.display = 'block';
+    autocompleteMenu.style.visibility = 'hidden';
+    autocompleteMenu.style.position = 'fixed';
+    autocompleteMenu.style.width = `${menuWidth}px`;
+
+    const menuHeight = autocompleteMenu.offsetHeight;
+    const preferredTop = anchorRect.top - menuHeight - menuGap;
+    const fallbackTop = anchorRect.bottom + menuGap;
+    const top =
+      preferredTop >= menuGap
+        ? preferredTop
+        : Math.min(fallbackTop, window.innerHeight - menuHeight - menuGap);
+
+    autocompleteMenu.style.left = `${left}px`;
+    autocompleteMenu.style.top = `${Math.max(menuGap, top)}px`;
+    autocompleteMenu.style.bottom = '';
+    autocompleteMenu.style.visibility = 'visible';
+  }
+
+  /**
+   * Renders the autocomplete suggestion items.
+   */
+  function renderAutocompleteMenuContent() {
+    if (!autocompleteMenu) return;
+
+    autocompleteMenu.innerHTML = '';
+    filteredPromptsForMenu.forEach((prompt, index) => {
+      const item = document.createElement('div');
+      item.className = 'autocomplete-menu-item';
+      if (index === selectedMenuIndex) {
+        item.classList.add('autocomplete-menu-item-active');
+      }
+
+      item.innerHTML = `
+        <div class="autocomplete-item-title">${escapeHtml(prompt.title)}</div>
+        <div class="autocomplete-item-preview">${escapeHtml(
+          prompt.content.slice(0, 80)
+        )}${prompt.content.length > 80 ? '...' : ''}</div>
+      `;
+
+      item.addEventListener('click', () => selectAutocompleteItem(prompt));
+      autocompleteMenu.appendChild(item);
+    });
+  }
+
+  /**
+   * Replaces the autocomplete trigger with the selected prompt content.
+   * @param {Object} prompt
+   */
+  function selectAutocompleteItem(prompt) {
+    if (!currentTextarea || !autocompleteMenu || !currentAutocompleteContext) {
+      return;
+    }
+
+    const textarea = currentTextarea;
+    const context = currentAutocompleteContext;
+
+    isProgrammaticInsert = true;
+    try {
+      if (textarea.tagName === 'TEXTAREA') {
+        const text = textarea.value;
+        textarea.focus();
+        textarea.value =
+          text.slice(0, context.triggerStart) +
+          prompt.content +
+          text.slice(context.triggerEnd);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        const newCursorPosition = context.triggerStart + prompt.content.length;
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+      } else {
+        textarea.focus();
+        const selection = window.getSelection();
+        if (selection && context.replaceRange) {
+          selection.removeAllRanges();
+          selection.addRange(context.replaceRange);
+          document.execCommand('insertText', false, prompt.content);
+        }
+      }
+    } finally {
+      closeAutocompleteMenu();
+      isProgrammaticInsert = false;
+    }
+  }
+
+  /**
+   * Handles keyboard navigation and selection in the autocomplete menu.
+   * @param {KeyboardEvent} event
+   */
+  function handleTextareaKeydown(event) {
+    if (!autocompleteMenu || autocompleteMenu.style.display === 'none') return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      event.stopPropagation();
+      selectedMenuIndex =
+        (selectedMenuIndex + 1) % filteredPromptsForMenu.length;
+      renderAutocompleteMenuContent();
+      scrollActiveAutocompleteItemIntoView();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      selectedMenuIndex =
+        (selectedMenuIndex - 1 + filteredPromptsForMenu.length) %
+        filteredPromptsForMenu.length;
+      renderAutocompleteMenuContent();
+      scrollActiveAutocompleteItemIntoView();
+    } else if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      const selectedPrompt = filteredPromptsForMenu[selectedMenuIndex];
+      if (selectedPrompt) selectAutocompleteItem(selectedPrompt);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeAutocompleteMenu();
+    }
+  }
+
+  /**
+   * Keeps the keyboard-selected item visible.
+   */
+  function scrollActiveAutocompleteItemIntoView() {
+    const activeItem = autocompleteMenu.querySelector(
+      '.autocomplete-menu-item-active'
+    );
+    if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+  }
+
+  /**
+   * Closes and resets the autocomplete menu.
+   */
+  function closeAutocompleteMenu() {
+    if (!autocompleteMenu) return;
+
+    autocompleteMenu.style.display = 'none';
+    filteredPromptsForMenu = [];
+    currentAutocompleteContext = null;
+    selectedMenuIndex = 0;
+    delete autocompleteMenu.dataset.triggerStart;
+  }
+
+  /**
+   * Escapes text inserted into autocomplete HTML templates.
+   * @param {string} text
+   * @returns {string}
+   */
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/[&<>"']/g, (character) => {
+      const entities = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return entities[character];
+    });
+  }
+
+  window.ChatTocPromptAutocomplete = {
+    initialize,
+    initAutocomplete,
+    insertIntoChatGPTInput,
+  };
+})();

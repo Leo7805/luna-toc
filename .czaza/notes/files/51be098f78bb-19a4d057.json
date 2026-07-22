@@ -1,0 +1,19 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T04:52:46.714Z",
+    "updatedAt": "2026-07-22T05:19:26.237Z"
+  },
+  "fileNote": {
+    "userNote": "src/features/prompts/\n├── message.js       解析 ChatGPT 会话数据，生成目录使用的用户消息模型\n├── myPrompts.js     管理 My Prompts 界面、增删改查、导入导出和输入提示\n├── promptMark.js    管理会话中 Prompt 的标记状态和标记按钮\n└── promptStore.js   封装自定义 Prompt 在 chrome.storage 中的持久化操作",
+    "createdBy": "user",
+    "status": {
+      "content": "current",
+      "anchor": "needsConfirmation"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

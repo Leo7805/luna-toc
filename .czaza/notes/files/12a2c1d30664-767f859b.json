@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-22T04:49:09.551Z",
+    "updatedAt": "2026-07-22T04:49:38.724Z"
+  },
+  "fileNote": {
+    "userNote": "Feature 的集合, 比如: myPrompt, toggleButton, navigation, sidebar",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -1,19 +1,23 @@
 /**
- * Manages ChatTOC My Prompts, including local storage persistence,
- * CRUD modal dialogs, Prompts list rendering, and input autocompletion.
+ * Manages the saved prompt library, including dialogs, list rendering,
+ * sorting, import, export, and CRUD operations.
  */
 (function () {
   let activeSort = 'updated_desc';
-  let autocompleteMenu = null;
-  let selectedMenuIndex = 0;
-  let filteredPromptsForMenu = [];
-  let currentTextarea = null;
-  let currentAutocompleteContext = null;
-  let isProgrammaticInsert = false;
   let renderVersion = 0;
-  const autocompleteTriggerPattern =
-    /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/;
-  const promptsStore = window.ChatTocPromptStore.create();
+  let promptsStore = null;
+  let insertIntoChatGPTInput = () => {};
+
+  /**
+   * Connects the prompt library to its storage and input dependencies.
+   * @param {Object} dependencies
+   * @param {Object} dependencies.promptsStore
+   * @param {(text: string) => void} dependencies.insertIntoChatGPTInput
+   */
+  function initialize(dependencies) {
+    promptsStore = dependencies.promptsStore;
+    insertIntoChatGPTInput = dependencies.insertIntoChatGPTInput;
+  }
 
   /**
    * Retrieves prompts from the prompt store.
@@ -203,6 +207,14 @@
       sorted.sort((a, b) => b.title.localeCompare(a.title));
     }
     return sorted;
+  }
+
+  /**
+   * Returns the currently selected prompt sort mode.
+   * @returns {string}
+   */
+  function getActiveSort() {
+    return activeSort;
   }
 
   /**
@@ -481,91 +493,6 @@
   }
 
   /**
-   * Helper to insert text into ChatGPT's main input textarea or contenteditable div.
-   * @param {string} text
-   */
-  function insertIntoChatGPTInput(text) {
-    const textarea = document.querySelector('#prompt-textarea');
-    if (!textarea) return;
-
-    isProgrammaticInsert = true;
-    try {
-      if (textarea.tagName === 'TEXTAREA') {
-        textarea.focus();
-        let textToInsert = text;
-        const currentVal = textarea.value || '';
-
-        if (currentVal.trim() !== '') {
-          // Move cursor to the end of the text
-          textarea.selectionStart = textarea.selectionEnd = currentVal.length;
-          if (currentVal.endsWith('\n')) {
-            textToInsert = text;
-          } else {
-            textToInsert = '\n' + text;
-          }
-        }
-
-        // Use document.execCommand to trigger React input state updates
-        try {
-          document.execCommand('insertText', false, textToInsert);
-        } catch (e) {
-          // Fallback
-          textarea.value = currentVal + textToInsert;
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          textarea.selectionStart = textarea.selectionEnd =
-            textarea.value.length;
-        }
-      } else {
-        // For contenteditable div (ChatGPT's ProseMirror editor)
-        textarea.focus();
-        let textToInsert = text;
-        const currentVal = textarea.innerText || '';
-
-        if (currentVal.trim() !== '') {
-          placeCursorAtEnd(textarea);
-          if (currentVal.endsWith('\n')) {
-            textToInsert = text;
-          } else {
-            textToInsert = '\n' + text;
-          }
-        }
-
-        // Use document.execCommand to trigger React input state updates
-        try {
-          document.execCommand('insertText', false, textToInsert);
-        } catch (e) {
-          // Fallback
-          const textNode = document.createTextNode(textToInsert);
-          textarea.appendChild(textNode);
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          placeCursorAtEnd(textarea);
-        }
-      }
-    } finally {
-      isProgrammaticInsert = false;
-    }
-  }
-
-  /**
-   * Helper to place the cursor at the end of a contenteditable element.
-   * @param {HTMLElement} el
-   */
-  function placeCursorAtEnd(el) {
-    el.focus();
-    if (
-      typeof window.getSelection !== 'undefined' &&
-      typeof document.createRange !== 'undefined'
-    ) {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  }
-
-  /**
    * Renders the entire prompts view inside a container.
    * @param {HTMLElement} container
    * @param {string} searchQuery
@@ -718,409 +645,14 @@
     container.appendChild(listContainer);
   }
 
-  /**
-   * Initializes the autocomplete overlay on ChatGPT's input textarea.
-   */
-  function initAutocomplete() {
-    document.addEventListener('input', (e) => {
-      if (isProgrammaticInsert) {
-        closeAutocompleteMenu();
-        return;
-      }
-      const target = e.target;
-      if (target && target.id === 'prompt-textarea') {
-        currentTextarea = target;
-        handleTextareaInput(target);
-      }
-    });
-
-    document.addEventListener('keydown', handleTextareaKeydown, true);
-
-    document.addEventListener('click', (e) => {
-      if (
-        autocompleteMenu &&
-        !autocompleteMenu.contains(e.target) &&
-        e.target !== currentTextarea
-      ) {
-        closeAutocompleteMenu();
-      }
-    });
-  }
-
-  /**
-   * Parses the textarea/contenteditable value and triggers the autocomplete menu if necessary.
-   * @param {HTMLElement} textarea
-   */
-  async function handleTextareaInput(textarea) {
-    const context = getAutocompleteContext(textarea);
-
-    const prompts = sortMyPrompts(await getMyPrompts(), activeSort);
-    let matches = [];
-
-    if (context) {
-      matches = prompts.filter(
-        (p) =>
-          p.title.toLowerCase().startsWith(context.query) ||
-          p.content.toLowerCase().startsWith(context.query)
-      );
-    }
-
-    if (matches.length > 0) {
-      showAutocompleteMenu(textarea, matches, context);
-    } else {
-      closeAutocompleteMenu();
-    }
-  }
-
-  /**
-   * Creates a complete autocomplete context from the current caret position.
-   * @param {HTMLElement} textarea
-   * @returns {Object | null}
-   */
-  function getAutocompleteContext(textarea) {
-    if (textarea.tagName === 'TEXTAREA') {
-      const cursorOffset = textarea.selectionStart;
-      const textBeforeCursor = textarea.value.slice(0, cursorOffset);
-      const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
-
-      if (!triggerMatch) return null;
-
-      return {
-        query: triggerMatch[3].toLowerCase(),
-        triggerStart: triggerMatch.index + triggerMatch[1].length,
-        triggerEnd: cursorOffset,
-        anchorRect: null,
-        replaceRange: null,
-      };
-    }
-
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return null;
-
-    const range = selection.getRangeAt(0);
-    if (!textarea.contains(range.endContainer)) return null;
-
-    try {
-      const preCaretRange = range.cloneRange();
-      preCaretRange.selectNodeContents(textarea);
-      preCaretRange.setEnd(range.endContainer, range.endOffset);
-
-      const textBeforeCursor = preCaretRange.toString();
-      const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
-
-      if (!triggerMatch) return null;
-
-      const triggerStart = triggerMatch.index + triggerMatch[1].length;
-      const triggerEnd = textBeforeCursor.length;
-
-      return {
-        query: triggerMatch[3].toLowerCase(),
-        triggerStart,
-        triggerEnd,
-        anchorRect: getRangeAnchorRect(textarea, range),
-        replaceRange:
-          createTextRangeFromOffsets(textarea, triggerStart, triggerEnd) ||
-          createCurrentTextNodeTriggerRange(range),
-      };
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /**
-   * Resolves a DOM text range from flat text offsets inside a contenteditable root.
-   * @param {HTMLElement} root
-   * @param {number} startOffset
-   * @param {number} endOffset
-   * @returns {Range | null}
-   */
-  function createTextRangeFromOffsets(root, startOffset, endOffset) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const replaceRange = document.createRange();
-    let currentOffset = 0;
-    let hasStart = false;
-    let node = walker.nextNode();
-
-    while (node) {
-      const textLength = node.textContent.length;
-      const nextOffset = currentOffset + textLength;
-
-      if (!hasStart && startOffset <= nextOffset) {
-        replaceRange.setStart(node, Math.max(0, startOffset - currentOffset));
-        hasStart = true;
-      }
-
-      if (hasStart && endOffset <= nextOffset) {
-        replaceRange.setEnd(node, Math.max(0, endOffset - currentOffset));
-        return replaceRange;
-      }
-
-      currentOffset = nextOffset;
-      node = walker.nextNode();
-    }
-
-    return null;
-  }
-
-  /**
-   * Falls back to the current text node when editor-generated line breaks make
-   * flat text offsets impossible to map back to DOM nodes.
-   * @param {Range} range
-   * @returns {Range | null}
-   */
-  function createCurrentTextNodeTriggerRange(range) {
-    if (range.endContainer.nodeType !== Node.TEXT_NODE) return null;
-
-    const textBeforeCursor = range.endContainer.textContent.slice(
-      0,
-      range.endOffset
-    );
-    const triggerMatch = textBeforeCursor.match(autocompleteTriggerPattern);
-
-    if (!triggerMatch) return null;
-
-    const replaceRange = document.createRange();
-    replaceRange.setStart(
-      range.endContainer,
-      triggerMatch.index + triggerMatch[1].length
-    );
-    replaceRange.setEnd(range.endContainer, range.endOffset);
-
-    return replaceRange;
-  }
-
-  /**
-   * Finds a visible rectangle near the caret for positioning the menu.
-   * @param {HTMLElement} textarea
-   * @param {Range} range
-   * @returns {DOMRect | null}
-   */
-  function getRangeAnchorRect(textarea, range) {
-    const caretRange = range.cloneRange();
-    caretRange.collapse(false);
-
-    const caretRect = getVisibleRangeRect(caretRange);
-    if (caretRect) return caretRect;
-
-    if (
-      range.endContainer.nodeType === Node.TEXT_NODE &&
-      range.endOffset > 0
-    ) {
-      const characterRange = document.createRange();
-      characterRange.setStart(range.endContainer, range.endOffset - 1);
-      characterRange.setEnd(range.endContainer, range.endOffset);
-
-      return getVisibleRangeRect(characterRange);
-    }
-
-    return null;
-  }
-
-  /**
-   * Returns the first visible rectangle for a DOM range.
-   * @param {Range} range
-   * @returns {DOMRect | null}
-   */
-  function getVisibleRangeRect(range) {
-    const rect = range.getBoundingClientRect();
-    if (rect && (rect.width || rect.height)) return rect;
-
-    const rects = range.getClientRects();
-    return rects.length ? rects[rects.length - 1] : null;
-  }
-
-  /**
-   * Displays the autocomplete floating overlay.
-   * @param {HTMLElement} textarea
-   * @param {Array} matches
-   * @param {Object} context
-   */
-  function showAutocompleteMenu(textarea, matches, context) {
-    filteredPromptsForMenu = matches;
-    currentAutocompleteContext = context;
-    selectedMenuIndex = Math.min(selectedMenuIndex, matches.length - 1);
-
-    if (!autocompleteMenu) {
-      autocompleteMenu = document.createElement('div');
-      autocompleteMenu.id = 'chat-toc-autocomplete-menu';
-      document.documentElement.appendChild(autocompleteMenu);
-    }
-
-    renderAutocompleteMenuContent();
-
-    const inputRect = textarea.getBoundingClientRect();
-    const anchorRect = context.anchorRect || inputRect;
-    const menuGap = 8;
-    const maxMenuWidth = 420;
-    const menuWidth = Math.min(
-      inputRect.width,
-      maxMenuWidth,
-      window.innerWidth - menuGap * 2
-    );
-    const anchorLeft = context.anchorRect ? anchorRect.left : inputRect.left;
-    const left = Math.max(
-      menuGap,
-      Math.min(anchorLeft, window.innerWidth - menuWidth - menuGap)
-    );
-
-    autocompleteMenu.style.display = 'block';
-    autocompleteMenu.style.visibility = 'hidden';
-    autocompleteMenu.style.position = 'fixed';
-    autocompleteMenu.style.width = `${menuWidth}px`;
-
-    const menuHeight = autocompleteMenu.offsetHeight;
-    const preferredTop = anchorRect.top - menuHeight - menuGap;
-    const fallbackTop = anchorRect.bottom + menuGap;
-    const top =
-      preferredTop >= menuGap
-        ? preferredTop
-        : Math.min(fallbackTop, window.innerHeight - menuHeight - menuGap);
-
-    autocompleteMenu.style.left = `${left}px`;
-    autocompleteMenu.style.top = `${Math.max(menuGap, top)}px`;
-    autocompleteMenu.style.bottom = '';
-    autocompleteMenu.style.visibility = 'visible';
-  }
-
-  /**
-   * Renders the autocomplete suggestions items.
-   */
-  function renderAutocompleteMenuContent() {
-    if (!autocompleteMenu) return;
-
-    autocompleteMenu.innerHTML = '';
-    filteredPromptsForMenu.forEach((p, index) => {
-      const item = document.createElement('div');
-      item.className = 'autocomplete-menu-item';
-      if (index === selectedMenuIndex) {
-        item.classList.add('autocomplete-menu-item-active');
-      }
-
-      item.innerHTML = `
-        <div class="autocomplete-item-title">${escapeHtml(p.title)}</div>
-        <div class="autocomplete-item-preview">${escapeHtml(
-          p.content.slice(0, 80)
-        )}${p.content.length > 80 ? '...' : ''}</div>
-      `;
-
-      item.addEventListener('click', () => {
-        selectAutocompleteItem(p);
-      });
-
-      autocompleteMenu.appendChild(item);
-    });
-  }
-
-  /**
-   * Inserts the selected prompt content into the input element, replacing the trigger text.
-   * Handles both TEXTAREA and contenteditable containers cleanly.
-   * @param {Object} p
-   */
-  function selectAutocompleteItem(p) {
-    if (!currentTextarea || !autocompleteMenu || !currentAutocompleteContext) {
-      return;
-    }
-
-    const textarea = currentTextarea;
-    const context = currentAutocompleteContext;
-
-    isProgrammaticInsert = true;
-    try {
-      if (textarea.tagName === 'TEXTAREA') {
-        const text = textarea.value;
-        textarea.focus();
-        textarea.value =
-          text.slice(0, context.triggerStart) +
-          p.content +
-          text.slice(context.triggerEnd);
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        const newCursorPos = context.triggerStart + p.content.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      } else {
-        // For contenteditable div (ChatGPT's ProseMirror editor)
-        textarea.focus();
-        const selection = window.getSelection();
-        if (selection && context.replaceRange) {
-          selection.removeAllRanges();
-          selection.addRange(context.replaceRange);
-          document.execCommand('insertText', false, p.content);
-        }
-      }
-    } finally {
-      closeAutocompleteMenu();
-      isProgrammaticInsert = false;
-    }
-  }
-
-  /**
-   * Keydown handler for ArrowUp/Down, Enter, Tab, and Escape on the autocomplete dropdown.
-   * @param {KeyboardEvent} e
-   */
-  function handleTextareaKeydown(e) {
-    if (!autocompleteMenu || autocompleteMenu.style.display === 'none') return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      e.stopPropagation();
-      selectedMenuIndex =
-        (selectedMenuIndex + 1) % filteredPromptsForMenu.length;
-      renderAutocompleteMenuContent();
-      scrollActiveAutocompleteItemIntoView();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      e.stopPropagation();
-      selectedMenuIndex =
-        (selectedMenuIndex - 1 + filteredPromptsForMenu.length) %
-        filteredPromptsForMenu.length;
-      renderAutocompleteMenuContent();
-      scrollActiveAutocompleteItemIntoView();
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      e.stopPropagation();
-      const selectedPrompt = filteredPromptsForMenu[selectedMenuIndex];
-      if (selectedPrompt) {
-        selectAutocompleteItem(selectedPrompt);
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      closeAutocompleteMenu();
-    }
-  }
-
-  /**
-   * Scroll active menu item into view when navigating via keyboard keys.
-   */
-  function scrollActiveAutocompleteItemIntoView() {
-    const activeItem = autocompleteMenu.querySelector(
-      '.autocomplete-menu-item-active'
-    );
-    if (activeItem) {
-      activeItem.scrollIntoView({ block: 'nearest' });
-    }
-  }
-
-  /**
-   * Closes the autocomplete suggestions popup.
-   */
-  function closeAutocompleteMenu() {
-    if (autocompleteMenu) {
-      autocompleteMenu.style.display = 'none';
-      filteredPromptsForMenu = [];
-      currentAutocompleteContext = null;
-      selectedMenuIndex = 0;
-      delete autocompleteMenu.dataset.triggerStart;
-    }
-  }
-
-  // Export module API to window scope
-  window.ChatTocMyPrompts = {
+  window.ChatTocPromptLibrary = {
+    initialize,
     getMyPrompts,
     saveMyPrompts,
     onPromptsChanged,
     showDialog,
     renderMyPrompts,
-    initAutocomplete,
-    insertIntoChatGPTInput,
+    sortMyPrompts,
+    getActiveSort,
   };
 })();
