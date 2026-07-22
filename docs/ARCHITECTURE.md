@@ -93,8 +93,8 @@ graph TD
 - React is introduced incrementally: existing DOM-driven features remain unchanged until their individual UI boundaries are migrated.
 - [components/ui](../src/components/ui) contains shadcn/ui primitives; feature-specific and shared React components will live in sibling component directories.
 - `@/` resolves to the entire `src/` directory for browser code, React components, styles, and utilities.
-- Tailwind CSS utilities use the `lt:` prefix and omit Preflight so extension styles do not reset or collide with ChatGPT's page styles.
-- shadcn theme variables are scoped to `.luna-toc-ui`; every future React root must apply that class to its container.
+- Tailwind CSS is not loaded by the legacy Content Script UI. Future React UI must load its compiled Tailwind/shadcn styles inside its own Shadow Root so generated global rules cannot affect ChatGPT.
+- shadcn theme variables are scoped to `.luna-toc-ui`; every future React root must apply that class inside the Shadow Root.
 
 ### Build Outputs
 
@@ -103,7 +103,7 @@ graph TD
 - `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
 - `dist/` is generated and ignored by Git; run `npm run build` before loading or packaging the extension.
 - All executable files under `src/` are TypeScript; Chrome runs only the JavaScript generated in `dist/`.
-- `src/content.ts` imports the Tailwind entry so Vite compiles it; CRXJS adds the generated CSS asset to the built content script automatically.
+- `src/content.ts` does not import the Tailwind entry while the extension has no React UI, preventing generated Tailwind internals from entering ChatGPT's document styles.
 - `scripts/version.ts` is executed through `tsx`, while `tsconfig.node.json` strictly checks Node-side tooling separately from browser code.
 
 ---
