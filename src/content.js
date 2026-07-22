@@ -1,9 +1,6 @@
 /**
  * LunaTOC content script entry point.
  */
-import './features/outline.js';
-import './features/follow.js';
-import './features/jump.js';
 import './features/tooltip.js';
 import './features/toggleButton.js';
 import './features/sidebarVisibility.js';

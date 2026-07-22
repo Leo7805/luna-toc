@@ -10,6 +10,28 @@ import {
   createPromptMarkButton,
   initializePromptMark,
 } from '../features/conversationPrompts/promptMark';
+import {
+  initializeFollow,
+  isFollowing,
+  keepFollowing,
+} from '../features/follow';
+import {
+  initializeJump,
+  jumpToAbsoluteEdge as jumpToPageEdge,
+  jumpToConversationEdge,
+  jumpToMessage,
+} from '../features/jump';
+import {
+  collapseAll,
+  createPromptItem,
+  handlePromptNavigation,
+  resetOutline,
+  resetPromptItems,
+  scheduleBuild,
+  setPromptMessages,
+  syncActivePrompt,
+  syncMarkState,
+} from '../features/outline';
 
 (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
@@ -73,7 +95,7 @@ import {
   function attach() {
     if (isAttached) return;
 
-    window.ChatTocFollow.init({
+    initializeFollow({
       listSelector: '#navigator-list',
       ignoredScrollSelector:
         '#luna-toc-sidebar, #luna-toc-preview-tooltip, #luna-toc-button-tooltip',
@@ -81,7 +103,7 @@ import {
       setActiveIndex: setActiveNavigatorItem,
     });
 
-    window.ChatTocJump.init({
+    initializeJump({
       getNativePromptButtons,
       normalizeText,
       findConversationIndexByElement,
@@ -118,7 +140,7 @@ import {
   function resetView() {
     searchQuery = '';
     window.ChatTocPreviewTooltip.hide();
-    window.ChatTocOutline?.collapseAll?.();
+    collapseAll();
     render({ refreshObservers: true });
 
     document.getElementById('navigator-list')?.scrollTo({
@@ -136,11 +158,11 @@ import {
     const message = conversationMessages[index];
 
     if (message) {
-      window.ChatTocJump.jumpToMessage(message, index);
+      jumpToMessage(message, index);
       return;
     }
 
-    window.ChatTocJump.jumpToConversationEdge(edge);
+    jumpToConversationEdge(edge);
   }
 
   /**
@@ -148,7 +170,7 @@ import {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToAbsoluteEdge(edge) {
-    window.ChatTocJump.jumpToAbsoluteEdge(edge, 'auto');
+    jumpToPageEdge(edge, 'auto');
   }
 
   /**
@@ -164,8 +186,8 @@ import {
 
     list.innerHTML = '';
     navigatorItems = [];
-    window.ChatTocOutline?.resetPromptItems?.();
-    window.ChatTocOutline?.setPromptMessages?.(conversationMessages);
+    resetPromptItems();
+    setPromptMessages(conversationMessages);
 
     const normalizedQuery = normalizeText(searchQuery).toLowerCase();
     const visibleMessages = conversationMessages
@@ -209,7 +231,10 @@ import {
 
     item.dataset.messageIndex = String(index);
     item.className = 'navigator-item';
-    item.classList.toggle('navigator-item-active', index === activeNavigatorIndex);
+    item.classList.toggle(
+      'navigator-item-active',
+      index === activeNavigatorIndex
+    );
     itemMain.className = 'navigator-item-main';
     itemText.className = 'navigator-item-text';
     itemText.textContent = `${index + 1}. ${message.text.replace(/\s+/g, ' ')}`;
@@ -218,7 +243,7 @@ import {
       item,
       messageId: message.id,
     });
-    const outlineControls = window.ChatTocOutline?.createPromptItem?.({
+    const outlineControls = createPromptItem({
       item,
       index,
       messageId: message.id,
@@ -264,14 +289,11 @@ import {
    */
   function handleNavigatorItemClick(message, index) {
     window.ChatTocPreviewTooltip.hide();
-    const outlineAction = window.ChatTocOutline?.handlePromptNavigation?.(
-      index,
-      activeNavigatorIndex
-    );
+    const outlineAction = handlePromptNavigation(index, activeNavigatorIndex);
 
-    window.ChatTocJump.jumpToMessage(message, index);
+    jumpToMessage(message, index);
     if (outlineAction?.shouldBuild) {
-      window.ChatTocOutline?.scheduleBuild?.(index);
+      scheduleBuild(index);
     }
   }
 
@@ -295,7 +317,7 @@ import {
 
     item.classList.add('navigator-item-active');
     if (activeIndexChanged) {
-      window.ChatTocOutline?.syncActivePrompt?.(index);
+      syncActivePrompt(index);
     }
     scrollNavigatorItemIntoView(item);
   }
@@ -313,7 +335,7 @@ import {
 
   function lockActiveNavigatorItem(index, duration = 1800) {
     clearTimeout(lockedNavigatorTimer);
-    window.ChatTocFollow.keepFollowing(duration);
+    keepFollowing(duration);
     lockedNavigatorIndex = index;
     forceActiveNavigatorItem(index);
     lockedNavigatorTimer = setTimeout(() => {
@@ -324,7 +346,7 @@ import {
 
   function scrollNavigatorItemIntoView(item) {
     const scrollContainer = document.getElementById('navigator-list');
-    if (!scrollContainer || !window.ChatTocFollow.isFollowing()) return;
+    if (!scrollContainer || !isFollowing()) return;
 
     const itemRect = item.getBoundingClientRect();
     const containerRect = scrollContainer.getBoundingClientRect();
@@ -336,7 +358,10 @@ import {
     if (!isAbove && !isBelow) return;
 
     const nextScrollTop = isAbove
-      ? scrollContainer.scrollTop + itemRect.top - containerRect.top - topPadding
+      ? scrollContainer.scrollTop +
+        itemRect.top -
+        containerRect.top -
+        topPadding
       : scrollContainer.scrollTop +
         itemRect.bottom -
         containerRect.bottom +
@@ -360,7 +385,8 @@ import {
       if (!message.canMatchByText) continue;
 
       const messageText = normalizeText(message.text);
-      if (domText === messageText || domText.includes(messageText)) return index;
+      if (domText === messageText || domText.includes(messageText))
+        return index;
     }
     return -1;
   }
@@ -472,10 +498,7 @@ import {
   }
 
   function isNewChatRouteKey(routeKey) {
-    return (
-      routeKey.startsWith('new-chat:') ||
-      routeKey.startsWith('WEB:')
-    );
+    return routeKey.startsWith('new-chat:') || routeKey.startsWith('WEB:');
   }
 
   function clearPendingNewChat() {
@@ -500,9 +523,7 @@ import {
   function cacheConversationMessages(conversationKey) {
     if (!conversationKey || conversationMessages.length === 0) return;
 
-    conversationMessageCache.set(conversationKey, [
-      ...conversationMessages,
-    ]);
+    conversationMessageCache.set(conversationKey, [...conversationMessages]);
   }
 
   /**
@@ -526,7 +547,7 @@ import {
   function initMarkedPrompts() {
     initializePromptMark({
       conversationKey: getCurrentConversationKey(),
-      onMarkChanged: () => window.ChatTocOutline?.syncMarkState?.(),
+      onMarkChanged: syncMarkState,
     });
   }
 
@@ -547,7 +568,7 @@ import {
 
     initMarkedPrompts();
     activeNavigatorIndex = null;
-    window.ChatTocOutline?.reset?.();
+    resetOutline();
     navigatorItems = [];
     searchQuery = '';
     window.ChatTocPreviewTooltip?.hide?.();
@@ -563,14 +584,10 @@ import {
     }
     if (nextConversationKey === currentConversationKey) return;
 
-    const isNewChatRouteTransition = isNewChatRouteKey(
-      currentConversationKey
-    );
+    const isNewChatRouteTransition = isNewChatRouteKey(currentConversationKey);
     const shouldPreserveMessages =
       isNewChatRouteTransition && conversationMessages.length > 0;
-    const cachedMessages = getCachedConversationMessages(
-      nextConversationKey
-    );
+    const cachedMessages = getCachedConversationMessages(nextConversationKey);
     if (isNewChatRouteTransition) {
       pendingNewChatRouteKey = currentConversationKey;
     } else {

@@ -147,6 +147,11 @@ and prompt marking to TypeScript. `navigatorController.js` imports those APIs
 directly, while Outline imports the mark-state query and mark-change updates
 are injected as a callback to avoid a circular module dependency.
 
+The third incremental migration converts Follow, Jump, and Outline to
+TypeScript. `navigatorController.js` imports their named APIs directly, and the
+navigation dependency chain is explicit: Outline depends on Jump, and Jump
+depends on Follow.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -159,3 +164,5 @@ are injected as a callback to avoid a circular module dependency.
   `window`.
 * Conversation message and prompt-mark modules no longer publish APIs on
   `window`.
+* Follow, Jump, and Outline no longer publish APIs on `window` or depend on
+  source-script loading order.

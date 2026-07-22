@@ -1,24 +1,27 @@
 {
   "source": {
-    "sourceHash": "sha256:7b60ae6804b688285403708ab248cb89478a20571f7ca1e17cdfa80107b5b85b",
+    "sourceHash": "sha256:6f909481b4206cb5b12d801988fdf9884da771e62e39c20d3728b730220f7c1f",
     "programmingLanguage": "javascript"
   },
   "defaults": {
     "createdAt": "2026-07-21T11:11:20.055Z",
-    "updatedAt": "2026-07-22T06:37:14.696Z"
+    "updatedAt": "2026-07-22T06:44:34.403Z"
   },
   "fileNote": {
     "userNote": "LunaTOC 的“总控制器/装配层”，启动入口。启动 Application Shell\n\n它不负责所有具体功能，而是负责创建界面、维护共享状态、接收数据，再协调其他模块。\n\nChatGPT 页面\n   │ fetch / 路由变化\n   ▼\npageHook.js（Main World）\n   │ window.postMessage\n   ▼\ncontent.js（总控制器）\n   ├── message.js          解析会话数据\n   ├── jump.js             跳转消息\n   ├── follow.js           滚动跟随\n   ├── outline.js          回复标题大纲\n   ├── promptMark.js       标记 Prompt\n   ├── myPrompts.js        自定义 Prompt\n   ├── tooltip.js          悬浮提示\n   ├── toggleButton.js     浮动开关\n   └── sidebarVisibility.js 侧栏显隐\n\ncontent.js                      # 极短的启动入口\n\ncore/\n  app.js                        # 生命周期与模块组装\n  conversationState.js          # 当前路由、消息和新会话迁移状态\n  conversationSync.js           # 处理完整快照与实时消息的竞态\n  routeController.js            # SPA 路由变化\n\nnavigator/\n  navigatorView.js              # 创建和渲染 TOC\n  navigatorController.js        # 点击、搜索、模式切换\n  activePromptController.js     # 当前提示词跟踪\n\nsidebar/\n  sidebarView.js                # Sidebar DOM\n  sidebarResize.js              # 调整宽度\n  jumpControls.js               # 顶部/底部控件\n\nplatform/\n  pageBridge.js                 # 与 pageHook 的 postMessage 协议\n  pageHookLoader.js             # 注入 pageHook.js\n  themeStorage.js               # Chrome storage\n",
     "createdBy": "user",
-    "createdAt": "2026-07-21T11:14:35.949Z",
-    "updatedAt": "2026-07-22T06:38:19.911Z"
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    },
+    "createdAt": "2026-07-21T11:14:35.949Z"
   },
   "sectionNotes": {
     "section:user:1351-1384": {
       "title": "",
       "range": {
-        "startLine": 1360,
-        "endLine": 1393
+        "startLine": 1357,
+        "endLine": 1390
       },
       "anchorHash": "sha256:ca426a2624d62589e87f405df677adf29e9a75d70cea3c2caea2a6739c2573f2",
       "userNote": "main 是最后的入口\n\nmain() 的启动顺序大致是：\n1. 加载主题。\n2. 注入 pageHook.js。\n3. 初始化 Prompt 标记。\n4. 注册会话数据监听。\n5. 等待 document.body，创建侧栏。\n6. 初始化尺寸调整和按钮拖动。\n7. 监听 SPA 路由变化。\n8. 初始化当前 Prompt 跟踪。\n9. 创建浮动按钮和侧栏显隐控制。\n10. 初始化 Tooltip。\n11. 初始化 My Prompts 自动补全和数据变更监听。\n",

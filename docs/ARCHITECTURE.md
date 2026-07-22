@@ -19,11 +19,11 @@ graph TD
 
     subgraph sourceModules["Source Modules"]
         content[content.js]
-        outline[outline.js]
-        follow[follow.js]
-        jump[jump.js]
-        msg[message.js]
-        mark[promptMark.js]
+        outline[outline.ts]
+        follow[follow.ts]
+        jump[jump.ts]
+        msg[message.ts]
+        mark[promptMark.ts]
         vis[sidebarVisibility.js]
         btn[toggleButton.js]
         tip[tooltip.js]
@@ -41,11 +41,13 @@ graph TD
     end
 
     manifest --> vite
-    content --> outline
-    content --> follow
-    content --> jump
     content --> shell
     shell --> navigator
+    navigator --> outline
+    navigator --> jump
+    navigator --> follow
+    outline --> jump
+    jump --> follow
     vite --> contentBundle
     vite --> hook
     hook ===>|window.postMessage| navigator
@@ -63,13 +65,13 @@ graph TD
 ### Isolated World (Content Scripts)
 
 - **Purpose**: `src/content.js` is declared in `manifest.json` and runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global JavaScript scope.
-- **Loading**: `src/content.js` imports the feature modules in dependency order. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
+- **Loading**: `src/content.js` starts the application shell, and each module imports its explicit dependencies. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
 - **Source modules**:
-  - [outline.js](../src/features/outline.js): Extracts header trees (`H1`-`H6`) from assistant answers and manages outline expands/collapses.
-  - [follow.js](../src/features/follow.js): Manages scroll tracking on the chat feed and coordinates when the sidebar is allowed to auto-scroll.
+  - [outline.ts](../src/features/outline.ts): Provides typed answer-heading extraction, outline state, and child-heading navigation through named exports.
+  - [follow.ts](../src/features/follow.ts): Provides typed chat-scroll tracking and sidebar auto-follow control through named exports.
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
-  - [jump.js](../src/features/jump.js): Controls smooth scrolling to messages, utilizing ChatGPT's native buttons (primary) or direct DOM `scrollIntoView` (fallback).
+  - [jump.ts](../src/features/jump.ts): Provides typed prompt navigation using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
   - [tooltip.js](../src/features/tooltip.js): Shows full-text preview tooltips for truncated prompt lines.
   - [toggleButton.js](../src/features/toggleButton.js): Manages the floating circular toggle button and session-bound drag position.
   - [sidebarVisibility.js](../src/features/sidebarVisibility.js): Manages sidebar showing, auto-hiding, pinning, and inert accessibility state.

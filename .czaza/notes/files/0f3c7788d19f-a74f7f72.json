@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:e4d628164aa2ac5fea446213779a9b7665ab1cda14e2da751d855d8747087c89",
+    "sourceHash": "sha256:6200c344f60baf0d4c7c9f835a8c946e425bf45377e84585dac9804c894f6c1f",
     "sourceHashKind": "text",
     "programmingLanguage": "javascript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:16:33.200Z",
-    "updatedAt": "2026-07-22T06:38:15.514Z"
+    "updatedAt": "2026-07-22T06:46:41.157Z"
   },
   "fileNote": {
     "userNote": "包含会话数据、目录填充、跳转协调、路由迁移和高亮跟踪。",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}
