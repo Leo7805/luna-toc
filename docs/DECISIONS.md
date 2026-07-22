@@ -164,6 +164,12 @@ The sixth incremental migration converts the Popup and Main World page hook to
 TypeScript. With every executable file under `src/` migrated, JavaScript is now
 generated only as a build artifact in `dist/`.
 
+The tooling migration converts `vite.config.js` and `scripts/version.js` to
+TypeScript. Node-side files use a dedicated strict `tsconfig.node.json`, and
+`tsx` runs the npm version lifecycle without changing the public versioning
+commands. A post-build naming step removes `.ts` and `.html` from generated
+entry chunk names after CRXJS has completed its own bundle and Manifest work.
+
 ### Consequences
 * Feature source files no longer need individual entries in `manifest.json`.
 * The page hook is injected directly by Chrome instead of through a DOM script
@@ -184,3 +190,6 @@ generated only as a build artifact in `dist/`.
   only the compiled JavaScript bundle is executed by Chrome.
 * `allowJs` is no longer needed in the TypeScript configuration because no
   executable JavaScript remains under `src/`.
+* Browser code, build configuration, and release tooling are all type-checked.
+* Generated entry files use clean names such as `content-<hash>.js` and
+  `popup-<hash>.js` while Chrome continues to load only JavaScript from `dist/`.

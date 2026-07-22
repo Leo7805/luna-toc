@@ -118,7 +118,8 @@ npm run build
 ```
 
 The root `manifest.json` is the source Manifest. Chrome loads the generated
-`dist/` directory.
+`dist/` directory. Browser source, Vite configuration, and release tooling are
+all written in TypeScript and checked by `npm run typecheck`.
 
 ---
 
@@ -126,7 +127,8 @@ The root `manifest.json` is the source Manifest. Chrome loads the generated
 
 The native npm version commands require a clean Git working tree, synchronize
 `package.json` and `manifest.json`, create a version commit, and tag that commit.
-They do not push the commit or tag.
+The lifecycle runs `scripts/version.ts` through `tsx`. It does not push the
+commit or tag.
 
 ```bash
 npm version patch

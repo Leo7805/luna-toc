@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "version": "node scripts/version.js && git add -- manifest.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "version": "tsx scripts/version.ts && git add -- manifest.json"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.7.1",
     "@types/chrome": "^0.2.2",
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
   }

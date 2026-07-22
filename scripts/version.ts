@@ -9,17 +9,23 @@ const projectRoot = path.resolve(scriptDirectory, '..');
 const packagePath = path.join(projectRoot, 'package.json');
 const manifestPath = path.join(projectRoot, 'manifest.json');
 
+interface PackageData {
+  version: string;
+}
+
 /**
  * Exits with an error message.
  * @param {string} message
  * @returns {never}
  */
-function fail(message) {
+function fail(message: string): never {
   console.error(`Version update failed: ${message}`);
   process.exit(1);
 }
 
-const packageData = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+const packageData = JSON.parse(
+  fs.readFileSync(packagePath, 'utf8')
+) as PackageData;
 const manifestSource = fs.readFileSync(manifestPath, 'utf8');
 const versionMatch = manifestSource.match(/"version"\s*:\s*"([^"]+)"/);
 

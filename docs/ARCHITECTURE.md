@@ -91,10 +91,11 @@ graph TD
 ### Build Outputs
 
 - `manifest.json` is the source Manifest and authoritative extension version.
-- `vite.config.js` uses Vite and CRXJS to discover the Chrome extension entries.
+- `vite.config.ts` uses Vite and CRXJS to discover extension entries and cleans source extensions from generated entry names after CRXJS finishes writing the build.
 - `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
 - `dist/` is generated and ignored by Git; run `npm run build` before loading or packaging the extension.
 - All executable files under `src/` are TypeScript; Chrome runs only the JavaScript generated in `dist/`.
+- `scripts/version.ts` is executed through `tsx`, while `tsconfig.node.json` strictly checks Node-side tooling separately from browser code.
 
 ---
 
