@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T13:57:07.115Z",
+  "updatedAt": "2026-07-22T14:05:08.898Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -54,7 +54,7 @@
       "noteFile": "files/828b26418229-088e14cb.json",
       "sourceHash": "sha256:40a5c5ab6a668f70c975c663b31f43cb352a25f6190969a4081398cdc262d13a",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T13:35:37.607Z"
+      "updatedAt": "2026-07-22T14:05:07.464Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
@@ -66,7 +66,7 @@
       "noteFile": "files/15c947723c16-72bdec3c.json",
       "sourceHash": "sha256:f4f8ebfac21ea5567129a32c31203569bb6f8662dd99f3cd0e3930913f1236fb",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T11:21:12.796Z"
+      "updatedAt": "2026-07-22T14:05:08.898Z"
     },
     "src/page/pageHook.iife.ts": {
       "noteFile": "files/58c0d613b9e6-01ce1193.json",
@@ -122,13 +122,13 @@
       "noteFile": "files/e6c108acceb4-3895736b.json",
       "sourceHash": "sha256:9d13ddd5b8bc436927bec6a742bdca7d9ee0c72a74665ba9eb30118546dda970",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T12:53:30.963Z"
+      "updatedAt": "2026-07-22T14:05:04.826Z"
     },
     "src/features/myPrompts/promptAutocomplete.ts": {
       "noteFile": "files/ae96953807c0-216dbed1.json",
       "sourceHash": "sha256:400dec15353e803ae7a6aa1b0f2b967d1d5dfa956f7bd219622e8fe61dfd148d",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T13:10:09.074Z"
+      "updatedAt": "2026-07-22T14:05:03.014Z"
     },
     "src/features/myPrompts/promptAutocompleteView.ts": {
       "noteFile": "files/613dfd5012b2-89ceb3d7.json",
@@ -140,7 +140,7 @@
       "noteFile": "files/055a5ea96141-ead01416.json",
       "sourceHash": "sha256:4ff698f02ffe7769c55cdb4113350f0eecc0ccf0c8b35bfe8098368c976fffe6",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-22T12:52:56.432Z"
+      "updatedAt": "2026-07-22T14:05:01.481Z"
     },
     "src/features/myPrompts/promptUsageStore.ts": {
       "noteFile": "files/467078f42907-e57968c4.json",
@@ -156,9 +156,9 @@
     },
     "src/components/popup/PopupApp.tsx": {
       "noteFile": "files/b65e4b46b3a3-36665232.json",
-      "sourceHash": "sha256:a7ee7f915f386e76a06361cd592d59b570e8e7a1acb1ed0162c40bfd8197b40c",
+      "sourceHash": "sha256:9870409366698122749c6ab541b077e46a19c061662ba0b40a8e83a9293a54b8",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-22T13:46:19.893Z"
+      "updatedAt": "2026-07-22T14:04:59.822Z"
     },
     "src/components/popup/ThemeSettings.tsx": {
       "noteFile": "files/0044ae0a939f-6ab610c3.json",
@@ -186,9 +186,9 @@
     },
     "src/popup/popup.css": {
       "noteFile": "files/84de4f7ad44f-802c776c.json",
-      "sourceHash": "sha256:8202376e60953b8a4d0cdd74fb752dd782cbba95518bbc8acb10f85e5295c549",
+      "sourceHash": "sha256:3fb8f391189e0f4245263bb87793d85a61e1712b0443781dbf08d99ddbdc9c9f",
       "programmingLanguage": "css",
-      "updatedAt": "2026-07-22T13:57:07.115Z"
+      "updatedAt": "2026-07-22T14:04:57.763Z"
     }
   }
 }

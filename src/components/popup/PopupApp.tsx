@@ -1,4 +1,5 @@
 /** Renders the complete extension popup and coordinates its theme state. */
+import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   readResolvedChatGPTTheme,
@@ -51,7 +52,11 @@ export function PopupApp(): React.JSX.Element {
 
   return (
     <main className="rounded-lg bg-[var(--p-bg-main)] p-3">
-      <ThemeSettings settings={settings} onChange={updateSettings} />
+      <ThemeSettings
+        settings={settings}
+        resolvedTheme={resolvedTheme}
+        onChange={updateSettings}
+      />
 
       <section className="m-0" aria-labelledby="tips-heading">
         <h2
@@ -77,15 +82,11 @@ export function PopupApp(): React.JSX.Element {
           className="mt-2.5 grid grid-cols-[14px_minmax(0,1fr)] gap-[7px] rounded-sm bg-[var(--p-bg-note)] p-2"
           aria-label="Navigation note"
         >
-          <svg
-            className="mt-0.5 size-3.5 fill-none stroke-[var(--p-accent)] stroke-[1.5] [stroke-linecap:round] [stroke-linejoin:round]"
+          <Info
+            className="mt-0.5 size-3.5 text-[var(--p-accent)]"
             aria-hidden="true"
-            viewBox="0 0 16 16"
-            focusable="false"
-          >
-            <circle cx="8" cy="8" r="6.25" />
-            <path d="M8 7v4M8 5.1v.1" />
-          </svg>
+            strokeWidth={1.75}
+          />
           <p className="m-0 text-xs leading-[1.5] text-[var(--p-text-base)]">
             <strong className="font-semibold text-[var(--p-text-strong)]">
               Note:

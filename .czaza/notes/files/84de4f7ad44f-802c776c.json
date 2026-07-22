@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:8202376e60953b8a4d0cdd74fb752dd782cbba95518bbc8acb10f85e5295c549",
+    "sourceHash": "sha256:3fb8f391189e0f4245263bb87793d85a61e1712b0443781dbf08d99ddbdc9c9f",
     "sourceHashKind": "text",
     "programmingLanguage": "css"
   },
   "defaults": {
     "createdAt": "2026-07-22T13:40:24.593Z",
-    "updatedAt": "2026-07-22T13:57:07.115Z"
+    "updatedAt": "2026-07-22T14:04:57.763Z"
   },
   "fileNote": {
     "userNote": "Tailwind 入口、主题变量、页面基础规则\n\npopup.css\n├── Tailwind 入口\n├── Dark/Light 主题 tokens\n└── body 与 box-sizing 基础规则",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}
