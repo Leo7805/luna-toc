@@ -1,6 +1,7 @@
 /** Tests the platform-independent virtual-list search execution loop. */
 import { describe, expect, it } from 'vitest';
 import {
+  getTargetDistance,
   searchVirtualPrompt,
   type VirtualSearchObservation,
 } from '@/features/navigation/virtualSearchController';
@@ -59,6 +60,7 @@ function createFakeSearch({
           {
             blockId: `response-${promptIndex}`,
             promptIndex,
+            source: 'response-id',
           },
         ],
       },
@@ -99,6 +101,19 @@ function createFakeSearch({
 }
 
 describe('virtual search controller', () => {
+  it('measures distance from actual matches instead of their outer range', () => {
+    expect(
+      getTargetDistance(8, {
+        status: 'located',
+        firstPromptIndex: 3,
+        lastPromptIndex: 26,
+        matchedPromptIndexes: [3, 4, 24, 25, 26],
+        matchedBlockIds: [],
+        matchedBlocks: [],
+      })
+    ).toBe(4);
+  });
+
   it('returns immediately when the target is already rendered', async () => {
     const fake = createFakeSearch({ targetIndex: 3, initialIndex: 3 });
 
@@ -213,7 +228,13 @@ describe('virtual search controller', () => {
           lastPromptIndex: 0,
           matchedPromptIndexes: [0],
           matchedBlockIds: ['response-0'],
-          matchedBlocks: [{ blockId: 'response-0', promptIndex: 0 }],
+          matchedBlocks: [
+            {
+              blockId: 'response-0',
+              promptIndex: 0,
+              source: 'response-id',
+            },
+          ],
         },
         anchors: [
           createNavigationAnchor({
@@ -231,5 +252,26 @@ describe('virtual search controller', () => {
 
     expect(result.status).toBe('exhausted');
     expect(result.attempts).toBeGreaterThan(0);
+  });
+
+  it('reports observation, planning, scrolling, and completion events', async () => {
+    const fake = createFakeSearch({ targetIndex: 8 });
+    const eventNames: string[] = [];
+
+    const result = await searchVirtualPrompt({
+      ...fake.options,
+      onDiagnosticEvent: ({ eventName }) => {
+        eventNames.push(eventName);
+      },
+    });
+
+    expect(result.status).toBe('found');
+    expect(eventNames).toEqual([
+      'SEARCH_STARTED',
+      'POSITION_OBSERVED',
+      'SEARCH_PLAN',
+      'SCROLL_APPLIED',
+      'SEARCH_FINISHED',
+    ]);
   });
 });

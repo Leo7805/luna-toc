@@ -16,6 +16,12 @@ import {
   getChatGptScrollMetrics,
   observeChatGptVirtualPosition,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
+import {
+  createChatGptNavigationJumpId,
+  getChatGptNavigationTestConfig,
+  logChatGptNavigationEvent,
+  type ChatGptNavigationTestConfig,
+} from '@/platforms/chatgpt/navigationDiagnostics';
 import { keepFollowing } from './follow';
 
 interface VirtualSearchContext {
@@ -250,9 +256,19 @@ function jumpWithIndependentVirtualNavigation(
   message: NavigatorMessage,
   index: number
 ): void {
+  const jumpId = createChatGptNavigationJumpId();
+  const testConfig = getChatGptNavigationTestConfig();
   const context = getVirtualSearchContext();
   const container = getChatGptScrollContainer();
 
+  logChatGptNavigationEvent(jumpId, 'JUMP_START', {
+    conversationKey: context.conversationKey,
+    targetPromptId: message.id,
+    targetPromptIndex: index,
+    promptCount: context.prompts.length,
+    fingerprintRecordCount: context.fingerprintIndex.length,
+    testConfig,
+  });
   lockActiveIndex(index, 4000);
   keepFollowing(4000);
 
@@ -261,6 +277,10 @@ function jumpWithIndependentVirtualNavigation(
       hasContainer: Boolean(container),
       conversationKey: context.conversationKey,
       index,
+    });
+    logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+      status: 'missing-context',
+      hasContainer: Boolean(container),
     });
     return;
   }
@@ -272,7 +292,9 @@ function jumpWithIndependentVirtualNavigation(
       message,
       index,
       context.conversationKey,
-      container
+      container,
+      jumpId,
+      testConfig
     );
     return;
   }
@@ -285,12 +307,26 @@ function jumpWithIndependentVirtualNavigation(
     targetPromptId: message.id,
     targetPromptIndex: index,
     promptCount: context.prompts.length,
-    getConfirmedAnchors: () =>
-      anchorStore.getConfirmedAnchors(context.conversationKey),
+    getConfirmedAnchors: async () => {
+      if (!testConfig.useConfirmedAnchors) return [];
+
+      const anchors = await anchorStore.getConfirmedAnchors(
+        context.conversationKey
+      );
+
+      return anchors.filter(
+        ({ promptId, promptIndex }) =>
+          context.prompts[promptIndex]?.id === promptId
+      );
+    },
     getObservedAnchors: () =>
-      anchorStore.getObservedAnchors(context.conversationKey),
+      testConfig.useObservedAnchors
+        ? anchorStore.getObservedAnchors(context.conversationKey)
+        : [],
     recordObservation: (anchor) => {
-      anchorStore.recordObservation(anchor);
+      if (testConfig.useObservedAnchors) {
+        anchorStore.recordObservation(anchor);
+      }
     },
     getScrollMetrics: () => getChatGptScrollMetrics(container),
     observePosition: () =>
@@ -304,7 +340,18 @@ function jumpWithIndependentVirtualNavigation(
     scrollTo: (scrollTop) => {
       container.scrollTo({ top: scrollTop, behavior: 'auto' });
     },
+    waitForRender: () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, testConfig.settleWaitMs);
+      }),
     signal: controller.signal,
+    maxAttempts: testConfig.maxSearchAttempts,
+    maxDurationMs: testConfig.maxSearchDurationMs,
+    unresolvedPositionsBeforeAbort:
+      testConfig.unresolvedPositionsBeforeAbort,
+    onDiagnosticEvent: ({ eventName, details }) => {
+      logChatGptNavigationEvent(jumpId, eventName, details);
+    },
   })
     .then((result) => {
       if (activeIndependentSearch === controller) {
@@ -316,24 +363,38 @@ function jumpWithIndependentVirtualNavigation(
           status: result.status,
           attempts: result.attempts,
         });
+        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+          status: result.status,
+          attempts: result.attempts,
+        });
         return;
       }
 
       const target = findRenderedChatGptPrompt(message.id);
-      if (!target) return;
+      if (!target) {
+        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+          status: 'target-disappeared-after-search',
+        });
+        return;
+      }
 
       finishIndependentVirtualJump(
         target,
         message,
         index,
         context.conversationKey,
-        container
+        container,
+        jumpId,
+        testConfig
       );
     })
     .catch((error: unknown) => {
       if (activeIndependentSearch === controller) {
         activeIndependentSearch = null;
       }
+      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+        status: 'error',
+      });
       console.warn('[LunaTOC] Independent navigation failed.', error);
     });
 }
@@ -396,25 +457,41 @@ function finishIndependentVirtualJump(
   message: NavigatorMessage,
   index: number,
   conversationKey: string,
-  container: HTMLElement
+  container: HTMLElement,
+  jumpId: string,
+  testConfig: ChatGptNavigationTestConfig
 ): void {
   const jumpVersion = navigationJumpVersion;
 
-  alignIndependentPromptToTop(target);
+  logChatGptNavigationEvent(jumpId, 'TARGET_FOUND', {
+    promptId: message.id,
+    promptIndex: index,
+    geometry: getPromptGeometry(target, container),
+  });
+  alignIndependentPromptToTop(target, container, jumpId, 'initial');
   settleIndependentVirtualJump({
+    previousTarget: target,
     message,
     index,
     conversationKey,
     container,
+    jumpId,
+    testConfig,
     jumpVersion,
-    attempts: 3,
+    attempts: testConfig.settleAttempts,
   });
 }
 
 /**
  * Aligns a mounted prompt with the scroll container's start edge.
  */
-function alignIndependentPromptToTop(target: HTMLElement): void {
+function alignIndependentPromptToTop(
+  target: HTMLElement,
+  container: HTMLElement,
+  jumpId: string,
+  phase: 'initial' | 'settled'
+): void {
+  const before = getPromptGeometry(target, container);
   const previousScrollMarginTop = target.style.scrollMarginTop;
   target.style.scrollMarginTop = `${APP_CONFIG.platforms.chatgpt.promptTopOffsetPx}px`;
   target.scrollIntoView({
@@ -422,6 +499,11 @@ function alignIndependentPromptToTop(target: HTMLElement): void {
     block: 'start',
   });
   target.style.scrollMarginTop = previousScrollMarginTop;
+  logChatGptNavigationEvent(jumpId, 'ALIGNMENT_APPLIED', {
+    phase,
+    before,
+    after: getPromptGeometry(target, container),
+  });
 }
 
 /**
@@ -429,39 +511,70 @@ function alignIndependentPromptToTop(target: HTMLElement): void {
  * only the final mounted prompt element.
  */
 function settleIndependentVirtualJump({
+  previousTarget,
   message,
   index,
   conversationKey,
   container,
+  jumpId,
+  testConfig,
   jumpVersion,
   attempts,
 }: {
+  previousTarget: HTMLElement;
   message: NavigatorMessage;
   index: number;
   conversationKey: string;
   container: HTMLElement;
+  jumpId: string;
+  testConfig: ChatGptNavigationTestConfig;
   jumpVersion: number;
   attempts: number;
 }): void {
   setTimeout(() => {
-    if (jumpVersion !== navigationJumpVersion) return;
+    if (jumpVersion !== navigationJumpVersion) {
+      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+        status: 'cancelled-during-settle',
+      });
+      return;
+    }
 
     const latestTarget = findRenderedChatGptPrompt(message.id);
+    logChatGptNavigationEvent(jumpId, 'SETTLE_CHECK', {
+      attemptsRemaining: attempts,
+      targetFound: Boolean(latestTarget),
+      domReplaced: Boolean(latestTarget && latestTarget !== previousTarget),
+      geometry: latestTarget
+        ? getPromptGeometry(latestTarget, container)
+        : null,
+    });
     if (!latestTarget) {
       if (attempts > 1) {
         settleIndependentVirtualJump({
+          previousTarget,
           message,
           index,
           conversationKey,
           container,
+          jumpId,
+          testConfig,
           jumpVersion,
           attempts: attempts - 1,
+        });
+      } else {
+        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+          status: 'target-missing-during-settle',
         });
       }
       return;
     }
 
-    alignIndependentPromptToTop(latestTarget);
+    alignIndependentPromptToTop(
+      latestTarget,
+      container,
+      jumpId,
+      'settled'
+    );
     requestAnimationFrame(() => {
       if (jumpVersion !== navigationJumpVersion) return;
 
@@ -470,27 +583,38 @@ function settleIndependentVirtualJump({
       if (!finalTarget.isConnected) {
         if (attempts > 1) {
           settleIndependentVirtualJump({
+            previousTarget: latestTarget,
             message,
             index,
             conversationKey,
             container,
+            jumpId,
+            testConfig,
             jumpVersion,
             attempts: attempts - 1,
+          });
+        } else {
+          logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+            status: 'target-disconnected-during-settle',
           });
         }
         return;
       }
 
       highlightWhenVisible(finalTarget);
+      logChatGptNavigationEvent(jumpId, 'HIGHLIGHT_STARTED', {
+        geometry: getPromptGeometry(finalTarget, container),
+      });
       persistConfirmedPromptAnchor(
         finalTarget,
         message,
         index,
         conversationKey,
-        container
+        container,
+        jumpId
       );
     });
-  }, APP_CONFIG.navigation.search.renderWaitMs);
+  }, testConfig.settleWaitMs);
 }
 
 /**
@@ -501,7 +625,8 @@ function persistConfirmedPromptAnchor(
   message: NavigatorMessage,
   index: number,
   conversationKey: string,
-  container: HTMLElement
+  container: HTMLElement,
+  jumpId: string
 ): void {
   const anchor = createChatGptElementNavigationAnchor({
     conversationKey,
@@ -513,9 +638,45 @@ function persistConfirmedPromptAnchor(
 
   void getNavigationAnchorStore()
     .recordConfirmed(anchor)
+    .then(() => {
+      logChatGptNavigationEvent(jumpId, 'ANCHOR_PERSISTED', {
+        promptId: message.id,
+        promptIndex: index,
+        scrollTop: anchor.scrollTop,
+        scrollProgress: anchor.scrollProgress,
+      });
+      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+        status: 'found',
+      });
+    })
     .catch((error: unknown) => {
+      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+        status: 'anchor-persistence-failed',
+      });
       console.warn('[LunaTOC] Failed to persist navigation anchor.', error);
     });
+}
+
+/**
+ * Returns compact prompt and container geometry for console diagnostics.
+ */
+function getPromptGeometry(
+  target: HTMLElement,
+  container: HTMLElement
+): Record<string, number | boolean> {
+  const targetRect = target.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+
+  return {
+    targetConnected: target.isConnected,
+    targetTop: targetRect.top,
+    targetBottom: targetRect.bottom,
+    containerTop: containerRect.top,
+    containerBottom: containerRect.bottom,
+    scrollTop: container.scrollTop,
+    scrollHeight: container.scrollHeight,
+    clientHeight: container.clientHeight,
+  };
 }
 
 /**

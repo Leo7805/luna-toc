@@ -104,6 +104,15 @@ export function mergeFingerprintRecords(
 
     if (shouldReplaceFingerprintRecord(currentRecord, record)) {
       merged[existingIndex] = cloneFingerprintRecord(record);
+    } else if (
+      currentRecord.quality === 'observed' &&
+      record.quality === 'derived' &&
+      currentRecord.promptIndex !== record.promptIndex
+    ) {
+      merged[existingIndex] = {
+        ...cloneFingerprintRecord(currentRecord),
+        promptIndex: record.promptIndex,
+      };
     }
   });
 

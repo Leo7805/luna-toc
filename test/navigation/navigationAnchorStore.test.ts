@@ -195,4 +195,21 @@ describe('navigation anchor store', () => {
 
     await expect(store.getConfirmedAnchors('invalid')).resolves.toEqual([]);
   });
+
+  it('invalidates anchors written by an older cache schema', async () => {
+    const storage = createMemoryStorage({
+      version: 1,
+      conversations: {
+        'conversation-1': {
+          lastUsedAt: 1,
+          anchors: [],
+        },
+      },
+    });
+    const store = createNavigationAnchorStore({ storage });
+
+    await expect(
+      store.getConfirmedAnchors('conversation-1')
+    ).resolves.toEqual([]);
+  });
 });

@@ -160,6 +160,39 @@ graph TD
 - `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning; runtime user preferences remain in their existing storage modules.
 - `platforms.chatgpt.navigationAlgorithm` selects either the default `legacy-native` ChatGPT TOC path or the fully independent `independent-virtual` anchor-and-fingerprint path.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
+- `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
+
+### Navigation Diagnostics
+
+Independent ChatGPT navigation supports temporary runtime diagnostics through
+page `localStorage`. Enable structured, text-free jump events with:
+
+```js
+localStorage.setItem('chatTocDebugJump', '1');
+location.reload();
+```
+
+Override selected test parameters without rebuilding:
+
+```js
+localStorage.setItem(
+  'chatTocNavigationTestConfig',
+  JSON.stringify({
+    settleWaitMs: 300,
+    settleAttempts: 5,
+    maxSearchAttempts: 12,
+    maxSearchDurationMs: 3000,
+    unresolvedPositionsBeforeAbort: 4,
+    useConfirmedAnchors: false,
+    useObservedAnchors: true,
+  })
+);
+location.reload();
+```
+
+Remove both keys and reload to restore project defaults. Diagnostics include
+IDs, indexes, anchor sources, plans, and geometry, but never Prompt or response
+text.
 - Pure logic tests live under `test/`, run with Vitest in a Node environment, and use the same `@/` source alias as browser code.
 - DOM-dependent platform adapter tests opt into jsdom per test file; other tests remain in the default Node environment.
 - `manifest.json` is the source Manifest and authoritative extension version.

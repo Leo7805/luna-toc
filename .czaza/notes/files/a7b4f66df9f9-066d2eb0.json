@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:0920f7fcce2d1039a034b4f19ecb525ae4a4c4c21f75e27e3f7e699c51a08e86",
+    "sourceHash": "sha256:82b19893510eb8def852355b1a6c7836fa595cba5d3be37fe01c19b9d3012867",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T05:59:18.151Z",
-    "updatedAt": "2026-07-24T06:23:26.838Z"
+    "updatedAt": "2026-07-24T08:19:58.713Z"
   },
   "fileNote": {
-    "userNote": "负责分批建立 Prompt 指纹索引\n建立和合并带质量标记的 Response 指纹。\nbuildFingerprintIndex() — 为每条非空 Response 建立独立记录，并接受 derived/observed 参数。\nshouldReplaceFingerprintRecord() — 判断新记录能否覆盖已有记录。\nmergeFingerprintRecords() — 合并多条记录并按照 responseId 去重。\nupsertFingerprintRecord() — 增量写入或更新一条 Response。\ncloneFingerprintRecord() — 复制记录及其嵌套指纹。\nflattenResponseTasks() — 保持 Response 与 promptIndex 的映射。\nyieldToMainThread() — 在批次之间让出事件循环。\n\n| 当前缓存 | 新数据 | 处理 |\n|---|---|---|\n| derived | derived | 使用新的 derived |\n| derived | observed | 使用 observed 覆盖 derived |\n| observed | observed | 使用新的 observed |\n| observed | derived | 拒绝 derived，保留 observed |",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "userNote": "负责分批建立 Prompt 指纹索引\n建立和合并带质量标记的 Response 指纹。\nbuildFingerprintIndex() — 为每条非空 Response 建立独立记录，并接受 derived/observed 参数。\nshouldReplaceFingerprintRecord() — 判断新记录能否覆盖已有记录。\nmergeFingerprintRecords() — 合并多条记录并按照 responseId 去重。\nupsertFingerprintRecord() — 增量写入或更新一条 Response。\ncloneFingerprintRecord() — 复制记录及其嵌套指纹。\nflattenResponseTasks() — 保持 Response 与 promptIndex 的映射。\nyieldToMainThread() — 在批次之间让出事件循环。\n\n| 当前缓存 | 新数据 | 处理 |\n|---|---|---|\n| derived | derived | 使用新的 derived |\n| derived | observed | 使用 observed 覆盖 derived |\n| observed | observed | 使用新的 observed |\n| observed | derived | 拒绝 derived，保留 observed |\n\n\n---24/07/2026修复----\nmergeFingerprintRecords()现在区分两种优先级：指纹内容继续由observed优先。\npromptIndex归属由最新derived会话数据校正。\n\n不会再保留responseId正确但Prompt index过期的记录。",
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

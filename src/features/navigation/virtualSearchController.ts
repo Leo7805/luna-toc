@@ -20,6 +20,11 @@ export interface VirtualSearchObservation {
   anchors: NavigationAnchor[];
 }
 
+export interface VirtualSearchDiagnosticEvent {
+  eventName: string;
+  details: Record<string, unknown>;
+}
+
 export interface VirtualSearchControllerOptions {
   targetPromptId: string;
   targetPromptIndex: number;
@@ -37,6 +42,7 @@ export interface VirtualSearchControllerOptions {
   maxAttempts?: number;
   maxDurationMs?: number;
   unresolvedPositionsBeforeAbort?: number;
+  onDiagnosticEvent?: (event: VirtualSearchDiagnosticEvent) => void;
 }
 
 export type VirtualSearchResultStatus =
@@ -89,6 +95,7 @@ export async function searchVirtualPrompt({
   maxDurationMs = APP_CONFIG.navigation.search.maxDurationMs,
   unresolvedPositionsBeforeAbort = APP_CONFIG.navigation.search
     .unresolvedPositionsBeforeAbort,
+  onDiagnosticEvent,
 }: VirtualSearchControllerOptions): Promise<VirtualSearchResult> {
   const startedAt = now();
   const confirmedAnchors = await getConfirmedAnchors();
@@ -101,6 +108,34 @@ export async function searchVirtualPrompt({
   let lastPlan: VirtualSearchPlan | null = null;
   let lastPosition: VisiblePromptPosition = { status: 'none' };
 
+  const finishSearch = (
+    status: VirtualSearchResultStatus
+  ): VirtualSearchResult => {
+    onDiagnosticEvent?.({
+      eventName: 'SEARCH_FINISHED',
+      details: {
+        status,
+        attempts,
+        lastPlanMethod: lastPlan?.method || null,
+        lastPositionStatus: lastPosition.status,
+      },
+    });
+    return createResult(status, attempts, lastPlan, lastPosition);
+  };
+
+  onDiagnosticEvent?.({
+    eventName: 'SEARCH_STARTED',
+    details: {
+      targetPromptId,
+      targetPromptIndex,
+      promptCount,
+      confirmedAnchorCount: confirmedAnchors.length,
+      maxAttempts,
+      maxDurationMs,
+      unresolvedPositionsBeforeAbort,
+    },
+  });
+
   while (attempts < Math.max(0, maxAttempts)) {
     const terminalStatus = getTerminalStatus({
       signal,
@@ -111,17 +146,19 @@ export async function searchVirtualPrompt({
     });
 
     if (terminalStatus) {
-      return createResult(
-        terminalStatus,
-        attempts,
-        lastPlan,
-        lastPosition
-      );
+      return finishSearch(terminalStatus);
     }
 
     const observation = await observePosition();
     lastPosition = observation.position;
     observation.anchors.forEach(recordObservation);
+    onDiagnosticEvent?.({
+      eventName: 'POSITION_OBSERVED',
+      details: getPositionDiagnosticDetails(
+        observation.position,
+        observation.anchors.length
+      ),
+    });
 
     const currentDistance = getTargetDistance(
       targetPromptIndex,
@@ -142,12 +179,7 @@ export async function searchVirtualPrompt({
         consecutiveUnresolvedPositions >=
         Math.max(1, unresolvedPositionsBeforeAbort)
       ) {
-        return createResult(
-          'unresolved',
-          attempts,
-          lastPlan,
-          lastPosition
-        );
+        return finishSearch('unresolved');
       }
     } else {
       consecutiveUnresolvedPositions = 0;
@@ -158,8 +190,7 @@ export async function searchVirtualPrompt({
     const eligibleConfirmedAnchors = ignoreConfirmedTargetAnchor
       ? confirmedAnchors.filter(
           ({ promptId, promptIndex }) =>
-            promptId !== targetPromptId ||
-            promptIndex !== targetPromptIndex
+            promptId !== targetPromptId || promptIndex !== targetPromptIndex
         )
       : confirmedAnchors;
     let plan = planVirtualSearch({
@@ -171,7 +202,6 @@ export async function searchVirtualPrompt({
       confirmedAnchors: eligibleConfirmedAnchors,
       failedInterpolationAttempts,
     });
-
     if (hasVisitedScrollTop(visitedScrollTops, plan.scrollTop)) {
       if (plan.method === 'exact-anchor' && !ignoreConfirmedTargetAnchor) {
         ignoreConfirmedTargetAnchor = true;
@@ -185,8 +215,7 @@ export async function searchVirtualPrompt({
           ),
           confirmedAnchors: eligibleConfirmedAnchors.filter(
             ({ promptId, promptIndex }) =>
-              promptId !== targetPromptId ||
-              promptIndex !== targetPromptIndex
+              promptId !== targetPromptId || promptIndex !== targetPromptIndex
           ),
           failedInterpolationAttempts,
         });
@@ -205,23 +234,42 @@ export async function searchVirtualPrompt({
       }
 
       if (hasVisitedScrollTop(visitedScrollTops, plan.scrollTop)) {
-        return createResult(
-          'exhausted',
-          attempts,
-          plan,
-          lastPosition
-        );
+        lastPlan = plan;
+        return finishSearch('exhausted');
       }
     }
 
+    onDiagnosticEvent?.({
+      eventName: 'SEARCH_PLAN',
+      details: {
+        method: plan.method,
+        scrollTop: plan.scrollTop,
+        lowerAnchor: plan.lowerAnchor,
+        upperAnchor: plan.upperAnchor,
+        failedInterpolationAttempts,
+        observedAnchorCount: getObservedAnchors().length,
+        eligibleConfirmedAnchorCount: eligibleConfirmedAnchors.length,
+      },
+    });
     visitedScrollTops.add(normalizeScrollTop(plan.scrollTop));
     lastPlan = plan;
+    const scrollTopBefore = metrics.scrollTop;
     scrollTo(plan.scrollTop);
+    onDiagnosticEvent?.({
+      eventName: 'SCROLL_APPLIED',
+      details: {
+        method: plan.method,
+        plannedScrollTop: plan.scrollTop,
+        scrollTopBefore,
+        scrollTopAfter: getScrollMetrics().scrollTop,
+        maximumScrollTop: metrics.maximumScrollTop,
+      },
+    });
     attempts += 1;
     await waitForRender();
 
     if (isTargetRendered()) {
-      return createResult('found', attempts, lastPlan, lastPosition);
+      return finishSearch('found');
     }
 
     if (
@@ -232,7 +280,7 @@ export async function searchVirtualPrompt({
     }
   }
 
-  return createResult('exhausted', attempts, lastPlan, lastPosition);
+  return finishSearch('exhausted');
 }
 
 /**
@@ -252,14 +300,45 @@ export function getTargetDistance(
   position: VisiblePromptPosition
 ): number | null {
   if (position.status !== 'located') return null;
-  if (targetPromptIndex < position.firstPromptIndex) {
-    return position.firstPromptIndex - targetPromptIndex;
-  }
-  if (targetPromptIndex > position.lastPromptIndex) {
-    return targetPromptIndex - position.lastPromptIndex;
+  if (position.matchedPromptIndexes.length === 0) return null;
+
+  return Math.min(
+    ...position.matchedPromptIndexes.map((promptIndex) =>
+      Math.abs(targetPromptIndex - promptIndex)
+    )
+  );
+}
+
+/**
+ * Converts a position union into compact, text-free diagnostic details.
+ */
+function getPositionDiagnosticDetails(
+  position: VisiblePromptPosition,
+  anchorCount: number
+): Record<string, unknown> {
+  if (position.status === 'located') {
+    return {
+      status: position.status,
+      firstPromptIndex: position.firstPromptIndex,
+      lastPromptIndex: position.lastPromptIndex,
+      matchedBlocks: position.matchedBlocks,
+      anchorCount,
+    };
   }
 
-  return 0;
+  if (position.status === 'ambiguous') {
+    return {
+      status: position.status,
+      candidatePromptIndexes: position.candidatePromptIndexes,
+      ambiguousBlockIds: position.ambiguousBlockIds,
+      anchorCount,
+    };
+  }
+
+  return {
+    status: position.status,
+    anchorCount,
+  };
 }
 
 /**

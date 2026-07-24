@@ -119,9 +119,11 @@ describe('ChatGPT rendered fingerprint collector', () => {
         <div class="markdown">Partial</div>
       </div>
     `;
+    await Promise.resolve();
     await vi.advanceTimersByTimeAsync(25);
     document.querySelector('.markdown')!.textContent = 'Completed answer';
 
+    await Promise.resolve();
     await vi.advanceTimersByTimeAsync(50);
 
     expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
@@ -154,6 +156,7 @@ describe('ChatGPT rendered fingerprint collector', () => {
       </div>
     `;
 
+    await Promise.resolve();
     await vi.advanceTimersByTimeAsync(20);
 
     expect(onFingerprintRecord).toHaveBeenCalledTimes(1);

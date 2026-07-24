@@ -126,6 +126,21 @@ describe('fingerprint index', () => {
     ]);
   });
 
+  it('keeps observed fingerprints but accepts current derived ownership', () => {
+    const observed = createRecord('observed', 'Observed');
+    const derived = {
+      ...createRecord('derived', 'Derived'),
+      promptIndex: 4,
+    };
+
+    expect(mergeFingerprintRecords([observed], [derived])).toEqual([
+      {
+        ...observed,
+        promptIndex: 4,
+      },
+    ]);
+  });
+
   it('updates equal-quality records without creating duplicates', () => {
     const first = createRecord('observed', 'First');
     const updated = createRecord('observed', 'Updated');

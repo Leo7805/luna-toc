@@ -14,8 +14,7 @@ import type {
 import { getRenderedAssistantEntries } from './renderedTextAdapter';
 
 const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
-const ASSISTANT_MESSAGE_SELECTOR =
-  '[data-message-author-role="assistant"]';
+const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
 
 export interface ChatGptVirtualPositionOptions {
   conversationKey: string;
@@ -46,12 +45,8 @@ export function getChatGptScrollContainer(
 
   const selectorFallback =
     root.querySelector<HTMLElement>('main div.overflow-y-auto') ||
-    root.querySelector<HTMLElement>(
-      '[class*="react-scroll-to-bottom"]'
-    ) ||
-    root.querySelector<HTMLElement>(
-      'main [class*="react-scroll-to-bottom"]'
-    );
+    root.querySelector<HTMLElement>('[class*="react-scroll-to-bottom"]') ||
+    root.querySelector<HTMLElement>('main [class*="react-scroll-to-bottom"]');
 
   if (selectorFallback) return selectorFallback;
 
@@ -76,10 +71,9 @@ export function findRenderedChatGptPrompt(
   root: ParentNode = document
 ): HTMLElement | null {
   return (
-    Array.from(
-      root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)
-    ).find((element) => getChatGptMessageId(element) === promptId) ||
-    null
+    Array.from(root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)).find(
+      (element) => getChatGptMessageId(element) === promptId
+    ) || null
   );
 }
 
@@ -125,9 +119,16 @@ export async function observeChatGptVirtualPosition({
   }
 
   const entries = getRenderedAssistantEntries(root);
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const visibleEntries = entries.filter(({ element }) =>
+    isElementWithinScrollViewport(element, containerRect)
+  );
+  const validFingerprintIndex = fingerprintIndex.filter(
+    ({ promptIndex }) => promptIndex >= 0 && promptIndex < prompts.length
+  );
   const position = await resolveVisiblePromptPosition(
-    entries.map(({ block }) => block),
-    fingerprintIndex
+    visibleEntries.map(({ block }) => block),
+    validFingerprintIndex
   );
 
   if (position.status !== 'located') {
@@ -138,7 +139,7 @@ export async function observeChatGptVirtualPosition({
   }
 
   const elementsByBlockId = new Map(
-    entries.map(({ block, element }) => [block.id, element])
+    visibleEntries.map(({ block, element }) => [block.id, element])
   );
   const anchors = position.matchedBlocks.flatMap(
     ({ blockId, promptIndex }): NavigationAnchor[] => {
@@ -193,8 +194,7 @@ export function createChatGptElementNavigationAnchor({
     scrollTop: anchorScrollTop,
     scrollHeight: scrollContainer.scrollHeight,
     viewportWidth: scrollContainer.clientWidth || window.innerWidth,
-    viewportHeight:
-      scrollContainer.clientHeight || window.innerHeight,
+    viewportHeight: scrollContainer.clientHeight || window.innerHeight,
   });
 }
 
@@ -215,4 +215,19 @@ function getChatGptMessageId(element: HTMLElement): string | null {
 function isVerticallyScrollable(element: HTMLElement): boolean {
   const overflowY = window.getComputedStyle(element).overflowY;
   return overflowY === 'auto' || overflowY === 'scroll';
+}
+
+/**
+ * Returns whether an element intersects the chat container's visible viewport.
+ */
+function isElementWithinScrollViewport(
+  element: HTMLElement,
+  containerRect: DOMRect
+): boolean {
+  const elementRect = element.getBoundingClientRect();
+
+  return (
+    elementRect.bottom > containerRect.top &&
+    elementRect.top < containerRect.bottom
+  );
 }

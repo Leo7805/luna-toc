@@ -3,7 +3,7 @@
  */
 import { APP_CONFIG } from '@/config/config';
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const DEFAULT_STORAGE_KEY = 'chatToc:navigationAnchors';
 
 export interface NavigationAnchorInput {

@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:808c74262f292be9be5f61da4e5631dc5a1a48312e513e0642c5c77857cef789",
+    "sourceHash": "sha256:1901bfe15488fb98c063cda98b0c125c00ea3f54f05880c086e2ce58e55a7ff3",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T06:41:25.987Z",
-    "updatedAt": "2026-07-24T07:12:32.173Z"
+    "updatedAt": "2026-07-24T08:00:03.723Z"
   },
   "fileNote": {
     "userNote": "根据当前渲染的回答确定可见 Prompt 范围。\nresolveVisiblePromptPosition() — 优先通过 responseId 定位，无法识别时使用指纹匹配。\nindexPromptIndexesByResponseId() — 建立回答 ID 到 Prompt index 的快速索引。\n\n\n返回结果\nlocated\n├── firstPromptIndex\n├── lastPromptIndex\n├── matchedPromptIndexes\n└── matchedBlockIds\n\nambiguous\n├── candidatePromptIndexes\n└── ambiguousBlockIds\n\nnone\n任何 ID 冲突或指纹最高分并列都会返回 ambiguous，不会猜测位置。\n",

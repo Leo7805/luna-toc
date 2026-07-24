@@ -11,6 +11,7 @@ import type { NavigationFingerprintIndex } from './fingerprint/index';
 export interface VisiblePromptBlockMatch {
   blockId: string;
   promptIndex: number;
+  source: 'response-id' | 'fingerprint';
 }
 
 export interface LocatedVisiblePromptPosition {
@@ -68,7 +69,11 @@ export async function resolveVisiblePromptPosition(
 
       matchedPromptIndexes.add(promptIndex);
       matchedBlockIds.add(block.id);
-      matchedBlocks.push({ blockId: block.id, promptIndex });
+      matchedBlocks.push({
+        blockId: block.id,
+        promptIndex,
+        source: 'response-id',
+      });
       continue;
     }
 
@@ -90,6 +95,7 @@ export async function resolveVisiblePromptPosition(
       matchedBlocks.push({
         blockId: block.id,
         promptIndex: selection.match.promptIndex,
+        source: 'fingerprint',
       });
       continue;
     }

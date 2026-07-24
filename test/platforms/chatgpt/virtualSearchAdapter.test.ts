@@ -150,7 +150,13 @@ describe('ChatGPT virtual search adapter', () => {
 
     expect(observation.position).toMatchObject({
       status: 'located',
-      matchedBlocks: [{ blockId: 'response-1', promptIndex: 2 }],
+      matchedBlocks: [
+        {
+          blockId: 'response-1',
+          promptIndex: 2,
+          source: 'response-id',
+        },
+      ],
     });
     expect(observation.anchors).toMatchObject([
       {
@@ -159,6 +165,86 @@ describe('ChatGPT virtual search adapter', () => {
         scrollTop: 1_250,
       },
     ]);
+  });
+
+  it('ignores offscreen Assistant DOM and out-of-range ownership', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="chat-scroll" style="overflow-y: auto">
+          <div data-message-author-role="assistant" data-message-id="visible">
+            <div class="markdown">Visible answer</div>
+          </div>
+          <div data-message-author-role="assistant" data-message-id="offscreen">
+            <div class="markdown">Offscreen answer</div>
+          </div>
+          <div data-message-author-role="assistant" data-message-id="invalid">
+            <div class="markdown">Invalid answer</div>
+          </div>
+        </div>
+      </main>
+    `;
+    const container = document.getElementById('chat-scroll')!;
+    const visible = document.querySelector<HTMLElement>(
+      '[data-message-id="visible"]'
+    )!;
+    const offscreen = document.querySelector<HTMLElement>(
+      '[data-message-id="offscreen"]'
+    )!;
+    const invalid = document.querySelector<HTMLElement>(
+      '[data-message-id="invalid"]'
+    )!;
+    setElementMeasurements(container, {
+      scrollHeight: 5_000,
+      clientWidth: 900,
+      clientHeight: 500,
+      top: 100,
+    });
+    setElementMeasurements(visible, { clientHeight: 100, top: 200 });
+    setElementMeasurements(offscreen, {
+      clientHeight: 100,
+      top: 2_000,
+    });
+    setElementMeasurements(invalid, { clientHeight: 100, top: 350 });
+    const fingerprintIndex: NavigationFingerprintIndex = [
+      {
+        responseId: 'visible',
+        promptIndex: 0,
+        quality: 'observed',
+        fingerprints: [],
+      },
+      {
+        responseId: 'offscreen',
+        promptIndex: 1,
+        quality: 'observed',
+        fingerprints: [],
+      },
+      {
+        responseId: 'invalid',
+        promptIndex: 5,
+        quality: 'observed',
+        fingerprints: [],
+      },
+    ];
+
+    const observation = await observeChatGptVirtualPosition({
+      conversationKey: 'conversation-1',
+      prompts: [{ id: 'prompt-0' }, { id: 'prompt-1' }],
+      fingerprintIndex,
+      scrollContainer: container,
+    });
+
+    expect(observation.position).toMatchObject({
+      status: 'located',
+      matchedPromptIndexes: [0],
+      matchedBlocks: [
+        {
+          blockId: 'visible',
+          promptIndex: 0,
+          source: 'response-id',
+        },
+      ],
+    });
+    expect(observation.anchors).toHaveLength(1);
   });
 
   it('returns no observation when the scroll container is unavailable', async () => {

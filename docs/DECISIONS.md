@@ -138,11 +138,18 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
   upgrades the matching response from a derived to an observed fingerprint.
 * Rendered messages without a known response ID mapping are ignored instead of
   guessing their prompt ownership.
+* Observed DOM text keeps precedence for fingerprint content, while each new
+  derived conversation payload remains authoritative for response-to-Prompt
+  ownership. Out-of-range ownership is rejected before position matching.
+* Virtual position observations use only Assistant elements intersecting the
+  chat viewport; offscreen DOM retained by ChatGPT is not treated as visible.
 * Prompt snapshots, fingerprints, and unconfirmed search observations are
   discarded on page refresh or tab close.
 * Confirmed successful jump anchors may persist in local extension storage as
   bounded hints. They are validated against prompt identity and viewport width,
   expire after 30 days, and never replace live position verification.
+* Anchor-cache schema changes invalidate older persisted coordinates rather
+  than allowing incompatible positions to influence new searches.
 
 ---
 
