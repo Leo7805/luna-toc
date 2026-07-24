@@ -14,6 +14,7 @@ import {
   findRenderedChatGptPrompt,
   getChatGptScrollContainer,
   getChatGptScrollMetrics,
+  isChatGptElementVisible,
   observeChatGptVirtualPosition,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
 import {
@@ -286,7 +287,10 @@ function jumpWithIndependentVirtualNavigation(
   }
 
   const renderedTarget = findRenderedChatGptPrompt(message.id);
-  if (renderedTarget) {
+  if (
+    renderedTarget &&
+    isChatGptElementVisible(renderedTarget, container)
+  ) {
     finishIndependentVirtualJump(
       renderedTarget,
       message,
@@ -336,7 +340,12 @@ function jumpWithIndependentVirtualNavigation(
         fingerprintIndex: context.fingerprintIndex,
         scrollContainer: container,
       }),
-    isTargetRendered: () => Boolean(findRenderedChatGptPrompt(message.id)),
+    isTargetRendered: () => {
+      const target = findRenderedChatGptPrompt(message.id);
+      return Boolean(
+        target && isChatGptElementVisible(target, container)
+      );
+    },
     scrollTo: (scrollTop) => {
       container.scrollTo({ top: scrollTop, behavior: 'auto' });
     },
@@ -371,9 +380,11 @@ function jumpWithIndependentVirtualNavigation(
       }
 
       const target = findRenderedChatGptPrompt(message.id);
-      if (!target) {
+      if (!target || !isChatGptElementVisible(target, container)) {
         logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-          status: 'target-disappeared-after-search',
+          status: target
+            ? 'target-not-visible-after-search'
+            : 'target-disappeared-after-search',
         });
         return;
       }
@@ -540,9 +551,14 @@ function settleIndependentVirtualJump({
     }
 
     const latestTarget = findRenderedChatGptPrompt(message.id);
+    const latestTargetVisible = Boolean(
+      latestTarget &&
+        isChatGptElementVisible(latestTarget, container)
+    );
     logChatGptNavigationEvent(jumpId, 'SETTLE_CHECK', {
       attemptsRemaining: attempts,
       targetFound: Boolean(latestTarget),
+      targetVisible: latestTargetVisible,
       domReplaced: Boolean(latestTarget && latestTarget !== previousTarget),
       geometry: latestTarget
         ? getPromptGeometry(latestTarget, container)
@@ -580,7 +596,10 @@ function settleIndependentVirtualJump({
 
       const finalTarget =
         findRenderedChatGptPrompt(message.id) || latestTarget;
-      if (!finalTarget.isConnected) {
+      if (
+        !finalTarget.isConnected ||
+        !isChatGptElementVisible(finalTarget, container)
+      ) {
         if (attempts > 1) {
           settleIndependentVirtualJump({
             previousTarget: latestTarget,
@@ -595,7 +614,9 @@ function settleIndependentVirtualJump({
           });
         } else {
           logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-            status: 'target-disconnected-during-settle',
+            status: finalTarget.isConnected
+              ? 'target-not-visible-during-settle'
+              : 'target-disconnected-during-settle',
           });
         }
         return;

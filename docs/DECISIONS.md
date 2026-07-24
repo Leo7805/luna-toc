@@ -146,6 +146,9 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
   ownership. Out-of-range ownership is rejected before position matching.
 * Virtual position observations use only Assistant elements intersecting the
   chat viewport; offscreen DOM retained by ChatGPT is not treated as visible.
+* Independent jumps report success only when the target Prompt itself
+  intersects the chat viewport; a retained offscreen Prompt DOM node cannot
+  end search early or produce a confirmed anchor.
 * Prompt snapshots, fingerprints, and unconfirmed search observations are
   discarded on page refresh or tab close.
 * Confirmed successful jump anchors may persist in local extension storage as

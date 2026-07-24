@@ -78,6 +78,22 @@ export function findRenderedChatGptPrompt(
 }
 
 /**
+ * Returns whether a mounted element intersects the active chat viewport.
+ *
+ * @example
+ * const visible = isChatGptElementVisible(prompt, scrollContainer);
+ */
+export function isChatGptElementVisible(
+  element: HTMLElement,
+  scrollContainer: HTMLElement
+): boolean {
+  return isElementWithinScrollViewport(
+    element,
+    scrollContainer.getBoundingClientRect()
+  );
+}
+
+/**
  * Returns current scroll measurements for the generic search controller.
  */
 export function getChatGptScrollMetrics(

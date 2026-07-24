@@ -6,6 +6,7 @@ import {
   findRenderedChatGptPrompt,
   getChatGptScrollContainer,
   getChatGptScrollMetrics,
+  isChatGptElementVisible,
   observeChatGptVirtualPosition,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
 import type { NavigationFingerprintIndex } from '@/features/navigation/fingerprint/index';
@@ -71,6 +72,34 @@ describe('ChatGPT virtual search adapter', () => {
       viewportWidth: 900,
       viewportHeight: 1_000,
     });
+  });
+
+  it('distinguishes visible prompts from retained offscreen DOM', () => {
+    const container = document.createElement('div');
+    const visiblePrompt = document.createElement('div');
+    const offscreenPrompt = document.createElement('div');
+    const touchingBoundary = document.createElement('div');
+    setElementMeasurements(container, {
+      clientWidth: 900,
+      clientHeight: 500,
+      top: 100,
+    });
+    setElementMeasurements(visiblePrompt, {
+      clientHeight: 100,
+      top: 200,
+    });
+    setElementMeasurements(offscreenPrompt, {
+      clientHeight: 100,
+      top: 700,
+    });
+    setElementMeasurements(touchingBoundary, {
+      clientHeight: 100,
+      top: 600,
+    });
+
+    expect(isChatGptElementVisible(visiblePrompt, container)).toBe(true);
+    expect(isChatGptElementVisible(offscreenPrompt, container)).toBe(false);
+    expect(isChatGptElementVisible(touchingBoundary, container)).toBe(false);
   });
 
   it('creates an anchor from the element position inside its container', () => {

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   findPrompt: vi.fn(),
   getContainer: vi.fn(),
   getMetrics: vi.fn(),
+  isPromptVisible: vi.fn(),
   observePosition: vi.fn(),
   recordConfirmed: vi.fn(),
   searchVirtualPrompt: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock('@/platforms/chatgpt/virtualSearchAdapter', () => ({
   findRenderedChatGptPrompt: mocks.findPrompt,
   getChatGptScrollContainer: mocks.getContainer,
   getChatGptScrollMetrics: mocks.getMetrics,
+  isChatGptElementVisible: mocks.isPromptVisible,
   observeChatGptVirtualPosition: mocks.observePosition,
 }));
 
@@ -85,6 +87,7 @@ beforeEach(() => {
   );
   mutableChatGptConfig.navigationAlgorithm = 'legacy-native';
   mocks.recordConfirmed.mockResolvedValue(undefined);
+  mocks.isPromptVisible.mockReturnValue(false);
   mocks.searchVirtualPrompt.mockResolvedValue({
     status: 'unresolved',
     attempts: 1,
@@ -160,6 +163,7 @@ describe('prompt navigation strategy', () => {
     target.scrollIntoView = vi.fn();
     mocks.getContainer.mockReturnValue(container);
     mocks.findPrompt.mockReturnValue(target);
+    mocks.isPromptVisible.mockReturnValue(true);
     mocks.createAnchor.mockReturnValue({
       conversationKey: 'conversation-1',
       promptId: 'prompt-1',
@@ -215,6 +219,30 @@ describe('prompt navigation strategy', () => {
     });
     expect(mocks.recordConfirmed).toHaveBeenCalledOnce();
     expect(mocks.searchVirtualPrompt).not.toHaveBeenCalled();
+  });
+
+  it('searches when a retained target DOM node is outside the chat viewport', () => {
+    mutableChatGptConfig.navigationAlgorithm = 'independent-virtual';
+    const container = document.createElement('div');
+    const offscreenTarget = document.createElement('div');
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(offscreenTarget);
+    mocks.isPromptVisible.mockReturnValue(false);
+
+    jumpToMessage(
+      {
+        id: 'prompt-1',
+        text: 'Prompt',
+        canMatchByText: true,
+        createTime: 0,
+      },
+      0
+    );
+
+    expect(mocks.searchVirtualPrompt).toHaveBeenCalledOnce();
+    const searchOptions = mocks.searchVirtualPrompt.mock.calls[0]![0];
+    expect(searchOptions.isTargetRendered()).toBe(false);
+    expect(offscreenTarget.scrollIntoView).toBeUndefined();
   });
 
   it('starts independent virtual search without calling the legacy path', () => {
