@@ -23,6 +23,8 @@ graph TD
         outlineNavigation[outlineNavigation.ts]
         follow[follow.ts]
         promptNavigation[promptNavigation.ts]
+        navigationData[navigationData.ts]
+        chatGptAdapter[ChatGPT navigationAdapter.ts]
         msg[message.ts]
         mark[promptMark.ts]
         vis[sidebarVisibility.ts]
@@ -50,6 +52,7 @@ graph TD
     shell --> tip
     navigator --> outline
     navigator --> promptNavigation
+    chatGptAdapter --> navigationData
     navigator --> follow
     outline --> outlineNavigation
     outlineNavigation --> promptNavigation
@@ -79,6 +82,8 @@ graph TD
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
   - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary, currently using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
+  - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
+  - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
   - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.

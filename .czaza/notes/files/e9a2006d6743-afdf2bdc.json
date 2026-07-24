@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:b6fcc9d3c25b3c118521fa1a8b36f9ce992b535ca5a789abd0f92cb4acbc8e6c",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T04:34:56.127Z",
+    "updatedAt": "2026-07-24T04:34:56.127Z"
+  },
+  "fileNote": {
+    "userNote": "提示词收藏夹",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

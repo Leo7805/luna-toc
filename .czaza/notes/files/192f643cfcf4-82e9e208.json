@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:98d72477e9a48f9fb1ec4f6669be34e3a543def72e42d1514987dfbe0269ce71",
+    "sourceHash": "sha256:28c1303eced521a11fbe9c9dddca8868722bcafdde49d4d4bfde300ba4fac089",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-22T10:09:55.741Z",
-    "updatedAt": "2026-07-22T10:09:55.741Z"
+    "updatedAt": "2026-07-24T04:35:27.371Z"
   },
   "fileNote": {
-    "userNote": "提示词收藏夹",
-    "createdBy": "user"
+    "userNote": "提供 ChatGPT 会话类型、消息标准化和 active branch 遍历。\n\ngetOrderedConversationNodes() — 按顺序返回 ChatGPT 当前有效分支中的节点；现在导出给 ChatGPT 适配器复用。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:6bb72d72a892c0e54288dba5aaf6ab4602ee1c1ec1784810441c4a35d5bf11f5",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T04:37:02.996Z",
+    "updatedAt": "2026-07-24T04:37:02.996Z"
+  },
+  "fileNote": {
+    "userNote": "将 ChatGPT 原始会话转换为通用导航轮次。\n\ncreateChatGptNavigationTurns() — 提取 ChatGPT 当前有效分支并生成 NavigationTurn[]。\ntoNavigationSourceMessage() — 将 ChatGPT 的 user/assistant 角色转换为 prompt/response。\ngetAssistantText() — 只提取 AI 回答中的字符串正文，排除附件和结构化内容。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -302,3 +302,27 @@ implementation to be replaced without changing the navigator or outline UI.
   jump, while `outlineNavigation.ts` handles headings later virtualized away.
 * Main-prompt algorithm replacement is isolated from child-outline display and
   sidebar follow behavior.
+
+---
+
+## ADR 10: Platform-Independent Navigation Data
+* **Date**: 2026-07-24
+
+### Context
+Future position-based navigation should work with ChatGPT, Copilot, Claude, and
+other AI pages whose conversation payloads and role fields differ. Fingerprints
+also need stable AI text rather than platform-specific attachments or tool
+output.
+
+### Decision
+Represent navigation input as generic prompt/response turns. Keep conversion
+from ChatGPT's active conversation branch in a platform adapter, and retain only
+visible Assistant text for future fingerprint generation. Exclude tool messages,
+attachments, and structured non-text content.
+
+### Consequences
+* Fingerprint and search modules can operate without ChatGPT data types.
+* Supporting another AI page requires a new adapter rather than changes to the
+  navigation algorithm.
+* Existing prompt extraction and navigation behavior remain unchanged until
+  the generic model is connected in a later step.

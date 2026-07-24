@@ -173,7 +173,7 @@ export function createNavigatorMessage(message: ChatMessage): NavigatorMessage {
  * @param {Object} data
  * @returns {Object[]}
  */
-function getOrderedConversationNodes(
+export function getOrderedConversationNodes(
   data: ConversationData
 ): ConversationNode[] {
   const mapping = data.mapping;

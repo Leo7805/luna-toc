@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:c4478c2c39fe15f5c5bb6d3babba757eea74dc03b90cf7d83f1284b0743d8354",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T04:36:06.053Z",
+    "updatedAt": "2026-07-24T04:36:06.053Z"
+  },
+  "fileNote": {
+    "userNote": "定义完全独立于 ChatGPT 的通用导航数据模型。\n\ncreateNavigationTurns() — 将连续的 Prompt 和 AI Response 组合为带有 promptIndex 的会话轮次。\ncreateNavigationTextMessage() — 清理文本并排除空消息。\nNavigationTurn — 表示一个 Prompt 及其对应的多个 AI 文本响应。\nNavigationSourceMessage — 平台适配器向通用导航层提交的标准消息。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
