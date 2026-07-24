@@ -4,7 +4,10 @@ import {
   resolveVisiblePromptPosition,
   type VisiblePromptPosition,
 } from '@/features/navigation/visiblePositionResolver';
-import { createResponseFingerprints } from '@/features/navigation/fingerprint/generator';
+import {
+  createResponseFingerprints,
+  createSha256,
+} from '@/features/navigation/fingerprint/generator';
 import type {
   NavigationFingerprintIndex,
   ResponseFingerprintRecord,
@@ -68,6 +71,86 @@ describe('visible prompt position resolver', () => {
           segmentCount: 1,
           positionRatio: 0,
           segmentQuality: 'derived',
+        },
+      ],
+    });
+  });
+
+  it('matches segments against viewport text instead of the full response', async () => {
+    const verificationText = 'verification';
+    const segmentIndex = [
+      {
+        responseId: 'response-1',
+        promptIndex: 3,
+        segmentIndex: 2,
+        segmentCount: 4,
+        positionRatio: 0.5,
+        probeText: 'viewport',
+        verificationHash: await createSha256(verificationText),
+        verificationLength: verificationText.length,
+        quality: 'observed' as const,
+      },
+    ];
+
+    const position = await resolveVisiblePromptPosition(
+      [
+        {
+          id: 'response-1',
+          text: 'The complete response contains unrelated leading text',
+        },
+      ],
+      [],
+      segmentIndex,
+      [{ id: 'response-1', text: `viewport${verificationText}` }]
+    );
+
+    expect(position).toMatchObject({
+      status: 'located',
+      matchedBlocks: [
+        {
+          blockId: 'response-1',
+          promptIndex: 3,
+          source: 'segment',
+          segmentIndex: 2,
+          segmentCount: 4,
+          positionRatio: 0.5,
+          segmentQuality: 'observed',
+        },
+      ],
+    });
+  });
+
+  it('falls back when no viewport segment text is available', async () => {
+    const index = [
+      await createRecord('response-1', 4, 'Whole rendered response'),
+    ];
+
+    const position = await resolveVisiblePromptPosition(
+      [{ id: 'visible-block', text: 'Whole rendered response' }],
+      index,
+      [
+        {
+          responseId: 'segment-response',
+          promptIndex: 2,
+          segmentIndex: 0,
+          segmentCount: 1,
+          positionRatio: 0,
+          probeText: 'segment',
+          verificationHash: await createSha256('verification'),
+          verificationLength: 12,
+          quality: 'derived',
+        },
+      ],
+      []
+    );
+
+    expect(position).toMatchObject({
+      status: 'located',
+      matchedBlocks: [
+        {
+          blockId: 'visible-block',
+          promptIndex: 4,
+          source: 'fingerprint',
         },
       ],
     });

@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:ec91f261bb4ba98e8eecd671d7088e4b0c25fb505eebd91d3f7ed98ff3ec1216",
+    "sourceHash": "sha256:b4c75eb0eb3a2c912c19413bf54878571170781c7e4532135cb25f6cc262ae74",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:16:33.200Z",
-    "updatedAt": "2026-07-24T13:08:12.498Z"
+    "updatedAt": "2026-07-24T13:14:14.755Z"
   },
   "fileNote": {
-    "userNote": "向跳转层提供当前会话、Prompt列表和指纹索引。\n将采集器接入会话生命周期。\n\nsyncRenderedFingerprintContext() — 同步当前会话的采集上下文。\ncreateResponsePromptIndexMap() — 建立 responseId → promptIndex 映射。\n会话更新、追加消息和历史切换时都会刷新采集上下文。\n\n---old below---\n更新 Navigation、Outline 和 Follow 的导入路径，并调用新的主目录初始化入口。\n更新指纹索引模块导入路径。\n\n将现有目录缓存升级为会话快照，并启动后台指纹生成。\ncacheConversationMessages() — 将实时新增的 Prompt 写入快照并使旧指纹失效。\ngetCachedConversationMessages() — 从快照恢复历史会话 Prompt。\ncacheConversationNavigationData() — 使用 ChatGPT Adapter 和指纹索引生成器，在后台建立导航数据。\nsyncRouteState() — 切换路由时恢复或迁移对应会话快照。\n\n---\n收到完整会话后异步构建 derived segments，并接收 observed segments。",
+    "userNote": "向跳转层提供当前会话、Prompt列表和指纹索引。\n将采集器接入会话生命周期。\n\nsyncRenderedFingerprintContext() — 同步当前会话的采集上下文。\ncreateResponsePromptIndexMap() — 建立 responseId → promptIndex 映射。\n会话更新、追加消息和历史切换时都会刷新采集上下文。\n\n---old below---\n更新 Navigation、Outline 和 Follow 的导入路径，并调用新的主目录初始化入口。\n更新指纹索引模块导入路径。\n\n将现有目录缓存升级为会话快照，并启动后台指纹生成。\ncacheConversationMessages() — 将实时新增的 Prompt 写入快照并使旧指纹失效。\ngetCachedConversationMessages() — 从快照恢复历史会话 Prompt。\ncacheConversationNavigationData() — 使用 ChatGPT Adapter 和指纹索引生成器，在后台建立导航数据。\nsyncRouteState() — 切换路由时恢复或迁移对应会话快照。\n\n---\n收到完整会话后异步构建 derived segments，并接收 observed segments。\n\n---\n将快照中的 segmentIndex 传入导航上下文。",
     "createdBy": "user"
   },
   "sectionNotes": {},

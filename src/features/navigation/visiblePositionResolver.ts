@@ -44,8 +44,8 @@ export type VisiblePromptPosition =
   | AmbiguousVisiblePromptPosition;
 
 /**
- * Resolves visible prompt indexes using generic fingerprints first and
- * response IDs only as a platform-provided fallback.
+ * Resolves visible prompt indexes using viewport segments first, followed by
+ * whole-response fingerprints and platform-provided response IDs.
  *
  * @example
  * const position = await resolveVisiblePromptPosition(blocks, index);
@@ -56,7 +56,8 @@ export type VisiblePromptPosition =
 export async function resolveVisiblePromptPosition(
   blocks: RenderedTextBlock[],
   fingerprintIndex: NavigationFingerprintIndex,
-  segmentIndex: NavigationSegmentIndex = []
+  segmentIndex: NavigationSegmentIndex = [],
+  segmentBlocks: RenderedTextBlock[] = blocks
 ): Promise<VisiblePromptPosition> {
   if (
     blocks.length === 0 ||
@@ -74,10 +75,14 @@ export async function resolveVisiblePromptPosition(
   const matchedBlocks: VisiblePromptBlockMatch[] = [];
   const candidatePromptIndexes = new Set<number>();
   const ambiguousBlockIds = new Set<string>();
+  const segmentBlocksById = new Map(
+    segmentBlocks.map((block) => [block.id, block])
+  );
 
   for (const block of blocks) {
+    const segmentBlock = segmentBlocksById.get(block.id);
     const segmentSelection = selectBestSegmentMatch(
-      await matchSegmentIndex([block], segmentIndex)
+      segmentBlock ? await matchSegmentIndex([segmentBlock], segmentIndex) : []
     );
 
     if (segmentSelection.status === 'matched') {
@@ -127,9 +132,7 @@ export async function resolveVisiblePromptPosition(
     }
 
     if (directPromptIndexes && directPromptIndexes.size > 1) {
-      directPromptIndexes.forEach((index) =>
-        candidatePromptIndexes.add(index)
-      );
+      directPromptIndexes.forEach((index) => candidatePromptIndexes.add(index));
       ambiguousBlockIds.add(block.id);
       continue;
     }
@@ -150,9 +153,7 @@ export async function resolveVisiblePromptPosition(
   }
 
   if (ambiguousBlockIds.size > 0) {
-    matchedPromptIndexes.forEach((index) =>
-      candidatePromptIndexes.add(index)
-    );
+    matchedPromptIndexes.forEach((index) => candidatePromptIndexes.add(index));
 
     return {
       status: 'ambiguous',

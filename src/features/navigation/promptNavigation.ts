@@ -3,6 +3,7 @@
  */
 import { APP_CONFIG } from '@/config/config';
 import type { NavigationFingerprintIndex } from './fingerprint/index';
+import type { NavigationSegmentIndex } from './fingerprint/segments';
 import {
   createNavigationAnchorStore,
   type NavigationAnchorStore,
@@ -29,6 +30,7 @@ interface VirtualSearchContext {
   conversationKey: string;
   prompts: NavigatorMessage[];
   fingerprintIndex: NavigationFingerprintIndex;
+  segmentIndex: NavigationSegmentIndex;
 }
 
 interface PromptNavigationOptions {
@@ -80,6 +82,7 @@ let getVirtualSearchContext: () => VirtualSearchContext = () => ({
   conversationKey: '',
   prompts: [],
   fingerprintIndex: [],
+  segmentIndex: [],
 });
 let lockActiveIndex: (index: number, duration?: number) => void = () => {};
 let virtualScanToken = 0;
@@ -251,7 +254,7 @@ function jumpWithLegacyNativeNavigation(
 }
 
 /**
- * Uses only LunaTOC anchors, fingerprints, and virtual-list search.
+ * Uses only LunaTOC anchors, segment/response fingerprints, and virtual search.
  */
 function jumpWithIndependentVirtualNavigation(
   message: NavigatorMessage,
@@ -268,6 +271,7 @@ function jumpWithIndependentVirtualNavigation(
     targetPromptIndex: index,
     promptCount: context.prompts.length,
     fingerprintRecordCount: context.fingerprintIndex.length,
+    segmentRecordCount: context.segmentIndex.length,
     testConfig,
   });
   lockActiveIndex(index, 4000);
@@ -287,10 +291,7 @@ function jumpWithIndependentVirtualNavigation(
   }
 
   const renderedTarget = findRenderedChatGptPrompt(message.id);
-  if (
-    renderedTarget &&
-    isChatGptElementVisible(renderedTarget, container)
-  ) {
+  if (renderedTarget && isChatGptElementVisible(renderedTarget, container)) {
     finishIndependentVirtualJump(
       renderedTarget,
       message,
@@ -338,13 +339,12 @@ function jumpWithIndependentVirtualNavigation(
         conversationKey: context.conversationKey,
         prompts: context.prompts,
         fingerprintIndex: context.fingerprintIndex,
+        segmentIndex: context.segmentIndex,
         scrollContainer: container,
       }),
     isTargetRendered: () => {
       const target = findRenderedChatGptPrompt(message.id);
-      return Boolean(
-        target && isChatGptElementVisible(target, container)
-      );
+      return Boolean(target && isChatGptElementVisible(target, container));
     },
     scrollTo: (scrollTop) => {
       container.scrollTo({ top: scrollTop, behavior: 'auto' });
@@ -356,8 +356,7 @@ function jumpWithIndependentVirtualNavigation(
     signal: controller.signal,
     maxAttempts: testConfig.maxSearchAttempts,
     maxDurationMs: testConfig.maxSearchDurationMs,
-    unresolvedPositionsBeforeAbort:
-      testConfig.unresolvedPositionsBeforeAbort,
+    unresolvedPositionsBeforeAbort: testConfig.unresolvedPositionsBeforeAbort,
     onDiagnosticEvent: ({ eventName, details }) => {
       logChatGptNavigationEvent(jumpId, eventName, details);
     },
@@ -552,8 +551,7 @@ function settleIndependentVirtualJump({
 
     const latestTarget = findRenderedChatGptPrompt(message.id);
     const latestTargetVisible = Boolean(
-      latestTarget &&
-        isChatGptElementVisible(latestTarget, container)
+      latestTarget && isChatGptElementVisible(latestTarget, container)
     );
     logChatGptNavigationEvent(jumpId, 'SETTLE_CHECK', {
       attemptsRemaining: attempts,
@@ -585,17 +583,11 @@ function settleIndependentVirtualJump({
       return;
     }
 
-    alignIndependentPromptToTop(
-      latestTarget,
-      container,
-      jumpId,
-      'settled'
-    );
+    alignIndependentPromptToTop(latestTarget, container, jumpId, 'settled');
     requestAnimationFrame(() => {
       if (jumpVersion !== navigationJumpVersion) return;
 
-      const finalTarget =
-        findRenderedChatGptPrompt(message.id) || latestTarget;
+      const finalTarget = findRenderedChatGptPrompt(message.id) || latestTarget;
       if (
         !finalTarget.isConnected ||
         !isChatGptElementVisible(finalTarget, container)

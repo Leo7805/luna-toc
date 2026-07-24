@@ -175,6 +175,7 @@ describe('ChatGPT virtual search adapter', () => {
         { id: 'prompt-2' },
       ],
       fingerprintIndex,
+      segmentIndex: [],
       scrollContainer: container,
     });
 
@@ -260,6 +261,7 @@ describe('ChatGPT virtual search adapter', () => {
       conversationKey: 'conversation-1',
       prompts: [{ id: 'prompt-0' }, { id: 'prompt-1' }],
       fingerprintIndex,
+      segmentIndex: [],
       scrollContainer: container,
     });
 
@@ -282,6 +284,7 @@ describe('ChatGPT virtual search adapter', () => {
       conversationKey: 'conversation-1',
       prompts: [],
       fingerprintIndex: [],
+      segmentIndex: [],
       scrollContainer: null,
     });
 

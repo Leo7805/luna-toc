@@ -6,12 +6,16 @@ import {
   type NavigationAnchor,
 } from '@/features/navigation/navigationAnchorStore';
 import type { NavigationFingerprintIndex } from '@/features/navigation/fingerprint/index';
+import type { NavigationSegmentIndex } from '@/features/navigation/fingerprint/segments';
 import { resolveVisiblePromptPosition } from '@/features/navigation/visiblePositionResolver';
 import type {
   VirtualScrollMetrics,
   VirtualSearchObservation,
 } from '@/features/navigation/virtualSearchController';
-import { getRenderedAssistantEntries } from './renderedTextAdapter';
+import {
+  getRenderedAssistantEntries,
+  getVisibleAssistantViewportSamples,
+} from './renderedTextAdapter';
 
 const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
 const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
@@ -20,6 +24,7 @@ export interface ChatGptVirtualPositionOptions {
   conversationKey: string;
   prompts: ReadonlyArray<{ id: string }>;
   fingerprintIndex: NavigationFingerprintIndex;
+  segmentIndex: NavigationSegmentIndex;
   root?: ParentNode;
   scrollContainer?: HTMLElement | null;
 }
@@ -119,12 +124,14 @@ export function getChatGptScrollMetrics(
  *   conversationKey,
  *   prompts,
  *   fingerprintIndex,
+ *   segmentIndex,
  * });
  */
 export async function observeChatGptVirtualPosition({
   conversationKey,
   prompts,
   fingerprintIndex,
+  segmentIndex,
   root = document,
   scrollContainer = getChatGptScrollContainer(root),
 }: ChatGptVirtualPositionOptions): Promise<VirtualSearchObservation> {
@@ -143,9 +150,18 @@ export async function observeChatGptVirtualPosition({
   const validFingerprintIndex = fingerprintIndex.filter(
     ({ promptIndex }) => promptIndex >= 0 && promptIndex < prompts.length
   );
+  const validSegmentIndex = segmentIndex.filter(
+    ({ promptIndex }) => promptIndex >= 0 && promptIndex < prompts.length
+  );
+  const visibleViewportSamples = getVisibleAssistantViewportSamples(
+    scrollContainer,
+    root
+  );
   const position = await resolveVisiblePromptPosition(
     visibleEntries.map(({ block }) => block),
-    validFingerprintIndex
+    validFingerprintIndex,
+    validSegmentIndex,
+    visibleViewportSamples
   );
 
   if (position.status !== 'located') {

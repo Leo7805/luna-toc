@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:7c568e0df36718ceeff2158af6a780d129d43e9ff57bee3b45b2a57c77dc693c",
+    "sourceHash": "sha256:5d3e43689557a5207d65a0327d34586f56c307159738fda93669192b5a74437c",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T06:41:25.987Z",
-    "updatedAt": "2026-07-24T13:00:03.151Z"
+    "updatedAt": "2026-07-24T13:15:55.812Z"
   },
   "fileNote": {
-    "userNote": "根据当前渲染的回答确定可见 Prompt 范围。\nresolveVisiblePromptPosition() — 优先通过 responseId 定位，无法识别时使用指纹匹配。\nindexPromptIndexesByResponseId() — 建立回答 ID 到 Prompt index 的快速索引。\n\n\n返回结果\nlocated\n├── firstPromptIndex\n├── lastPromptIndex\n├── matchedPromptIndexes\n└── matchedBlockIds\n\nambiguous\n├── candidatePromptIndexes\n└── ambiguousBlockIds\n\nnone\n任何 ID 冲突或指纹最高分并列都会返回 ambiguous，不会猜测位置。\n\n---\n支持可选 Segment index。resolveVisiblePromptPosition()：匹配顺序升级为 Segment、整条指纹、平台 ID。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "userNote": "根据当前渲染的回答确定可见 Prompt 范围。\nresolveVisiblePromptPosition() — 优先通过 responseId 定位，无法识别时使用指纹匹配。\nindexPromptIndexesByResponseId() — 建立回答 ID 到 Prompt index 的快速索引。\n\n\n返回结果\nlocated\n├── firstPromptIndex\n├── lastPromptIndex\n├── matchedPromptIndexes\n└── matchedBlockIds\n\nambiguous\n├── candidatePromptIndexes\n└── ambiguousBlockIds\n\nnone\n任何 ID 冲突或指纹最高分并列都会返回 ambiguous，不会猜测位置。\n\n---\n支持可选 Segment index。resolveVisiblePromptPosition()：匹配顺序升级为 Segment、整条指纹、平台 ID。\n\n\n---\n支持使用独立的视口文本匹配 Segment。resolveVisiblePromptPosition()：优先返回 Segment 序号、总数、质量和 positionRatio，失败后继续原有 fallback。",
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

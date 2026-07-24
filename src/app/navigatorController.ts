@@ -160,6 +160,7 @@ export const navigatorController = (() => {
           conversationKey,
           prompts: conversationMessages,
           fingerprintIndex: snapshot?.fingerprintIndex || [],
+          segmentIndex: snapshot?.segmentIndex || [],
         };
       },
       lockActiveIndex: lockActiveNavigatorItem,
@@ -646,10 +647,7 @@ export const navigatorController = (() => {
         );
       })
       .catch((error: unknown) => {
-        console.warn(
-          '[LunaTOC] Failed to build navigation segments.',
-          error
-        );
+        console.warn('[LunaTOC] Failed to build navigation segments.', error);
       });
   }
 

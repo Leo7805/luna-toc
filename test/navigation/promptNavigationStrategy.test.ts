@@ -111,6 +111,7 @@ beforeEach(() => {
         },
       ],
       fingerprintIndex: [],
+      segmentIndex: [],
     }),
     lockActiveIndex: vi.fn(),
   });
@@ -134,6 +135,7 @@ describe('prompt navigation strategy', () => {
         conversationKey: 'conversation-1',
         prompts: [],
         fingerprintIndex: [],
+        segmentIndex: [],
       }),
       lockActiveIndex: vi.fn(),
     });
@@ -191,6 +193,7 @@ describe('prompt navigation strategy', () => {
           },
         ],
         fingerprintIndex: [],
+        segmentIndex: [],
       }),
       lockActiveIndex: vi.fn(),
     });
@@ -268,6 +271,7 @@ describe('prompt navigation strategy', () => {
           },
         ],
         fingerprintIndex: [],
+        segmentIndex: [],
       }),
       lockActiveIndex: vi.fn(),
     });
