@@ -323,7 +323,9 @@ attachments, and structured non-text content.
 Generate at most the configured number of fingerprints per response. Normalize
 whitespace, distribute samples across long responses, use a short plain-text
 probe for fast lookup, and verify ambiguous matches with a SHA-256 hash of the
-following bounded text.
+following bounded text. Build the conversation index in bounded batches and
+yield to the event loop between batches so long conversations do not monopolize
+the Content Script's main thread.
 
 ### Consequences
 * Fingerprint and search modules can operate without ChatGPT data types.
@@ -331,5 +333,7 @@ following bounded text.
   navigation algorithm.
 * Fingerprints contain only bounded text probes and hashes rather than complete
   AI responses.
+* Fingerprints remain grouped by `promptIndex`, including empty entries for
+  prompts that do not yet have an AI response.
 * Existing prompt extraction and navigation behavior remain unchanged until
   the generic model is connected in a later step.

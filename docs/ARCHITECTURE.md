@@ -25,6 +25,7 @@ graph TD
         promptNavigation[promptNavigation.ts]
         navigationData[navigationData.ts]
         fingerprint[fingerprint.ts]
+        fingerprintIndex[fingerprintIndex.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
         msg[message.ts]
         mark[promptMark.ts]
@@ -55,6 +56,7 @@ graph TD
     navigator --> promptNavigation
     chatGptAdapter --> navigationData
     navigationData --> fingerprint
+    fingerprint --> fingerprintIndex
     navigator --> follow
     outline --> outlineNavigation
     outlineNavigation --> promptNavigation
@@ -86,6 +88,7 @@ graph TD
   - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary, currently using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint.ts](../src/features/navigation/fingerprint.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
+  - [fingerprintIndex.ts](../src/features/navigation/fingerprintIndex.ts): Builds prompt-indexed response fingerprints in bounded asynchronous batches.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.

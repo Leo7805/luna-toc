@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:1cb2b8d1ec67acc615bf22f618eed3c8c36b5ff28aeb110a4ef1b928956c11ad",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T04:59:35.641Z",
+    "updatedAt": "2026-07-24T04:59:35.641Z"
+  },
+  "fileNote": {
+    "userNote": "分批生成指纹，并按照所属 promptIndex 建立索引。\n\nflattenResponseTasks() — 将所有 Prompt 下的 AI Response 展开成有序任务列表。\nyieldToMainThread() — 通过事件循环暂时让出主线程，避免长会话持续占用页面。\nbuildFingerprintIndex() — 分批生成所有 Response 指纹，并汇总到对应 Prompt。\nPromptFingerprintIndex — 表示一个 Prompt 及其全部 Response 指纹。\nResponseFingerprintTask — 表示一条待生成指纹的 AI Response 及其所属 Prompt。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
