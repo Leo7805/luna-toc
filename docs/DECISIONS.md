@@ -332,6 +332,10 @@ the Content Script's main thread. Match rendered text by locating probes first,
 verifying their trailing hashes, and accepting a prompt only when it has a
 unique highest verified-fingerprint count.
 
+Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
+only mounted Assistant-owned Markdown containers, combines multiple Markdown
+blocks belonging to one response, and excludes nested tool or attachment UI.
+
 ### Consequences
 * Fingerprint and search modules can operate without ChatGPT data types.
 * Supporting another AI page requires a new adapter rather than changes to the

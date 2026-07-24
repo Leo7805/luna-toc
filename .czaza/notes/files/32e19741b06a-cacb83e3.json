@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:969a0c56e184de995668a6c799c13837965d73155aacb21666b3f2136fa8f542",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T05:29:36.772Z",
+    "updatedAt": "2026-07-24T05:30:42.174Z"
+  },
+  "fileNote": {
+    "userNote": "将当前挂载的 ChatGPT AI 正文转换为通用 RenderedTextBlock[]。\ngetRenderedAssistantTextBlocks() — 提取所有已挂载的 Assistant Markdown 正文。\ngetAssistantBlockId() — 优先读取 data-message-id，没有时生成扫描范围内的备用 ID。\ngetAssistantMarkdownText() — 合并同一条回答的顶层 Markdown，并排除嵌套工具内容。\n\n当前提取规则\n[data-message-author-role=\"assistant\"]\n                ↓\n       自己拥有的顶层 .markdown\n                ↓\n     合并为一个 RenderedTextBlock\n以下内容不会进入匹配器：\nUser 消息\nTool 节点及其 Markdown\n图片\n附件\n没有 Markdown 的 Assistant 节点\n空 Markdown\n嵌套重复 Markdown",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

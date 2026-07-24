@@ -29,6 +29,7 @@ graph TD
         fingerprintMatcher[fingerprintMatcher.ts]
         snapshotStore[navigationSnapshotStore.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
+        chatGptRenderedText[ChatGPT renderedTextAdapter.ts]
         msg[message.ts]
         mark[promptMark.ts]
         vis[sidebarVisibility.ts]
@@ -63,6 +64,7 @@ graph TD
     snapshotStore --> fingerprintMatcher
     navigator --> snapshotStore
     navigator --> chatGptAdapter
+    chatGptRenderedText --> fingerprintMatcher
     navigator --> follow
     outline --> outlineNavigation
     outlineNavigation --> promptNavigation
@@ -98,6 +100,7 @@ graph TD
   - [fingerprintMatcher.ts](../src/features/navigation/fingerprintMatcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected fingerprint indexes by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
+  - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
   - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.
@@ -133,6 +136,7 @@ graph TD
 
 - `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning; runtime user preferences remain in their existing storage modules.
 - Pure logic tests live under `test/`, run with Vitest in a Node environment, and use the same `@/` source alias as browser code.
+- DOM-dependent platform adapter tests opt into jsdom per test file; other tests remain in the default Node environment.
 - `manifest.json` is the source Manifest and authoritative extension version.
 - `vite.config.ts` uses Vite and CRXJS to discover extension entries and cleans source extensions from generated entry names after CRXJS finishes writing the build.
 - `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
