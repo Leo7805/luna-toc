@@ -124,6 +124,10 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
 * Full Assistant responses are not cached; only bounded probes and hashes are.
 * New conversation data invalidates the previous fingerprint index without
   delaying prompt rendering.
+* Mounted Assistant DOM is collected after a short stabilization delay and
+  upgrades the matching response from a derived to an observed fingerprint.
+* Rendered messages without a known response ID mapping are ignored instead of
+  guessing their prompt ownership.
 * The cache is discarded on page refresh or tab close and is never persisted.
 
 ---

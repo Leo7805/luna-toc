@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T06:25:23.729Z",
+  "updatedAt": "2026-07-24T06:30:59.992Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:46a7f9b0152fa6d6d3066979f6ca19c230d0570fefff39642f308f7388396f95",
+      "sourceHash": "sha256:82957fbbb19fd9baf579a0239fcd50e290a43532cbd09cd6b1bad9339a285a30",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:17:57.356Z"
+      "updatedAt": "2026-07-24T06:30:42.595Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:d0acc324bde0b3a26c5ce6e9c91afd68bc200e6ad2b0b73a5d02eb346e6bab50",
+      "sourceHash": "sha256:6c98132d28e635ec71299af93d1cbdb903a0713771a40c1cf2a588b76ac23568",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T04:25:23.717Z"
+      "updatedAt": "2026-07-24T06:30:59.992Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -307,6 +307,12 @@
       "sourceHash": "sha256:9a187bcb20dc4732ed27ec8f1741204d91764c98d5375e48cbc4a406bbfcfef1",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-24T06:25:00.111Z"
+    },
+    "src/platforms/chatgpt/renderedFingerprintCollector.ts": {
+      "noteFile": "files/4f99fa60c69e-1ee2873f.json",
+      "sourceHash": "sha256:bde61000c1f1f3717a2ef9690d52c44504b9d796c32720e98013c97705d8fe83",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T06:30:12.176Z"
     }
   }
 }

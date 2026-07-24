@@ -31,6 +31,7 @@ graph TD
         snapshotStore[navigationSnapshotStore.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
         chatGptRenderedText[ChatGPT renderedTextAdapter.ts]
+        chatGptFingerprintCollector[ChatGPT renderedFingerprintCollector.ts]
         msg[message.ts]
         mark[promptMark.ts]
         vis[sidebarVisibility.ts]
@@ -67,6 +68,8 @@ graph TD
     navigator --> snapshotStore
     navigator --> chatGptAdapter
     chatGptRenderedText --> fingerprintMatcher
+    chatGptRenderedText --> chatGptFingerprintCollector
+    chatGptFingerprintCollector --> snapshotStore
     navigator --> follow
     outline --> outlineNavigation
     outlineNavigation --> promptNavigation
@@ -104,6 +107,7 @@ graph TD
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected response fingerprint records by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.
+  - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces rendered Assistant DOM changes and upgrades mapped responses to observed fingerprints in the current revision.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
   - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.

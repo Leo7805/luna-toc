@@ -9,6 +9,8 @@ import {
 import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
 import { buildFingerprintIndex } from '@/features/navigation/fingerprint/index';
 import { createChatGptNavigationTurns } from '@/platforms/chatgpt/navigationAdapter';
+import { createRenderedFingerprintCollector } from '@/platforms/chatgpt/renderedFingerprintCollector';
+import type { NavigationTurn } from '@/features/navigation/navigationData';
 import type {
   ChatMessage,
   ConversationData,
@@ -73,6 +75,15 @@ export const navigatorController = (() => {
     ).join(',');
   const navigationSnapshotStore =
     createNavigationSnapshotStore<NavigatorMessage>();
+  const renderedFingerprintCollector = createRenderedFingerprintCollector({
+    onFingerprintRecord: (context, record) => {
+      navigationSnapshotStore.upsertFingerprintRecord(
+        context.conversationKey,
+        context.revision,
+        record
+      );
+    },
+  });
 
   let conversationMessages: NavigatorMessage[] = [];
   let searchQuery = '';
@@ -137,6 +148,7 @@ export const navigatorController = (() => {
     });
 
     initActivePromptTracking();
+    renderedFingerprintCollector.observe(document.body);
     isAttached = true;
     render();
   }
@@ -560,10 +572,11 @@ export const navigatorController = (() => {
   function cacheConversationMessages(conversationKey: string): void {
     if (!conversationKey) return;
 
-    navigationSnapshotStore.replacePrompts(
+    const revision = navigationSnapshotStore.replacePrompts(
       conversationKey,
       conversationMessages
     );
+    syncRenderedFingerprintContext(conversationKey, revision);
   }
 
   /**
@@ -591,6 +604,7 @@ export const navigatorController = (() => {
       conversationMessages
     );
     const turns = createChatGptNavigationTurns(data);
+    syncRenderedFingerprintContext(conversationKey, revision, turns);
 
     void buildFingerprintIndex(turns, 'derived')
       .then((fingerprintIndex) => {
@@ -603,6 +617,30 @@ export const navigatorController = (() => {
       .catch((error: unknown) => {
         console.warn('[LunaTOC] Failed to build navigation fingerprints.', error);
       });
+  }
+
+  /**
+   * Updates DOM fingerprint collection with the current response-to-prompt map.
+   */
+  function syncRenderedFingerprintContext(
+    conversationKey: string,
+    revision: number,
+    turns?: NavigationTurn[]
+  ): void {
+    const responsePromptIndexes = turns
+      ? createResponsePromptIndexMap(turns)
+      : new Map(
+          (
+            navigationSnapshotStore.getSnapshot(conversationKey)
+              ?.fingerprintIndex || []
+          ).map(({ responseId, promptIndex }) => [responseId, promptIndex])
+        );
+
+    renderedFingerprintCollector.setContext({
+      conversationKey,
+      revision,
+      responsePromptIndexes,
+    });
   }
 
   function flushPendingNewChatMessage(): void {
@@ -675,6 +713,16 @@ export const navigatorController = (() => {
     }
 
     currentConversationKey = nextConversationKey;
+    const nextSnapshot =
+      navigationSnapshotStore.getSnapshot(nextConversationKey);
+    if (nextSnapshot) {
+      syncRenderedFingerprintContext(
+        nextConversationKey,
+        nextSnapshot.revision
+      );
+    } else {
+      renderedFingerprintCollector.setContext(null);
+    }
     resetStateForCurrentRoute({
       nextMessages: cachedMessages,
       preserveMessages: shouldPreserveMessages,
@@ -746,3 +794,18 @@ export const navigatorController = (() => {
     setSearchQuery,
   };
 })();
+
+/**
+ * Maps every platform response ID to the prompt index that owns it.
+ */
+function createResponsePromptIndexMap(
+  turns: NavigationTurn[]
+): Map<string, number> {
+  return new Map(
+    turns.flatMap((turn) =>
+      turn.responses.map(
+        (response) => [response.id, turn.promptIndex] as const
+      )
+    )
+  );
+}

@@ -10,6 +10,7 @@ export const APP_CONFIG = {
       verificationLength: 256,
       buildBatchSize: 10,
       buildTimeBudgetMs: 8,
+      observationDebounceMs: 750,
     },
     search: {
       maxAttempts: 8,
