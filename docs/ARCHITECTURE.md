@@ -26,6 +26,7 @@ graph TD
         navigationData[navigationData.ts]
         fingerprint[fingerprint.ts]
         fingerprintIndex[fingerprintIndex.ts]
+        fingerprintMatcher[fingerprintMatcher.ts]
         snapshotStore[navigationSnapshotStore.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
         msg[message.ts]
@@ -59,6 +60,7 @@ graph TD
     navigationData --> fingerprint
     fingerprint --> fingerprintIndex
     fingerprintIndex --> snapshotStore
+    snapshotStore --> fingerprintMatcher
     navigator --> snapshotStore
     navigator --> chatGptAdapter
     navigator --> follow
@@ -93,6 +95,7 @@ graph TD
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint.ts](../src/features/navigation/fingerprint.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
   - [fingerprintIndex.ts](../src/features/navigation/fingerprintIndex.ts): Builds prompt-indexed response fingerprints in bounded asynchronous batches.
+  - [fingerprintMatcher.ts](../src/features/navigation/fingerprintMatcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected fingerprint indexes by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.

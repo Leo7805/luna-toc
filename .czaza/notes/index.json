@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T05:09:55.346Z",
+  "updatedAt": "2026-07-24T05:21:07.020Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -266,6 +266,12 @@
       "sourceHash": "sha256:8bfd4841cbacb882d7bc6fe4fab61fda0d176e575eb716aa8c5ccef4be86d79e",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-24T05:09:55.346Z"
+    },
+    "src/features/navigation/fingerprintMatcher.ts": {
+      "noteFile": "files/c5e3824a5d4d-2eed87e5.json",
+      "sourceHash": "sha256:bba21399d58798f39b8bff474bee19e21df3e7e1be1c5997798b738f43069503",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:21:07.020Z"
     }
   }
 }
