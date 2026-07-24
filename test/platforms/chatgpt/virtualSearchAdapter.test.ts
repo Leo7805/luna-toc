@@ -2,7 +2,7 @@
 /** Tests ChatGPT DOM adaptation for generic virtual navigation. */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  createChatGptNavigationAnchor,
+  createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt,
   getChatGptScrollContainer,
   getChatGptScrollMetrics,
@@ -84,7 +84,7 @@ describe('ChatGPT virtual search adapter', () => {
     });
     setElementMeasurements(element, { top: 350 });
 
-    const anchor = createChatGptNavigationAnchor({
+    const anchor = createChatGptElementNavigationAnchor({
       conversationKey: 'conversation-1',
       promptId: 'prompt-3',
       promptIndex: 3,

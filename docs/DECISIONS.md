@@ -69,6 +69,16 @@ Native prompt buttons remain the only reliable way to navigate virtualized file/
 * Text prompt fallback can navigate through virtualized conversations when native prompt buttons are absent.
 * File/image prompt navigation remains limited without ChatGPT's native prompt buttons because those prompts lack a stable text anchor.
 
+### Independent Navigation Development Mode
+
+ChatGPT navigation is selected by
+`APP_CONFIG.platforms.chatgpt.navigationAlgorithm`. The default
+`legacy-native` strategy preserves the native-button and legacy scan behavior.
+The `independent-virtual` strategy uses only LunaTOC prompt IDs, fingerprints,
+anchors, interpolation, and binary search; it does not call the native
+ChatGPT TOC or silently fall back to the legacy scanner. Confirmed successful
+positions are persisted as bounded anchor hints.
+
 ---
 
 ## ADR 04: Persistent Prompts Manager ("My Prompts") and Autocompleter

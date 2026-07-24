@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T07:18:02.460Z",
+  "updatedAt": "2026-07-24T07:31:58.097Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:82957fbbb19fd9baf579a0239fcd50e290a43532cbd09cd6b1bad9339a285a30",
+      "sourceHash": "sha256:c395bcb80959a2a2adf3b0a325bbd3aa6a7fe8a7c1ec5dbfabf0daddf98734ff",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:30:42.595Z"
+      "updatedAt": "2026-07-24T07:30:55.129Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -192,9 +192,9 @@
     },
     "src/features/navigation/promptNavigation.ts": {
       "noteFile": "files/241fe34fddca-a4f793e6.json",
-      "sourceHash": "sha256:c49af8b59051f6ebca622b37f499ac3e5ad367b81270c2cd65f816efa7916c3b",
+      "sourceHash": "sha256:30e7a35499ab801838ef4a179c1e84a1a618e64aca98adc0e22b0ac7738b23eb",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T07:18:02.460Z"
+      "updatedAt": "2026-07-24T07:30:20.426Z"
     },
     "src/features/navigation/outline.ts": {
       "noteFile": "files/2c76dfd8293f-c0052e3a.json",
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:e827e3304e0f4c39a67e821b24b80e3834fe06eba2cd674699efd3d218ead014",
+      "sourceHash": "sha256:73e20e3d98faa90e732edf9b293b259f6e858c32b86b868c7a6433d64cfd2fa5",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T07:10:09.747Z"
+      "updatedAt": "2026-07-24T07:29:45.393Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -340,9 +340,9 @@
     },
     "src/platforms/chatgpt/virtualSearchAdapter.ts": {
       "noteFile": "files/2f6f8b44f5de-00cd1729.json",
-      "sourceHash": "sha256:eaf25aed0fb13caeae8a8112be855fdf51ebe9497204a56b0a0ba8c03956abaf",
+      "sourceHash": "sha256:7d0ee459d2e470e29aa18f29f9a7f6513afb4233e39cff1a1afa7acfab16fef1",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T07:17:06.223Z"
+      "updatedAt": "2026-07-24T07:31:58.097Z"
     }
   }
 }

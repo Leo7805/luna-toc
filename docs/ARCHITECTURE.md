@@ -158,6 +158,7 @@ graph TD
 ### Build Outputs
 
 - `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning; runtime user preferences remain in their existing storage modules.
+- `platforms.chatgpt.navigationAlgorithm` selects either the default `legacy-native` ChatGPT TOC path or the fully independent `independent-virtual` anchor-and-fingerprint path.
 - Pure logic tests live under `test/`, run with Vitest in a Node environment, and use the same `@/` source alias as browser code.
 - DOM-dependent platform adapter tests opt into jsdom per test file; other tests remain in the default Node environment.
 - `manifest.json` is the source Manifest and authoritative extension version.

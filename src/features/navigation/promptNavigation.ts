@@ -1,15 +1,35 @@
 /**
  * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
+import { APP_CONFIG } from '@/config/config';
+import type { NavigationFingerprintIndex } from './fingerprint/index';
+import {
+  createNavigationAnchorStore,
+  type NavigationAnchorStore,
+} from './navigationAnchorStore';
+import { searchVirtualPrompt } from './virtualSearchController';
 import type { NavigatorMessage } from '../conversationPrompts/message';
-import { getChatGptScrollContainer } from '@/platforms/chatgpt/virtualSearchAdapter';
+import {
+  createChatGptElementNavigationAnchor,
+  findRenderedChatGptPrompt,
+  getChatGptScrollContainer,
+  getChatGptScrollMetrics,
+  observeChatGptVirtualPosition,
+} from '@/platforms/chatgpt/virtualSearchAdapter';
 import { keepFollowing } from './follow';
+
+interface VirtualSearchContext {
+  conversationKey: string;
+  prompts: NavigatorMessage[];
+  fingerprintIndex: NavigationFingerprintIndex;
+}
 
 interface PromptNavigationOptions {
   getNativePromptButtons: () => HTMLElement[];
   normalizeText: (text: string) => string;
   findConversationIndexByElement: (element: HTMLElement) => number;
   getConversationMessageCount: () => number;
+  getVirtualSearchContext: () => VirtualSearchContext;
   lockActiveIndex: (index: number, duration?: number) => void;
 }
 
@@ -49,8 +69,15 @@ let getNativePromptButtons: () => HTMLElement[] = () => [];
 let normalizeText: (text: string) => string = (text) => text;
 let findConversationIndexByElement: (element: HTMLElement) => number = () => -1;
 let getConversationMessageCount: () => number = () => 0;
+let getVirtualSearchContext: () => VirtualSearchContext = () => ({
+  conversationKey: '',
+  prompts: [],
+  fingerprintIndex: [],
+});
 let lockActiveIndex: (index: number, duration?: number) => void = () => {};
 let virtualScanToken = 0;
+let navigationAnchorStore: NavigationAnchorStore | null = null;
+let activeIndependentSearch: AbortController | null = null;
 const debugStorageKey = 'chatTocDebugJump';
 
 /**
@@ -69,6 +96,7 @@ export function initializePromptNavigation(
   normalizeText = options.normalizeText;
   findConversationIndexByElement = options.findConversationIndexByElement;
   getConversationMessageCount = options.getConversationMessageCount;
+  getVirtualSearchContext = options.getVirtualSearchContext;
   lockActiveIndex = options.lockActiveIndex;
 }
 
@@ -77,6 +105,12 @@ export function initializePromptNavigation(
  * @param {'top' | 'bottom'} edge
  */
 export function jumpToConversationEdge(edge: 'top' | 'bottom'): void {
+  if (usesIndependentVirtualNavigation()) {
+    cancelActiveNavigationSearch();
+    jumpToAbsoluteEdge(edge, 'auto');
+    return;
+  }
+
   const buttons = getNativePromptButtons();
   const button = edge === 'top' ? buttons[0] : buttons.at(-1);
 
@@ -167,6 +201,23 @@ function scrollToMatchedElement(
  * @param {number} index
  */
 export function jumpToMessage(message: NavigatorMessage, index: number): void {
+  cancelActiveNavigationSearch();
+
+  if (usesIndependentVirtualNavigation()) {
+    jumpWithIndependentVirtualNavigation(message, index);
+    return;
+  }
+
+  jumpWithLegacyNativeNavigation(message, index);
+}
+
+/**
+ * Uses ChatGPT's native prompt navigator and legacy DOM scanning fallbacks.
+ */
+function jumpWithLegacyNativeNavigation(
+  message: NavigatorMessage,
+  index: number
+): void {
   lockActiveIndex(index, message.canMatchByText ? 1800 : 4000);
 
   if (jumpToPromptByIndex(index)) {
@@ -189,6 +240,101 @@ export function jumpToMessage(message: NavigatorMessage, index: number): void {
   }
 
   jumpToVisibleUserMessageByIndex(index);
+}
+
+/**
+ * Uses only LunaTOC anchors, fingerprints, and virtual-list search.
+ */
+function jumpWithIndependentVirtualNavigation(
+  message: NavigatorMessage,
+  index: number
+): void {
+  const context = getVirtualSearchContext();
+  const container = getChatGptScrollContainer();
+
+  lockActiveIndex(index, 4000);
+  keepFollowing(4000);
+
+  if (!container || !context.conversationKey) {
+    debugJump('independent-search:missing-context', {
+      hasContainer: Boolean(container),
+      conversationKey: context.conversationKey,
+      index,
+    });
+    return;
+  }
+
+  const renderedTarget = findRenderedChatGptPrompt(message.id);
+  if (renderedTarget) {
+    finishIndependentVirtualJump(
+      renderedTarget,
+      message,
+      index,
+      context.conversationKey,
+      container
+    );
+    return;
+  }
+
+  const controller = new AbortController();
+  activeIndependentSearch = controller;
+  const anchorStore = getNavigationAnchorStore();
+
+  void searchVirtualPrompt({
+    targetPromptId: message.id,
+    targetPromptIndex: index,
+    promptCount: context.prompts.length,
+    getConfirmedAnchors: () =>
+      anchorStore.getConfirmedAnchors(context.conversationKey),
+    getObservedAnchors: () =>
+      anchorStore.getObservedAnchors(context.conversationKey),
+    recordObservation: (anchor) => {
+      anchorStore.recordObservation(anchor);
+    },
+    getScrollMetrics: () => getChatGptScrollMetrics(container),
+    observePosition: () =>
+      observeChatGptVirtualPosition({
+        conversationKey: context.conversationKey,
+        prompts: context.prompts,
+        fingerprintIndex: context.fingerprintIndex,
+        scrollContainer: container,
+      }),
+    isTargetRendered: () => Boolean(findRenderedChatGptPrompt(message.id)),
+    scrollTo: (scrollTop) => {
+      container.scrollTo({ top: scrollTop, behavior: 'auto' });
+    },
+    signal: controller.signal,
+  })
+    .then((result) => {
+      if (activeIndependentSearch === controller) {
+        activeIndependentSearch = null;
+      }
+      if (result.status !== 'found') {
+        debugJump('independent-search:stopped', {
+          index,
+          status: result.status,
+          attempts: result.attempts,
+        });
+        return;
+      }
+
+      const target = findRenderedChatGptPrompt(message.id);
+      if (!target) return;
+
+      finishIndependentVirtualJump(
+        target,
+        message,
+        index,
+        context.conversationKey,
+        container
+      );
+    })
+    .catch((error: unknown) => {
+      if (activeIndependentSearch === controller) {
+        activeIndependentSearch = null;
+      }
+      console.warn('[LunaTOC] Independent navigation failed.', error);
+    });
 }
 
 /**
@@ -216,6 +362,15 @@ function jumpToPromptByIndex(index: number): boolean {
  * @returns {boolean}
  */
 export function jumpToPromptIndex(index: number, duration = 4000): boolean {
+  if (usesIndependentVirtualNavigation()) {
+    const message = getVirtualSearchContext().prompts[index];
+    if (!message) return false;
+
+    cancelActiveNavigationSearch();
+    jumpWithIndependentVirtualNavigation(message, index);
+    return true;
+  }
+
   lockActiveIndex(index, duration);
   keepFollowing(duration);
 
@@ -230,6 +385,58 @@ export function jumpToPromptIndex(index: number, duration = 4000): boolean {
 export function lockPromptIndex(index: number, duration = 1800): void {
   lockActiveIndex(index, duration);
   keepFollowing(duration);
+}
+
+/**
+ * Completes an independent jump and persists its verified prompt anchor.
+ */
+function finishIndependentVirtualJump(
+  target: HTMLElement,
+  message: NavigatorMessage,
+  index: number,
+  conversationKey: string,
+  container: HTMLElement
+): void {
+  const anchor = createChatGptElementNavigationAnchor({
+    conversationKey,
+    promptId: message.id,
+    promptIndex: index,
+    element: target,
+    scrollContainer: container,
+  });
+
+  scrollToMatchedElement(target);
+  void getNavigationAnchorStore()
+    .recordConfirmed(anchor)
+    .catch((error: unknown) => {
+      console.warn('[LunaTOC] Failed to persist navigation anchor.', error);
+    });
+}
+
+/**
+ * Returns the shared anchor store, creating its Chrome adapter lazily.
+ */
+function getNavigationAnchorStore(): NavigationAnchorStore {
+  navigationAnchorStore ||= createNavigationAnchorStore();
+  return navigationAnchorStore;
+}
+
+/**
+ * Cancels active independent and legacy virtual scans before a new jump.
+ */
+function cancelActiveNavigationSearch(): void {
+  activeIndependentSearch?.abort();
+  activeIndependentSearch = null;
+  virtualScanToken += 1;
+}
+
+/**
+ * Returns whether ChatGPT navigation must avoid all native TOC behavior.
+ */
+function usesIndependentVirtualNavigation(): boolean {
+  return (
+    APP_CONFIG.platforms.chatgpt.navigationAlgorithm === 'independent-virtual'
+  );
 }
 
 /**

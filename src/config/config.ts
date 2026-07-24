@@ -1,9 +1,18 @@
 /** Centralizes project-level values intended for deliberate tuning. */
 
+export type ChatGptNavigationAlgorithm =
+  | 'legacy-native'
+  | 'independent-virtual';
+
 /** Shared compile-time configuration for navigation and future project sections. */
 export const APP_CONFIG = {
+  platforms: {
+    chatgpt: {
+      navigationAlgorithm:
+        'legacy-native' as ChatGptNavigationAlgorithm,
+    },
+  },
   navigation: {
-    algorithm: 'native',
     fingerprint: {
       countPerAssistant: 3,
       probeLength: 40,

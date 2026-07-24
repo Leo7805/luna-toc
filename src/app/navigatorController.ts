@@ -144,6 +144,16 @@ export const navigatorController = (() => {
       normalizeText,
       findConversationIndexByElement,
       getConversationMessageCount: () => conversationMessages.length,
+      getVirtualSearchContext: () => {
+        const conversationKey = getCurrentConversationKey();
+        const snapshot = navigationSnapshotStore.getSnapshot(conversationKey);
+
+        return {
+          conversationKey,
+          prompts: conversationMessages,
+          fingerprintIndex: snapshot?.fingerprintIndex || [],
+        };
+      },
       lockActiveIndex: lockActiveNavigatorItem,
     });
 
@@ -587,9 +597,7 @@ export const navigatorController = (() => {
   function getCachedConversationMessages(
     conversationKey: string
   ): NavigatorMessage[] {
-    return (
-      navigationSnapshotStore.getSnapshot(conversationKey)?.prompts || []
-    );
+    return navigationSnapshotStore.getSnapshot(conversationKey)?.prompts || [];
   }
 
   /**
@@ -615,7 +623,10 @@ export const navigatorController = (() => {
         );
       })
       .catch((error: unknown) => {
-        console.warn('[LunaTOC] Failed to build navigation fingerprints.', error);
+        console.warn(
+          '[LunaTOC] Failed to build navigation fingerprints.',
+          error
+        );
       });
   }
 
@@ -803,9 +814,7 @@ function createResponsePromptIndexMap(
 ): Map<string, number> {
   return new Map(
     turns.flatMap((turn) =>
-      turn.responses.map(
-        (response) => [response.id, turn.promptIndex] as const
-      )
+      turn.responses.map((response) => [response.id, turn.promptIndex] as const)
     )
   );
 }

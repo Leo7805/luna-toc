@@ -148,7 +148,7 @@ export async function observeChatGptVirtualPosition({
       if (!element || !prompt) return [];
 
       return [
-        createChatGptNavigationAnchor({
+        createChatGptElementNavigationAnchor({
           conversationKey,
           promptId: prompt.id,
           promptIndex,
@@ -168,7 +168,7 @@ export async function observeChatGptVirtualPosition({
 /**
  * Converts one mounted Assistant element into a prompt scroll anchor.
  */
-export function createChatGptNavigationAnchor({
+export function createChatGptElementNavigationAnchor({
   conversationKey,
   promptId,
   promptIndex,
