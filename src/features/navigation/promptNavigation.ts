@@ -361,6 +361,8 @@ function jumpWithIndependentVirtualNavigation(
       }),
     signal: controller.signal,
     maxAttempts: testConfig.maxSearchAttempts,
+    maxUnproductiveAttempts:
+      testConfig.maxUnproductiveSearchAttempts,
     maxDurationMs: testConfig.maxSearchDurationMs,
     unresolvedPositionsBeforeAbort: testConfig.unresolvedPositionsBeforeAbort,
     targetDomRecoveryDirection: -1,

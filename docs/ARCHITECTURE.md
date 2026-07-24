@@ -33,6 +33,8 @@ graph TD
         visiblePosition[visiblePositionResolver.ts]
         anchorStore[navigationAnchorStore.ts]
         virtualSearchPlanner[virtualSearchPlanner.ts]
+        relativeSearchPlanner[relativeSearchPlanner.ts]
+        virtualSearchMachine[virtualSearchMachine.ts]
         virtualSearchController[virtualSearchController.ts]
         snapshotStore[navigationSnapshotStore.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
@@ -79,6 +81,8 @@ graph TD
     anchorStore --> virtualSearchPlanner
     visiblePosition --> virtualSearchPlanner
     virtualSearchPlanner --> virtualSearchController
+    relativeSearchPlanner --> virtualSearchController
+    virtualSearchMachine --> virtualSearchController
     navigator --> snapshotStore
     navigator --> chatGptAdapter
     chatGptRenderedText --> fingerprintMatcher
@@ -124,8 +128,10 @@ graph TD
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves viewport Segment coordinates before whole-response fingerprints and platform response-ID fallback while preserving Prompt-only callers.
   - [navigationAnchorStore.ts](../src/features/navigation/navigationAnchorStore.ts): Keeps transient search observations in memory and persists only confirmed prompt scroll anchors with bounded expiry and LRU limits.
-  - [virtualSearchPlanner.ts](../src/features/navigation/virtualSearchPlanner.ts): Plans exact, interpolated, proportional, or binary fallback positions while rejecting anchor ranges whose virtual scroll coordinates run backwards.
-- [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Uses anchors for an initial estimate, maintains the closest live bounds around the target, and switches to bracketed binary search after observing both sides while preserving local recovery for transient render gaps.
+  - [virtualSearchPlanner.ts](../src/features/navigation/virtualSearchPlanner.ts): Uses observed and confirmed anchors only for the first rough position estimate.
+  - [relativeSearchPlanner.ts](../src/features/navigation/relativeSearchPlanner.ts): Learns pixels per Prompt from consecutive observations, grows stalled steps, and reverses with a smaller step after crossing the target.
+  - [virtualSearchMachine.ts](../src/features/navigation/virtualSearchMachine.ts): Owns the explicit initial-estimate, seek-response, and mount-prompt phases.
+  - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Orchestrates observation, state transitions, relative planning, scrolling, diagnostics, and bounded completion without retaining absolute search bounds.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists plus revision-protected whole-response and segment fingerprint indexes by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts mounted ChatGPT Assistant Markdown into generic rendered text and exposes owned Markdown containers for observed viewport-segment measurement while excluding tools and attachments.
@@ -168,9 +174,10 @@ graph TD
 - `platforms.chatgpt.navigationAlgorithm` selects either the default `legacy-native` ChatGPT TOC path or the fully independent `independent-virtual` anchor-and-fingerprint path.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
-- `navigation.search` bounds each virtual search by 12 attempts and 2.5 seconds, deliberately probes past a target to discover its opposite live bound, switches to binary search once both bounds exist, and preserves the last reliable direction through transient virtual-list render gaps.
-- `navigation.search.targetDomRecoveryViewportCount` moves one viewport toward a platform-specified direction when the target response index is located but the target Prompt DOM has not mounted yet.
-- A located target response first uses its current observed anchor to align the response start; only an unchanged response-start position falls through to the one-viewport Prompt DOM recovery probe.
+- `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress.
+- Confirmed and observed anchors participate only in the initial estimate; every later movement is relative to the current live scroll position.
+- Response seeking estimates pixels per Prompt from consecutive observations, permits larger learned movements while far from the target, restores a smaller cap near the target, grows the step when the visible Prompt does not change, and halves the previous step after crossing the target.
+- Prompt mounting is an isolated feedback scan: repeated target-response observations grow the step, crossing into the previous response reverses and halves it, and neighboring responses never return control to response seeking.
 
 ### Navigation Diagnostics
 
@@ -191,6 +198,7 @@ localStorage.setItem(
     settleWaitMs: 300,
     settleAttempts: 5,
     maxSearchAttempts: 12,
+    maxUnproductiveSearchAttempts: 6,
     maxSearchDurationMs: 3000,
     unresolvedPositionsBeforeAbort: 4,
     useConfirmedAnchors: false,

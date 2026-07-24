@@ -75,7 +75,7 @@ ChatGPT navigation is selected by
 `APP_CONFIG.platforms.chatgpt.navigationAlgorithm`. The default
 `legacy-native` strategy preserves the native-button and legacy scan behavior.
 The `independent-virtual` strategy uses only LunaTOC prompt IDs, fingerprints,
-anchors, interpolation, and binary search; it does not call the native
+an initial anchor hint, and adaptive relative feedback; it does not call the native
 ChatGPT TOC or silently fall back to the legacy scanner. Confirmed successful
 positions are persisted as bounded anchor hints. Anchors participate only in
 the first rough estimate of each search. Later attempts move relative to the
@@ -149,13 +149,27 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
 * Independent jumps report success only when the target Prompt itself
   intersects the chat viewport; a retained offscreen Prompt DOM node cannot
   end search early or produce a confirmed anchor.
-* Once a search has resolved a live position, temporary unresolved frames keep
-  moving locally in the last reliable direction instead of restarting from a
-  global proportional estimate.
-* Each live observation updates the closest known position below or above the
-  target. With only one side known, a distance-scaled discovery probe
-  deliberately crosses the target; once both sides are observed, subsequent
-  plans bisect that live bracket.
+* Absolute anchors participate only in the initial estimate because virtual
+  list rebuilds can change the relationship between old scroll coordinates and
+  currently mounted content.
+* After the first estimate, every plan starts from the current live scroll
+  position. Consecutive observations provide an online pixels-per-Prompt
+  estimate. Reliable learned estimates may use a larger movement cap while far
+  from the target, then return to a smaller cap near the target. Unchanged
+  positions grow the step and target crossings shrink and reverse it.
+* Productive observations reset the consecutive no-progress counter. Searches
+  may therefore continue beyond the former 12-scroll limit while still
+  stopping after six unproductive attempts, 32 total attempts, or four seconds.
+* An unresolved exact anchor at the current scroll position does not terminate
+  with zero attempts. Targets near either list edge first move one viewport
+  toward the interior, allowing the virtual list to mount before re-observation.
+* Once a target response is located without its Prompt DOM, a dedicated mount
+  phase owns the search until completion or its bounded step limit. It scans
+  relative to the current live scroll rather than an Assistant anchor captured
+  before a virtual-list rebuild.
+* Mount scanning grows while observations remain in the target response and
+  reverses with half the step after crossing into the previous response,
+  converging on the Prompt boundary without fixed-range assumptions.
 * Prompt snapshots, fingerprints, and unconfirmed search observations are
   discarded on page refresh or tab close.
 * Confirmed successful jump anchors may persist in local extension storage as

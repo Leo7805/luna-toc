@@ -26,13 +26,22 @@ describe('APP_CONFIG', () => {
     expect(search.maxAttempts).toBeGreaterThan(0);
     expect(search.renderWaitMs).toBeGreaterThan(0);
     expect(search.maxDurationMs).toBeGreaterThanOrEqual(search.renderWaitMs);
-    expect(search.initialProbeViewportCount).toBeGreaterThan(0);
-    expect(search.probeViewportIncrement).toBeGreaterThan(0);
-    expect(search.maximumProbeViewportCount).toBeGreaterThanOrEqual(
-      search.initialProbeViewportCount
-    );
+    expect(search.relativeViewportRatio).toBeGreaterThan(0);
+    expect(search.minimumRelativeViewportRatio).toBeGreaterThan(0);
+    expect(search.maximumRelativeViewportCount).toBeGreaterThan(0);
+    expect(
+      search.maximumLearnedRelativeViewportCount
+    ).toBeGreaterThan(search.maximumRelativeViewportCount);
     expect(search.nearTargetPromptDistance).toBeGreaterThan(0);
-    expect(search.nearTargetProbeViewportCount).toBeGreaterThan(0);
+    expect(search.maximumNearTargetViewportCount).toBeGreaterThan(0);
+    expect(search.stalledStepGrowthRatio).toBeGreaterThan(1);
+    expect(search.crossingStepRatio).toBeGreaterThan(0);
+    expect(search.promptMountScanViewportRatio).toBeGreaterThan(0);
+    expect(search.minimumPromptMountViewportRatio).toBeGreaterThan(0);
+    expect(search.maximumPromptMountViewportCount).toBeGreaterThan(0);
+    expect(search.promptMountStepGrowthRatio).toBeGreaterThan(1);
+    expect(search.promptMountCrossingStepRatio).toBeGreaterThan(0);
+    expect(search.maximumPromptMountAttempts).toBeGreaterThan(0);
     expect(search.maxAttempts * search.renderWaitMs).toBeLessThanOrEqual(
       search.maxDurationMs
     );

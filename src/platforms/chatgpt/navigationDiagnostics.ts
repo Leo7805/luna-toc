@@ -11,6 +11,7 @@ export interface ChatGptNavigationTestConfig {
   settleWaitMs: number;
   settleAttempts: number;
   maxSearchAttempts: number;
+  maxUnproductiveSearchAttempts: number;
   maxSearchDurationMs: number;
   unresolvedPositionsBeforeAbort: number;
   useConfirmedAnchors: boolean;
@@ -55,6 +56,12 @@ export function getChatGptNavigationTestConfig(
         defaults.maxSearchAttempts,
         1,
         50
+      ),
+      maxUnproductiveSearchAttempts: readBoundedInteger(
+        value.maxUnproductiveSearchAttempts,
+        defaults.maxUnproductiveSearchAttempts,
+        1,
+        20
       ),
       maxSearchDurationMs: readBoundedNumber(
         value.maxSearchDurationMs,
@@ -118,6 +125,8 @@ function getDefaultNavigationTestConfig(): ChatGptNavigationTestConfig {
     settleWaitMs: APP_CONFIG.navigation.search.renderWaitMs,
     settleAttempts: APP_CONFIG.platforms.chatgpt.settleAttempts,
     maxSearchAttempts: APP_CONFIG.navigation.search.maxAttempts,
+    maxUnproductiveSearchAttempts:
+      APP_CONFIG.navigation.search.maxUnproductiveAttempts,
     maxSearchDurationMs: APP_CONFIG.navigation.search.maxDurationMs,
     unresolvedPositionsBeforeAbort:
       APP_CONFIG.navigation.search.unresolvedPositionsBeforeAbort,
