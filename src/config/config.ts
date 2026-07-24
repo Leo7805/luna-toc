@@ -22,7 +22,8 @@ export const APP_CONFIG = {
       maxAttempts: 8,
       renderWaitMs: 80,
       maxDurationMs: 1_000,
-      interpolationAttemptsBeforeBinary: 2,
+      interpolationFailuresBeforeBinary: 2,
+      unresolvedPositionsBeforeAbort: 2,
     },
   },
 } as const;

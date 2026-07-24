@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:7679a65e1f5069d0d6cfc16acf2825e8248deb5d8ebfdcf4cfb03d0a3fce2871",
+    "sourceHash": "sha256:13fe57fd7bdc52a780a5c8b488199fa94eb3ec12378d0ddcbdfc4e7260c5c478",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T06:59:25.052Z",
-    "updatedAt": "2026-07-24T06:59:50.043Z"
+    "updatedAt": "2026-07-24T07:07:24.939Z"
   },
   "fileNote": {
     "userNote": "把持久化锚点、临时锚点、比例估算和二分兜底组合成每次搜索的位置计划\n\n组合实时锚点、持久化锚点、比例估算、插值和二分策略。\nplanVirtualSearch() — 生成下一次滚动计划。\nmergeCompatibleAnchors() — 合并锚点，同一 index 优先使用实时观察值。\nfindNearestLowerAnchor() — 查找距离目标最近的下界。\nfindNearestUpperAnchor() — 查找距离目标最近的上界。\ninterpolateScrollTop() — 在最小上下界范围内进行插值。\ncreateBoundaryAnchor() — 缺少一侧锚点时创建页面边界。\ncreatePlan() — 创建并限制最终滚动计划。",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

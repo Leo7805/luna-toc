@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T06:59:50.043Z",
+  "updatedAt": "2026-07-24T07:10:09.747Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:0143942668646e8c6f1fe3a3efa4a3b8915ff2056e05aa8c31bdd5d61e3a8735",
+      "sourceHash": "sha256:e827e3304e0f4c39a67e821b24b80e3834fe06eba2cd674699efd3d218ead014",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:58:10.527Z"
+      "updatedAt": "2026-07-24T07:10:09.747Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -328,9 +328,15 @@
     },
     "src/features/navigation/virtualSearchPlanner.ts": {
       "noteFile": "files/89fe88091801-4d7f6667.json",
-      "sourceHash": "sha256:7679a65e1f5069d0d6cfc16acf2825e8248deb5d8ebfdcf4cfb03d0a3fce2871",
+      "sourceHash": "sha256:13fe57fd7bdc52a780a5c8b488199fa94eb3ec12378d0ddcbdfc4e7260c5c478",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:59:50.043Z"
+      "updatedAt": "2026-07-24T07:07:24.939Z"
+    },
+    "src/features/navigation/virtualSearchController.ts": {
+      "noteFile": "files/ba6aa3ee5c15-2926c662.json",
+      "sourceHash": "sha256:95bc8aacd2bf4b47ea1ed03e9b217d4ad81b0ce34fe893aa9c29c891fb9520e2",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T07:07:25.040Z"
     }
   }
 }

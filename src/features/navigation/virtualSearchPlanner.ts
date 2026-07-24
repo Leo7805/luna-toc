@@ -110,7 +110,7 @@ export function planVirtualSearch({
     createBoundaryAnchor(safePromptCount - 1, safeMaximumScrollTop);
   const shouldUseBinary =
     failedInterpolationAttempts >=
-    APP_CONFIG.navigation.search.interpolationAttemptsBeforeBinary;
+    APP_CONFIG.navigation.search.interpolationFailuresBeforeBinary;
   const scrollTop = shouldUseBinary
     ? (lowerAnchor.scrollTop + upperAnchor.scrollTop) / 2
     : interpolateScrollTop(
