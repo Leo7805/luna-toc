@@ -29,6 +29,7 @@ graph TD
         fingerprintIndex[fingerprint/index.ts]
         fingerprintMatcher[fingerprint/matcher.ts]
         visiblePosition[visiblePositionResolver.ts]
+        anchorStore[navigationAnchorStore.ts]
         snapshotStore[navigationSnapshotStore.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
         chatGptRenderedText[ChatGPT renderedTextAdapter.ts]
@@ -107,6 +108,7 @@ graph TD
   - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds one quality-tagged fingerprint record per response and merges derived/observed updates by precedence.
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves the prompt-index range represented by rendered responses, preferring response IDs before fingerprint matching.
+  - [navigationAnchorStore.ts](../src/features/navigation/navigationAnchorStore.ts): Keeps transient search observations in memory and persists only confirmed prompt scroll anchors with bounded expiry and LRU limits.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected response fingerprint records by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.

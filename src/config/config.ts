@@ -12,6 +12,12 @@ export const APP_CONFIG = {
       buildTimeBudgetMs: 8,
       observationDebounceMs: 750,
     },
+    anchorCache: {
+      maxConversations: 50,
+      maxAnchorsPerConversation: 100,
+      maxAgeMs: 30 * 24 * 60 * 60 * 1_000,
+      viewportWidthTolerance: 48,
+    },
     search: {
       maxAttempts: 8,
       renderWaitMs: 80,

@@ -128,7 +128,11 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
   upgrades the matching response from a derived to an observed fingerprint.
 * Rendered messages without a known response ID mapping are ignored instead of
   guessing their prompt ownership.
-* The cache is discarded on page refresh or tab close and is never persisted.
+* Prompt snapshots, fingerprints, and unconfirmed search observations are
+  discarded on page refresh or tab close.
+* Confirmed successful jump anchors may persist in local extension storage as
+  bounded hints. They are validated against prompt identity and viewport width,
+  expire after 30 days, and never replace live position verification.
 
 ---
 
