@@ -6,6 +6,9 @@ import {
   createNavigatorMessage,
   extractUserMessages,
 } from '../features/conversationPrompts/message';
+import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
+import { buildFingerprintIndex } from '@/features/navigation/fingerprintIndex';
+import { createChatGptNavigationTurns } from '@/platforms/chatgpt/navigationAdapter';
 import type {
   ChatMessage,
   ConversationData,
@@ -68,7 +71,8 @@ export const navigatorController = (() => {
     NATIVE_PROMPT_BUTTON_SELECTORS.map(
       (selector) => `${selector}[data-toc-active]`
     ).join(',');
-  const conversationMessageCache = new Map<string, NavigatorMessage[]>();
+  const navigationSnapshotStore =
+    createNavigationSnapshotStore<NavigatorMessage>();
 
   let conversationMessages: NavigatorMessage[] = [];
   let searchQuery = '';
@@ -554,9 +558,12 @@ export const navigatorController = (() => {
    * @param {string} conversationKey
    */
   function cacheConversationMessages(conversationKey: string): void {
-    if (!conversationKey || conversationMessages.length === 0) return;
+    if (!conversationKey) return;
 
-    conversationMessageCache.set(conversationKey, [...conversationMessages]);
+    navigationSnapshotStore.replacePrompts(
+      conversationKey,
+      conversationMessages
+    );
   }
 
   /**
@@ -567,9 +574,35 @@ export const navigatorController = (() => {
   function getCachedConversationMessages(
     conversationKey: string
   ): NavigatorMessage[] {
-    const cachedMessages = conversationMessageCache.get(conversationKey);
+    return (
+      navigationSnapshotStore.getSnapshot(conversationKey)?.prompts || []
+    );
+  }
 
-    return cachedMessages ? [...cachedMessages] : [];
+  /**
+   * Builds fingerprints in the background and stores only the current revision.
+   */
+  function cacheConversationNavigationData(
+    conversationKey: string,
+    data: ConversationData
+  ): void {
+    const revision = navigationSnapshotStore.replacePrompts(
+      conversationKey,
+      conversationMessages
+    );
+    const turns = createChatGptNavigationTurns(data);
+
+    void buildFingerprintIndex(turns)
+      .then((fingerprintIndex) => {
+        navigationSnapshotStore.completeFingerprintIndex(
+          conversationKey,
+          revision,
+          fingerprintIndex
+        );
+      })
+      .catch((error: unknown) => {
+        console.warn('[LunaTOC] Failed to build navigation fingerprints.', error);
+      });
   }
 
   function flushPendingNewChatMessage(): void {
@@ -619,12 +652,24 @@ export const navigatorController = (() => {
     }
     if (nextConversationKey === currentConversationKey) return;
 
-    const isNewChatRouteTransition = isNewChatRouteKey(currentConversationKey);
+    const previousConversationKey = currentConversationKey;
+    const isNewChatRouteTransition = isNewChatRouteKey(previousConversationKey);
     const shouldPreserveMessages =
       isNewChatRouteTransition && conversationMessages.length > 0;
+
+    if (
+      shouldPreserveMessages &&
+      navigationSnapshotStore.copySnapshot(
+        previousConversationKey,
+        nextConversationKey
+      ) === null
+    ) {
+      cacheConversationMessages(nextConversationKey);
+    }
+
     const cachedMessages = getCachedConversationMessages(nextConversationKey);
     if (isNewChatRouteTransition) {
-      pendingNewChatRouteKey = currentConversationKey;
+      pendingNewChatRouteKey = previousConversationKey;
     } else {
       clearPendingNewChat();
     }
@@ -634,10 +679,6 @@ export const navigatorController = (() => {
       nextMessages: cachedMessages,
       preserveMessages: shouldPreserveMessages,
     });
-
-    if (shouldPreserveMessages) {
-      cacheConversationMessages(nextConversationKey);
-    }
 
     flushPendingNewChatMessage();
   }
@@ -655,7 +696,7 @@ export const navigatorController = (() => {
 
     onTitleChanged();
     conversationMessages = extractUserMessages(data);
-    cacheConversationMessages(getCurrentConversationKey());
+    cacheConversationNavigationData(getCurrentConversationKey(), data);
     render({ refreshObservers: true });
   }
 

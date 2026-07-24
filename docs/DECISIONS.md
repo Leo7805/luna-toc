@@ -113,14 +113,17 @@ every SPA route change therefore left revisited conversations without prompts
 until a full page refresh.
 
 ### Decision
-Cache each conversation's normalized user-prompt list in memory for the current
-content-script lifetime. Restore that snapshot on history navigation, and let
-later complete conversation data replace it. Keep new-chat prompt migration
-separate so temporary `WEB:` routes retain newly submitted prompts.
+Cache each conversation's normalized user-prompt list and compact fingerprint
+index in memory for the current content-script lifetime. Restore prompts
+immediately on history navigation, generate fingerprints asynchronously, and
+use snapshot revisions to reject stale generation results. Keep new-chat prompt
+migration separate so temporary `WEB:` routes retain newly submitted prompts.
 
 ### Consequences
 * Revisiting a conversation in the same tab restores its TOC immediately.
-* Only compact user-prompt navigation data is cached; assistant responses are not.
+* Full Assistant responses are not cached; only bounded probes and hashes are.
+* New conversation data invalidates the previous fingerprint index without
+  delaying prompt rendering.
 * The cache is discarded on page refresh or tab close and is never persisted.
 
 ---

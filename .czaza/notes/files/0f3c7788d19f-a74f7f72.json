@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:86c4a870362d4b77b17aa8a5c8197aa92987e181704bf679e3a6197afd994e8d",
+    "sourceHash": "sha256:1d7f8fb53e0c654b63a8aeaac809b903fe4d9c8ace5f894a57fb607945be55c2",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:16:33.200Z",
-    "updatedAt": "2026-07-24T03:23:42.779Z"
+    "updatedAt": "2026-07-24T05:08:58.058Z"
   },
   "fileNote": {
-    "userNote": "更新 Navigation、Outline 和 Follow 的导入路径，并调用新的主目录初始化入口。",
+    "userNote": "更新 Navigation、Outline 和 Follow 的导入路径，并调用新的主目录初始化入口。\n\n将现有目录缓存升级为会话快照，并启动后台指纹生成。\ncacheConversationMessages() — 将实时新增的 Prompt 写入快照并使旧指纹失效。\ngetCachedConversationMessages() — 从快照恢复历史会话 Prompt。\ncacheConversationNavigationData() — 使用 ChatGPT Adapter 和指纹索引生成器，在后台建立导航数据。\nsyncRouteState() — 切换路由时恢复或迁移对应会话快照。",
     "createdBy": "user",
     "status": {
       "content": "stale",

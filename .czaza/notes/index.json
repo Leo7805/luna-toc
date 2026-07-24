@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T04:59:35.641Z",
+  "updatedAt": "2026-07-24T05:09:55.346Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:86c4a870362d4b77b17aa8a5c8197aa92987e181704bf679e3a6197afd994e8d",
+      "sourceHash": "sha256:1d7f8fb53e0c654b63a8aeaac809b903fe4d9c8ace5f894a57fb607945be55c2",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T03:23:42.779Z"
+      "updatedAt": "2026-07-24T05:08:58.058Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -254,6 +254,18 @@
       "sourceHash": "sha256:1cb2b8d1ec67acc615bf22f618eed3c8c36b5ff28aeb110a4ef1b928956c11ad",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-24T04:59:35.641Z"
+    },
+    "src/features/navigation/conversationSnapshotStore.ts": {
+      "noteFile": "files/24ecd4e3f5ba-ff29fd97.json",
+      "sourceHash": "sha256:09da4403c9ee74d958860fe5590b609a7aca02408186ad81a429231ba832afff",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:07:46.926Z"
+    },
+    "src/features/navigation/navigationSnapshotStore.ts": {
+      "noteFile": "files/ff9f4de44a94-533119ae.json",
+      "sourceHash": "sha256:8bfd4841cbacb882d7bc6fe4fab61fda0d176e575eb716aa8c5ccef4be86d79e",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:09:55.346Z"
     }
   }
 }
