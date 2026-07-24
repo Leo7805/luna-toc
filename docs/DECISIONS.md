@@ -338,6 +338,13 @@ Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown
 blocks belonging to one response, and excludes nested tool or attachment UI.
 
+Keep one active fingerprint record per response. Mark records derived from raw
+conversation data as `derived` and records created from rendered content as
+`observed`. An observed record replaces a derived record for the same response,
+while later derived updates cannot replace an observed record. Preserve observed
+records across snapshot revisions, then discard records whose response IDs are
+absent when the new derived index completes.
+
 ### Consequences
 * Fingerprint and search modules can operate without ChatGPT data types.
 * Supporting another AI page requires a new adapter rather than changes to the
@@ -346,8 +353,9 @@ blocks belonging to one response, and excludes nested tool or attachment UI.
   AI responses.
 * Derived raw text and observed rendered text share the same lightweight
   comparable-text transformation without requiring a Markdown renderer.
-* Fingerprints remain grouped by `promptIndex`, including empty entries for
-  prompts that do not yet have an AI response.
+* Each non-empty response has at most one active fingerprint record containing
+  its `responseId`, `promptIndex`, quality, and bounded fingerprints.
+* Matching still aggregates verified response records by `promptIndex`.
 * Equally strong prompt matches are reported as ambiguous instead of selecting
   an arbitrary navigation target.
 * Existing prompt extraction and navigation behavior remain unchanged until

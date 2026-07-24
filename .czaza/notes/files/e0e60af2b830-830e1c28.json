@@ -6,10 +6,10 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T05:58:28.030Z",
-    "updatedAt": "2026-07-24T05:58:28.030Z"
+    "updatedAt": "2026-07-24T06:02:54.051Z"
   },
   "fileNote": {
-    "userNote": "将 Raw Markdown 和 DOM 文本转换成统一的字母、数字文本。\nstripMarkdownPayloads() — 删除图片、链接目标、URL、代码围栏和 HTML 标签。\nnormalizeWhitespace() — 合并连续空白并清理首尾。\nnormalizeComparableText() — 执行 NFKC 标准化，只保留 Unicode 字母与数字。",
+    "userNote": "将 Raw Markdown 和 DOM 文本转换成统一的字母、数字文本。\nstripMarkdownPayloads() — 删除图片、链接目标、URL、代码围栏和 HTML 标签。\nnormalizeWhitespace() — 合并连续空白并清理首尾。\nnormalizeComparableText() — 执行 NFKC 标准化，只保留 Unicode 字母与数字。\n\n\n⚠️ NFKC 是 Unicode 提供的一种字符统一规则，全名是：\nNormalization Form Compatibility Composition\n它会把“看起来或含义基本相同，但 Unicode 编码不同”的字符转换成更统一的形式。\n\ne.g.\n服务器：ＡＩ ２０２６\nDOM：   AI 2026\n不标准化时，两段文本不同；经过 NFKC 后，两边都是：\nAI 2026\n\n\n",
     "createdBy": "user"
   },
   "sectionNotes": {},

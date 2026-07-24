@@ -592,7 +592,7 @@ export const navigatorController = (() => {
     );
     const turns = createChatGptNavigationTurns(data);
 
-    void buildFingerprintIndex(turns)
+    void buildFingerprintIndex(turns, 'derived')
       .then((fingerprintIndex) => {
         navigationSnapshotStore.completeFingerprintIndex(
           conversationKey,

@@ -5,7 +5,7 @@ import {
   createSha256,
   type ResponseFingerprint,
 } from './generator';
-import type { PromptFingerprintIndex } from './index';
+import type { NavigationFingerprintIndex } from './index';
 import { normalizeComparableText } from './comparableText';
 
 export interface RenderedTextBlock {
@@ -89,20 +89,31 @@ export async function verifyFingerprintMatch(
  */
 export async function matchFingerprintIndex(
   blocks: RenderedTextBlock[],
-  fingerprintIndex: PromptFingerprintIndex[]
+  fingerprintIndex: NavigationFingerprintIndex
 ): Promise<PromptFingerprintMatch[]> {
   const normalizedBlocks = blocks.map((block) => ({
     id: block.id,
     text: normalizeComparableText(block.text),
   }));
-  const matches: PromptFingerprintMatch[] = [];
+  const matchesByPrompt = new Map<
+    number,
+    {
+      matchedFingerprintCount: number;
+      responseIds: Set<string>;
+      blockIds: Set<string>;
+    }
+  >();
 
-  for (const entry of fingerprintIndex) {
-    const responseIds = new Set<string>();
-    const blockIds = new Set<string>();
+  for (const record of fingerprintIndex) {
+    const promptMatch = matchesByPrompt.get(record.promptIndex) || {
+      matchedFingerprintCount: 0,
+      responseIds: new Set<string>(),
+      blockIds: new Set<string>(),
+    };
     let matchedFingerprintCount = 0;
+    const matchingResponseBlockIds = new Set<string>();
 
-    for (const fingerprint of entry.fingerprints) {
+    for (const fingerprint of record.fingerprints) {
       const matchingBlockIds: string[] = [];
 
       for (const block of normalizedBlocks) {
@@ -114,19 +125,33 @@ export async function matchFingerprintIndex(
       if (matchingBlockIds.length === 0) continue;
 
       matchedFingerprintCount += 1;
-      responseIds.add(fingerprint.responseId);
-      matchingBlockIds.forEach((blockId) => blockIds.add(blockId));
+      matchingBlockIds.forEach((blockId) =>
+        matchingResponseBlockIds.add(blockId)
+      );
     }
 
     if (matchedFingerprintCount === 0) continue;
 
-    matches.push({
-      promptIndex: entry.promptIndex,
+    promptMatch.matchedFingerprintCount += matchedFingerprintCount;
+    promptMatch.responseIds.add(record.responseId);
+    matchingResponseBlockIds.forEach((blockId) =>
+      promptMatch.blockIds.add(blockId)
+    );
+    matchesByPrompt.set(record.promptIndex, promptMatch);
+  }
+
+  const matches = Array.from(
+    matchesByPrompt,
+    ([
+      promptIndex,
+      { matchedFingerprintCount, responseIds, blockIds },
+    ]) => ({
+      promptIndex,
       matchedFingerprintCount,
       responseIds: [...responseIds],
       blockIds: [...blockIds],
-    });
-  }
+    })
+  );
 
   return matches.sort(
     (first, second) =>

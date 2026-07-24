@@ -1,16 +1,21 @@
 /** Tests revision-safe tab-scoped conversation navigation snapshots. */
 import { describe, expect, it } from 'vitest';
 import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
-import type { PromptFingerprintIndex } from '@/features/navigation/fingerprint/index';
+import type {
+  NavigationFingerprintIndex,
+  ResponseFingerprintRecord,
+} from '@/features/navigation/fingerprint/index';
 
 interface TestPrompt {
   id: string;
   text: string;
 }
 
-const fingerprintIndex: PromptFingerprintIndex[] = [
+const fingerprintIndex: NavigationFingerprintIndex = [
   {
+    responseId: 'response-1',
     promptIndex: 0,
+    quality: 'derived',
     fingerprints: [
       {
         responseId: 'response-1',
@@ -83,7 +88,9 @@ describe('conversation snapshot store', () => {
     if (snapshot?.prompts[0]) snapshot.prompts[0].text = 'Changed';
     snapshot?.prompts.push({ id: 'external', text: 'External' });
     snapshot?.fingerprintIndex?.push({
+      responseId: 'external',
       promptIndex: 1,
+      quality: 'observed',
       fingerprints: [],
     });
     snapshot?.fingerprintIndex?.[0]?.fingerprints.push({
@@ -123,5 +130,111 @@ describe('conversation snapshot store', () => {
       fingerprintIndex,
       revision: targetRevision,
     });
+  });
+
+  it('keeps observed data when a derived build completes later', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    const revision = store.replacePrompts('conversation-1', [
+      { id: 'prompt-1', text: 'Prompt' },
+    ]);
+    const observedRecord: ResponseFingerprintRecord = {
+      ...fingerprintIndex[0]!,
+      quality: 'observed',
+      fingerprints: fingerprintIndex[0]!.fingerprints.map((fingerprint) => ({
+        ...fingerprint,
+        probeText: 'Observed',
+      })),
+    };
+
+    expect(
+      store.upsertFingerprintRecord(
+        'conversation-1',
+        revision,
+        observedRecord
+      )
+    ).toBe(true);
+    expect(
+      store.completeFingerprintIndex(
+        'conversation-1',
+        revision,
+        fingerprintIndex
+      )
+    ).toBe(true);
+    expect(store.getSnapshot('conversation-1')?.fingerprintIndex).toEqual([
+      observedRecord,
+    ]);
+  });
+
+  it('preserves observed records across a new prompt revision', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    const firstRevision = store.replacePrompts('conversation-1', [
+      { id: 'prompt-1', text: 'Prompt' },
+    ]);
+    const observedRecord: ResponseFingerprintRecord = {
+      ...fingerprintIndex[0]!,
+      quality: 'observed',
+    };
+    store.completeFingerprintIndex(
+      'conversation-1',
+      firstRevision,
+      fingerprintIndex
+    );
+    store.upsertFingerprintRecord(
+      'conversation-1',
+      firstRevision,
+      observedRecord
+    );
+
+    const nextRevision = store.replacePrompts('conversation-1', [
+      { id: 'prompt-1', text: 'Prompt' },
+      { id: 'prompt-2', text: 'New prompt' },
+    ]);
+
+    expect(store.getSnapshot('conversation-1')?.fingerprintIndex).toEqual([
+      observedRecord,
+    ]);
+    store.completeFingerprintIndex(
+      'conversation-1',
+      nextRevision,
+      fingerprintIndex
+    );
+    expect(store.getSnapshot('conversation-1')?.fingerprintIndex).toEqual([
+      observedRecord,
+    ]);
+  });
+
+  it('removes observed records absent from the completed revision', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    const firstRevision = store.replacePrompts('conversation-1', []);
+    store.upsertFingerprintRecord(
+      'conversation-1',
+      firstRevision,
+      {
+        ...fingerprintIndex[0]!,
+        quality: 'observed',
+      }
+    );
+    const nextRevision = store.replacePrompts('conversation-1', []);
+
+    store.completeFingerprintIndex('conversation-1', nextRevision, []);
+
+    expect(store.getSnapshot('conversation-1')?.fingerprintIndex).toEqual([]);
+  });
+
+  it('rejects observed records for a stale snapshot revision', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    const staleRevision = store.replacePrompts('conversation-1', []);
+    store.replacePrompts('conversation-1', []);
+
+    expect(
+      store.upsertFingerprintRecord(
+        'conversation-1',
+        staleRevision,
+        {
+          ...fingerprintIndex[0]!,
+          quality: 'observed',
+        }
+      )
+    ).toBe(false);
   });
 });

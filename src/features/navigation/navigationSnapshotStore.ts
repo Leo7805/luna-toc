@@ -1,11 +1,16 @@
 /**
  * Stores revision-safe, tab-scoped navigation snapshots by conversation key.
  */
-import type { PromptFingerprintIndex } from './fingerprint/index';
+import {
+  mergeFingerprintRecords,
+  upsertFingerprintRecord,
+  type NavigationFingerprintIndex,
+  type ResponseFingerprintRecord,
+} from './fingerprint/index';
 
 export interface ConversationNavigationSnapshot<TPrompt> {
   prompts: TPrompt[];
-  fingerprintIndex: PromptFingerprintIndex[] | null;
+  fingerprintIndex: NavigationFingerprintIndex | null;
   revision: number;
 }
 
@@ -14,7 +19,12 @@ export interface NavigationSnapshotStore<TPrompt> {
   completeFingerprintIndex(
     conversationKey: string,
     revision: number,
-    fingerprintIndex: PromptFingerprintIndex[]
+    fingerprintIndex: NavigationFingerprintIndex
+  ): boolean;
+  upsertFingerprintRecord(
+    conversationKey: string,
+    revision: number,
+    fingerprintRecord: ResponseFingerprintRecord
   ): boolean;
   getSnapshot(
     conversationKey: string
@@ -44,11 +54,19 @@ export function createNavigationSnapshotStore<
     conversationKey: string,
     prompts: TPrompt[]
   ): number {
-    const revision = (snapshots.get(conversationKey)?.revision ?? 0) + 1;
+    const previousSnapshot = snapshots.get(conversationKey);
+    const revision = (previousSnapshot?.revision ?? 0) + 1;
+    const observedRecords =
+      previousSnapshot?.fingerprintIndex?.filter(
+        ({ quality }) => quality === 'observed'
+      ) || [];
 
     snapshots.set(conversationKey, {
       prompts: structuredClone(prompts),
-      fingerprintIndex: null,
+      fingerprintIndex:
+        observedRecords.length > 0
+          ? cloneFingerprintIndex(observedRecords)
+          : null,
       revision,
     });
 
@@ -58,13 +76,40 @@ export function createNavigationSnapshotStore<
   function completeFingerprintIndex(
     conversationKey: string,
     revision: number,
-    fingerprintIndex: PromptFingerprintIndex[]
+    fingerprintIndex: NavigationFingerprintIndex
   ): boolean {
     const snapshot = snapshots.get(conversationKey);
 
     if (!snapshot || snapshot.revision !== revision) return false;
 
-    snapshot.fingerprintIndex = cloneFingerprintIndex(fingerprintIndex);
+    const currentResponseIds = new Set(
+      fingerprintIndex.map(({ responseId }) => responseId)
+    );
+    const currentObservedRecords = (snapshot.fingerprintIndex || []).filter(
+      ({ responseId, quality }) =>
+        quality === 'observed' && currentResponseIds.has(responseId)
+    );
+
+    snapshot.fingerprintIndex = mergeFingerprintRecords(
+      currentObservedRecords,
+      fingerprintIndex
+    );
+    return true;
+  }
+
+  function upsertSnapshotFingerprintRecord(
+    conversationKey: string,
+    revision: number,
+    fingerprintRecord: ResponseFingerprintRecord
+  ): boolean {
+    const snapshot = snapshots.get(conversationKey);
+
+    if (!snapshot || snapshot.revision !== revision) return false;
+
+    snapshot.fingerprintIndex = upsertFingerprintRecord(
+      snapshot.fingerprintIndex || [],
+      fingerprintRecord
+    );
     return true;
   }
 
@@ -104,6 +149,7 @@ export function createNavigationSnapshotStore<
   return {
     replacePrompts,
     completeFingerprintIndex,
+    upsertFingerprintRecord: upsertSnapshotFingerprintRecord,
     getSnapshot,
     copySnapshot,
   };
@@ -125,14 +171,16 @@ function cloneSnapshot<TPrompt>(
 }
 
 /**
- * Clones the nested fingerprint arrays stored for each prompt.
+ * Clones response records and their nested fingerprint arrays.
  */
 function cloneFingerprintIndex(
-  fingerprintIndex: PromptFingerprintIndex[]
-): PromptFingerprintIndex[] {
-  return fingerprintIndex.map((entry) => ({
-    promptIndex: entry.promptIndex,
-    fingerprints: entry.fingerprints.map((fingerprint) => ({
+  fingerprintIndex: NavigationFingerprintIndex
+): NavigationFingerprintIndex {
+  return fingerprintIndex.map((record) => ({
+    responseId: record.responseId,
+    promptIndex: record.promptIndex,
+    quality: record.quality,
+    fingerprints: record.fingerprints.map((fingerprint) => ({
       ...fingerprint,
     })),
   }));

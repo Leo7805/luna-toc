@@ -10,7 +10,7 @@ import {
   createResponseFingerprints,
   type FingerprintOptions,
 } from '@/features/navigation/fingerprint/generator';
-import type { PromptFingerprintIndex } from '@/features/navigation/fingerprint/index';
+import type { ResponseFingerprintRecord } from '@/features/navigation/fingerprint/index';
 
 const options: FingerprintOptions = {
   countPerAssistant: 3,
@@ -18,13 +18,15 @@ const options: FingerprintOptions = {
   verificationLength: 8,
 };
 
-async function createIndex(
+async function createRecord(
   promptIndex: number,
   responseId: string,
   text: string
-): Promise<PromptFingerprintIndex> {
+): Promise<ResponseFingerprintRecord> {
   return {
+    responseId,
     promptIndex,
+    quality: 'derived',
     fingerprints: await createResponseFingerprints(
       { id: responseId, text },
       options
@@ -80,25 +82,20 @@ describe('fingerprint matcher', () => {
   });
 
   it('aggregates multiple verified fingerprints under their prompt', async () => {
-    const firstResponse = await createIndex(
+    const firstResponse = await createRecord(
       0,
       'response-1',
       'first response text'
     );
-    const secondResponse = await createIndex(
+    const secondResponse = await createRecord(
       0,
       'response-2',
       'second response text'
     );
     const index = [
-      {
-        promptIndex: 0,
-        fingerprints: [
-          ...firstResponse.fingerprints,
-          ...secondResponse.fingerprints,
-        ],
-      },
-      await createIndex(1, 'response-3', 'unrelated response'),
+      firstResponse,
+      secondResponse,
+      await createRecord(1, 'response-3', 'unrelated response'),
     ];
     const matches = await matchFingerprintIndex(
       [
@@ -121,9 +118,11 @@ describe('fingerprint matcher', () => {
   });
 
   it('returns an ambiguous selection for equally strong prompts', async () => {
-    const firstIndex = await createIndex(0, 'response-1', 'shared response');
-    const secondIndex = {
+    const firstIndex = await createRecord(0, 'response-1', 'shared response');
+    const secondIndex: ResponseFingerprintRecord = {
+      responseId: 'response-2',
       promptIndex: 1,
+      quality: 'derived',
       fingerprints: firstIndex.fingerprints.map((fingerprint) => ({
         ...fingerprint,
         responseId: 'response-2',
@@ -141,7 +140,7 @@ describe('fingerprint matcher', () => {
   });
 
   it('returns no selection for empty text or an empty index', async () => {
-    const index = [await createIndex(0, 'response', 'response text')];
+    const index = [await createRecord(0, 'response', 'response text')];
     const matches = await matchFingerprintIndex(
       [{ id: 'empty', text: '' }],
       index
@@ -154,7 +153,7 @@ describe('fingerprint matcher', () => {
 
   it('does not mutate rendered blocks or fingerprint indexes', async () => {
     const blocks = [{ id: 'block', text: 'response text' }];
-    const index = [await createIndex(0, 'response', 'response text')];
+    const index = [await createRecord(0, 'response', 'response text')];
     const originalBlocks = structuredClone(blocks);
     const originalIndex = structuredClone(index);
 

@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildFingerprintIndex,
   flattenResponseTasks,
+  mergeFingerprintRecords,
+  shouldReplaceFingerprintRecord,
+  upsertFingerprintRecord,
   type FingerprintIndexOptions,
+  type ResponseFingerprintRecord,
 } from '@/features/navigation/fingerprint/index';
 import type { NavigationTurn } from '@/features/navigation/navigationData';
 
@@ -39,19 +43,33 @@ describe('fingerprint index', () => {
     ]);
   });
 
-  it('groups multiple responses under their prompt index', async () => {
-    const index = await buildFingerprintIndex(turns, options);
+  it('creates one derived record per non-empty response', async () => {
+    const index = await buildFingerprintIndex(
+      turns,
+      'derived',
+      options
+    );
 
     expect(index).toHaveLength(2);
-    expect(index[0]?.promptIndex).toBe(0);
-    expect(index[0]?.fingerprints.length).toBeGreaterThan(0);
-    expect(
-      new Set(index[0]?.fingerprints.map(({ responseId }) => responseId))
-    ).toEqual(new Set(['ai-1', 'ai-2']));
-    expect(index[1]).toEqual({
-      promptIndex: 1,
-      fingerprints: [],
+    expect(index.map(({ responseId }) => responseId)).toEqual([
+      'ai-1',
+      'ai-2',
+    ]);
+    index.forEach((record) => {
+      expect(record.promptIndex).toBe(0);
+      expect(record.quality).toBe('derived');
+      expect(record.fingerprints.length).toBeGreaterThan(0);
     });
+  });
+
+  it('marks DOM-built records as observed', async () => {
+    const index = await buildFingerprintIndex(
+      [turns[0]!],
+      'observed',
+      options
+    );
+
+    expect(index.every(({ quality }) => quality === 'observed')).toBe(true);
   });
 
   it('yields between configured batches without mutating the turns', async () => {
@@ -60,6 +78,7 @@ describe('fingerprint index', () => {
 
     await buildFingerprintIndex(
       turns,
+      'derived',
       {
         ...options,
         buildBatchSize: 1,
@@ -80,9 +99,60 @@ describe('fingerprint index', () => {
           responses: [{ id: 'empty', text: ' \n ' }],
         },
       ],
+      'derived',
       options
     );
 
-    expect(index).toEqual([{ promptIndex: 0, fingerprints: [] }]);
+    expect(index).toEqual([]);
+  });
+
+  it('allows observed records to replace derived records', () => {
+    const derived = createRecord('derived', 'Derived');
+    const observed = createRecord('observed', 'Observed');
+
+    expect(shouldReplaceFingerprintRecord(derived, observed)).toBe(true);
+    expect(mergeFingerprintRecords([derived], [observed])).toEqual([
+      observed,
+    ]);
+  });
+
+  it('does not allow derived records to replace observed records', () => {
+    const observed = createRecord('observed', 'Observed');
+    const derived = createRecord('derived', 'Derived');
+
+    expect(shouldReplaceFingerprintRecord(observed, derived)).toBe(false);
+    expect(upsertFingerprintRecord([observed], derived)).toEqual([
+      observed,
+    ]);
+  });
+
+  it('updates equal-quality records without creating duplicates', () => {
+    const first = createRecord('observed', 'First');
+    const updated = createRecord('observed', 'Updated');
+    const merged = upsertFingerprintRecord([first], updated);
+
+    expect(merged).toEqual([updated]);
+    expect(merged).toHaveLength(1);
   });
 });
+
+function createRecord(
+  quality: ResponseFingerprintRecord['quality'],
+  probeText: string
+): ResponseFingerprintRecord {
+  return {
+    responseId: 'response-1',
+    promptIndex: 0,
+    quality,
+    fingerprints: [
+      {
+        responseId: 'response-1',
+        sampleIndex: 0,
+        textOffset: 0,
+        probeText,
+        verificationHash: 'hash',
+        verificationLength: 4,
+      },
+    ],
+  };
+}

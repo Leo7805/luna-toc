@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T06:00:20.139Z",
+  "updatedAt": "2026-07-24T06:25:23.729Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:cbac52ea1bad8eb60c132dbc63213ca75da71f12480d6df69d3e83d8450270e4",
+      "sourceHash": "sha256:46a7f9b0152fa6d6d3066979f6ca19c230d0570fefff39642f308f7388396f95",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:59:44.950Z"
+      "updatedAt": "2026-07-24T06:17:57.356Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -263,9 +263,9 @@
     },
     "src/features/navigation/navigationSnapshotStore.ts": {
       "noteFile": "files/ff9f4de44a94-533119ae.json",
-      "sourceHash": "sha256:b0a94c63709ec782ad7cddbfe4a8dd0059fd64995786da42bdc2a8d42e7af13f",
+      "sourceHash": "sha256:cb3babf5c9fc76cab8b1d82405493efecf4fcdeed3e043b8ffd6596d06ccca4a",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:00:05.319Z"
+      "updatedAt": "2026-07-24T06:25:23.729Z"
     },
     "src/features/navigation/fingerprintMatcher.ts": {
       "noteFile": "files/c5e3824a5d4d-2eed87e5.json",
@@ -288,7 +288,7 @@
       "noteFile": "files/e0e60af2b830-830e1c28.json",
       "sourceHash": "sha256:1096b7454f3e9a883261d1ed474946cc9f2a65da572d0cfc6cab9e1238656822",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:58:28.030Z"
+      "updatedAt": "2026-07-24T06:02:54.051Z"
     },
     "src/features/navigation/fingerprint/generator.ts": {
       "noteFile": "files/b220d27730e6-b5a64d26.json",
@@ -298,15 +298,15 @@
     },
     "src/features/navigation/fingerprint/index.ts": {
       "noteFile": "files/a7b4f66df9f9-066d2eb0.json",
-      "sourceHash": "sha256:67df92d75aca1ea62cf18bf31e6fec7d9e64422e1b890c63f074e9239627fc09",
+      "sourceHash": "sha256:0920f7fcce2d1039a034b4f19ecb525ae4a4c4c21f75e27e3f7e699c51a08e86",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:59:18.151Z"
+      "updatedAt": "2026-07-24T06:23:26.838Z"
     },
     "src/features/navigation/fingerprint/matcher.ts": {
       "noteFile": "files/239cb59b0ce5-6e82bc57.json",
-      "sourceHash": "sha256:64780eba8ed651fba96091d7dc962f13680b7254fad341a0ab19a999c8b1d25c",
+      "sourceHash": "sha256:9a187bcb20dc4732ed27ec8f1741204d91764c98d5375e48cbc4a406bbfcfef1",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:59:27.797Z"
+      "updatedAt": "2026-07-24T06:25:00.111Z"
     }
   }
 }

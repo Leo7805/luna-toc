@@ -1,5 +1,5 @@
 /**
- * Builds prompt-indexed response fingerprints without blocking long tasks.
+ * Builds and merges quality-tagged response fingerprints in bounded batches.
  */
 import { APP_CONFIG } from '@/config/config';
 import {
@@ -22,10 +22,16 @@ export interface ResponseFingerprintTask {
   response: NavigationTextMessage;
 }
 
-export interface PromptFingerprintIndex {
+export type FingerprintQuality = 'derived' | 'observed';
+
+export interface ResponseFingerprintRecord {
+  responseId: string;
   promptIndex: number;
+  quality: FingerprintQuality;
   fingerprints: ResponseFingerprint[];
 }
+
+export type NavigationFingerprintIndex = ResponseFingerprintRecord[];
 
 export type MainThreadYield = () => Promise<void>;
 
@@ -56,23 +62,77 @@ export function yieldToMainThread(): Promise<void> {
 }
 
 /**
- * Builds response fingerprints grouped by their owning prompt index.
+ * Returns whether an incoming record may replace the current response record.
  *
  * @example
- * const index = await buildFingerprintIndex(navigationTurns);
+ * shouldReplaceFingerprintRecord(derivedRecord, observedRecord) === true;
+ */
+export function shouldReplaceFingerprintRecord(
+  current: ResponseFingerprintRecord,
+  incoming: ResponseFingerprintRecord
+): boolean {
+  if (current.responseId !== incoming.responseId) return false;
+
+  return incoming.quality === 'observed' || current.quality === 'derived';
+}
+
+/**
+ * Merges response records without allowing derived data to replace observed data.
+ *
+ * @example
+ * const merged = mergeFingerprintRecords(currentIndex, incomingIndex);
+ */
+export function mergeFingerprintRecords(
+  current: NavigationFingerprintIndex,
+  incoming: NavigationFingerprintIndex
+): NavigationFingerprintIndex {
+  const merged = current.map(cloneFingerprintRecord);
+  const recordIndexes = new Map(
+    merged.map((record, index) => [record.responseId, index])
+  );
+
+  incoming.forEach((record) => {
+    const existingIndex = recordIndexes.get(record.responseId);
+
+    if (existingIndex === undefined) {
+      recordIndexes.set(record.responseId, merged.length);
+      merged.push(cloneFingerprintRecord(record));
+      return;
+    }
+
+    const currentRecord = merged[existingIndex]!;
+
+    if (shouldReplaceFingerprintRecord(currentRecord, record)) {
+      merged[existingIndex] = cloneFingerprintRecord(record);
+    }
+  });
+
+  return merged;
+}
+
+/**
+ * Adds or replaces one response record using the quality precedence rules.
+ */
+export function upsertFingerprintRecord(
+  current: NavigationFingerprintIndex,
+  incoming: ResponseFingerprintRecord
+): NavigationFingerprintIndex {
+  return mergeFingerprintRecords(current, [incoming]);
+}
+
+/**
+ * Builds one fingerprint record per non-empty response.
+ *
+ * @example
+ * const index = await buildFingerprintIndex(navigationTurns, 'derived');
  */
 export async function buildFingerprintIndex(
   turns: NavigationTurn[],
+  quality: FingerprintQuality = 'derived',
   options: FingerprintIndexOptions = APP_CONFIG.navigation.fingerprint,
   yieldControl: MainThreadYield = yieldToMainThread
-): Promise<PromptFingerprintIndex[]> {
-  const index = turns.map<PromptFingerprintIndex>((turn) => ({
-    promptIndex: turn.promptIndex,
-    fingerprints: [],
-  }));
-  const fingerprintsByPrompt = new Map(
-    index.map((entry) => [entry.promptIndex, entry.fingerprints])
-  );
+): Promise<NavigationFingerprintIndex> {
+  const index: NavigationFingerprintIndex = [];
   const tasks = flattenResponseTasks(turns);
   const batchSize = Math.max(1, options.buildBatchSize);
   const timeBudgetMs = Math.max(0, options.buildTimeBudgetMs);
@@ -85,7 +145,15 @@ export async function buildFingerprintIndex(
       options
     );
 
-    fingerprintsByPrompt.get(task.promptIndex)?.push(...fingerprints);
+    if (fingerprints.length > 0) {
+      index.push({
+        responseId: task.response.id,
+        promptIndex: task.promptIndex,
+        quality,
+        fingerprints,
+      });
+    }
+
     batchTaskCount += 1;
 
     const hasMoreTasks = taskIndex < tasks.length - 1;
@@ -101,4 +169,20 @@ export async function buildFingerprintIndex(
   }
 
   return index;
+}
+
+/**
+ * Clones one response record and its fingerprint objects.
+ */
+function cloneFingerprintRecord(
+  record: ResponseFingerprintRecord
+): ResponseFingerprintRecord {
+  return {
+    responseId: record.responseId,
+    promptIndex: record.promptIndex,
+    quality: record.quality,
+    fingerprints: record.fingerprints.map((fingerprint) => ({
+      ...fingerprint,
+    })),
+  };
 }
