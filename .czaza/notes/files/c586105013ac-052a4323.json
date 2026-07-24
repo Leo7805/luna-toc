@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:5dfe36bc877d493e335e60a9a6fdb32090fa3bc5bd8517d2a5ab57ec4d96255f",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T12:41:39.342Z",
+    "updatedAt": "2026-07-24T12:41:47.658Z"
+  },
+  "fileNote": {
+    "userNote": "负责未渲染 Assistant 的近似 viewport 分段。estimateDerivedVisualRows()：根据换行和长行估算视觉行数。\ncalculateDerivedSegmentRanges()：生成带重叠的分段文本范围。\ncreateDerivedResponseSegments()：为每段生成 probe、Hash 和逻辑位置。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

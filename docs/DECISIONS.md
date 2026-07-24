@@ -365,6 +365,13 @@ thread. Match rendered text by locating probes first, verifying their trailing
 hashes, and accepting a prompt only when it has a unique highest
 verified-fingerprint count.
 
+Prepare derived viewport-segment fingerprints separately from the active
+navigation index. Estimate visual rows from source newlines and long-line
+wrapping, group them into overlapping 0.75-viewport sections, and cap each
+response at 20 segments. This first-stage model does not alter matching or
+navigation behavior until observed DOM segments and segment-aware position
+resolution are implemented.
+
 Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown
 blocks belonging to one response, and excludes nested tool or attachment UI.

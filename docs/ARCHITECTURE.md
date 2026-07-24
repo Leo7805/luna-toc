@@ -26,6 +26,7 @@ graph TD
         navigationData[navigationData.ts]
         comparableText[fingerprint/comparableText.ts]
         fingerprint[fingerprint/generator.ts]
+        fingerprintSegments[fingerprint/segments.ts]
         fingerprintIndex[fingerprint/index.ts]
         fingerprintMatcher[fingerprint/matcher.ts]
         visiblePosition[visiblePositionResolver.ts]
@@ -68,6 +69,7 @@ graph TD
     comparableText --> fingerprint
     navigationData --> fingerprint
     fingerprint --> fingerprintIndex
+    navigationData --> fingerprintSegments
     fingerprintIndex --> snapshotStore
     snapshotStore --> fingerprintMatcher
     fingerprintMatcher --> visiblePosition
@@ -113,6 +115,7 @@ graph TD
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
+  - [fingerprint/segments.ts](../src/features/navigation/fingerprint/segments.ts): Builds inactive derived viewport-segment estimates from unrendered response lines and long-line wrapping as the foundation for later segment-aware navigation.
   - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds one quality-tagged fingerprint record per response and merges derived/observed updates by precedence.
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves the prompt-index range represented by rendered responses, preferring generic fingerprints and using platform response IDs only as a fallback.

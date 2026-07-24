@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T12:18:18.225Z",
+  "updatedAt": "2026-07-24T12:42:18.827Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:566a902c92d743294dff96eb90dfc77f0031d1b2601bc2560343e52823724860",
+      "sourceHash": "sha256:796288a208ab00213dded8ecacc224456424990bfc75bff658c90b07b7c2b05f",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T09:07:16.029Z"
+      "updatedAt": "2026-07-24T12:42:18.827Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -343,6 +343,12 @@
       "sourceHash": "sha256:4a7d9e9f85df9b2d5c03605757abe94ae7ef281548c1128b590e9ba23deb90a3",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-24T12:18:17.332Z"
+    },
+    "src/features/navigation/fingerprint/segments.ts": {
+      "noteFile": "files/c586105013ac-052a4323.json",
+      "sourceHash": "sha256:5dfe36bc877d493e335e60a9a6fdb32090fa3bc5bd8517d2a5ab57ec4d96255f",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T12:41:47.658Z"
     }
   }
 }

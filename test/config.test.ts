@@ -11,6 +11,11 @@ describe('APP_CONFIG', () => {
     expect(fingerprint.verificationLength).toBeGreaterThan(
       fingerprint.probeLength
     );
+    expect(fingerprint.segmentViewportRatio).toBeGreaterThan(0);
+    expect(fingerprint.segmentOverlapRatio).toBeGreaterThanOrEqual(0);
+    expect(fingerprint.estimatedCharsPerVisualLine).toBeGreaterThan(0);
+    expect(fingerprint.estimatedRowsPerViewport).toBeGreaterThan(0);
+    expect(fingerprint.maximumSegmentsPerAssistant).toBeGreaterThan(0);
     expect(fingerprint.buildBatchSize).toBeGreaterThan(0);
     expect(fingerprint.buildTimeBudgetMs).toBeGreaterThan(0);
   });
