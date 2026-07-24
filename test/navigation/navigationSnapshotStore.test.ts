@@ -28,6 +28,19 @@ const fingerprintIndex: NavigationFingerprintIndex = [
     ],
   },
 ];
+const segmentIndex = [
+  {
+    responseId: 'response-1',
+    promptIndex: 0,
+    segmentIndex: 0,
+    segmentCount: 1,
+    positionRatio: 0,
+    probeText: 'Answer',
+    verificationHash: 'segment-hash',
+    verificationLength: 6,
+    quality: 'derived' as const,
+  },
+];
 
 describe('conversation snapshot store', () => {
   it('stores prompts immediately and completes matching fingerprint work', () => {
@@ -39,6 +52,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toMatchObject({
       prompts: [{ id: 'prompt-1', text: 'Prompt' }],
       fingerprintIndex: null,
+      segmentIndex: null,
       revision,
     });
     expect(
@@ -51,6 +65,30 @@ describe('conversation snapshot store', () => {
     expect(
       store.getSnapshot('conversation-1')?.fingerprintIndex
     ).toEqual(fingerprintIndex);
+  });
+
+  it('stores segments only for the matching revision', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    const staleRevision = store.replacePrompts('conversation-1', []);
+    const revision = store.replacePrompts('conversation-1', []);
+
+    expect(
+      store.completeSegmentIndex(
+        'conversation-1',
+        staleRevision,
+        segmentIndex
+      )
+    ).toBe(false);
+    expect(
+      store.completeSegmentIndex(
+        'conversation-1',
+        revision,
+        segmentIndex
+      )
+    ).toBe(true);
+    expect(store.getSnapshot('conversation-1')?.segmentIndex).toEqual(
+      segmentIndex
+    );
   });
 
   it('rejects stale asynchronous fingerprint results', () => {
@@ -83,6 +121,7 @@ describe('conversation snapshot store', () => {
       revision,
       fingerprintIndex
     );
+    store.completeSegmentIndex('conversation-1', revision, segmentIndex);
 
     const snapshot = store.getSnapshot('conversation-1');
     if (snapshot?.prompts[0]) snapshot.prompts[0].text = 'Changed';
@@ -97,6 +136,9 @@ describe('conversation snapshot store', () => {
       ...fingerprintIndex[0]!.fingerprints[0]!,
       responseId: 'external',
     });
+    if (snapshot?.segmentIndex?.[0]) {
+      snapshot.segmentIndex[0].probeText = 'Changed segment';
+    }
     if (snapshot?.fingerprintIndex?.[0]?.fingerprints[0]) {
       snapshot.fingerprintIndex[0].fingerprints[0].probeText = 'Changed';
     }
@@ -104,6 +146,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-1', text: 'Prompt' }],
       fingerprintIndex,
+      segmentIndex,
       revision,
     });
   });
@@ -118,6 +161,11 @@ describe('conversation snapshot store', () => {
       sourceRevision,
       fingerprintIndex
     );
+    store.completeSegmentIndex(
+      'WEB:temporary',
+      sourceRevision,
+      segmentIndex
+    );
 
     const targetRevision = store.copySnapshot(
       'WEB:temporary',
@@ -128,6 +176,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-1', text: 'Prompt' }],
       fingerprintIndex,
+      segmentIndex,
       revision: targetRevision,
     });
   });

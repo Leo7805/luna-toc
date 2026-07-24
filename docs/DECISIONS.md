@@ -371,7 +371,8 @@ wrapping, group them into overlapping 0.75-viewport sections, and cap each
 response at 20 segments. For mounted responses, measure real Markdown-container
 height and use DOM Range character geometry to create observed segments at the
 same viewport spacing, recording the viewport dimensions that produced them.
-Both segment sources remain outside the active matching index, so navigation
+Both segment sources are retained in the tab-scoped conversation snapshot, but
+remain outside the active search-controller input, so navigation
 behavior does not change yet. A separate Segment matcher can now verify
 viewport-only rendered text, prefer observed matches over derived estimates,
 and return Segment coordinates through the position resolver's optional index;

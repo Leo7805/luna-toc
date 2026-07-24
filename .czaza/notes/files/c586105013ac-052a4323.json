@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:181d39a14e460f73411bd468b8228f467566ae34b5eae3badd1fd43086e24740",
+    "sourceHash": "sha256:e812d311836e60e03db651c1fcf73ea25634c46c7a15ac3817df1fe6227d944a",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T12:41:39.342Z",
-    "updatedAt": "2026-07-24T12:59:25.311Z"
+    "updatedAt": "2026-07-24T13:06:55.698Z"
   },
   "fileNote": {
-    "userNote": "负责未渲染 Assistant 的近似 viewport 分段。estimateDerivedVisualRows()：根据换行和长行估算视觉行数。\ncalculateDerivedSegmentRanges()：生成带重叠的分段文本范围。\ncreateDerivedResponseSegments()：为每段生成 probe、Hash 和逻辑位置。\n\n\n---\n增加真实 DOM viewport 分段。calculateObservedSegmentTargetOffsets()：根据真实内容高度和 viewport 高度生成采样位置。\ncreateObservedResponseSegments()：利用 DOM Range 生成 observed 指纹。\nfindObservedTextPosition()：通过二分查找定位目标高度对应的字符。\ncollectTextNodes()：收集参与测量的正文文本节点。\nmeasureTextRange()：使用浏览器布局引擎测量字符位置。\n\n---\n增加 viewport 范围文本提取。extractRenderedTextWithinVerticalBounds()：只返回指定垂直范围内的 DOM 文本。",
+    "userNote": "负责未渲染 Assistant 的近似 viewport 分段。estimateDerivedVisualRows()：根据换行和长行估算视觉行数。\ncalculateDerivedSegmentRanges()：生成带重叠的分段文本范围。\ncreateDerivedResponseSegments()：为每段生成 probe、Hash 和逻辑位置。\n\n\n---\n增加真实 DOM viewport 分段。calculateObservedSegmentTargetOffsets()：根据真实内容高度和 viewport 高度生成采样位置。\ncreateObservedResponseSegments()：利用 DOM Range 生成 observed 指纹。\nfindObservedTextPosition()：通过二分查找定位目标高度对应的字符。\ncollectTextNodes()：收集参与测量的正文文本节点。\nmeasureTextRange()：使用浏览器布局引擎测量字符位置。\n\n---\n增加 viewport 范围文本提取。extractRenderedTextWithinVerticalBounds()：只返回指定垂直范围内的 DOM 文本。\n\n\n---\n批量生成 derived segments，并实现 observed/derived 合并规则。\nbuildDerivedSegmentIndex()：分批生成整个会话的 derived segments。\nmergeSegmentIndexes()：合并索引，保证 observed 不被 derived 降级。\nupsertResponseSegments()：更新单个 Assistant 回答的全部 segments。",
     "createdBy": "user"
   },
   "sectionNotes": {},

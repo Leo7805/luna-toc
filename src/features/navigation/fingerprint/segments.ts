@@ -2,7 +2,10 @@
  * Builds approximate viewport-sized fingerprints from unrendered responses.
  */
 import { APP_CONFIG } from '@/config/config';
-import type { NavigationTextMessage } from '@/features/navigation/navigationData';
+import type {
+  NavigationTextMessage,
+  NavigationTurn,
+} from '@/features/navigation/navigationData';
 import { normalizeComparableText } from './comparableText';
 import { createSha256 } from './generator';
 
@@ -35,6 +38,10 @@ export interface ResponseSegmentFingerprint {
   viewportWidth?: number;
   viewportHeight?: number;
 }
+
+export type NavigationSegmentIndex = ResponseSegmentFingerprint[];
+
+export type SegmentBuildYield = () => Promise<void>;
 
 interface EstimatedVisualUnit {
   startOffset: number;
@@ -174,6 +181,101 @@ export async function createDerivedResponseSegments(
       };
     })
   );
+}
+
+/**
+ * Builds derived response segments in bounded batches without blocking the UI.
+ */
+export async function buildDerivedSegmentIndex(
+  turns: NavigationTurn[],
+  options: DerivedSegmentOptions & {
+    buildBatchSize: number;
+    buildTimeBudgetMs: number;
+  } = APP_CONFIG.navigation.fingerprint,
+  yieldControl: SegmentBuildYield = yieldSegmentBuild
+): Promise<NavigationSegmentIndex> {
+  const tasks = turns.flatMap((turn) =>
+    turn.responses.map((response) => ({
+      promptIndex: turn.promptIndex,
+      response,
+    }))
+  );
+  const index: NavigationSegmentIndex = [];
+  const batchSize = Math.max(1, options.buildBatchSize);
+  const timeBudgetMs = Math.max(0, options.buildTimeBudgetMs);
+  let batchStartedAt = performance.now();
+  let batchTaskCount = 0;
+
+  for (const [taskIndex, task] of tasks.entries()) {
+    index.push(
+      ...(await createDerivedResponseSegments(
+        task.response,
+        task.promptIndex,
+        options
+      ))
+    );
+    batchTaskCount += 1;
+
+    const hasMoreTasks = taskIndex < tasks.length - 1;
+    const reachedBatchSize = batchTaskCount >= batchSize;
+    const reachedTimeBudget =
+      performance.now() - batchStartedAt >= timeBudgetMs;
+
+    if (hasMoreTasks && (reachedBatchSize || reachedTimeBudget)) {
+      await yieldControl();
+      batchStartedAt = performance.now();
+      batchTaskCount = 0;
+    }
+  }
+
+  return index;
+}
+
+/**
+ * Merges response segments while preserving observed geometry over derived data.
+ */
+export function mergeSegmentIndexes(
+  current: NavigationSegmentIndex,
+  incoming: NavigationSegmentIndex
+): NavigationSegmentIndex {
+  const mergedByResponse = groupClonedSegments(current);
+  const incomingByResponse = groupClonedSegments(incoming);
+
+  incomingByResponse.forEach((incomingSegments, responseId) => {
+    const currentSegments = mergedByResponse.get(responseId) || [];
+    const incomingIsObserved = incomingSegments.some(
+      ({ quality }) => quality === 'observed'
+    );
+    const currentIsObserved = currentSegments.some(
+      ({ quality }) => quality === 'observed'
+    );
+
+    if (incomingIsObserved || !currentIsObserved) {
+      mergedByResponse.set(responseId, incomingSegments);
+      return;
+    }
+
+    const promptIndex = incomingSegments[0]?.promptIndex;
+    mergedByResponse.set(
+      responseId,
+      currentSegments.map((segment) => ({
+        ...segment,
+        promptIndex: promptIndex ?? segment.promptIndex,
+      }))
+    );
+  });
+
+  return Array.from(mergedByResponse.values()).flat();
+}
+
+/**
+ * Adds or replaces all segments belonging to one rendered response.
+ */
+export function upsertResponseSegments(
+  current: NavigationSegmentIndex,
+  incoming: ResponseSegmentFingerprint[]
+): NavigationSegmentIndex {
+  return mergeSegmentIndexes(current, incoming);
 }
 
 /**
@@ -491,4 +593,22 @@ function measureTextRange(
   range.setStart(textNode, startOffset);
   range.setEnd(textNode, endOffset);
   return range.getBoundingClientRect();
+}
+
+function yieldSegmentBuild(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function groupClonedSegments(
+  segments: NavigationSegmentIndex
+): Map<string, ResponseSegmentFingerprint[]> {
+  const grouped = new Map<string, ResponseSegmentFingerprint[]>();
+
+  segments.forEach((segment) => {
+    const responseSegments = grouped.get(segment.responseId) || [];
+    responseSegments.push({ ...segment });
+    grouped.set(segment.responseId, responseSegments);
+  });
+
+  return grouped;
 }

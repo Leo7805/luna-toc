@@ -5,9 +5,11 @@ import {
   verifyFingerprintMatch,
   type RenderedTextBlock,
 } from './matcher';
-import type { ResponseSegmentFingerprint } from './segments';
-
-export type NavigationSegmentIndex = ResponseSegmentFingerprint[];
+import type {
+  NavigationSegmentIndex,
+  ResponseSegmentFingerprint,
+} from './segments';
+export type { NavigationSegmentIndex } from './segments';
 
 export interface SegmentFingerprintMatch {
   responseId: string;

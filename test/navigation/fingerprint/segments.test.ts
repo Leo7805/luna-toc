@@ -2,8 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateDerivedSegmentRanges,
+  buildDerivedSegmentIndex,
   createDerivedResponseSegments,
   estimateDerivedVisualRows,
+  mergeSegmentIndexes,
   type DerivedSegmentOptions,
 } from '@/features/navigation/fingerprint/segments';
 
@@ -107,5 +109,70 @@ describe('derived response segments', () => {
     );
 
     expect(ranges).toHaveLength(3);
+  });
+
+  it('builds conversation segments in bounded batches', async () => {
+    let yields = 0;
+    const index = await buildDerivedSegmentIndex(
+      [
+        {
+          promptIndex: 0,
+          prompt: { id: 'prompt-1', text: 'First prompt' },
+          responses: [{ id: 'response-1', text: 'First response' }],
+        },
+        {
+          promptIndex: 1,
+          prompt: { id: 'prompt-2', text: 'Second prompt' },
+          responses: [{ id: 'response-2', text: 'Second response' }],
+        },
+      ],
+      {
+        ...options,
+        buildBatchSize: 1,
+        buildTimeBudgetMs: Number.POSITIVE_INFINITY,
+      },
+      async () => {
+        yields += 1;
+      }
+    );
+
+    expect(index.map(({ responseId, promptIndex }) => ({
+      responseId,
+      promptIndex,
+    }))).toEqual([
+      { responseId: 'response-1', promptIndex: 0 },
+      { responseId: 'response-2', promptIndex: 1 },
+    ]);
+    expect(yields).toBe(1);
+  });
+
+  it('keeps observed segments when later derived data updates ownership', () => {
+    const observed = {
+      responseId: 'response-1',
+      promptIndex: 2,
+      segmentIndex: 0,
+      segmentCount: 1,
+      positionRatio: 0,
+      probeText: 'Observed',
+      verificationHash: 'observed-hash',
+      verificationLength: 8,
+      quality: 'observed' as const,
+    };
+    const derived = {
+      ...observed,
+      promptIndex: 4,
+      probeText: 'Derived',
+      quality: 'derived' as const,
+    };
+
+    expect(mergeSegmentIndexes([observed], [derived])).toEqual([
+      {
+        ...observed,
+        promptIndex: 4,
+      },
+    ]);
+    expect(mergeSegmentIndexes([derived], [observed])).toEqual([
+      observed,
+    ]);
   });
 });

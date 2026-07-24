@@ -14,6 +14,7 @@ afterEach(() => {
   collector = null;
   document.body.innerHTML = '';
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('ChatGPT rendered fingerprint collector', () => {
@@ -165,5 +166,66 @@ describe('ChatGPT rendered fingerprint collector', () => {
       revision: 4,
     });
     expect(onFingerprintRecord.mock.calls[0]?.[1].promptIndex).toBe(2);
+  });
+
+  it('collects observed viewport segments when layout is measurable', async () => {
+    const onResponseSegments = vi.fn();
+    document.body.innerHTML = `
+      <div data-message-author-role="assistant" data-message-id="response-1">
+        <div class="markdown">A sufficiently long rendered answer</div>
+      </div>
+    `;
+    const markdown = document.querySelector<HTMLElement>('.markdown')!;
+    vi.spyOn(markdown, 'getBoundingClientRect').mockReturnValue({
+      top: 100,
+      bottom: 500,
+      left: 0,
+      right: 600,
+      width: 600,
+      height: 400,
+      x: 0,
+      y: 100,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: vi.fn(() => ({
+        top: 100,
+        bottom: 500,
+        left: 0,
+        right: 600,
+        width: 600,
+        height: 400,
+        x: 0,
+        y: 100,
+        toJSON: () => ({}),
+      })),
+    });
+    const scrollContainer = document.createElement('div');
+    Object.defineProperties(scrollContainer, {
+      clientWidth: { value: 600 },
+      clientHeight: { value: 300 },
+    });
+    collector = createRenderedFingerprintCollector({
+      onFingerprintRecord: vi.fn(),
+      onResponseSegments,
+      getScrollContainer: () => scrollContainer,
+    });
+    collector.setContext({
+      conversationKey: 'conversation-1',
+      revision: 3,
+      responsePromptIndexes: new Map([['response-1', 5]]),
+    });
+
+    await collector.collect();
+
+    expect(onResponseSegments).toHaveBeenCalledOnce();
+    expect(onResponseSegments.mock.calls[0]?.[1][0]).toMatchObject({
+      responseId: 'response-1',
+      promptIndex: 5,
+      quality: 'observed',
+      viewportWidth: 600,
+      viewportHeight: 300,
+    });
   });
 });

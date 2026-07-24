@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T13:00:03.151Z",
+  "updatedAt": "2026-07-24T13:08:33.147Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:c395bcb80959a2a2adf3b0a325bbd3aa6a7fe8a7c1ec5dbfabf0daddf98734ff",
+      "sourceHash": "sha256:ec91f261bb4ba98e8eecd671d7088e4b0c25fb505eebd91d3f7ed98ff3ec1216",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T07:30:55.129Z"
+      "updatedAt": "2026-07-24T13:08:12.498Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -263,9 +263,9 @@
     },
     "src/features/navigation/navigationSnapshotStore.ts": {
       "noteFile": "files/ff9f4de44a94-533119ae.json",
-      "sourceHash": "sha256:cb3babf5c9fc76cab8b1d82405493efecf4fcdeed3e043b8ffd6596d06ccca4a",
+      "sourceHash": "sha256:14ad111933340f3fefefe48598518fc6efe19b4879cd5bcc68af77b51b1e1130",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:25:23.729Z"
+      "updatedAt": "2026-07-24T13:07:24.235Z"
     },
     "src/features/navigation/fingerprintMatcher.ts": {
       "noteFile": "files/c5e3824a5d4d-2eed87e5.json",
@@ -310,9 +310,9 @@
     },
     "src/platforms/chatgpt/renderedFingerprintCollector.ts": {
       "noteFile": "files/4f99fa60c69e-1ee2873f.json",
-      "sourceHash": "sha256:bde61000c1f1f3717a2ef9690d52c44504b9d796c32720e98013c97705d8fe83",
+      "sourceHash": "sha256:28fe04c58ea794205181c3b41fc72eef7a61b837a40eec1eaf0ff4876a5af8f8",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:30:12.176Z"
+      "updatedAt": "2026-07-24T13:07:52.689Z"
     },
     "src/features/navigation/visiblePositionResolver.ts": {
       "noteFile": "files/380e7a5b642c-65a07d7e.json",
@@ -346,15 +346,15 @@
     },
     "src/features/navigation/fingerprint/segments.ts": {
       "noteFile": "files/c586105013ac-052a4323.json",
-      "sourceHash": "sha256:181d39a14e460f73411bd468b8228f467566ae34b5eae3badd1fd43086e24740",
+      "sourceHash": "sha256:e812d311836e60e03db651c1fcf73ea25634c46c7a15ac3817df1fe6227d944a",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T12:59:25.311Z"
+      "updatedAt": "2026-07-24T13:06:55.698Z"
     },
     "src/features/navigation/fingerprint/segmentMatcher.ts": {
       "noteFile": "files/d65b313dc08a-ac4f528b.json",
-      "sourceHash": "sha256:57f4cd346fd27f35cd23eb67e6407327002fa9fbeaab1b3e1d27e8f72e0119dc",
+      "sourceHash": "sha256:a6b50e226d5b7549b070ae587ffadca3f94d27d60a977724b98d2c634ad0d992",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T12:58:37.388Z"
+      "updatedAt": "2026-07-24T13:08:33.147Z"
     }
   }
 }

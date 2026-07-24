@@ -8,6 +8,7 @@ import {
 } from '../features/conversationPrompts/message';
 import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
 import { buildFingerprintIndex } from '@/features/navigation/fingerprint/index';
+import { buildDerivedSegmentIndex } from '@/features/navigation/fingerprint/segments';
 import { createChatGptNavigationTurns } from '@/platforms/chatgpt/navigationAdapter';
 import { createRenderedFingerprintCollector } from '@/platforms/chatgpt/renderedFingerprintCollector';
 import type { NavigationTurn } from '@/features/navigation/navigationData';
@@ -81,6 +82,13 @@ export const navigatorController = (() => {
         context.conversationKey,
         context.revision,
         record
+      );
+    },
+    onResponseSegments: (context, segments) => {
+      navigationSnapshotStore.upsertResponseSegments(
+        context.conversationKey,
+        context.revision,
+        segments
       );
     },
   });
@@ -625,6 +633,21 @@ export const navigatorController = (() => {
       .catch((error: unknown) => {
         console.warn(
           '[LunaTOC] Failed to build navigation fingerprints.',
+          error
+        );
+      });
+
+    void buildDerivedSegmentIndex(turns)
+      .then((segmentIndex) => {
+        navigationSnapshotStore.completeSegmentIndex(
+          conversationKey,
+          revision,
+          segmentIndex
+        );
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          '[LunaTOC] Failed to build navigation segments.',
           error
         );
       });
