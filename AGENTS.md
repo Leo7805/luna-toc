@@ -77,13 +77,24 @@ Do not create unnecessary documentation files.
 
 ## Testing
 
-After implementation:
+1. Put logic tests in the root `test/` directory and use Vitest.
+2. Add or update Vitest tests when changing testable business logic.
+3. Prefer pure logic tests without a DOM environment when possible.
+4. Add a DOM test environment only when behavior genuinely depends on browser DOM APIs.
+5. After relevant source changes, run `npm test`, `npm run typecheck`, and `npm run build`.
+6. Load the generated `dist/` directory, not the repository root, for manual Chrome Extension testing.
+7. After implementation, list the manual checks the user should perform and mention relevant edge cases.
+8. Do not claim automated or manual testing unless it was actually performed.
 
-1. Describe how the feature can be tested manually.
-2. Mention edge cases when relevant.
-3. Do not claim something is tested unless it was actually tested.
-4. Run `npm run typecheck` and `npm run build` for source changes when relevant.
-5. Load the generated `dist/` directory, not the repository root, for Chrome testing.
+## Change Summary
+
+1. List every added, moved, deleted, or modified source or configuration file.
+2. Present each existing file as a clickable Markdown link.
+3. Give every listed file a one-line description of its responsibility or change.
+4. Under each file, give every newly added or materially changed function a one-line description.
+5. Do not list unchanged private functions.
+6. Clearly identify deleted or moved files whose old paths can no longer be linked.
+7. End source changes with automated test results, manual test instructions, and a suggested commit message.
 
 ## Maintainability
 

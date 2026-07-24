@@ -112,6 +112,8 @@ graph TD
 
 ### Build Outputs
 
+- `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning; runtime user preferences remain in their existing storage modules.
+- Pure logic tests live under `test/`, run with Vitest in a Node environment, and use the same `@/` source alias as browser code.
 - `manifest.json` is the source Manifest and authoritative extension version.
 - `vite.config.ts` uses Vite and CRXJS to discover extension entries and cleans source extensions from generated entry names after CRXJS finishes writing the build.
 - `dist/manifest.json` is generated for Chrome and rewrites source entry paths to built assets.
