@@ -78,6 +78,7 @@ let lockActiveIndex: (index: number, duration?: number) => void = () => {};
 let virtualScanToken = 0;
 let navigationAnchorStore: NavigationAnchorStore | null = null;
 let activeIndependentSearch: AbortController | null = null;
+let navigationJumpVersion = 0;
 const debugStorageKey = 'chatTocDebugJump';
 
 /**
@@ -397,6 +398,111 @@ function finishIndependentVirtualJump(
   conversationKey: string,
   container: HTMLElement
 ): void {
+  const jumpVersion = navigationJumpVersion;
+
+  alignIndependentPromptToTop(target);
+  settleIndependentVirtualJump({
+    message,
+    index,
+    conversationKey,
+    container,
+    jumpVersion,
+    attempts: 3,
+  });
+}
+
+/**
+ * Aligns a mounted prompt with the scroll container's start edge.
+ */
+function alignIndependentPromptToTop(target: HTMLElement): void {
+  const previousScrollMarginTop = target.style.scrollMarginTop;
+  target.style.scrollMarginTop = `${APP_CONFIG.platforms.chatgpt.promptTopOffsetPx}px`;
+  target.scrollIntoView({
+    behavior: 'auto',
+    block: 'start',
+  });
+  target.style.scrollMarginTop = previousScrollMarginTop;
+}
+
+/**
+ * Re-resolves the target after virtual rendering, then highlights and caches
+ * only the final mounted prompt element.
+ */
+function settleIndependentVirtualJump({
+  message,
+  index,
+  conversationKey,
+  container,
+  jumpVersion,
+  attempts,
+}: {
+  message: NavigatorMessage;
+  index: number;
+  conversationKey: string;
+  container: HTMLElement;
+  jumpVersion: number;
+  attempts: number;
+}): void {
+  setTimeout(() => {
+    if (jumpVersion !== navigationJumpVersion) return;
+
+    const latestTarget = findRenderedChatGptPrompt(message.id);
+    if (!latestTarget) {
+      if (attempts > 1) {
+        settleIndependentVirtualJump({
+          message,
+          index,
+          conversationKey,
+          container,
+          jumpVersion,
+          attempts: attempts - 1,
+        });
+      }
+      return;
+    }
+
+    alignIndependentPromptToTop(latestTarget);
+    requestAnimationFrame(() => {
+      if (jumpVersion !== navigationJumpVersion) return;
+
+      const finalTarget =
+        findRenderedChatGptPrompt(message.id) || latestTarget;
+      if (!finalTarget.isConnected) {
+        if (attempts > 1) {
+          settleIndependentVirtualJump({
+            message,
+            index,
+            conversationKey,
+            container,
+            jumpVersion,
+            attempts: attempts - 1,
+          });
+        }
+        return;
+      }
+
+      highlightWhenVisible(finalTarget);
+      persistConfirmedPromptAnchor(
+        finalTarget,
+        message,
+        index,
+        conversationKey,
+        container
+      );
+    });
+  }, APP_CONFIG.navigation.search.renderWaitMs);
+}
+
+/**
+ * Persists the prompt position only after final DOM alignment succeeds.
+ */
+function persistConfirmedPromptAnchor(
+  target: HTMLElement,
+  message: NavigatorMessage,
+  index: number,
+  conversationKey: string,
+  container: HTMLElement
+): void {
   const anchor = createChatGptElementNavigationAnchor({
     conversationKey,
     promptId: message.id,
@@ -405,54 +511,11 @@ function finishIndependentVirtualJump(
     scrollContainer: container,
   });
 
-  alignIndependentPromptToTop(target, container);
   void getNavigationAnchorStore()
     .recordConfirmed(anchor)
     .catch((error: unknown) => {
       console.warn('[LunaTOC] Failed to persist navigation anchor.', error);
     });
-}
-
-/**
- * Aligns an independently located prompt with the chat container's top edge.
- * A next-frame correction handles virtual-list layout changes after mounting.
- */
-function alignIndependentPromptToTop(
-  target: HTMLElement,
-  container: HTMLElement
-): void {
-  scrollPromptToContainerTop(target, container);
-  highlightWhenVisible(target);
-
-  requestAnimationFrame(() => {
-    if (!target.isConnected || !container.isConnected) return;
-    scrollPromptToContainerTop(target, container);
-  });
-}
-
-/**
- * Calculates and applies the prompt's top-aligned container scroll position.
- */
-function scrollPromptToContainerTop(
-  target: HTMLElement,
-  container: HTMLElement
-): void {
-  const containerRect = container.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  const maximumScrollTop = Math.max(
-    0,
-    container.scrollHeight - container.clientHeight
-  );
-  const targetScrollTop =
-    container.scrollTop +
-    targetRect.top -
-    containerRect.top -
-    APP_CONFIG.platforms.chatgpt.promptTopOffsetPx;
-
-  container.scrollTo({
-    top: Math.min(Math.max(0, targetScrollTop), maximumScrollTop),
-    behavior: 'auto',
-  });
 }
 
 /**
@@ -470,6 +533,7 @@ function cancelActiveNavigationSearch(): void {
   activeIndependentSearch?.abort();
   activeIndependentSearch = null;
   virtualScanToken += 1;
+  navigationJumpVersion += 1;
 }
 
 /**

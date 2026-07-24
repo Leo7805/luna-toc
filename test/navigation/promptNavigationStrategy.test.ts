@@ -1,6 +1,13 @@
 /** @vitest-environment jsdom */
 /** Tests configuration-based routing between ChatGPT navigation strategies. */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import {
   APP_CONFIG,
   type ChatGptNavigationAlgorithm,
@@ -52,6 +59,7 @@ const mutableChatGptConfig = APP_CONFIG.platforms.chatgpt as {
 };
 
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.clearAllMocks();
   vi.stubGlobal(
     'IntersectionObserver',
@@ -68,7 +76,13 @@ beforeEach(() => {
       }
     }
   );
-  vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    })
+  );
   mutableChatGptConfig.navigationAlgorithm = 'legacy-native';
   mocks.recordConfirmed.mockResolvedValue(undefined);
   mocks.searchVirtualPrompt.mockResolvedValue({
@@ -97,6 +111,11 @@ beforeEach(() => {
     }),
     lockActiveIndex: vi.fn(),
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('prompt navigation strategy', () => {
@@ -131,23 +150,14 @@ describe('prompt navigation strategy', () => {
     expect(mocks.searchVirtualPrompt).not.toHaveBeenCalled();
   });
 
-  it('avoids native buttons when an independent target is rendered', () => {
+  it('avoids native buttons when an independent target is rendered', async () => {
     mutableChatGptConfig.navigationAlgorithm = 'independent-virtual';
     const nativeButton = document.createElement('button');
     const click = vi.spyOn(nativeButton, 'click');
     const container = document.createElement('div');
     const target = document.createElement('div');
+    document.body.append(container, target);
     target.scrollIntoView = vi.fn();
-    container.scrollTo = vi.fn();
-    Object.defineProperties(container, {
-      scrollTop: { configurable: true, writable: true, value: 1_000 },
-      scrollHeight: { configurable: true, value: 5_000 },
-      clientHeight: { configurable: true, value: 1_000 },
-    });
-    container.getBoundingClientRect = () =>
-      ({ top: 100 }) as DOMRect;
-    target.getBoundingClientRect = () =>
-      ({ top: 300 }) as DOMRect;
     mocks.getContainer.mockReturnValue(container);
     mocks.findPrompt.mockReturnValue(target);
     mocks.createAnchor.mockReturnValue({
@@ -190,12 +200,18 @@ describe('prompt navigation strategy', () => {
       },
       0
     );
+    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(mocks.recordConfirmed).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(
+      APP_CONFIG.navigation.search.renderWaitMs
+    );
 
     expect(click).not.toHaveBeenCalled();
-    expect(target.scrollIntoView).not.toHaveBeenCalled();
-    expect(container.scrollTo).toHaveBeenCalledWith({
-      top: 1_184,
+    expect(target.scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(target.scrollIntoView).toHaveBeenLastCalledWith({
       behavior: 'auto',
+      block: 'start',
     });
     expect(mocks.recordConfirmed).toHaveBeenCalledOnce();
     expect(mocks.searchVirtualPrompt).not.toHaveBeenCalled();
