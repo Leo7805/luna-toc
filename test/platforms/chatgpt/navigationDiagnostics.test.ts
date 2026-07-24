@@ -18,8 +18,8 @@ describe('ChatGPT navigation diagnostics', () => {
     expect(getChatGptNavigationTestConfig()).toEqual({
       settleWaitMs: 80,
       settleAttempts: 3,
-      maxSearchAttempts: 8,
-      maxSearchDurationMs: 1_000,
+      maxSearchAttempts: 12,
+      maxSearchDurationMs: 2_500,
       unresolvedPositionsBeforeAbort: 2,
       useConfirmedAnchors: true,
       useObservedAnchors: true,

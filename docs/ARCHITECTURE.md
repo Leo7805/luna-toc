@@ -115,10 +115,10 @@ graph TD
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
   - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds one quality-tagged fingerprint record per response and merges derived/observed updates by precedence.
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
-  - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves the prompt-index range represented by rendered responses, preferring response IDs before fingerprint matching.
+  - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves the prompt-index range represented by rendered responses, preferring generic fingerprints and using platform response IDs only as a fallback.
   - [navigationAnchorStore.ts](../src/features/navigation/navigationAnchorStore.ts): Keeps transient search observations in memory and persists only confirmed prompt scroll anchors with bounded expiry and LRU limits.
-  - [virtualSearchPlanner.ts](../src/features/navigation/virtualSearchPlanner.ts): Plans exact, interpolated, proportional, or binary fallback scroll positions from the closest compatible navigation anchors.
-  - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Executes bounded, cancellable virtual searches by alternating scroll plans with rendered-position observations.
+  - [virtualSearchPlanner.ts](../src/features/navigation/virtualSearchPlanner.ts): Plans exact, interpolated, proportional, or binary fallback positions while rejecting anchor ranges whose virtual scroll coordinates run backwards.
+  - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Uses anchors once for an initial estimate, then executes bounded relative probes from each newly observed Prompt position so virtual-list coordinate rebuilds cannot revive stale anchors.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected response fingerprint records by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.
@@ -161,6 +161,7 @@ graph TD
 - `platforms.chatgpt.navigationAlgorithm` selects either the default `legacy-native` ChatGPT TOC path or the fully independent `independent-virtual` anchor-and-fingerprint path.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
+- `navigation.search` bounds each virtual search by 12 attempts and 2.5 seconds, resets probes to two viewports within two Prompts of the target, and then resumes bounded linear growth when the same nearby Prompt remains visible.
 
 ### Navigation Diagnostics
 

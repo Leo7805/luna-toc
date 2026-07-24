@@ -21,5 +21,15 @@ describe('APP_CONFIG', () => {
     expect(search.maxAttempts).toBeGreaterThan(0);
     expect(search.renderWaitMs).toBeGreaterThan(0);
     expect(search.maxDurationMs).toBeGreaterThanOrEqual(search.renderWaitMs);
+    expect(search.initialProbeViewportCount).toBeGreaterThan(0);
+    expect(search.probeViewportIncrement).toBeGreaterThan(0);
+    expect(search.maximumProbeViewportCount).toBeGreaterThanOrEqual(
+      search.initialProbeViewportCount
+    );
+    expect(search.nearTargetPromptDistance).toBeGreaterThan(0);
+    expect(search.nearTargetProbeViewportCount).toBeGreaterThan(0);
+    expect(search.maxAttempts * search.renderWaitMs).toBeLessThanOrEqual(
+      search.maxDurationMs
+    );
   });
 });

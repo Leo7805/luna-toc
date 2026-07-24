@@ -35,8 +35,8 @@ export type VisiblePromptPosition =
   | AmbiguousVisiblePromptPosition;
 
 /**
- * Resolves visible prompt indexes using response IDs first and fingerprints
- * only for blocks whose IDs are not present in the cached index.
+ * Resolves visible prompt indexes using generic fingerprints first and
+ * response IDs only as a platform-provided fallback.
  *
  * @example
  * const position = await resolveVisiblePromptPosition(blocks, index);
@@ -62,6 +62,21 @@ export async function resolveVisiblePromptPosition(
   const ambiguousBlockIds = new Set<string>();
 
   for (const block of blocks) {
+    const selection = selectBestPromptMatch(
+      await matchFingerprintIndex([block], fingerprintIndex)
+    );
+
+    if (selection.status === 'matched') {
+      matchedPromptIndexes.add(selection.match.promptIndex);
+      matchedBlockIds.add(block.id);
+      matchedBlocks.push({
+        blockId: block.id,
+        promptIndex: selection.match.promptIndex,
+        source: 'fingerprint',
+      });
+      continue;
+    }
+
     const directPromptIndexes = promptIndexesByResponseId.get(block.id);
 
     if (directPromptIndexes?.size === 1) {
@@ -82,21 +97,6 @@ export async function resolveVisiblePromptPosition(
         candidatePromptIndexes.add(index)
       );
       ambiguousBlockIds.add(block.id);
-      continue;
-    }
-
-    const selection = selectBestPromptMatch(
-      await matchFingerprintIndex([block], fingerprintIndex)
-    );
-
-    if (selection.status === 'matched') {
-      matchedPromptIndexes.add(selection.match.promptIndex);
-      matchedBlockIds.add(block.id);
-      matchedBlocks.push({
-        blockId: block.id,
-        promptIndex: selection.match.promptIndex,
-        source: 'fingerprint',
-      });
       continue;
     }
 

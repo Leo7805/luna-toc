@@ -69,6 +69,7 @@ describe('ChatGPT virtual search adapter', () => {
       scrollTop: 600,
       maximumScrollTop: 4_000,
       viewportWidth: 900,
+      viewportHeight: 1_000,
     });
   });
 

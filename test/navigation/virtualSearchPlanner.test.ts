@@ -197,6 +197,29 @@ describe('virtual search planner', () => {
     });
   });
 
+  it('rejects anchor bounds whose scroll positions run backwards', () => {
+    const plan = planVirtualSearch(
+      createInput({
+        targetPromptIndex: 12,
+        promptCount: 20,
+        maximumScrollTop: 73_621,
+        observedAnchors: [
+          createAnchor(7, 37_813),
+          createAnchor(19, 28_337),
+        ],
+        failedInterpolationAttempts: 2,
+      })
+    );
+
+    expect(plan).toEqual({
+      method: 'proportional',
+      targetPromptIndex: 12,
+      scrollTop: (12 / 19) * 73_621,
+      lowerAnchor: null,
+      upperAnchor: null,
+    });
+  });
+
   it('clamps invalid target indexes and planned scroll positions', () => {
     const plan = planVirtualSearch(
       createInput({

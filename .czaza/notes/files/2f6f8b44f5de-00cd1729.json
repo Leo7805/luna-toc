@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:c3d9764f6cb63042209073cf5b44cf3f226641fbeb55e73e818a11801a406e00",
+    "sourceHash": "sha256:828a36700fdd80ecefddf8b2edecdd5831ac7231defb15c2d7b4f17feb26dad5",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T07:17:06.223Z",
-    "updatedAt": "2026-07-24T08:20:16.030Z"
+    "updatedAt": "2026-07-24T08:38:30.209Z"
   },
   "fileNote": {
     "userNote": "\n将ChatGPT DOM转换为通用虚拟搜索输入。\n\ngetChatGptScrollContainer() — 查找聊天滚动容器。\nfindRenderedChatGptPrompt() — 根据稳定消息ID查找已渲染Prompt。\ngetChatGptScrollMetrics() — 获取scrollTop、最大位置和视口宽度。\nobserveChatGptVirtualPosition() — 解析可见回答并生成Prompt锚点。\ncreateChatGptElementNavigationAnchor() — 锚点函数。 根据元素相对容器的位置计算准确锚点，支持Prompt和Assistant元素。\n\n\n---修复---\n只使用真正与聊天滚动容器相交的Assistant元素。\nChatGPT留在DOM中的远程缓存节点不再参与当前位置判断。\n自动过滤promptIndex < 0或promptIndex >= promptCount的记录。\nisElementWithinScrollViewport()负责可视区域判断。",

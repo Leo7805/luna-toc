@@ -8,7 +8,8 @@ export type VirtualSearchMethod =
   | 'exact-anchor'
   | 'interpolation'
   | 'proportional'
-  | 'binary';
+  | 'binary'
+  | 'linear-probe';
 
 export type PlannedAnchorSource = 'observed' | 'confirmed' | 'boundary';
 
@@ -108,6 +109,21 @@ export function planVirtualSearch({
   const upperAnchor =
     findNearestUpperAnchor(anchors, safeTargetPromptIndex) ||
     createBoundaryAnchor(safePromptCount - 1, safeMaximumScrollTop);
+  if (lowerAnchor.scrollTop >= upperAnchor.scrollTop) {
+    const denominator = Math.max(1, safePromptCount - 1);
+    const proportionalScrollTop =
+      (safeTargetPromptIndex / denominator) * safeMaximumScrollTop;
+
+    return createPlan(
+      'proportional',
+      safeTargetPromptIndex,
+      proportionalScrollTop,
+      null,
+      null,
+      safeMaximumScrollTop
+    );
+  }
+
   const shouldUseBinary =
     failedInterpolationAttempts >=
     APP_CONFIG.navigation.search.interpolationFailuresBeforeBinary;

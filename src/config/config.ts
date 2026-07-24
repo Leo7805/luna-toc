@@ -29,11 +29,16 @@ export const APP_CONFIG = {
       viewportWidthTolerance: 48,
     },
     search: {
-      maxAttempts: 8,
+      maxAttempts: 12,
       renderWaitMs: 80,
-      maxDurationMs: 1_000,
+      maxDurationMs: 2_500,
       interpolationFailuresBeforeBinary: 2,
       unresolvedPositionsBeforeAbort: 2,
+      initialProbeViewportCount: 2,
+      probeViewportIncrement: 2,
+      maximumProbeViewportCount: 8,
+      nearTargetPromptDistance: 2,
+      nearTargetProbeViewportCount: 2,
     },
   },
 } as const;

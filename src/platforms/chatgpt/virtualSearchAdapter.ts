@@ -90,6 +90,7 @@ export function getChatGptScrollMetrics(
       container.scrollHeight - container.clientHeight
     ),
     viewportWidth: container.clientWidth || window.innerWidth,
+    viewportHeight: container.clientHeight || window.innerHeight,
   };
 }
 

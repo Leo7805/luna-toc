@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T08:20:33.579Z",
+  "updatedAt": "2026-07-24T09:07:16.181Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:ee8e139c794f9ca61fec0f269825bca830834f5cf24c87aff279dc1970f35ed4",
+      "sourceHash": "sha256:566a902c92d743294dff96eb90dfc77f0031d1b2601bc2560343e52823724860",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T08:00:02.739Z"
+      "updatedAt": "2026-07-24T09:07:16.029Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -316,9 +316,9 @@
     },
     "src/features/navigation/visiblePositionResolver.ts": {
       "noteFile": "files/380e7a5b642c-65a07d7e.json",
-      "sourceHash": "sha256:1901bfe15488fb98c063cda98b0c125c00ea3f54f05880c086e2ce58e55a7ff3",
+      "sourceHash": "sha256:926def7cc5f5f46bd24c953b18a76f116c85b0393d6fc2f74b76abe2dff6d5c2",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T08:00:03.723Z"
+      "updatedAt": "2026-07-24T08:54:48.804Z"
     },
     "src/features/navigation/navigationAnchorStore.ts": {
       "noteFile": "files/238ee625c654-b82cdd91.json",
@@ -328,21 +328,21 @@
     },
     "src/features/navigation/virtualSearchPlanner.ts": {
       "noteFile": "files/89fe88091801-4d7f6667.json",
-      "sourceHash": "sha256:13fe57fd7bdc52a780a5c8b488199fa94eb3ec12378d0ddcbdfc4e7260c5c478",
+      "sourceHash": "sha256:e7c7d5eab4998bbbec67d0ff781b12082843f2b4e5b0d9575a64f921c79365af",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T07:07:24.939Z"
+      "updatedAt": "2026-07-24T08:46:03.198Z"
     },
     "src/features/navigation/virtualSearchController.ts": {
       "noteFile": "files/ba6aa3ee5c15-2926c662.json",
-      "sourceHash": "sha256:673e048a6a7b3f40b672981c6eb5d05d3f19398a52a80cc491192d51f79f2a1e",
+      "sourceHash": "sha256:907b3619be6b15085133dcd11c28d3e1fc05c54c907aaa30f9ec87419d8c0b6d",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T08:20:33.579Z"
+      "updatedAt": "2026-07-24T09:07:16.181Z"
     },
     "src/platforms/chatgpt/virtualSearchAdapter.ts": {
       "noteFile": "files/2f6f8b44f5de-00cd1729.json",
-      "sourceHash": "sha256:c3d9764f6cb63042209073cf5b44cf3f226641fbeb55e73e818a11801a406e00",
+      "sourceHash": "sha256:828a36700fdd80ecefddf8b2edecdd5831ac7231defb15c2d7b4f17feb26dad5",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T08:20:16.030Z"
+      "updatedAt": "2026-07-24T08:38:30.209Z"
     }
   }
 }

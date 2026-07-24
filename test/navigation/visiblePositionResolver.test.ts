@@ -31,7 +31,7 @@ async function createRecord(
 }
 
 describe('visible prompt position resolver', () => {
-  it('uses response IDs without requiring matching rendered text', async () => {
+  it('falls back to response IDs when fingerprints do not match', async () => {
     const index = [
       await createRecord('response-1', 4, 'Original response text'),
     ];
@@ -57,7 +57,7 @@ describe('visible prompt position resolver', () => {
     });
   });
 
-  it('falls back to fingerprints when rendered IDs are unavailable', async () => {
+  it('uses fingerprints when rendered IDs are unavailable', async () => {
     const index = [
       await createRecord(
         'response-1',
@@ -91,6 +91,38 @@ describe('visible prompt position resolver', () => {
     });
   });
 
+  it('prefers a fingerprint match over a conflicting response ID', async () => {
+    const index = [
+      await createRecord('response-1', 4, 'Original response text'),
+      await createRecord(
+        'response-2',
+        2,
+        'A distinctive rendered response used for location'
+      ),
+    ];
+
+    const position = await resolveVisiblePromptPosition(
+      [
+        {
+          id: 'response-1',
+          text: 'A distinctive rendered response used for location',
+        },
+      ],
+      index
+    );
+
+    expect(position).toMatchObject({
+      status: 'located',
+      matchedBlocks: [
+        {
+          blockId: 'response-1',
+          promptIndex: 2,
+          source: 'fingerprint',
+        },
+      ],
+    });
+  });
+
   it('returns the ordered range covered by multiple rendered responses', async () => {
     const index = [
       await createRecord('response-4', 4, 'Fourth response'),
@@ -117,17 +149,17 @@ describe('visible prompt position resolver', () => {
         {
           blockId: 'response-4',
           promptIndex: 4,
-          source: 'response-id',
+          source: 'fingerprint',
         },
         {
           blockId: 'response-2',
           promptIndex: 2,
-          source: 'response-id',
+          source: 'fingerprint',
         },
         {
           blockId: 'response-3',
           promptIndex: 3,
-          source: 'response-id',
+          source: 'fingerprint',
         },
       ],
     });

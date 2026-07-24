@@ -77,7 +77,10 @@ ChatGPT navigation is selected by
 The `independent-virtual` strategy uses only LunaTOC prompt IDs, fingerprints,
 anchors, interpolation, and binary search; it does not call the native
 ChatGPT TOC or silently fall back to the legacy scanner. Confirmed successful
-positions are persisted as bounded anchor hints.
+positions are persisted as bounded anchor hints. Anchors participate only in
+the first rough estimate of each search. Later attempts move relative to the
+latest recognized Prompt position so ChatGPT virtual-list coordinate rebuilds
+cannot reactivate stale absolute coordinates.
 
 ---
 
@@ -383,5 +386,8 @@ absent when the new derived index completes.
 * Matching still aggregates verified response records by `promptIndex`.
 * Equally strong prompt matches are reported as ambiguous instead of selecting
   an arbitrary navigation target.
+* Visible-position resolution tries generic fingerprints before using a
+  platform response ID as fallback, allowing each future platform adapter to
+  provide its own optional identity mechanism.
 * Existing prompt extraction and navigation behavior remain unchanged until
   the generic model is connected in a later step.
