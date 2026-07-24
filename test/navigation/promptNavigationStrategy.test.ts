@@ -288,5 +288,9 @@ describe('prompt navigation strategy', () => {
 
     expect(click).not.toHaveBeenCalled();
     expect(mocks.searchVirtualPrompt).toHaveBeenCalledOnce();
+    expect(
+      mocks.searchVirtualPrompt.mock.calls[0]?.[0]
+        .targetDomRecoveryDirection
+    ).toBe(-1);
   });
 });

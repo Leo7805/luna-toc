@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T13:21:58.190Z",
+  "updatedAt": "2026-07-24T14:22:22.756Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:b4c75eb0eb3a2c912c19413bf54878571170781c7e4532135cb25f6cc262ae74",
+      "sourceHash": "sha256:31401a30f4d53fe8542b1cf35fd92eb5d95e8d5be8dcf3363f111223588ce1e2",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T13:14:14.755Z"
+      "updatedAt": "2026-07-24T13:41:38.497Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -192,9 +192,9 @@
     },
     "src/features/navigation/promptNavigation.ts": {
       "noteFile": "files/241fe34fddca-a4f793e6.json",
-      "sourceHash": "sha256:8caedeafb663c640717e0c2fe5f049f7a2aa8fc6b3875081dd388df97f5bfa39",
+      "sourceHash": "sha256:69b34ff054425c97c4ba941424c819bdd34b0ed071381a209a6cd5514eafb8c1",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T13:15:07.803Z"
+      "updatedAt": "2026-07-24T14:07:08.149Z"
     },
     "src/features/navigation/outline.ts": {
       "noteFile": "files/2c76dfd8293f-c0052e3a.json",
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:796288a208ab00213dded8ecacc224456424990bfc75bff658c90b07b7c2b05f",
+      "sourceHash": "sha256:cb30b3e9ea465d43220d0ae59a99a97cb456ee7af8f366e1050c8b64a9abead8",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T12:42:18.827Z"
+      "updatedAt": "2026-07-24T14:21:59.550Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -310,9 +310,9 @@
     },
     "src/platforms/chatgpt/renderedFingerprintCollector.ts": {
       "noteFile": "files/4f99fa60c69e-1ee2873f.json",
-      "sourceHash": "sha256:28fe04c58ea794205181c3b41fc72eef7a61b837a40eec1eaf0ff4876a5af8f8",
+      "sourceHash": "sha256:bde61000c1f1f3717a2ef9690d52c44504b9d796c32720e98013c97705d8fe83",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T13:07:52.689Z"
+      "updatedAt": "2026-07-24T13:26:02.113Z"
     },
     "src/features/navigation/visiblePositionResolver.ts": {
       "noteFile": "files/380e7a5b642c-65a07d7e.json",
@@ -322,9 +322,9 @@
     },
     "src/features/navigation/navigationAnchorStore.ts": {
       "noteFile": "files/238ee625c654-b82cdd91.json",
-      "sourceHash": "sha256:929d7dfa3128cc135628daf6fd7083c3bba548c0a54ac2db08ec55302b7cff0c",
+      "sourceHash": "sha256:a58b2b3b25b153380e4db66670d744077a9d53076033fb89bb3c15e9229299ac",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T08:17:33.680Z"
+      "updatedAt": "2026-07-24T14:07:08.736Z"
     },
     "src/features/navigation/virtualSearchPlanner.ts": {
       "noteFile": "files/89fe88091801-4d7f6667.json",
@@ -334,15 +334,15 @@
     },
     "src/features/navigation/virtualSearchController.ts": {
       "noteFile": "files/ba6aa3ee5c15-2926c662.json",
-      "sourceHash": "sha256:907b3619be6b15085133dcd11c28d3e1fc05c54c907aaa30f9ec87419d8c0b6d",
+      "sourceHash": "sha256:4809aac474c59e1e21bc291bdad5262e766960c4ae3abe65354c3cf86d7b4350",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T09:07:16.181Z"
+      "updatedAt": "2026-07-24T14:22:22.756Z"
     },
     "src/platforms/chatgpt/virtualSearchAdapter.ts": {
       "noteFile": "files/2f6f8b44f5de-00cd1729.json",
-      "sourceHash": "sha256:e7e7f1fabeef49f1c32ce67c814eabb0f95eeea598c0506358b1e5119fc1f1aa",
+      "sourceHash": "sha256:ec320757968c6ddd63d911e611442e502933ae324552be4aa168f635f3c60f09",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T13:21:58.190Z"
+      "updatedAt": "2026-07-24T13:41:38.682Z"
     },
     "src/features/navigation/fingerprint/segments.ts": {
       "noteFile": "files/c586105013ac-052a4323.json",

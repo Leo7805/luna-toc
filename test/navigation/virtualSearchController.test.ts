@@ -2,8 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   createDirectionalProbePlan,
+  getSearchDirection,
   getTargetDistance,
   searchVirtualPrompt,
+  updateSearchBounds,
   type VirtualSearchObservation,
 } from '@/features/navigation/virtualSearchController';
 import {
@@ -103,6 +105,32 @@ function createFakeSearch({
 }
 
 describe('virtual search controller', () => {
+  it('keeps the closest observed anchors around the target', () => {
+    const anchors = [4, 12, 7, 10].map((promptIndex) =>
+      createNavigationAnchor({
+        conversationKey: 'conversation-1',
+        promptId: `prompt-${promptIndex}`,
+        promptIndex,
+        scrollTop: promptIndex * 1_000,
+        scrollHeight: 21_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      })
+    );
+
+    expect(
+      updateSearchBounds({
+        targetPromptIndex: 8,
+        anchors,
+        lowerAnchor: null,
+        upperAnchor: null,
+      })
+    ).toMatchObject({
+      lowerAnchor: { promptIndex: 7 },
+      upperAnchor: { promptIndex: 10 },
+    });
+  });
+
   it('measures distance from actual matches instead of their outer range', () => {
     expect(
       getTargetDistance(8, {
@@ -114,6 +142,28 @@ describe('virtual search controller', () => {
         matchedBlocks: [],
       })
     ).toBe(4);
+  });
+
+  it('uses segment ratios as fractional positions inside a response', () => {
+    const position = {
+      status: 'located' as const,
+      firstPromptIndex: 26,
+      lastPromptIndex: 26,
+      matchedPromptIndexes: [26],
+      matchedBlockIds: ['response-26'],
+      matchedBlocks: [
+        {
+          blockId: 'response-26',
+          promptIndex: 26,
+          source: 'segment' as const,
+          positionRatio: 0.875,
+        },
+      ],
+    };
+
+    expect(getTargetDistance(28, position)).toBe(1.125);
+    expect(getSearchDirection(28, position)).toBe(1);
+    expect(getSearchDirection(26, position)).toBe(-1);
   });
 
   it('grows directional probes linearly up to the configured limit', () => {
@@ -137,6 +187,32 @@ describe('virtual search controller', () => {
         probeCount: 4,
       }).scrollTop
     ).toBe(13_000);
+  });
+
+  it('scales directional probes linearly with logical Prompt distance', () => {
+    expect(
+      createDirectionalProbePlan({
+        targetPromptIndex: 32,
+        currentScrollTop: 10_000,
+        maximumScrollTop: 100_000,
+        viewportHeight: 1_000,
+        direction: 1,
+        probeCount: 1,
+        promptDistance: 32,
+      }).scrollTop
+    ).toBe(34_000);
+
+    expect(
+      createDirectionalProbePlan({
+        targetPromptIndex: 10,
+        currentScrollTop: 10_000,
+        maximumScrollTop: 100_000,
+        viewportHeight: 1_000,
+        direction: -1,
+        probeCount: 10,
+        promptDistance: 0.4,
+      }).scrollTop
+    ).toBe(9_000);
   });
 
   it('returns immediately when the target is already rendered', async () => {
@@ -188,7 +264,7 @@ describe('virtual search controller', () => {
     });
 
     expect(result.status).toBe('found');
-    expect(result.attempts).toBe(4);
+    expect(result.attempts).toBe(2);
     expect(fake.getCurrentScrollTop()).toBe(9_000);
   });
 
@@ -208,6 +284,71 @@ describe('virtual search controller', () => {
       status: 'unresolved',
       attempts: 1,
     });
+  });
+
+  it('continues locally through transient unresolved virtual-list frames', async () => {
+    let currentScrollTop = 50_000;
+    let observationCount = 0;
+    const scrollPositions: number[] = [];
+    const positions = [50, null, null, 42] as const;
+
+    const result = await searchVirtualPrompt({
+      ...createFakeSearch({ targetIndex: 42 }).options,
+      promptCount: 100,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop: currentScrollTop,
+        maximumScrollTop: 100_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        const promptIndex =
+          positions[Math.min(observationCount, positions.length - 1)]!;
+        observationCount += 1;
+
+        if (promptIndex === null) {
+          return {
+            position: { status: 'none' as const },
+            anchors: [],
+          };
+        }
+
+        return {
+          position: {
+            status: 'located' as const,
+            firstPromptIndex: promptIndex,
+            lastPromptIndex: promptIndex,
+            matchedPromptIndexes: [promptIndex],
+            matchedBlockIds: [`response-${promptIndex}`],
+            matchedBlocks: [
+              {
+                blockId: `response-${promptIndex}`,
+                promptIndex,
+                source: 'fingerprint' as const,
+              },
+            ],
+          },
+          anchors: [],
+        };
+      },
+      isTargetRendered: () => observationCount >= 4,
+      scrollTo: (scrollTop) => {
+        currentScrollTop = scrollTop;
+        scrollPositions.push(scrollTop);
+      },
+      waitForRender: async () => {},
+      maxAttempts: 6,
+      unresolvedPositionsBeforeAbort: 2,
+    });
+
+    expect(result.status).toBe('found');
+    expect(scrollPositions).toHaveLength(4);
+    expect(scrollPositions[1]).toBeLessThan(scrollPositions[0]!);
+    expect(scrollPositions[2]).toBeLessThan(scrollPositions[1]!);
+    expect(scrollPositions[1]! - scrollPositions[2]!).toBe(1_000);
   });
 
   it('returns cancelled before another search attempt', async () => {
@@ -338,6 +479,156 @@ describe('virtual search controller', () => {
     expect(scrollPositions).toEqual([8_000, 12_000]);
   });
 
+  it('invalidates a stale exact anchor and replans from the observed position', async () => {
+    let currentScrollTop = 0;
+    const invalidated: Array<[string, number]> = [];
+    const plans: Array<Record<string, unknown>> = [];
+    const staleTargetAnchor = createNavigationAnchor({
+      conversationKey: 'conversation-1',
+      promptId: 'prompt-8',
+      promptIndex: 8,
+      scrollTop: 10_000,
+      scrollHeight: 21_000,
+      viewportWidth: 1_280,
+      viewportHeight: 1_000,
+    });
+
+    const result = await searchVirtualPrompt({
+      ...createFakeSearch({ targetIndex: 8 }).options,
+      promptCount: 11,
+      getConfirmedAnchors: async () => [staleTargetAnchor],
+      invalidateConfirmedAnchor: async (promptId, promptIndex) => {
+        invalidated.push([promptId, promptIndex]);
+      },
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop: currentScrollTop,
+        maximumScrollTop: 20_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        const promptIndex = currentScrollTop >= 16_000 ? 8 : 2;
+        return {
+          position: {
+            status: 'located',
+            firstPromptIndex: promptIndex,
+            lastPromptIndex: promptIndex,
+            matchedPromptIndexes: [promptIndex],
+            matchedBlockIds: [`response-${promptIndex}`],
+            matchedBlocks: [
+              {
+                blockId: `response-${promptIndex}`,
+                promptIndex,
+                source: 'fingerprint',
+              },
+            ],
+          },
+          anchors: [
+            createNavigationAnchor({
+              conversationKey: 'conversation-1',
+              promptId: `prompt-${promptIndex}`,
+              promptIndex,
+              scrollTop: currentScrollTop,
+              scrollHeight: 21_000,
+              viewportWidth: 1_280,
+              viewportHeight: 1_000,
+            }),
+          ],
+        };
+      },
+      isTargetRendered: () => currentScrollTop >= 16_000,
+      scrollTo: (scrollTop) => {
+        currentScrollTop = scrollTop;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 3,
+      onDiagnosticEvent: (event) => {
+        if (event.eventName === 'SEARCH_PLAN') plans.push(event.details);
+      },
+    });
+
+    expect(result.status).toBe('found');
+    expect(invalidated).toEqual([['prompt-8', 8]]);
+    expect(plans[1]).toMatchObject({
+      method: 'linear-probe',
+      phase: 'stale-anchor-replan',
+    });
+  });
+
+  it('crosses the target to discover a bracket before binary search', async () => {
+    let currentScrollTop = 0;
+    const phases: unknown[] = [];
+    const staleTargetAnchor = createNavigationAnchor({
+      conversationKey: 'conversation-1',
+      promptId: 'prompt-8',
+      promptIndex: 8,
+      scrollTop: 1_000,
+      scrollHeight: 21_000,
+      viewportWidth: 1_280,
+      viewportHeight: 1_000,
+    });
+
+    const result = await searchVirtualPrompt({
+      ...createFakeSearch({ targetIndex: 8 }).options,
+      promptCount: 20,
+      getConfirmedAnchors: async () => [staleTargetAnchor],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop: currentScrollTop,
+        maximumScrollTop: 20_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        const promptIndex = Math.round(currentScrollTop / 1_000);
+        return {
+          position: {
+            status: 'located',
+            firstPromptIndex: promptIndex,
+            lastPromptIndex: promptIndex,
+            matchedPromptIndexes: [promptIndex],
+            matchedBlockIds: [`response-${promptIndex}`],
+            matchedBlocks: [
+              {
+                blockId: `response-${promptIndex}`,
+                promptIndex,
+                source: 'fingerprint',
+              },
+            ],
+          },
+          anchors: [
+            createNavigationAnchor({
+              conversationKey: 'conversation-1',
+              promptId: `prompt-${promptIndex}`,
+              promptIndex,
+              scrollTop: currentScrollTop,
+              scrollHeight: 21_000,
+              viewportWidth: 1_280,
+              viewportHeight: 1_000,
+            }),
+          ],
+        };
+      },
+      isTargetRendered: () =>
+        Math.round(currentScrollTop / 1_000) === 8,
+      scrollTo: (scrollTop) => {
+        currentScrollTop = scrollTop;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 8,
+      onDiagnosticEvent: ({ eventName, details }) => {
+        if (eventName === 'SEARCH_PLAN') phases.push(details.phase);
+      },
+    });
+
+    expect(result.status).toBe('found');
+    expect(phases).toContain('stale-anchor-replan');
+    expect(phases).toContain('bracketed-binary-search');
+  });
+
   it('keeps the growing probe step after partial prompt progress', async () => {
     let currentScrollTop = 6_000;
     let observationCount = 0;
@@ -400,7 +691,7 @@ describe('virtual search controller', () => {
     });
 
     expect(result.status).toBe('found');
-    expect(scrollPositions.at(-1)).toBe(18_000);
+    expect(scrollPositions.at(-1)).toBe(22_000);
   });
 
   it('uses only relative probes after the virtual scroll range is rebuilt', async () => {
@@ -529,6 +820,75 @@ describe('virtual search controller', () => {
 
     expect(result.status).toBe('found');
     expect(scrollPositions[1]! - scrollPositions[2]!).toBe(2_000);
+  });
+
+  it('probes toward a platform target when its response is located but prompt DOM is missing', async () => {
+    let currentScrollTop = 5_000;
+    const scrollPositions: number[] = [];
+    const planPhases: unknown[] = [];
+    const targetObservation: VirtualSearchObservation = {
+      position: {
+        status: 'located',
+        firstPromptIndex: 5,
+        lastPromptIndex: 5,
+        matchedPromptIndexes: [5],
+        matchedBlockIds: ['response-5'],
+        matchedBlocks: [
+          {
+            blockId: 'response-5',
+            promptIndex: 5,
+            source: 'response-id',
+          },
+        ],
+      },
+      anchors: [
+        createNavigationAnchor({
+          conversationKey: 'conversation-1',
+          promptId: 'prompt-5',
+          promptIndex: 5,
+          scrollTop: 4_000.375,
+          scrollHeight: 11_000,
+          viewportWidth: 1_280,
+          viewportHeight: 1_000,
+        }),
+      ],
+    };
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-5',
+      targetPromptIndex: 5,
+      promptCount: 10,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop: currentScrollTop,
+        maximumScrollTop: 10_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => targetObservation,
+      isTargetRendered: () => currentScrollTop === 3_000.5,
+      scrollTo: (scrollTop) => {
+        currentScrollTop = Math.floor(scrollTop) + 0.5;
+        scrollPositions.push(currentScrollTop);
+      },
+      waitForRender: async () => {},
+      targetDomRecoveryDirection: -1,
+      maxAttempts: 3,
+      onDiagnosticEvent: ({ eventName, details }) => {
+        if (eventName === 'SEARCH_PLAN') {
+          planPhases.push(details.phase);
+        }
+      },
+    });
+
+    expect(result.status).toBe('found');
+    expect(scrollPositions).toEqual([4_000.5, 3_000.5]);
+    expect(planPhases).toEqual([
+      'target-response-anchor',
+      'target-dom-recovery',
+    ]);
   });
 
   it('reports observation, planning, scrolling, and completion events', async () => {

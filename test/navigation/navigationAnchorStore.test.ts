@@ -87,6 +87,24 @@ describe('navigation anchor store', () => {
     });
   });
 
+  it('removes a stale confirmed anchor without removing its neighbors', async () => {
+    const storage = createMemoryStorage();
+    const store = createNavigationAnchorStore({ storage });
+    await store.recordConfirmed(
+      createInput({ promptId: 'prompt-1', promptIndex: 1 })
+    );
+    await store.recordConfirmed(
+      createInput({ promptId: 'prompt-2', promptIndex: 2 })
+    );
+
+    await expect(
+      store.removeConfirmed('conversation-1', 'prompt-1')
+    ).resolves.toBe(true);
+    await expect(
+      store.getConfirmedAnchors('conversation-1')
+    ).resolves.toMatchObject([{ promptId: 'prompt-2', promptIndex: 2 }]);
+  });
+
   it('rejects anchors whose prompt identity or viewport width changed', async () => {
     const storage = createMemoryStorage();
     const store = createNavigationAnchorStore({

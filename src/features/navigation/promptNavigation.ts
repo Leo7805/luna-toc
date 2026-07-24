@@ -254,7 +254,7 @@ function jumpWithLegacyNativeNavigation(
 }
 
 /**
- * Uses only LunaTOC anchors, segment/response fingerprints, and virtual search.
+ * Uses only LunaTOC anchors, response fingerprints, and virtual search.
  */
 function jumpWithIndependentVirtualNavigation(
   message: NavigatorMessage,
@@ -271,7 +271,7 @@ function jumpWithIndependentVirtualNavigation(
     targetPromptIndex: index,
     promptCount: context.prompts.length,
     fingerprintRecordCount: context.fingerprintIndex.length,
-    segmentRecordCount: context.segmentIndex.length,
+    derivedSegmentCount: context.segmentIndex.length,
     testConfig,
   });
   lockActiveIndex(index, 4000);
@@ -324,6 +324,12 @@ function jumpWithIndependentVirtualNavigation(
           context.prompts[promptIndex]?.id === promptId
       );
     },
+    invalidateConfirmedAnchor: async (promptId) => {
+      await anchorStore.removeConfirmed(
+        context.conversationKey,
+        promptId
+      );
+    },
     getObservedAnchors: () =>
       testConfig.useObservedAnchors
         ? anchorStore.getObservedAnchors(context.conversationKey)
@@ -357,6 +363,7 @@ function jumpWithIndependentVirtualNavigation(
     maxAttempts: testConfig.maxSearchAttempts,
     maxDurationMs: testConfig.maxSearchDurationMs,
     unresolvedPositionsBeforeAbort: testConfig.unresolvedPositionsBeforeAbort,
+    targetDomRecoveryDirection: -1,
     onDiagnosticEvent: ({ eventName, details }) => {
       logChatGptNavigationEvent(jumpId, eventName, details);
     },

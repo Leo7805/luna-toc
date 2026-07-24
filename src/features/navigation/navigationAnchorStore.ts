@@ -46,6 +46,10 @@ export interface NavigationAnchorStore {
   recordObservation(input: NavigationAnchorInput): NavigationAnchor;
   getObservedAnchors(conversationKey: string): NavigationAnchor[];
   recordConfirmed(input: NavigationAnchorInput): Promise<NavigationAnchor>;
+  removeConfirmed(
+    conversationKey: string,
+    promptId: string
+  ): Promise<boolean>;
   findConfirmed(query: ConfirmedAnchorQuery): Promise<NavigationAnchor | null>;
   getConfirmedAnchors(conversationKey: string): Promise<NavigationAnchor[]>;
 }
@@ -160,6 +164,30 @@ export function createNavigationAnchorStore(
     return anchor ? cloneAnchor(anchor) : null;
   }
 
+  async function removeConfirmed(
+    conversationKey: string,
+    promptId: string
+  ): Promise<boolean> {
+    const cache = await getPersistentCache();
+    const conversation = cache.conversations[conversationKey];
+
+    if (!conversation) return false;
+
+    const nextAnchors = conversation.anchors.filter(
+      (anchor) => anchor.promptId !== promptId
+    );
+    if (nextAnchors.length === conversation.anchors.length) return false;
+
+    if (nextAnchors.length === 0) {
+      delete cache.conversations[conversationKey];
+    } else {
+      conversation.anchors = nextAnchors;
+      conversation.lastUsedAt = now();
+    }
+    await storage.write(clonePersistentCache(cache));
+    return true;
+  }
+
   async function getConfirmedAnchors(
     conversationKey: string
   ): Promise<NavigationAnchor[]> {
@@ -191,6 +219,7 @@ export function createNavigationAnchorStore(
     recordObservation,
     getObservedAnchors,
     recordConfirmed,
+    removeConfirmed,
     findConfirmed,
     getConfirmedAnchors,
   };

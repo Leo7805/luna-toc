@@ -118,19 +118,19 @@ graph TD
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
-  - [fingerprint/segments.ts](../src/features/navigation/fingerprint/segments.ts): Builds and merges tab-scoped derived estimates from unrendered text and observed viewport segments from real DOM Range geometry for later position recognition.
+  - [fingerprint/segments.ts](../src/features/navigation/fingerprint/segments.ts): Builds tab-scoped derived viewport estimates from conversation text for runtime position recognition while keeping observed DOM geometry available but inactive.
   - [fingerprint/segmentMatcher.ts](../src/features/navigation/fingerprint/segmentMatcher.ts): Verifies visible viewport text against Segment probes and hashes, preferring observed geometry and rejecting equally strong locations as ambiguous.
   - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds one quality-tagged fingerprint record per response and merges derived/observed updates by precedence.
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves viewport Segment coordinates before whole-response fingerprints and platform response-ID fallback while preserving Prompt-only callers.
   - [navigationAnchorStore.ts](../src/features/navigation/navigationAnchorStore.ts): Keeps transient search observations in memory and persists only confirmed prompt scroll anchors with bounded expiry and LRU limits.
   - [virtualSearchPlanner.ts](../src/features/navigation/virtualSearchPlanner.ts): Plans exact, interpolated, proportional, or binary fallback positions while rejecting anchor ranges whose virtual scroll coordinates run backwards.
-  - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Uses anchors once for an initial estimate, then executes bounded relative probes from each newly observed Prompt position so virtual-list coordinate rebuilds cannot revive stale anchors.
+- [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Uses anchors for an initial estimate, maintains the closest live bounds around the target, and switches to bracketed binary search after observing both sides while preserving local recovery for transient render gaps.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists plus revision-protected whole-response and segment fingerprint indexes by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts mounted ChatGPT Assistant Markdown into generic rendered text and exposes owned Markdown containers for observed viewport-segment measurement while excluding tools and attachments.
-  - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces mounted Assistant DOM changes, upgrades responses to observed whole-response and viewport-segment fingerprints, and submits revision-tagged results to the in-memory snapshot.
-  - [virtualSearchAdapter.ts](../src/platforms/chatgpt/virtualSearchAdapter.ts): Adapts ChatGPT scroll containers, mounted prompt IDs, rendered response text, and element geometry to generic virtual-search observations; Segment data is currently excluded from control decisions.
+  - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces mounted Assistant DOM changes and upgrades mapped responses to observed whole-response fingerprints without running Segment geometry measurement.
+  - [virtualSearchAdapter.ts](../src/platforms/chatgpt/virtualSearchAdapter.ts): Adapts ChatGPT scroll containers, viewport response text, derived Segments, mounted prompt IDs, and element geometry to generic virtual-search observations.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
   - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.
@@ -168,7 +168,9 @@ graph TD
 - `platforms.chatgpt.navigationAlgorithm` selects either the default `legacy-native` ChatGPT TOC path or the fully independent `independent-virtual` anchor-and-fingerprint path.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
-- `navigation.search` bounds each virtual search by 12 attempts and 2.5 seconds, resets probes to two viewports within two Prompts of the target, and then resumes bounded linear growth when the same nearby Prompt remains visible.
+- `navigation.search` bounds each virtual search by 12 attempts and 2.5 seconds, deliberately probes past a target to discover its opposite live bound, switches to binary search once both bounds exist, and preserves the last reliable direction through transient virtual-list render gaps.
+- `navigation.search.targetDomRecoveryViewportCount` moves one viewport toward a platform-specified direction when the target response index is located but the target Prompt DOM has not mounted yet.
+- A located target response first uses its current observed anchor to align the response start; only an unchanged response-start position falls through to the one-viewport Prompt DOM recovery probe.
 
 ### Navigation Diagnostics
 

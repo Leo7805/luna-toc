@@ -5,12 +5,7 @@ import { APP_CONFIG } from '@/config/config';
 import { normalizeComparableText } from '@/features/navigation/fingerprint/comparableText';
 import { createResponseFingerprints } from '@/features/navigation/fingerprint/generator';
 import type { ResponseFingerprintRecord } from '@/features/navigation/fingerprint/index';
-import type { ResponseSegmentFingerprint } from '@/features/navigation/fingerprint/segments';
-import {
-  createChatGptObservedResponseSegments,
-  getRenderedAssistantEntries,
-} from './renderedTextAdapter';
-import { getChatGptScrollContainer } from './virtualSearchAdapter';
+import { getRenderedAssistantTextBlocks } from './renderedTextAdapter';
 
 export interface RenderedFingerprintContext {
   conversationKey: string;
@@ -24,11 +19,6 @@ export interface RenderedFingerprintCollectorOptions {
     context: RenderedFingerprintContext,
     record: ResponseFingerprintRecord
   ) => void;
-  onResponseSegments?: (
-    context: RenderedFingerprintContext,
-    segments: ResponseSegmentFingerprint[]
-  ) => void;
-  getScrollContainer?: () => HTMLElement | null;
 }
 
 export interface RenderedFingerprintCollector {
@@ -52,20 +42,16 @@ export interface RenderedFingerprintCollector {
 export function createRenderedFingerprintCollector({
   debounceMs = APP_CONFIG.navigation.fingerprint.observationDebounceMs,
   onFingerprintRecord,
-  onResponseSegments,
-  getScrollContainer = () => getChatGptScrollContainer(document),
 }: RenderedFingerprintCollectorOptions): RenderedFingerprintCollector {
   let context: RenderedFingerprintContext | null = null;
   let observedRoot: HTMLElement | null = null;
   let observer: MutationObserver | null = null;
   let collectionTimer: ReturnType<typeof setTimeout> | null = null;
   const collectedTextByResponse = new Map<string, string>();
-  const collectedSegmentSignatureByResponse = new Map<string, string>();
 
   function setContext(nextContext: RenderedFingerprintContext | null): void {
     context = nextContext;
     collectedTextByResponse.clear();
-    collectedSegmentSignatureByResponse.clear();
     scheduleCollection();
   }
 
@@ -74,54 +60,27 @@ export function createRenderedFingerprintCollector({
 
     if (!collectionContext) return;
 
-    const scrollContainer = getScrollContainer();
-
-    for (const { block, element } of getRenderedAssistantEntries(root)) {
+    for (const block of getRenderedAssistantTextBlocks(root)) {
       const promptIndex = collectionContext.responsePromptIndexes.get(block.id);
       const comparableText = normalizeComparableText(block.text);
 
       if (promptIndex === undefined || !comparableText) continue;
+      if (collectedTextByResponse.get(block.id) === comparableText) continue;
 
-      if (collectedTextByResponse.get(block.id) !== comparableText) {
-        const fingerprints = await createResponseFingerprints({
-          id: block.id,
-          text: block.text,
-        });
-
-        if (fingerprints.length > 0) {
-          collectedTextByResponse.set(block.id, comparableText);
-          onFingerprintRecord(collectionContext, {
-            responseId: block.id,
-            promptIndex,
-            quality: 'observed',
-            fingerprints,
-          });
-        }
-      }
-
-      if (!scrollContainer || !onResponseSegments) continue;
-
-      const segmentSignature = [
-        comparableText,
-        scrollContainer.clientWidth || window.innerWidth,
-        scrollContainer.clientHeight || window.innerHeight,
-      ].join(':');
-      if (
-        collectedSegmentSignatureByResponse.get(block.id) ===
-        segmentSignature
-      ) {
-        continue;
-      }
-
-      const segments = await createChatGptObservedResponseSegments({
-        assistantElement: element,
-        promptIndex,
-        scrollContainer,
+      const fingerprints = await createResponseFingerprints({
+        id: block.id,
+        text: block.text,
       });
-      if (segments.length === 0) continue;
 
-      collectedSegmentSignatureByResponse.set(block.id, segmentSignature);
-      onResponseSegments(collectionContext, segments);
+      if (fingerprints.length === 0) continue;
+
+      collectedTextByResponse.set(block.id, comparableText);
+      onFingerprintRecord(collectionContext, {
+        responseId: block.id,
+        promptIndex,
+        quality: 'observed',
+        fingerprints,
+      });
     }
   }
 
@@ -154,7 +113,6 @@ export function createRenderedFingerprintCollector({
     observedRoot = null;
     context = null;
     collectedTextByResponse.clear();
-    collectedSegmentSignatureByResponse.clear();
 
     if (collectionTimer !== null) {
       clearTimeout(collectionTimer);

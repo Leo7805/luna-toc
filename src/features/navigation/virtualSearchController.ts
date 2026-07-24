@@ -9,6 +9,8 @@ import {
   type VirtualSearchPlan,
 } from './virtualSearchPlanner';
 
+const SCROLL_POSITION_TOLERANCE_PX = 1;
+
 export interface VirtualScrollMetrics {
   scrollTop: number;
   maximumScrollTop: number;
@@ -31,6 +33,10 @@ export interface VirtualSearchControllerOptions {
   targetPromptIndex: number;
   promptCount: number;
   getConfirmedAnchors: () => Promise<NavigationAnchor[]>;
+  invalidateConfirmedAnchor?: (
+    promptId: string,
+    promptIndex: number
+  ) => Promise<void>;
   getObservedAnchors: () => NavigationAnchor[];
   recordObservation: (anchor: NavigationAnchor) => void;
   getScrollMetrics: () => VirtualScrollMetrics;
@@ -43,6 +49,7 @@ export interface VirtualSearchControllerOptions {
   maxAttempts?: number;
   maxDurationMs?: number;
   unresolvedPositionsBeforeAbort?: number;
+  targetDomRecoveryDirection?: 1 | -1 | null;
   onDiagnosticEvent?: (event: VirtualSearchDiagnosticEvent) => void;
 }
 
@@ -83,6 +90,7 @@ export async function searchVirtualPrompt({
   targetPromptIndex,
   promptCount,
   getConfirmedAnchors,
+  invalidateConfirmedAnchor,
   getObservedAnchors,
   recordObservation,
   getScrollMetrics,
@@ -96,17 +104,24 @@ export async function searchVirtualPrompt({
   maxDurationMs = APP_CONFIG.navigation.search.maxDurationMs,
   unresolvedPositionsBeforeAbort = APP_CONFIG.navigation.search
     .unresolvedPositionsBeforeAbort,
+  targetDomRecoveryDirection = null,
   onDiagnosticEvent,
 }: VirtualSearchControllerOptions): Promise<VirtualSearchResult> {
   const startedAt = now();
-  const confirmedAnchors = await getConfirmedAnchors();
+  let confirmedAnchors = await getConfirmedAnchors();
   let attempts = 0;
   let consecutiveUnresolvedPositions = 0;
+  let hasLocatedPosition = false;
   let lastDistance: number | null = null;
+  let lastLocatedDirection: 1 | -1 | null = null;
   let lastSearchDirection: 1 | -1 | null = null;
   let directionalProbeCount = 0;
+  let bracketDiscoveryCount = 0;
   let lastPlan: VirtualSearchPlan | null = null;
   let lastPosition: VisiblePromptPosition = { status: 'none' };
+  let replanAfterStaleAnchor = false;
+  let lowerSearchAnchor: NavigationAnchor | null = null;
+  let upperSearchAnchor: NavigationAnchor | null = null;
 
   const finishSearch = (
     status: VirtualSearchResultStatus
@@ -160,6 +175,41 @@ export async function searchVirtualPrompt({
       ),
     });
 
+    const usedExactTargetAnchor =
+      lastPlan?.method === 'exact-anchor' &&
+      lastPlan.lowerAnchor?.promptIndex === targetPromptIndex;
+    if (
+      usedExactTargetAnchor &&
+      lastPlan &&
+      observation.position.status === 'located' &&
+      !observation.position.matchedPromptIndexes.includes(targetPromptIndex)
+    ) {
+      const staleAnchorSource = lastPlan.lowerAnchor?.source;
+      if (staleAnchorSource === 'confirmed') {
+        confirmedAnchors = confirmedAnchors.filter(
+          ({ promptId, promptIndex }) =>
+            promptId !== targetPromptId ||
+            promptIndex !== targetPromptIndex
+        );
+        await invalidateConfirmedAnchor?.(
+          targetPromptId,
+          targetPromptIndex
+        );
+      }
+      replanAfterStaleAnchor = true;
+      onDiagnosticEvent?.({
+        eventName: 'EXACT_ANCHOR_INVALIDATED',
+        details: {
+          targetPromptId,
+          targetPromptIndex,
+          anchorSource: staleAnchorSource,
+          plannedScrollTop: lastPlan.scrollTop,
+          firstPromptIndex: observation.position.firstPromptIndex,
+          lastPromptIndex: observation.position.lastPromptIndex,
+        },
+      });
+    }
+
     const metrics = getScrollMetrics();
     const searchDirection = getSearchDirection(
       targetPromptIndex,
@@ -169,14 +219,36 @@ export async function searchVirtualPrompt({
       targetPromptIndex,
       observation.position
     );
+    if (observation.position.status === 'located') {
+      hasLocatedPosition = true;
+      lastLocatedDirection = searchDirection;
+      const nextBounds = updateSearchBounds({
+        targetPromptIndex,
+        anchors: observation.anchors,
+        lowerAnchor: lowerSearchAnchor,
+        upperAnchor: upperSearchAnchor,
+      });
+      lowerSearchAnchor = nextBounds.lowerAnchor;
+      upperSearchAnchor = nextBounds.upperAnchor;
+    }
     const isNearTarget =
       currentDistance !== null &&
       currentDistance <=
         APP_CONFIG.navigation.search.nearTargetPromptDistance;
+    const isRecoveringTargetDom =
+      observation.position.status === 'located' &&
+      observation.position.matchedPromptIndexes.includes(
+        targetPromptIndex
+      ) &&
+      !isTargetRendered() &&
+      targetDomRecoveryDirection !== null;
+    const plannedDirection = isRecoveringTargetDom
+      ? targetDomRecoveryDirection
+      : searchDirection ?? lastLocatedDirection;
 
-    if (searchDirection !== lastSearchDirection) {
+    if (plannedDirection !== lastSearchDirection) {
       directionalProbeCount = 0;
-      lastSearchDirection = searchDirection;
+      lastSearchDirection = plannedDirection;
     }
     if (
       isNearTarget &&
@@ -189,6 +261,7 @@ export async function searchVirtualPrompt({
     if (observation.position.status !== 'located') {
       consecutiveUnresolvedPositions += 1;
       if (
+        !hasLocatedPosition &&
         consecutiveUnresolvedPositions >=
         Math.max(1, unresolvedPositionsBeforeAbort)
       ) {
@@ -199,9 +272,52 @@ export async function searchVirtualPrompt({
     }
 
     const isInitialEstimate = attempts === 0;
+    const isTransientUnresolvedRecovery =
+      hasLocatedPosition &&
+      observation.position.status !== 'located' &&
+      plannedDirection !== null;
     let plan: VirtualSearchPlan;
 
-    if (isInitialEstimate) {
+    const isStaleAnchorReplan = replanAfterStaleAnchor;
+    replanAfterStaleAnchor = false;
+
+    if (isTransientUnresolvedRecovery) {
+      plan = createDirectionalProbePlan({
+        targetPromptIndex,
+        currentScrollTop: metrics.scrollTop,
+        maximumScrollTop: metrics.maximumScrollTop,
+        viewportHeight: metrics.viewportHeight,
+        direction: plannedDirection,
+        probeCount: 1,
+        promptDistance: null,
+        initialViewportCount: 1,
+      });
+    } else if (isRecoveringTargetDom) {
+      const targetAnchors = observation.anchors.filter(
+        ({ promptIndex }) => promptIndex === targetPromptIndex
+      );
+      plan =
+        targetAnchors.length > 0
+          ? planVirtualSearch({
+              targetPromptIndex,
+              promptCount,
+              maximumScrollTop: metrics.maximumScrollTop,
+              viewportWidth: metrics.viewportWidth,
+              observedAnchors: targetAnchors,
+              confirmedAnchors: [],
+            })
+          : createDirectionalProbePlan({
+              targetPromptIndex,
+              currentScrollTop: metrics.scrollTop,
+              maximumScrollTop: metrics.maximumScrollTop,
+              viewportHeight: metrics.viewportHeight,
+              direction: targetDomRecoveryDirection,
+              probeCount: 1,
+              initialViewportCount:
+                APP_CONFIG.navigation.search
+                  .targetDomRecoveryViewportCount,
+            });
+    } else if (isInitialEstimate) {
       plan = planVirtualSearch({
         targetPromptIndex,
         promptCount,
@@ -210,15 +326,56 @@ export async function searchVirtualPrompt({
         observedAnchors: getObservedAnchors(),
         confirmedAnchors,
       });
-    } else if (searchDirection !== null) {
+    } else if (
+      observation.position.status === 'located' &&
+      (lowerSearchAnchor || upperSearchAnchor)
+    ) {
+      const hasSearchBracket = Boolean(
+        lowerSearchAnchor && upperSearchAnchor
+      );
+      if (hasSearchBracket) {
+        bracketDiscoveryCount = 0;
+        plan = planVirtualSearch({
+          targetPromptIndex,
+          promptCount,
+          maximumScrollTop: metrics.maximumScrollTop,
+          viewportWidth: metrics.viewportWidth,
+          observedAnchors: [
+            lowerSearchAnchor!,
+            upperSearchAnchor!,
+          ],
+          confirmedAnchors: [],
+          failedInterpolationAttempts:
+            APP_CONFIG.navigation.search
+              .interpolationFailuresBeforeBinary,
+        });
+      } else {
+        bracketDiscoveryCount += 1;
+        plan = createDirectionalProbePlan({
+          targetPromptIndex,
+          currentScrollTop: metrics.scrollTop,
+          maximumScrollTop: metrics.maximumScrollTop,
+          viewportHeight: metrics.viewportHeight,
+          direction: plannedDirection!,
+          probeCount: bracketDiscoveryCount,
+          promptDistance:
+            currentDistance === null
+              ? null
+              : currentDistance *
+                APP_CONFIG.navigation.search
+                  .bracketDiscoveryDistanceMultiplier,
+        });
+      }
+    } else if (plannedDirection !== null) {
       directionalProbeCount += 1;
       plan = createDirectionalProbePlan({
         targetPromptIndex,
         currentScrollTop: metrics.scrollTop,
         maximumScrollTop: metrics.maximumScrollTop,
         viewportHeight: metrics.viewportHeight,
-        direction: searchDirection,
+        direction: plannedDirection,
         probeCount: directionalProbeCount,
+        promptDistance: currentDistance,
         initialViewportCount: isNearTarget
           ? APP_CONFIG.navigation.search.nearTargetProbeViewportCount
           : undefined,
@@ -237,12 +394,14 @@ export async function searchVirtualPrompt({
     }
 
     if (
-      isInitialEstimate &&
-      searchDirection !== null &&
+      !isStaleAnchorReplan &&
+      plannedDirection !== null &&
+      !isRecoveringTargetDom &&
+      !isTransientUnresolvedRecovery &&
       !isScrollInDirection(
         metrics.scrollTop,
         plan.scrollTop,
-        searchDirection
+        plannedDirection
       )
     ) {
       directionalProbeCount += 1;
@@ -251,8 +410,9 @@ export async function searchVirtualPrompt({
         currentScrollTop: metrics.scrollTop,
         maximumScrollTop: metrics.maximumScrollTop,
         viewportHeight: metrics.viewportHeight,
-        direction: searchDirection,
+        direction: plannedDirection,
         probeCount: directionalProbeCount,
+        promptDistance: currentDistance,
         initialViewportCount: isNearTarget
           ? APP_CONFIG.navigation.search.nearTargetProbeViewportCount
           : undefined,
@@ -262,16 +422,21 @@ export async function searchVirtualPrompt({
     if (
       isSameScrollTop(plan.scrollTop, metrics.scrollTop)
     ) {
-      if (searchDirection !== null) {
+      if (plannedDirection !== null) {
         directionalProbeCount += 1;
         plan = createDirectionalProbePlan({
           targetPromptIndex,
           currentScrollTop: metrics.scrollTop,
           maximumScrollTop: metrics.maximumScrollTop,
           viewportHeight: metrics.viewportHeight,
-          direction: searchDirection,
+          direction: plannedDirection,
           probeCount: directionalProbeCount,
-          initialViewportCount: isNearTarget
+          promptDistance: isRecoveringTargetDom
+            ? null
+            : currentDistance,
+          initialViewportCount: isRecoveringTargetDom
+            ? APP_CONFIG.navigation.search.targetDomRecoveryViewportCount
+            : isNearTarget
             ? APP_CONFIG.navigation.search.nearTargetProbeViewportCount
             : undefined,
         });
@@ -292,10 +457,27 @@ export async function searchVirtualPrompt({
         scrollTop: plan.scrollTop,
         lowerAnchor: plan.lowerAnchor,
         upperAnchor: plan.upperAnchor,
-        phase: isInitialEstimate ? 'initial-estimate' : 'relative-search',
+        phase: isRecoveringTargetDom
+          ? plan.method === 'exact-anchor'
+            ? 'target-response-anchor'
+            : 'target-dom-recovery'
+          : isTransientUnresolvedRecovery
+            ? 'transient-unresolved-recovery'
+          : isInitialEstimate
+            ? 'initial-estimate'
+            : isStaleAnchorReplan
+              ? 'stale-anchor-replan'
+            : lowerSearchAnchor || upperSearchAnchor
+              ? lowerSearchAnchor && upperSearchAnchor
+                ? 'bracketed-binary-search'
+                : 'bracket-discovery'
+            : 'relative-search',
         currentDistance,
         isNearTarget,
         directionalProbeCount,
+        probeViewportCount:
+          Math.abs(plan.scrollTop - metrics.scrollTop) /
+          Math.max(1, metrics.viewportHeight),
         observedAnchorCount: getObservedAnchors().length,
         eligibleConfirmedAnchorCount:
           isInitialEstimate ? confirmedAnchors.length : 0,
@@ -325,6 +507,51 @@ export async function searchVirtualPrompt({
   return finishSearch('exhausted');
 }
 
+interface SearchBounds {
+  lowerAnchor: NavigationAnchor | null;
+  upperAnchor: NavigationAnchor | null;
+}
+
+/**
+ * Retains the closest live anchors on either side of the target Prompt.
+ */
+export function updateSearchBounds({
+  targetPromptIndex,
+  anchors,
+  lowerAnchor,
+  upperAnchor,
+}: {
+  targetPromptIndex: number;
+  anchors: NavigationAnchor[];
+  lowerAnchor: NavigationAnchor | null;
+  upperAnchor: NavigationAnchor | null;
+}): SearchBounds {
+  let nextLowerAnchor = lowerAnchor;
+  let nextUpperAnchor = upperAnchor;
+
+  anchors.forEach((anchor) => {
+    if (
+      anchor.promptIndex < targetPromptIndex &&
+      (!nextLowerAnchor ||
+        anchor.promptIndex >= nextLowerAnchor.promptIndex)
+    ) {
+      nextLowerAnchor = anchor;
+    }
+    if (
+      anchor.promptIndex > targetPromptIndex &&
+      (!nextUpperAnchor ||
+        anchor.promptIndex <= nextUpperAnchor.promptIndex)
+    ) {
+      nextUpperAnchor = anchor;
+    }
+  });
+
+  return {
+    lowerAnchor: nextLowerAnchor,
+    upperAnchor: nextUpperAnchor,
+  };
+}
+
 /**
  * Waits for the configured virtual-list rendering interval.
  */
@@ -342,11 +569,12 @@ export function getTargetDistance(
   position: VisiblePromptPosition
 ): number | null {
   if (position.status !== 'located') return null;
-  if (position.matchedPromptIndexes.length === 0) return null;
+  const logicalPositions = getMatchedLogicalPositions(position);
+  if (logicalPositions.length === 0) return null;
 
   return Math.min(
-    ...position.matchedPromptIndexes.map((promptIndex) =>
-      Math.abs(targetPromptIndex - promptIndex)
+    ...logicalPositions.map((logicalPosition) =>
+      Math.abs(targetPromptIndex - logicalPosition)
     )
   );
 }
@@ -359,14 +587,31 @@ export function getSearchDirection(
   position: VisiblePromptPosition
 ): 1 | -1 | null {
   if (position.status !== 'located') return null;
-  if (position.matchedPromptIndexes.length === 0) return null;
+  const logicalPositions = getMatchedLogicalPositions(position);
+  if (logicalPositions.length === 0) return null;
 
-  const firstIndex = Math.min(...position.matchedPromptIndexes);
-  const lastIndex = Math.max(...position.matchedPromptIndexes);
+  const firstIndex = Math.min(...logicalPositions);
+  const lastIndex = Math.max(...logicalPositions);
 
   if (targetPromptIndex > lastIndex) return 1;
   if (targetPromptIndex < firstIndex) return -1;
   return null;
+}
+
+/**
+ * Converts matched response segments into fractional Prompt coordinates.
+ */
+export function getMatchedLogicalPositions(
+  position: VisiblePromptPosition
+): number[] {
+  if (position.status !== 'located') return [];
+
+  return position.matchedBlocks.length > 0
+    ? position.matchedBlocks.map(
+        ({ promptIndex, source, positionRatio = 0 }) =>
+          promptIndex + (source === 'segment' ? positionRatio : 0)
+      )
+    : position.matchedPromptIndexes;
 }
 
 /**
@@ -379,6 +624,7 @@ export function createDirectionalProbePlan({
   viewportHeight,
   direction,
   probeCount,
+  promptDistance = null,
   initialViewportCount = APP_CONFIG.navigation.search
     .initialProbeViewportCount,
 }: {
@@ -388,14 +634,31 @@ export function createDirectionalProbePlan({
   viewportHeight: number;
   direction: 1 | -1;
   probeCount: number;
+  promptDistance?: number | null;
   initialViewportCount?: number;
 }): VirtualSearchPlan {
   const searchConfig = APP_CONFIG.navigation.search;
-  const viewportCount = Math.min(
+  const growingViewportCount = Math.min(
     Math.max(1, initialViewportCount) +
-      Math.max(0, probeCount - 1) * searchConfig.probeViewportIncrement,
+      Math.max(0, probeCount - 1) *
+        searchConfig.probeViewportIncrement,
     searchConfig.maximumProbeViewportCount
   );
+  const viewportCount =
+    promptDistance === null
+      ? growingViewportCount
+      : promptDistance < 1
+        ? 1
+        : Math.min(
+            Math.max(
+              growingViewportCount,
+              Math.ceil(
+                promptDistance *
+                  searchConfig.distanceProbeViewportRatio
+              )
+            ),
+            searchConfig.maximumDistanceProbeViewportCount
+          );
   const scrollTop = clamp(
     currentScrollTop + direction * viewportCount * Math.max(1, viewportHeight),
     0,
@@ -419,11 +682,18 @@ function getPositionDiagnosticDetails(
   anchorCount: number
 ): Record<string, unknown> {
   if (position.status === 'located') {
+    const primaryMatch = position.matchedBlocks[0];
+
     return {
       status: position.status,
       firstPromptIndex: position.firstPromptIndex,
       lastPromptIndex: position.lastPromptIndex,
       matchedBlocks: position.matchedBlocks,
+      matchSource: primaryMatch?.source || null,
+      segmentIndex: primaryMatch?.segmentIndex ?? null,
+      segmentCount: primaryMatch?.segmentCount ?? null,
+      positionRatio: primaryMatch?.positionRatio ?? null,
+      segmentQuality: primaryMatch?.segmentQuality ?? null,
       anchorCount,
     };
   }
@@ -472,7 +742,7 @@ function getTerminalStatus({
  * Checks whether two scroll positions resolve to the same browser pixel.
  */
 function isSameScrollTop(first: number, second: number): boolean {
-  return normalizeScrollTop(first) === normalizeScrollTop(second);
+  return Math.abs(first - second) <= SCROLL_POSITION_TOLERANCE_PX;
 }
 
 /**
@@ -493,13 +763,6 @@ function isScrollInDirection(
  */
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
-}
-
-/**
- * Normalizes sub-pixel scroll positions for repeat detection.
- */
-function normalizeScrollTop(scrollTop: number): number {
-  return Math.round(scrollTop);
 }
 
 /**

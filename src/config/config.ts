@@ -42,8 +42,12 @@ export const APP_CONFIG = {
       initialProbeViewportCount: 2,
       probeViewportIncrement: 2,
       maximumProbeViewportCount: 8,
+      distanceProbeViewportRatio: 0.75,
+      maximumDistanceProbeViewportCount: 32,
+      bracketDiscoveryDistanceMultiplier: 1.5,
       nearTargetPromptDistance: 2,
       nearTargetProbeViewportCount: 2,
+      targetDomRecoveryViewportCount: 1,
     },
   },
 } as const;

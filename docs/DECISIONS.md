@@ -149,6 +149,13 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
 * Independent jumps report success only when the target Prompt itself
   intersects the chat viewport; a retained offscreen Prompt DOM node cannot
   end search early or produce a confirmed anchor.
+* Once a search has resolved a live position, temporary unresolved frames keep
+  moving locally in the last reliable direction instead of restarting from a
+  global proportional estimate.
+* Each live observation updates the closest known position below or above the
+  target. With only one side known, a distance-scaled discovery probe
+  deliberately crosses the target; once both sides are observed, subsequent
+  plans bisect that live bracket.
 * Prompt snapshots, fingerprints, and unconfirmed search observations are
   discarded on page refresh or tab close.
 * Confirmed successful jump anchors may persist in local extension storage as
@@ -371,11 +378,12 @@ wrapping, group them into overlapping 0.75-viewport sections, and cap each
 response at 20 segments. For mounted responses, measure real Markdown-container
 height and use DOM Range character geometry to create observed segments at the
 same viewport spacing, recording the viewport dimensions that produced them.
-Both segment sources are retained in the tab-scoped conversation snapshot.
-Segment matching remains available as an isolated resolver capability, but the
-ChatGPT virtual-search adapter excludes Segment results from control decisions
-until their runtime behavior can be compared safely. Active navigation
-continues to resolve whole-response fingerprints before platform response IDs.
+The ChatGPT runtime builds derived Segments asynchronously from conversation
+text and matches them against viewport-only rendered text. A matched Segment
+contributes a fractional logical coordinate formed from `promptIndex` plus its
+`positionRatio`; whole-response fingerprints and platform response IDs remain
+fallbacks. Observed DOM Segment measurement stays disabled so MutationObserver
+updates cannot trigger repeated synchronous Range geometry work.
 
 Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown
@@ -404,5 +412,14 @@ absent when the new derived index completes.
 * Visible-position resolution tries generic fingerprints before using a
   platform response ID as fallback, allowing each future platform adapter to
   provide its own optional identity mechanism.
+* When a response resolves to the target Prompt index but the platform's Prompt
+  DOM is not visible, the generic controller first aligns the response's
+  observed top anchor. If that anchor cannot move the viewport further,
+  ChatGPT searches one viewport upward because its user Prompt precedes the
+  Assistant response.
+* Relative probes scale linearly with the fractional logical Prompt distance,
+  capped at 32 viewports. Sub-Prompt Segment distances use one viewport, while
+  repeated observations of the same response retain the existing bounded
+  attempt-based growth.
 * Existing prompt extraction and navigation behavior remain unchanged until
   the generic model is connected in a later step.

@@ -175,19 +175,7 @@ describe('ChatGPT virtual search adapter', () => {
         { id: 'prompt-2' },
       ],
       fingerprintIndex,
-      segmentIndex: [
-        {
-          responseId: 'response-1',
-          promptIndex: 0,
-          segmentIndex: 0,
-          segmentCount: 1,
-          positionRatio: 0,
-          probeText: 'Rendered',
-          verificationHash: 'unused',
-          verificationLength: 0,
-          quality: 'observed',
-        },
-      ],
+      segmentIndex: [],
       scrollContainer: container,
     });
 

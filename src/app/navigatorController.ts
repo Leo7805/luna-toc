@@ -84,13 +84,6 @@ export const navigatorController = (() => {
         record
       );
     },
-    onResponseSegments: (context, segments) => {
-      navigationSnapshotStore.upsertResponseSegments(
-        context.conversationKey,
-        context.revision,
-        segments
-      );
-    },
   });
 
   let conversationMessages: NavigatorMessage[] = [];
@@ -647,7 +640,10 @@ export const navigatorController = (() => {
         );
       })
       .catch((error: unknown) => {
-        console.warn('[LunaTOC] Failed to build navigation segments.', error);
+        console.warn(
+          '[LunaTOC] Failed to build derived navigation segments.',
+          error
+        );
       });
   }
 
