@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   calculateObservedSegmentTargetOffsets,
   createObservedResponseSegments,
+  extractRenderedTextWithinVerticalBounds,
 } from '@/features/navigation/fingerprint/segments';
 
 afterEach(() => {
@@ -64,6 +65,27 @@ describe('observed response segments', () => {
     });
     expect(segments[1]?.positionRatio).toBeCloseTo(1 / 3);
     expect(segments[1]?.verificationHash).toHaveLength(64);
+  });
+
+  it('extracts only text intersecting the requested vertical bounds', () => {
+    const content = document.createElement('div');
+    const textNode = document.createTextNode(
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    );
+    content.append(textNode);
+    document.body.append(content);
+    setElementRect(content, { top: 100, height: 260 });
+    mockTextRangeLayout(textNode, { top: 100, height: 260 });
+
+    const text = extractRenderedTextWithinVerticalBounds(
+      [content],
+      200,
+      300
+    );
+
+    expect(text.length).toBeGreaterThan(5);
+    expect(text).not.toContain('A');
+    expect(text).not.toContain('Z');
   });
 });
 

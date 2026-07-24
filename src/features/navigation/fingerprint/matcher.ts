@@ -1,10 +1,7 @@
 /**
  * Matches rendered text blocks against platform-independent prompt fingerprints.
  */
-import {
-  createSha256,
-  type ResponseFingerprint,
-} from './generator';
+import { createSha256 } from './generator';
 import type { NavigationFingerprintIndex } from './index';
 import { normalizeComparableText } from './comparableText';
 
@@ -18,6 +15,12 @@ export interface PromptFingerprintMatch {
   matchedFingerprintCount: number;
   responseIds: string[];
   blockIds: string[];
+}
+
+export interface VerifiableFingerprint {
+  probeText: string;
+  verificationHash: string;
+  verificationLength: number;
 }
 
 export type PromptMatchSelection =
@@ -48,7 +51,7 @@ export function findProbeOffsets(text: string, probeText: string): number[] {
  */
 export async function verifyFingerprintMatch(
   renderedText: string,
-  fingerprint: ResponseFingerprint
+  fingerprint: VerifiableFingerprint
 ): Promise<boolean> {
   const normalizedText = normalizeComparableText(renderedText);
   const probeText = fingerprint.probeText;

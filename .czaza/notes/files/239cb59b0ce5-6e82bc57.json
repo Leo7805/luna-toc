@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:9a187bcb20dc4732ed27ec8f1741204d91764c98d5375e48cbc4a406bbfcfef1",
+    "sourceHash": "sha256:746eac54ed212ddd90b64ce0432a754eec89155f9cf6f7685991171ecc05e017",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T05:59:27.797Z",
-    "updatedAt": "2026-07-24T06:25:00.111Z"
+    "updatedAt": "2026-07-24T12:58:57.966Z"
   },
   "fileNote": {
-    "userNote": "从 Response 记录中匹配指纹，再按 promptIndex 汇总结果。\n\n使用相同的可比较文本匹配 DOM 内容。\n\nmatchFingerprintIndex() — 同一个 Prompt 的多条 Response 可以累计匹配分数，但不会重复保存来源。\n\nfindProbeOffsets() — 在标准化后的文本中查找探针。\nverifyFingerprintMatch() — 验证明文和后续 Hash。\nmatchFingerprintIndex() — 汇总每个 Prompt 的匹配结果。\nselectBestPromptMatch() — 选择唯一最高结果或报告歧义。\n\n",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "userNote": "从 Response 记录中匹配指纹，再按 promptIndex 汇总结果。\n\n使用相同的可比较文本匹配 DOM 内容。\n\nmatchFingerprintIndex() — 同一个 Prompt 的多条 Response 可以累计匹配分数，但不会重复保存来源。\n\nfindProbeOffsets() — 在标准化后的文本中查找探针。\nverifyFingerprintMatch() — 验证明文和后续 Hash。\nmatchFingerprintIndex() — 汇总每个 Prompt 的匹配结果。\nselectBestPromptMatch() — 选择唯一最高结果或报告歧义。\n\n-----------\n提取通用的 VerifiableFingerprint，供整条指纹和 Segment 共用验证。",
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

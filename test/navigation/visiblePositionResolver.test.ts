@@ -9,6 +9,7 @@ import type {
   NavigationFingerprintIndex,
   ResponseFingerprintRecord,
 } from '@/features/navigation/fingerprint/index';
+import { createDerivedResponseSegments } from '@/features/navigation/fingerprint/segments';
 
 async function createRecord(
   responseId: string,
@@ -31,6 +32,47 @@ async function createRecord(
 }
 
 describe('visible prompt position resolver', () => {
+  it('returns segment coordinates before whole-response matches', async () => {
+    const text = 'A distinctive segment of the rendered response';
+    const segments = await createDerivedResponseSegments(
+      { id: 'response-segmented', text },
+      6,
+      {
+        probeLength: 8,
+        verificationLength: 16,
+        segmentViewportRatio: 0.75,
+        segmentOverlapRatio: 0.15,
+        estimatedCharsPerVisualLine: 60,
+        estimatedRowsPerViewport: 30,
+        maximumSegmentsPerAssistant: 20,
+      }
+    );
+    const wholeResponseIndex = [
+      await createRecord('different-response', 2, text),
+    ];
+
+    const position = await resolveVisiblePromptPosition(
+      [{ id: 'visible-block', text }],
+      wholeResponseIndex,
+      segments
+    );
+
+    expect(position).toMatchObject({
+      status: 'located',
+      matchedBlocks: [
+        {
+          blockId: 'visible-block',
+          promptIndex: 6,
+          source: 'segment',
+          segmentIndex: 0,
+          segmentCount: 1,
+          positionRatio: 0,
+          segmentQuality: 'derived',
+        },
+      ],
+    });
+  });
+
   it('falls back to response IDs when fingerprints do not match', async () => {
     const index = [
       await createRecord('response-1', 4, 'Original response text'),

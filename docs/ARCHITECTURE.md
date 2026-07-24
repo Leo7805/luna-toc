@@ -27,6 +27,7 @@ graph TD
         comparableText[fingerprint/comparableText.ts]
         fingerprint[fingerprint/generator.ts]
         fingerprintSegments[fingerprint/segments.ts]
+        segmentMatcher[fingerprint/segmentMatcher.ts]
         fingerprintIndex[fingerprint/index.ts]
         fingerprintMatcher[fingerprint/matcher.ts]
         visiblePosition[visiblePositionResolver.ts]
@@ -70,6 +71,8 @@ graph TD
     navigationData --> fingerprint
     fingerprint --> fingerprintIndex
     navigationData --> fingerprintSegments
+    fingerprintSegments --> segmentMatcher
+    segmentMatcher --> visiblePosition
     fingerprintIndex --> snapshotStore
     snapshotStore --> fingerprintMatcher
     fingerprintMatcher --> visiblePosition
@@ -116,9 +119,10 @@ graph TD
   - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
   - [fingerprint/segments.ts](../src/features/navigation/fingerprint/segments.ts): Builds inactive derived estimates from unrendered text and observed viewport segments from real DOM Range geometry as the foundation for later segment-aware navigation.
+  - [fingerprint/segmentMatcher.ts](../src/features/navigation/fingerprint/segmentMatcher.ts): Verifies visible viewport text against Segment probes and hashes, preferring observed geometry and rejecting equally strong locations as ambiguous.
   - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds one quality-tagged fingerprint record per response and merges derived/observed updates by precedence.
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
-  - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves the prompt-index range represented by rendered responses, preferring generic fingerprints and using platform response IDs only as a fallback.
+  - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Optionally resolves Segment coordinates before whole-response fingerprints and platform response-ID fallback while preserving Prompt-only callers.
   - [navigationAnchorStore.ts](../src/features/navigation/navigationAnchorStore.ts): Keeps transient search observations in memory and persists only confirmed prompt scroll anchors with bounded expiry and LRU limits.
   - [virtualSearchPlanner.ts](../src/features/navigation/virtualSearchPlanner.ts): Plans exact, interpolated, proportional, or binary fallback positions while rejecting anchor ranges whose virtual scroll coordinates run backwards.
   - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Uses anchors once for an initial estimate, then executes bounded relative probes from each newly observed Prompt position so virtual-list coordinate rebuilds cannot revive stale anchors.

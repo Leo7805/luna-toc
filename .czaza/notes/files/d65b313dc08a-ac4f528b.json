@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:57f4cd346fd27f35cd23eb67e6407327002fa9fbeaab1b3e1d27e8f72e0119dc",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T12:58:37.388Z",
+    "updatedAt": "2026-07-24T12:58:37.388Z"
+  },
+  "fileNote": {
+    "userNote": "新增通用 Segment 匹配器。matchSegmentIndex()：使用 probe 和 Hash 验证可见文本。\nselectBestSegmentMatch()：优先 observed，重复强匹配返回 ambiguous。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

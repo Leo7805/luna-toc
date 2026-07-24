@@ -6,6 +6,7 @@ import {
   getAssistantBlockId,
   getAssistantMarkdownText,
   getRenderedAssistantTextBlocks,
+  getVisibleAssistantViewportSamples,
 } from '@/platforms/chatgpt/renderedTextAdapter';
 
 afterEach(() => {
@@ -187,4 +188,65 @@ describe('ChatGPT rendered text adapter', () => {
     expect(segments[0]?.probeText).toContain('Visible');
     expect(segments[0]?.probeText).not.toContain('Tool');
   });
+
+  it('extracts only the Assistant text inside the chat viewport', () => {
+    document.body.innerHTML = `
+      <div data-message-author-role="assistant" data-message-id="assistant-1">
+        <div class="markdown">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+      </div>
+    `;
+    const markdown = document.querySelector<HTMLElement>('.markdown')!;
+    const textNode = markdown.firstChild as Text;
+    const container = document.createElement('div');
+    setRect(container, 300, 400);
+    setRect(markdown, 100, 900);
+    mockLinearTextRange(textNode, 100, 900);
+
+    const samples = getVisibleAssistantViewportSamples(container);
+
+    expect(samples).toHaveLength(1);
+    expect(samples[0]?.id).toBe('assistant-1');
+    expect(samples[0]?.text).not.toContain('A');
+    expect(samples[0]?.text).not.toContain('Z');
+  });
 });
+
+/**
+ * Defines one vertical DOM rectangle for viewport extraction.
+ */
+function setRect(element: HTMLElement, top: number, height: number): void {
+  element.getBoundingClientRect = () =>
+    ({
+      top,
+      bottom: top + height,
+      height,
+    }) as DOMRect;
+}
+
+/**
+ * Maps text offsets linearly across a mocked rendered height.
+ */
+function mockLinearTextRange(
+  textNode: Text,
+  top: number,
+  height: number
+): void {
+  vi.spyOn(document, 'createRange').mockImplementation(() => {
+    let startOffset = 0;
+    let endOffset = 0;
+
+    return {
+      setStart: (_node: Node, offset: number) => {
+        startOffset = offset;
+      },
+      setEnd: (_node: Node, offset: number) => {
+        endOffset = offset;
+      },
+      getBoundingClientRect: () =>
+        ({
+          top: top + (startOffset / textNode.length) * height,
+          bottom: top + (endOffset / textNode.length) * height,
+        }) as DOMRect,
+    } as unknown as Range;
+  });
+}

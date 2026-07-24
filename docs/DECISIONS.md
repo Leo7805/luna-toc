@@ -372,7 +372,10 @@ response at 20 segments. For mounted responses, measure real Markdown-container
 height and use DOM Range character geometry to create observed segments at the
 same viewport spacing, recording the viewport dimensions that produced them.
 Both segment sources remain outside the active matching index, so navigation
-behavior does not change until segment-aware position resolution is implemented.
+behavior does not change yet. A separate Segment matcher can now verify
+viewport-only rendered text, prefer observed matches over derived estimates,
+and return Segment coordinates through the position resolver's optional index;
+runtime collection and search-controller integration remain future steps.
 
 Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown

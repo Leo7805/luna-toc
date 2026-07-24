@@ -7,11 +7,20 @@ import {
   type RenderedTextBlock,
 } from './fingerprint/matcher';
 import type { NavigationFingerprintIndex } from './fingerprint/index';
+import {
+  matchSegmentIndex,
+  selectBestSegmentMatch,
+  type NavigationSegmentIndex,
+} from './fingerprint/segmentMatcher';
 
 export interface VisiblePromptBlockMatch {
   blockId: string;
   promptIndex: number;
-  source: 'response-id' | 'fingerprint';
+  source: 'segment' | 'response-id' | 'fingerprint';
+  segmentIndex?: number;
+  segmentCount?: number;
+  positionRatio?: number;
+  segmentQuality?: 'derived' | 'observed';
 }
 
 export interface LocatedVisiblePromptPosition {
@@ -46,14 +55,19 @@ export type VisiblePromptPosition =
  */
 export async function resolveVisiblePromptPosition(
   blocks: RenderedTextBlock[],
-  fingerprintIndex: NavigationFingerprintIndex
+  fingerprintIndex: NavigationFingerprintIndex,
+  segmentIndex: NavigationSegmentIndex = []
 ): Promise<VisiblePromptPosition> {
-  if (blocks.length === 0 || fingerprintIndex.length === 0) {
+  if (
+    blocks.length === 0 ||
+    (fingerprintIndex.length === 0 && segmentIndex.length === 0)
+  ) {
     return { status: 'none' };
   }
 
   const promptIndexesByResponseId = indexPromptIndexesByResponseId(
-    fingerprintIndex
+    fingerprintIndex,
+    segmentIndex
   );
   const matchedPromptIndexes = new Set<number>();
   const matchedBlockIds = new Set<string>();
@@ -62,6 +76,26 @@ export async function resolveVisiblePromptPosition(
   const ambiguousBlockIds = new Set<string>();
 
   for (const block of blocks) {
+    const segmentSelection = selectBestSegmentMatch(
+      await matchSegmentIndex([block], segmentIndex)
+    );
+
+    if (segmentSelection.status === 'matched') {
+      const segment = segmentSelection.match;
+      matchedPromptIndexes.add(segment.promptIndex);
+      matchedBlockIds.add(block.id);
+      matchedBlocks.push({
+        blockId: block.id,
+        promptIndex: segment.promptIndex,
+        source: 'segment',
+        segmentIndex: segment.segmentIndex,
+        segmentCount: segment.segmentCount,
+        positionRatio: segment.positionRatio,
+        segmentQuality: segment.quality,
+      });
+      continue;
+    }
+
     const selection = selectBestPromptMatch(
       await matchFingerprintIndex([block], fingerprintIndex)
     );
@@ -106,6 +140,13 @@ export async function resolveVisiblePromptPosition(
       );
       ambiguousBlockIds.add(block.id);
     }
+
+    if (segmentSelection.status === 'ambiguous') {
+      segmentSelection.matches.forEach(({ promptIndex }) =>
+        candidatePromptIndexes.add(promptIndex)
+      );
+      ambiguousBlockIds.add(block.id);
+    }
   }
 
   if (ambiguousBlockIds.size > 0) {
@@ -142,11 +183,19 @@ export async function resolveVisiblePromptPosition(
  * Groups all cached prompt indexes by response ID for direct DOM matching.
  */
 function indexPromptIndexesByResponseId(
-  fingerprintIndex: NavigationFingerprintIndex
+  fingerprintIndex: NavigationFingerprintIndex,
+  segmentIndex: NavigationSegmentIndex
 ): Map<string, Set<number>> {
   const promptIndexesByResponseId = new Map<string, Set<number>>();
 
   fingerprintIndex.forEach(({ responseId, promptIndex }) => {
+    const promptIndexes =
+      promptIndexesByResponseId.get(responseId) || new Set<number>();
+
+    promptIndexes.add(promptIndex);
+    promptIndexesByResponseId.set(responseId, promptIndexes);
+  });
+  segmentIndex.forEach(({ responseId, promptIndex }) => {
     const promptIndexes =
       promptIndexesByResponseId.get(responseId) || new Set<number>();
 

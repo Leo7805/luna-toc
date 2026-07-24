@@ -307,6 +307,28 @@ export function calculateObservedSegmentTargetOffsets(
 }
 
 /**
+ * Extracts rendered text whose character geometry intersects vertical bounds.
+ */
+export function extractRenderedTextWithinVerticalBounds(
+  contentElements: HTMLElement[],
+  top: number,
+  bottom: number
+): string {
+  if (bottom <= top) return '';
+
+  const textNodes = collectTextNodes(
+    contentElements.filter((element) => element.isConnected)
+  );
+  if (textNodes.length === 0) return '';
+
+  const start = findObservedTextPosition(textNodes, top);
+  const end = findObservedTextPosition(textNodes, bottom);
+  if (!start || !end) return '';
+
+  return getTextBetweenObservedPositions(textNodes, start, end);
+}
+
+/**
  * Converts source lines and estimated wrapping into visual-row units.
  */
 function createEstimatedVisualUnits(
@@ -431,6 +453,29 @@ function getTextFromObservedPosition(
         ? node.data.slice(position.characterOffset)
         : node.data
     )
+    .join(' ');
+}
+
+/**
+ * Returns rendered text bounded by two measured DOM characters.
+ */
+function getTextBetweenObservedPositions(
+  textNodes: Text[],
+  start: ObservedTextPosition,
+  end: ObservedTextPosition
+): string {
+  return textNodes
+    .slice(start.nodeIndex, end.nodeIndex + 1)
+    .map((node, relativeIndex, selectedNodes) => {
+      const isFirst = relativeIndex === 0;
+      const isLast = relativeIndex === selectedNodes.length - 1;
+      const startOffset = isFirst ? start.characterOffset : 0;
+      const endOffset = isLast
+        ? end.characterOffset + 1
+        : node.data.length;
+
+      return node.data.slice(startOffset, endOffset);
+    })
     .join(' ');
 }
 
