@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:14486ceda50d9d37a0e36c5a64b7c6a5ee05cd76649062186ff33b2bcfc9b724",
+    "sourceHash": "sha256:e7e7f1fabeef49f1c32ce67c814eabb0f95eeea598c0506358b1e5119fc1f1aa",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T07:17:06.223Z",
-    "updatedAt": "2026-07-24T13:15:29.451Z"
+    "updatedAt": "2026-07-24T13:21:58.190Z"
   },
   "fileNote": {
     "userNote": "\n将ChatGPT DOM转换为通用虚拟搜索输入。\n\ngetChatGptScrollContainer() — 查找聊天滚动容器。\nfindRenderedChatGptPrompt() — 根据稳定消息ID查找已渲染Prompt。\ngetChatGptScrollMetrics() — 获取scrollTop、最大位置和视口宽度。\nobserveChatGptVirtualPosition() — 解析可见回答并生成Prompt锚点。\ncreateChatGptElementNavigationAnchor() — 锚点函数。 根据元素相对容器的位置计算准确锚点，支持Prompt和Assistant元素。\n\n\n---修复---\n只使用真正与聊天滚动容器相交的Assistant元素。\nChatGPT留在DOM中的远程缓存节点不再参与当前位置判断。\n自动过滤promptIndex < 0或promptIndex >= promptCount的记录。\nisElementWithinScrollViewport()负责可视区域判断。\n\n\n---\n提取真正与视口相交的 Assistant 文本进行 Segment 匹配。observeChatGptVirtualPosition()：过滤有效 Segment，并将视口文本交给位置解析器。",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

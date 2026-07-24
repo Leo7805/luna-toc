@@ -372,12 +372,10 @@ response at 20 segments. For mounted responses, measure real Markdown-container
 height and use DOM Range character geometry to create observed segments at the
 same viewport spacing, recording the viewport dimensions that produced them.
 Both segment sources are retained in the tab-scoped conversation snapshot.
-During virtual search, the platform adapter extracts only rendered text that
-intersects the chat viewport and resolves Segment coordinates before falling
-back to whole-response fingerprints and platform response IDs. Observed Segment
-geometry takes precedence over derived estimates. The search controller still
-uses only the resolved Prompt range for direction planning; the Segment's
-internal `positionRatio` is diagnostic data until a later planning step.
+Segment matching remains available as an isolated resolver capability, but the
+ChatGPT virtual-search adapter excludes Segment results from control decisions
+until their runtime behavior can be compared safely. Active navigation
+continues to resolve whole-response fingerprints before platform response IDs.
 
 Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown

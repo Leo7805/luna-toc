@@ -14,7 +14,6 @@ import type {
 } from '@/features/navigation/virtualSearchController';
 import {
   getRenderedAssistantEntries,
-  getVisibleAssistantViewportSamples,
 } from './renderedTextAdapter';
 
 const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
@@ -131,7 +130,6 @@ export async function observeChatGptVirtualPosition({
   conversationKey,
   prompts,
   fingerprintIndex,
-  segmentIndex,
   root = document,
   scrollContainer = getChatGptScrollContainer(root),
 }: ChatGptVirtualPositionOptions): Promise<VirtualSearchObservation> {
@@ -150,18 +148,9 @@ export async function observeChatGptVirtualPosition({
   const validFingerprintIndex = fingerprintIndex.filter(
     ({ promptIndex }) => promptIndex >= 0 && promptIndex < prompts.length
   );
-  const validSegmentIndex = segmentIndex.filter(
-    ({ promptIndex }) => promptIndex >= 0 && promptIndex < prompts.length
-  );
-  const visibleViewportSamples = getVisibleAssistantViewportSamples(
-    scrollContainer,
-    root
-  );
   const position = await resolveVisiblePromptPosition(
     visibleEntries.map(({ block }) => block),
-    validFingerprintIndex,
-    validSegmentIndex,
-    visibleViewportSamples
+    validFingerprintIndex
   );
 
   if (position.status !== 'located') {
