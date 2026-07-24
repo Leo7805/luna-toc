@@ -6,6 +6,11 @@ import type { RenderedTextBlock } from '@/features/navigation/fingerprint/matche
 const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
 const MARKDOWN_SELECTOR = '.markdown';
 
+export interface ChatGptRenderedAssistantEntry {
+  block: RenderedTextBlock;
+  element: HTMLElement;
+}
+
 /**
  * Returns mounted ChatGPT Assistant Markdown as platform-independent text.
  *
@@ -15,6 +20,18 @@ const MARKDOWN_SELECTOR = '.markdown';
 export function getRenderedAssistantTextBlocks(
   root: ParentNode = document
 ): RenderedTextBlock[] {
+  return getRenderedAssistantEntries(root).map(({ block }) => block);
+}
+
+/**
+ * Returns mounted Assistant text together with its owning DOM element.
+ *
+ * @example
+ * const entries = getRenderedAssistantEntries(document);
+ */
+export function getRenderedAssistantEntries(
+  root: ParentNode = document
+): ChatGptRenderedAssistantEntry[] {
   return Array.from(
     root.querySelectorAll<HTMLElement>(ASSISTANT_SELECTOR)
   ).flatMap((assistantElement, index) => {
@@ -24,8 +41,11 @@ export function getRenderedAssistantTextBlocks(
 
     return [
       {
-        id: getAssistantBlockId(assistantElement, index),
-        text,
+        element: assistantElement,
+        block: {
+          id: getAssistantBlockId(assistantElement, index),
+          text,
+        },
       },
     ];
   });

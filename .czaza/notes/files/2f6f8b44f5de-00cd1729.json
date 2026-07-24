@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:eaf25aed0fb13caeae8a8112be855fdf51ebe9497204a56b0a0ba8c03956abaf",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T07:17:06.223Z",
+    "updatedAt": "2026-07-24T07:17:06.223Z"
+  },
+  "fileNote": {
+    "userNote": "将ChatGPT DOM转换为通用虚拟搜索输入。\ngetChatGptScrollContainer() — 查找聊天滚动容器。\nfindRenderedChatGptPrompt() — 根据稳定消息ID查找已渲染Prompt。\ngetChatGptScrollMetrics() — 获取scrollTop、最大位置和视口宽度。\nobserveChatGptVirtualPosition() — 解析可见回答并生成Prompt锚点。\ncreateChatGptNavigationAnchor() — 根据元素相对容器的位置计算准确锚点。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

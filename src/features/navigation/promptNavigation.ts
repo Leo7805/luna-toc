@@ -2,6 +2,7 @@
  * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
 import type { NavigatorMessage } from '../conversationPrompts/message';
+import { getChatGptScrollContainer } from '@/platforms/chatgpt/virtualSearchAdapter';
 import { keepFollowing } from './follow';
 
 interface PromptNavigationOptions {
@@ -403,7 +404,7 @@ function jumpToUserMessageByVirtualScan(
   message: NavigatorMessage,
   index: number
 ): boolean {
-  const container = getChatScrollContainer();
+  const container = getChatGptScrollContainer();
   const messageCount = getConversationMessageCount();
 
   if (!container) {
@@ -873,7 +874,7 @@ export function jumpToAbsoluteEdge(
 ): void {
   keepFollowing();
 
-  const container = getChatScrollContainer();
+  const container = getChatGptScrollContainer();
   if (container) {
     const targetTop = edge === 'top' ? 0 : container.scrollHeight;
     container.scrollTo({
@@ -891,48 +892,4 @@ export function jumpToAbsoluteEdge(
       }, 100);
     }
   }
-}
-
-/**
- * Finds the scrollable container of ChatGPT's main message feed.
- * @returns {HTMLElement|null}
- */
-function getChatScrollContainer(): HTMLElement | null {
-  // 1. Try to find a message element and traverse up to its scrollable parent
-  const sampleMessage =
-    document.querySelector('[data-message-author-role="user"]') ||
-    document.querySelector('[data-message-author-role="assistant"]');
-  if (sampleMessage) {
-    let parent = sampleMessage.parentElement;
-    while (parent && parent !== document.body) {
-      const style = window.getComputedStyle(parent);
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        return parent;
-      }
-      parent = parent.parentElement;
-    }
-  }
-
-  // 2. Fallback to selectors
-  const reactScrollDiv =
-    document.querySelector<HTMLElement>('main div.overflow-y-auto') ||
-    document.querySelector<HTMLElement>('[class*="react-scroll-to-bottom"]') ||
-    document.querySelector<HTMLElement>(
-      'main [class*="react-scroll-to-bottom"]'
-    );
-  if (reactScrollDiv) return reactScrollDiv;
-
-  // 3. Fallback to searching main divs
-  const main = document.querySelector('main');
-  if (main) {
-    const divs = Array.from(main.querySelectorAll('div'));
-    for (const div of divs) {
-      const style = window.getComputedStyle(div);
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        return div;
-      }
-    }
-  }
-
-  return null;
 }

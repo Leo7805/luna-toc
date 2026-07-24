@@ -36,6 +36,7 @@ graph TD
         chatGptAdapter[ChatGPT navigationAdapter.ts]
         chatGptRenderedText[ChatGPT renderedTextAdapter.ts]
         chatGptFingerprintCollector[ChatGPT renderedFingerprintCollector.ts]
+        chatGptVirtualSearch[ChatGPT virtualSearchAdapter.ts]
         msg[message.ts]
         mark[promptMark.ts]
         vis[sidebarVisibility.ts]
@@ -78,6 +79,8 @@ graph TD
     chatGptRenderedText --> fingerprintMatcher
     chatGptRenderedText --> chatGptFingerprintCollector
     chatGptFingerprintCollector --> snapshotStore
+    chatGptRenderedText --> chatGptVirtualSearch
+    chatGptVirtualSearch --> virtualSearchController
     navigator --> follow
     outline --> outlineNavigation
     outlineNavigation --> promptNavigation
@@ -120,6 +123,7 @@ graph TD
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.
   - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces rendered Assistant DOM changes and upgrades mapped responses to observed fingerprints in the current revision.
+  - [virtualSearchAdapter.ts](../src/platforms/chatgpt/virtualSearchAdapter.ts): Adapts ChatGPT scroll containers, mounted prompt IDs, rendered response positions, and element geometry to generic virtual-search inputs.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
   - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.
