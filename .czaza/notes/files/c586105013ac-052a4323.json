@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:5dfe36bc877d493e335e60a9a6fdb32090fa3bc5bd8517d2a5ab57ec4d96255f",
+    "sourceHash": "sha256:c03fccfada7dcad5804f662d7b358eef1de841f7569a444ef64ec79a3c3005f7",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T12:41:39.342Z",
-    "updatedAt": "2026-07-24T12:41:47.658Z"
+    "updatedAt": "2026-07-24T12:51:48.929Z"
   },
   "fileNote": {
-    "userNote": "负责未渲染 Assistant 的近似 viewport 分段。estimateDerivedVisualRows()：根据换行和长行估算视觉行数。\ncalculateDerivedSegmentRanges()：生成带重叠的分段文本范围。\ncreateDerivedResponseSegments()：为每段生成 probe、Hash 和逻辑位置。",
-    "createdBy": "user"
+    "userNote": "负责未渲染 Assistant 的近似 viewport 分段。estimateDerivedVisualRows()：根据换行和长行估算视觉行数。\ncalculateDerivedSegmentRanges()：生成带重叠的分段文本范围。\ncreateDerivedResponseSegments()：为每段生成 probe、Hash 和逻辑位置。\n\n\n---\n增加真实 DOM viewport 分段。calculateObservedSegmentTargetOffsets()：根据真实内容高度和 viewport 高度生成采样位置。\ncreateObservedResponseSegments()：利用 DOM Range 生成 observed 指纹。\nfindObservedTextPosition()：通过二分查找定位目标高度对应的字符。\ncollectTextNodes()：收集参与测量的正文文本节点。\nmeasureTextRange()：使用浏览器布局引擎测量字符位置。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

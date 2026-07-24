@@ -368,9 +368,11 @@ verified-fingerprint count.
 Prepare derived viewport-segment fingerprints separately from the active
 navigation index. Estimate visual rows from source newlines and long-line
 wrapping, group them into overlapping 0.75-viewport sections, and cap each
-response at 20 segments. This first-stage model does not alter matching or
-navigation behavior until observed DOM segments and segment-aware position
-resolution are implemented.
+response at 20 segments. For mounted responses, measure real Markdown-container
+height and use DOM Range character geometry to create observed segments at the
+same viewport spacing, recording the viewport dimensions that produced them.
+Both segment sources remain outside the active matching index, so navigation
+behavior does not change until segment-aware position resolution is implemented.
 
 Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown

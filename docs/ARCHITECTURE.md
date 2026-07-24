@@ -115,7 +115,7 @@ graph TD
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
-  - [fingerprint/segments.ts](../src/features/navigation/fingerprint/segments.ts): Builds inactive derived viewport-segment estimates from unrendered response lines and long-line wrapping as the foundation for later segment-aware navigation.
+  - [fingerprint/segments.ts](../src/features/navigation/fingerprint/segments.ts): Builds inactive derived estimates from unrendered text and observed viewport segments from real DOM Range geometry as the foundation for later segment-aware navigation.
   - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds one quality-tagged fingerprint record per response and merges derived/observed updates by precedence.
   - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [visiblePositionResolver.ts](../src/features/navigation/visiblePositionResolver.ts): Resolves the prompt-index range represented by rendered responses, preferring generic fingerprints and using platform response IDs only as a fallback.
@@ -124,7 +124,7 @@ graph TD
   - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Uses anchors once for an initial estimate, then executes bounded relative probes from each newly observed Prompt position so virtual-list coordinate rebuilds cannot revive stale anchors.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected response fingerprint records by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
-  - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.
+  - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts mounted ChatGPT Assistant Markdown into generic rendered text and exposes owned Markdown containers for observed viewport-segment measurement while excluding tools and attachments.
   - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces rendered Assistant DOM changes and upgrades mapped responses to observed fingerprints in the current revision.
   - [virtualSearchAdapter.ts](../src/platforms/chatgpt/virtualSearchAdapter.ts): Adapts ChatGPT scroll containers, mounted prompt IDs, rendered response positions, and viewport intersection to generic virtual-search inputs.
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.

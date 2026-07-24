@@ -2,6 +2,10 @@
  * Converts currently mounted ChatGPT Assistant DOM into generic text blocks.
  */
 import type { RenderedTextBlock } from '@/features/navigation/fingerprint/matcher';
+import {
+  createObservedResponseSegments,
+  type ResponseSegmentFingerprint,
+} from '@/features/navigation/fingerprint/segments';
 
 const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
 const MARKDOWN_SELECTOR = '.markdown';
@@ -9,6 +13,12 @@ const MARKDOWN_SELECTOR = '.markdown';
 export interface ChatGptRenderedAssistantEntry {
   block: RenderedTextBlock;
   element: HTMLElement;
+}
+
+export interface ChatGptObservedSegmentOptions {
+  assistantElement: HTMLElement;
+  promptIndex: number;
+  scrollContainer: HTMLElement;
 }
 
 /**
@@ -72,7 +82,20 @@ export function getAssistantBlockId(
 export function getAssistantMarkdownText(
   assistantElement: HTMLElement
 ): string {
-  const markdownContainers = Array.from(
+  return getAssistantMarkdownContainers(assistantElement)
+    .map((container) => container.innerText || container.textContent || '')
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+/**
+ * Returns top-level Markdown containers owned by one Assistant message.
+ */
+export function getAssistantMarkdownContainers(
+  assistantElement: HTMLElement
+): HTMLElement[] {
+  return Array.from(
     assistantElement.querySelectorAll<HTMLElement>(MARKDOWN_SELECTOR)
   ).filter((container) => {
     const owningMessage = container.closest<HTMLElement>(
@@ -82,10 +105,21 @@ export function getAssistantMarkdownText(
 
     return owningMessage === assistantElement && !nestedMarkdown;
   });
+}
 
-  return markdownContainers
-    .map((container) => container.innerText || container.textContent || '')
-    .map((text) => text.trim())
-    .filter(Boolean)
-    .join('\n');
+/**
+ * Creates observed viewport segments from ChatGPT's actual rendered layout.
+ */
+export function createChatGptObservedResponseSegments({
+  assistantElement,
+  promptIndex,
+  scrollContainer,
+}: ChatGptObservedSegmentOptions): Promise<ResponseSegmentFingerprint[]> {
+  return createObservedResponseSegments({
+    responseId: getAssistantBlockId(assistantElement, 0),
+    promptIndex,
+    contentElements: getAssistantMarkdownContainers(assistantElement),
+    viewportWidth: scrollContainer.clientWidth || window.innerWidth,
+    viewportHeight: scrollContainer.clientHeight || window.innerHeight,
+  });
 }

@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 /** Tests ChatGPT DOM conversion to generic rendered Assistant text blocks. */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  createChatGptObservedResponseSegments,
   getAssistantBlockId,
   getAssistantMarkdownText,
   getRenderedAssistantTextBlocks,
@@ -9,6 +10,7 @@ import {
 
 afterEach(() => {
   document.body.innerHTML = '';
+  vi.restoreAllMocks();
 });
 
 describe('ChatGPT rendered text adapter', () => {
@@ -124,5 +126,65 @@ describe('ChatGPT rendered text adapter', () => {
     expect(
       getAssistantMarkdownText(assistant).match(/Nested text/g)
     ).toHaveLength(1);
+  });
+
+  it('passes only owned Markdown containers to observed segmentation', async () => {
+    document.body.innerHTML = `
+      <div data-message-author-role="assistant" data-message-id="assistant-1">
+        <div class="markdown">Visible response text</div>
+        <div data-message-author-role="tool">
+          <div class="markdown">Tool output</div>
+        </div>
+      </div>
+    `;
+    const assistant = document.querySelector<HTMLElement>(
+      '[data-message-author-role="assistant"]'
+    )!;
+    const markdown = assistant.querySelector<HTMLElement>('.markdown')!;
+    const container = document.createElement('div');
+    Object.defineProperties(container, {
+      clientWidth: { configurable: true, value: 900 },
+      clientHeight: { configurable: true, value: 600 },
+    });
+    markdown.getBoundingClientRect = () =>
+      ({
+        top: 100,
+        bottom: 200,
+        height: 100,
+      }) as DOMRect;
+    const textNode = markdown.firstChild as Text;
+    vi.spyOn(document, 'createRange').mockImplementation(() => {
+      let endOffset = 0;
+      return {
+        setStart: () => {},
+        setEnd: (_node: Node, offset: number) => {
+          endOffset = offset;
+        },
+        getBoundingClientRect: () =>
+          ({
+            top: 100,
+            bottom:
+              100 + (endOffset / Math.max(1, textNode.length)) * 100,
+          }) as DOMRect,
+      } as unknown as Range;
+    });
+
+    const segments = await createChatGptObservedResponseSegments({
+      assistantElement: assistant,
+      promptIndex: 2,
+      scrollContainer: container,
+    });
+
+    expect(segments).toMatchObject([
+      {
+        responseId: 'assistant-1',
+        promptIndex: 2,
+        quality: 'observed',
+        viewportWidth: 900,
+        viewportHeight: 600,
+      },
+    ]);
+    expect(segments[0]?.probeText).toContain('Visible');
+    expect(segments[0]?.probeText).not.toContain('Tool');
   });
 });
