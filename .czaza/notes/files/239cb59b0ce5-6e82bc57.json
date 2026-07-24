@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:64780eba8ed651fba96091d7dc962f13680b7254fad341a0ab19a999c8b1d25c",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T05:59:27.797Z",
+    "updatedAt": "2026-07-24T05:59:27.797Z"
+  },
+  "fileNote": {
+    "userNote": "使用相同的可比较文本匹配 DOM 内容。\nfindProbeOffsets() — 在标准化后的文本中查找探针。\nverifyFingerprintMatch() — 验证明文和后续 Hash。\nmatchFingerprintIndex() — 汇总每个 Prompt 的匹配结果。\nselectBestPromptMatch() — 选择唯一最高结果或报告歧义。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

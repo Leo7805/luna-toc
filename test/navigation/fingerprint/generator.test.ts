@@ -4,9 +4,9 @@ import {
   calculateFingerprintOffsets,
   createResponseFingerprints,
   createSha256,
-  normalizeFingerprintText,
   type FingerprintOptions,
-} from '@/features/navigation/fingerprint';
+} from '@/features/navigation/fingerprint/generator';
+import { normalizeComparableText } from '@/features/navigation/fingerprint/comparableText';
 
 const options: FingerprintOptions = {
   countPerAssistant: 3,
@@ -16,8 +16,8 @@ const options: FingerprintOptions = {
 
 describe('response fingerprints', () => {
   it('normalizes whitespace consistently', () => {
-    expect(normalizeFingerprintText(' Hello\n\t  world ')).toBe('Hello world');
-    expect(normalizeFingerprintText('Hello world')).toBe('Hello world');
+    expect(normalizeComparableText(' Hello\n\t  world ')).toBe('Hello world');
+    expect(normalizeComparableText('Hello world')).toBe('Hello world');
   });
 
   it('does not create fingerprints for empty text', async () => {

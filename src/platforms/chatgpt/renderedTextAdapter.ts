@@ -1,7 +1,7 @@
 /**
  * Converts currently mounted ChatGPT Assistant DOM into generic text blocks.
  */
-import type { RenderedTextBlock } from '@/features/navigation/fingerprintMatcher';
+import type { RenderedTextBlock } from '@/features/navigation/fingerprint/matcher';
 
 const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
 const MARKDOWN_SELECTOR = '.markdown';

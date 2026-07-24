@@ -3,10 +3,10 @@
  */
 import {
   createSha256,
-  normalizeFingerprintText,
   type ResponseFingerprint,
-} from './fingerprint';
-import type { PromptFingerprintIndex } from './fingerprintIndex';
+} from './generator';
+import type { PromptFingerprintIndex } from './index';
+import { normalizeComparableText } from './comparableText';
 
 export interface RenderedTextBlock {
   id: string;
@@ -32,8 +32,8 @@ export type PromptMatchSelection =
  * findProbeOffsets('alpha beta alpha', 'alpha') returns [0, 11].
  */
 export function findProbeOffsets(text: string, probeText: string): number[] {
-  const normalizedText = normalizeFingerprintText(text);
-  const normalizedProbe = normalizeFingerprintText(probeText);
+  const normalizedText = normalizeComparableText(text);
+  const normalizedProbe = normalizeComparableText(probeText);
 
   if (!normalizedText || !normalizedProbe) return [];
 
@@ -50,7 +50,7 @@ export async function verifyFingerprintMatch(
   renderedText: string,
   fingerprint: ResponseFingerprint
 ): Promise<boolean> {
-  const normalizedText = normalizeFingerprintText(renderedText);
+  const normalizedText = normalizeComparableText(renderedText);
   const probeText = fingerprint.probeText;
   const offsets = findProbeOffsetsInNormalizedText(
     normalizedText,
@@ -93,7 +93,7 @@ export async function matchFingerprintIndex(
 ): Promise<PromptFingerprintMatch[]> {
   const normalizedBlocks = blocks.map((block) => ({
     id: block.id,
-    text: normalizeFingerprintText(block.text),
+    text: normalizeComparableText(block.text),
   }));
   const matches: PromptFingerprintMatch[] = [];
 

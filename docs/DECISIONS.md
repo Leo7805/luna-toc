@@ -324,13 +324,15 @@ visible Assistant text for future fingerprint generation. Exclude tool messages,
 attachments, and structured non-text content.
 
 Generate at most the configured number of fingerprints per response. Normalize
-whitespace, distribute samples across long responses, use a short plain-text
-probe for fast lookup, and verify ambiguous matches with a SHA-256 hash of the
-following bounded text. Build the conversation index in bounded batches and
-yield to the event loop between batches so long conversations do not monopolize
-the Content Script's main thread. Match rendered text by locating probes first,
-verifying their trailing hashes, and accepting a prompt only when it has a
-unique highest verified-fingerprint count.
+raw and rendered content into comparable Unicode letters and numbers, removing
+Markdown image/link payloads, URLs, and formatting symbols. Distribute samples
+across long responses, use a short plain-text probe for fast lookup, and verify
+ambiguous matches with a SHA-256 hash of the following bounded text. Build the
+conversation index in bounded batches and yield to the event loop between
+batches so long conversations do not monopolize the Content Script's main
+thread. Match rendered text by locating probes first, verifying their trailing
+hashes, and accepting a prompt only when it has a unique highest
+verified-fingerprint count.
 
 Keep rendered-text extraction in platform adapters. The ChatGPT adapter reads
 only mounted Assistant-owned Markdown containers, combines multiple Markdown
@@ -342,6 +344,8 @@ blocks belonging to one response, and excludes nested tool or attachment UI.
   navigation algorithm.
 * Fingerprints contain only bounded text probes and hashes rather than complete
   AI responses.
+* Derived raw text and observed rendered text share the same lightweight
+  comparable-text transformation without requiring a Markdown renderer.
 * Fingerprints remain grouped by `promptIndex`, including empty entries for
   prompts that do not yet have an AI response.
 * Equally strong prompt matches are reported as ambiguous instead of selecting

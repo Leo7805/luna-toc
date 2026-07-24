@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:1096b7454f3e9a883261d1ed474946cc9f2a65da572d0cfc6cab9e1238656822",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T05:58:28.030Z",
+    "updatedAt": "2026-07-24T05:58:28.030Z"
+  },
+  "fileNote": {
+    "userNote": "将 Raw Markdown 和 DOM 文本转换成统一的字母、数字文本。\nstripMarkdownPayloads() — 删除图片、链接目标、URL、代码围栏和 HTML 标签。\nnormalizeWhitespace() — 合并连续空白并清理首尾。\nnormalizeComparableText() — 执行 NFKC 标准化，只保留 Unicode 字母与数字。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

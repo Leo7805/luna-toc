@@ -1,7 +1,7 @@
 /**
  * Stores revision-safe, tab-scoped navigation snapshots by conversation key.
  */
-import type { PromptFingerprintIndex } from './fingerprintIndex';
+import type { PromptFingerprintIndex } from './fingerprint/index';
 
 export interface ConversationNavigationSnapshot<TPrompt> {
   prompts: TPrompt[];

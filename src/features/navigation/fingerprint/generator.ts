@@ -2,7 +2,8 @@
  * Generates compact text fingerprints for platform-independent AI responses.
  */
 import { APP_CONFIG } from '@/config/config';
-import type { NavigationTextMessage } from './navigationData';
+import type { NavigationTextMessage } from '@/features/navigation/navigationData';
+import { normalizeComparableText } from './comparableText';
 
 export interface FingerprintOptions {
   countPerAssistant: number;
@@ -17,16 +18,6 @@ export interface ResponseFingerprint {
   probeText: string;
   verificationHash: string;
   verificationLength: number;
-}
-
-/**
- * Normalizes whitespace so payload text and rendered DOM text can be compared.
- *
- * @example
- * normalizeFingerprintText('Hello\n  world') === 'Hello world';
- */
-export function normalizeFingerprintText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -88,7 +79,7 @@ export async function createResponseFingerprints(
   response: NavigationTextMessage,
   options: FingerprintOptions = APP_CONFIG.navigation.fingerprint
 ): Promise<ResponseFingerprint[]> {
-  const text = normalizeFingerprintText(response.text);
+  const text = normalizeComparableText(response.text);
   const offsets = calculateFingerprintOffsets(text.length, options);
 
   return Promise.all(

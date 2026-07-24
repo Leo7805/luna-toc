@@ -4,7 +4,7 @@ import {
   buildFingerprintIndex,
   flattenResponseTasks,
   type FingerprintIndexOptions,
-} from '@/features/navigation/fingerprintIndex';
+} from '@/features/navigation/fingerprint/index';
 import type { NavigationTurn } from '@/features/navigation/navigationData';
 
 const options: FingerprintIndexOptions = {

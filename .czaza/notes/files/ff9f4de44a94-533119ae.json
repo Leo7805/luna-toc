@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:8bfd4841cbacb882d7bc6fe4fab61fda0d176e575eb716aa8c5ccef4be86d79e",
+    "sourceHash": "sha256:b0a94c63709ec782ad7cddbfe4a8dd0059fd64995786da42bdc2a8d42e7af13f",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T05:09:31.337Z",
-    "updatedAt": "2026-07-24T05:09:55.346Z"
+    "updatedAt": "2026-07-24T06:00:05.319Z"
   },
   "fileNote": {
-    "userNote": "管理当前标签页中的会话 Prompt 和指纹快照。\ncreateNavigationSnapshotStore()() — 创建独立的标签页内存缓存。\nreplacePrompts() — 立即保存最新 Prompt、增加 revision 并清空旧指纹。\ncompleteFingerprintIndex() — 仅在 revision 一致时保存异步生成的指纹。\ngetSnapshot() — 返回与内部缓存完全脱离的快照副本。\ncopySnapshot() — 将临时路由快照复制到正式会话 ID，并生成新 revision。\ncloneSnapshot() — 深度分离 Prompt 和指纹快照。\ncloneFingerprintIndex() — 复制嵌套的指纹索引和指纹对象。\n\n它缓存的是：\n导航 Prompt\n导航指纹索引\n导航数据 revision\n导航临时路由快照\n这些数据都只服务于导航算法，并不是整个会话的完整缓存。",
+    "userNote": "管理当前标签页中的会话 Prompt 和指纹快照。\n更新指纹索引类型导入路径。\n\ncreateNavigationSnapshotStore()() — 创建独立的标签页内存缓存。\nreplacePrompts() — 立即保存最新 Prompt、增加 revision 并清空旧指纹。\ncompleteFingerprintIndex() — 仅在 revision 一致时保存异步生成的指纹。\ngetSnapshot() — 返回与内部缓存完全脱离的快照副本。\ncopySnapshot() — 将临时路由快照复制到正式会话 ID，并生成新 revision。\ncloneSnapshot() — 深度分离 Prompt 和指纹快照。\ncloneFingerprintIndex() — 复制嵌套的指纹索引和指纹对象。\n\n它缓存的是：\n导航 Prompt\n导航指纹索引\n导航数据 revision\n导航临时路由快照\n这些数据都只服务于导航算法，并不是整个会话的完整缓存。",
     "createdBy": "user"
   },
   "sectionNotes": {},

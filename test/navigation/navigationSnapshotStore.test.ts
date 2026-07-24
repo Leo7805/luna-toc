@@ -1,7 +1,7 @@
 /** Tests revision-safe tab-scoped conversation navigation snapshots. */
 import { describe, expect, it } from 'vitest';
 import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
-import type { PromptFingerprintIndex } from '@/features/navigation/fingerprintIndex';
+import type { PromptFingerprintIndex } from '@/features/navigation/fingerprint/index';
 
 interface TestPrompt {
   id: string;

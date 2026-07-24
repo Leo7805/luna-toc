@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:67df92d75aca1ea62cf18bf31e6fec7d9e64422e1b890c63f074e9239627fc09",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T05:59:18.151Z",
+    "updatedAt": "2026-07-24T05:59:18.151Z"
+  },
+  "fileNote": {
+    "userNote": "负责分批建立 Prompt 指纹索引",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

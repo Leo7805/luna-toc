@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:067eaab7cf3fd74b122fdf36abcfd9a41ad6f7b8ab5c153570610d346cad458e",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T05:58:53.371Z",
+    "updatedAt": "2026-07-24T05:58:53.371Z"
+  },
+  "fileNote": {
+    "userNote": "使用可比较文本生成指纹。\ncreateResponseFingerprints() — 生成指纹前调用 normalizeComparableText()。\ncalculateFingerprintOffsets() — 计算均匀采样位置。\ncreateSha256() — 生成验证 Hash。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

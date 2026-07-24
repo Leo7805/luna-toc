@@ -7,7 +7,7 @@ import {
   extractUserMessages,
 } from '../features/conversationPrompts/message';
 import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
-import { buildFingerprintIndex } from '@/features/navigation/fingerprintIndex';
+import { buildFingerprintIndex } from '@/features/navigation/fingerprint/index';
 import { createChatGptNavigationTurns } from '@/platforms/chatgpt/navigationAdapter';
 import type {
   ChatMessage,

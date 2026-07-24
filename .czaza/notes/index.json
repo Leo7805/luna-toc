@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T05:30:42.174Z",
+  "updatedAt": "2026-07-24T06:00:20.139Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:1d7f8fb53e0c654b63a8aeaac809b903fe4d9c8ace5f894a57fb607945be55c2",
+      "sourceHash": "sha256:cbac52ea1bad8eb60c132dbc63213ca75da71f12480d6df69d3e83d8450270e4",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:08:58.058Z"
+      "updatedAt": "2026-07-24T05:59:44.950Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -263,9 +263,9 @@
     },
     "src/features/navigation/navigationSnapshotStore.ts": {
       "noteFile": "files/ff9f4de44a94-533119ae.json",
-      "sourceHash": "sha256:8bfd4841cbacb882d7bc6fe4fab61fda0d176e575eb716aa8c5ccef4be86d79e",
+      "sourceHash": "sha256:b0a94c63709ec782ad7cddbfe4a8dd0059fd64995786da42bdc2a8d42e7af13f",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:09:55.346Z"
+      "updatedAt": "2026-07-24T06:00:05.319Z"
     },
     "src/features/navigation/fingerprintMatcher.ts": {
       "noteFile": "files/c5e3824a5d4d-2eed87e5.json",
@@ -275,9 +275,38 @@
     },
     "src/platforms/chatgpt/renderedTextAdapter.ts": {
       "noteFile": "files/32e19741b06a-cacb83e3.json",
-      "sourceHash": "sha256:969a0c56e184de995668a6c799c13837965d73155aacb21666b3f2136fa8f542",
+      "sourceHash": "sha256:b6aafdb2f514ab4d2bf77e2a1befd777cc618b8f251575351460da9818f87932",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T05:30:42.174Z"
+      "updatedAt": "2026-07-24T06:00:20.139Z"
+    },
+    "src/features/navigation/fingerprint": {
+      "noteFile": "files/09e0754ebe54-02fd163f.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-24T05:58:05.400Z"
+    },
+    "src/features/navigation/fingerprint/comparableText.ts": {
+      "noteFile": "files/e0e60af2b830-830e1c28.json",
+      "sourceHash": "sha256:1096b7454f3e9a883261d1ed474946cc9f2a65da572d0cfc6cab9e1238656822",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:58:28.030Z"
+    },
+    "src/features/navigation/fingerprint/generator.ts": {
+      "noteFile": "files/b220d27730e6-b5a64d26.json",
+      "sourceHash": "sha256:067eaab7cf3fd74b122fdf36abcfd9a41ad6f7b8ab5c153570610d346cad458e",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:58:53.371Z"
+    },
+    "src/features/navigation/fingerprint/index.ts": {
+      "noteFile": "files/a7b4f66df9f9-066d2eb0.json",
+      "sourceHash": "sha256:67df92d75aca1ea62cf18bf31e6fec7d9e64422e1b890c63f074e9239627fc09",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:59:18.151Z"
+    },
+    "src/features/navigation/fingerprint/matcher.ts": {
+      "noteFile": "files/239cb59b0ce5-6e82bc57.json",
+      "sourceHash": "sha256:64780eba8ed651fba96091d7dc962f13680b7254fad341a0ab19a999c8b1d25c",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T05:59:27.797Z"
     }
   }
 }

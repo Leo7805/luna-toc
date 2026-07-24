@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T05:58:05.400Z",
+    "updatedAt": "2026-07-24T05:58:05.400Z"
+  },
+  "fileNote": {
+    "userNote": "├── fingerprint/\n│   ├── comparableText.ts   统一 Raw 和 DOM 的可比较文本\n│   ├── generator.ts        生成单条 Response 指纹\n│   ├── index.ts            按 Prompt 批量建立指纹索引\n│   └── matcher.ts          将可见文本与指纹进行匹配",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

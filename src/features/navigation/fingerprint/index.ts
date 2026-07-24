@@ -6,11 +6,11 @@ import {
   createResponseFingerprints,
   type FingerprintOptions,
   type ResponseFingerprint,
-} from './fingerprint';
+} from './generator';
 import type {
   NavigationTextMessage,
   NavigationTurn,
-} from './navigationData';
+} from '@/features/navigation/navigationData';
 
 export interface FingerprintIndexOptions extends FingerprintOptions {
   buildBatchSize: number;

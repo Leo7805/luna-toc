@@ -24,9 +24,10 @@ graph TD
         follow[follow.ts]
         promptNavigation[promptNavigation.ts]
         navigationData[navigationData.ts]
-        fingerprint[fingerprint.ts]
-        fingerprintIndex[fingerprintIndex.ts]
-        fingerprintMatcher[fingerprintMatcher.ts]
+        comparableText[fingerprint/comparableText.ts]
+        fingerprint[fingerprint/generator.ts]
+        fingerprintIndex[fingerprint/index.ts]
+        fingerprintMatcher[fingerprint/matcher.ts]
         snapshotStore[navigationSnapshotStore.ts]
         chatGptAdapter[ChatGPT navigationAdapter.ts]
         chatGptRenderedText[ChatGPT renderedTextAdapter.ts]
@@ -58,6 +59,7 @@ graph TD
     navigator --> outline
     navigator --> promptNavigation
     chatGptAdapter --> navigationData
+    comparableText --> fingerprint
     navigationData --> fingerprint
     fingerprint --> fingerprintIndex
     fingerprintIndex --> snapshotStore
@@ -95,9 +97,10 @@ graph TD
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
   - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary, currently using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
-  - [fingerprint.ts](../src/features/navigation/fingerprint.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
-  - [fingerprintIndex.ts](../src/features/navigation/fingerprintIndex.ts): Builds prompt-indexed response fingerprints in bounded asynchronous batches.
-  - [fingerprintMatcher.ts](../src/features/navigation/fingerprintMatcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
+  - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
+  - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
+  - [fingerprint/index.ts](../src/features/navigation/fingerprint/index.ts): Builds prompt-indexed response fingerprints in bounded asynchronous batches.
+  - [fingerprint/matcher.ts](../src/features/navigation/fingerprint/matcher.ts): Identifies uniquely matching prompt indexes by verifying cached probes and hashes against generic rendered text blocks.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists and revision-protected fingerprint indexes by conversation for the current tab.
   - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts currently mounted ChatGPT Assistant Markdown into generic rendered text blocks while excluding tools and attachments.
