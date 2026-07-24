@@ -68,6 +68,7 @@ beforeEach(() => {
       }
     }
   );
+  vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
   mutableChatGptConfig.navigationAlgorithm = 'legacy-native';
   mocks.recordConfirmed.mockResolvedValue(undefined);
   mocks.searchVirtualPrompt.mockResolvedValue({
@@ -137,6 +138,16 @@ describe('prompt navigation strategy', () => {
     const container = document.createElement('div');
     const target = document.createElement('div');
     target.scrollIntoView = vi.fn();
+    container.scrollTo = vi.fn();
+    Object.defineProperties(container, {
+      scrollTop: { configurable: true, writable: true, value: 1_000 },
+      scrollHeight: { configurable: true, value: 5_000 },
+      clientHeight: { configurable: true, value: 1_000 },
+    });
+    container.getBoundingClientRect = () =>
+      ({ top: 100 }) as DOMRect;
+    target.getBoundingClientRect = () =>
+      ({ top: 300 }) as DOMRect;
     mocks.getContainer.mockReturnValue(container);
     mocks.findPrompt.mockReturnValue(target);
     mocks.createAnchor.mockReturnValue({
@@ -181,7 +192,11 @@ describe('prompt navigation strategy', () => {
     );
 
     expect(click).not.toHaveBeenCalled();
-    expect(target.scrollIntoView).toHaveBeenCalled();
+    expect(target.scrollIntoView).not.toHaveBeenCalled();
+    expect(container.scrollTo).toHaveBeenCalledWith({
+      top: 1_184,
+      behavior: 'auto',
+    });
     expect(mocks.recordConfirmed).toHaveBeenCalledOnce();
     expect(mocks.searchVirtualPrompt).not.toHaveBeenCalled();
   });

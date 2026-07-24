@@ -9,6 +9,7 @@ export const APP_CONFIG = {
   platforms: {
     chatgpt: {
       navigationAlgorithm: 'independent-virtual' as ChatGptNavigationAlgorithm,
+      promptTopOffsetPx: 16,
     },
   },
   navigation: {

@@ -405,12 +405,54 @@ function finishIndependentVirtualJump(
     scrollContainer: container,
   });
 
-  scrollToMatchedElement(target);
+  alignIndependentPromptToTop(target, container);
   void getNavigationAnchorStore()
     .recordConfirmed(anchor)
     .catch((error: unknown) => {
       console.warn('[LunaTOC] Failed to persist navigation anchor.', error);
     });
+}
+
+/**
+ * Aligns an independently located prompt with the chat container's top edge.
+ * A next-frame correction handles virtual-list layout changes after mounting.
+ */
+function alignIndependentPromptToTop(
+  target: HTMLElement,
+  container: HTMLElement
+): void {
+  scrollPromptToContainerTop(target, container);
+  highlightWhenVisible(target);
+
+  requestAnimationFrame(() => {
+    if (!target.isConnected || !container.isConnected) return;
+    scrollPromptToContainerTop(target, container);
+  });
+}
+
+/**
+ * Calculates and applies the prompt's top-aligned container scroll position.
+ */
+function scrollPromptToContainerTop(
+  target: HTMLElement,
+  container: HTMLElement
+): void {
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const maximumScrollTop = Math.max(
+    0,
+    container.scrollHeight - container.clientHeight
+  );
+  const targetScrollTop =
+    container.scrollTop +
+    targetRect.top -
+    containerRect.top -
+    APP_CONFIG.platforms.chatgpt.promptTopOffsetPx;
+
+  container.scrollTo({
+    top: Math.min(Math.max(0, targetScrollTop), maximumScrollTop),
+    behavior: 'auto',
+  });
 }
 
 /**
