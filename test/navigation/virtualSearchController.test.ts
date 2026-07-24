@@ -55,6 +55,12 @@ function createFakeSearch({
         lastPromptIndex: promptIndex,
         matchedPromptIndexes: [promptIndex],
         matchedBlockIds: [`response-${promptIndex}`],
+        matchedBlocks: [
+          {
+            blockId: `response-${promptIndex}`,
+            promptIndex,
+          },
+        ],
       },
       anchors: [anchor],
     };
@@ -207,6 +213,7 @@ describe('virtual search controller', () => {
           lastPromptIndex: 0,
           matchedPromptIndexes: [0],
           matchedBlockIds: ['response-0'],
+          matchedBlocks: [{ blockId: 'response-0', promptIndex: 0 }],
         },
         anchors: [
           createNavigationAnchor({

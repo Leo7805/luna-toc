@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T07:10:09.747Z",
+  "updatedAt": "2026-07-24T07:12:32.173Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -316,9 +316,9 @@
     },
     "src/features/navigation/visiblePositionResolver.ts": {
       "noteFile": "files/380e7a5b642c-65a07d7e.json",
-      "sourceHash": "sha256:8900c0f267d23970f893df3c0bdd7ead229fae7a7198cf418400a737da544181",
+      "sourceHash": "sha256:808c74262f292be9be5f61da4e5631dc5a1a48312e513e0642c5c77857cef789",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T06:41:51.140Z"
+      "updatedAt": "2026-07-24T07:12:32.173Z"
     },
     "src/features/navigation/navigationAnchorStore.ts": {
       "noteFile": "files/238ee625c654-b82cdd91.json",

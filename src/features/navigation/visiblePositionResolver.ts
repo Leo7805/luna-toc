@@ -8,12 +8,18 @@ import {
 } from './fingerprint/matcher';
 import type { NavigationFingerprintIndex } from './fingerprint/index';
 
+export interface VisiblePromptBlockMatch {
+  blockId: string;
+  promptIndex: number;
+}
+
 export interface LocatedVisiblePromptPosition {
   status: 'located';
   firstPromptIndex: number;
   lastPromptIndex: number;
   matchedPromptIndexes: number[];
   matchedBlockIds: string[];
+  matchedBlocks: VisiblePromptBlockMatch[];
 }
 
 export interface AmbiguousVisiblePromptPosition {
@@ -50,6 +56,7 @@ export async function resolveVisiblePromptPosition(
   );
   const matchedPromptIndexes = new Set<number>();
   const matchedBlockIds = new Set<string>();
+  const matchedBlocks: VisiblePromptBlockMatch[] = [];
   const candidatePromptIndexes = new Set<number>();
   const ambiguousBlockIds = new Set<string>();
 
@@ -57,8 +64,11 @@ export async function resolveVisiblePromptPosition(
     const directPromptIndexes = promptIndexesByResponseId.get(block.id);
 
     if (directPromptIndexes?.size === 1) {
-      matchedPromptIndexes.add([...directPromptIndexes][0]!);
+      const promptIndex = [...directPromptIndexes][0]!;
+
+      matchedPromptIndexes.add(promptIndex);
       matchedBlockIds.add(block.id);
+      matchedBlocks.push({ blockId: block.id, promptIndex });
       continue;
     }
 
@@ -77,6 +87,10 @@ export async function resolveVisiblePromptPosition(
     if (selection.status === 'matched') {
       matchedPromptIndexes.add(selection.match.promptIndex);
       matchedBlockIds.add(block.id);
+      matchedBlocks.push({
+        blockId: block.id,
+        promptIndex: selection.match.promptIndex,
+      });
       continue;
     }
 
@@ -114,6 +128,7 @@ export async function resolveVisiblePromptPosition(
     lastPromptIndex: sortedPromptIndexes.at(-1)!,
     matchedPromptIndexes: sortedPromptIndexes,
     matchedBlockIds: [...matchedBlockIds],
+    matchedBlocks,
   };
 }
 

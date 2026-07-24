@@ -47,6 +47,7 @@ describe('visible prompt position resolver', () => {
       lastPromptIndex: 4,
       matchedPromptIndexes: [4],
       matchedBlockIds: ['response-1'],
+      matchedBlocks: [{ blockId: 'response-1', promptIndex: 4 }],
     });
   });
 
@@ -74,6 +75,9 @@ describe('visible prompt position resolver', () => {
       firstPromptIndex: 2,
       lastPromptIndex: 2,
       matchedPromptIndexes: [2],
+      matchedBlocks: [
+        { blockId: 'chatgpt-assistant-0', promptIndex: 2 },
+      ],
     });
   });
 
@@ -99,6 +103,11 @@ describe('visible prompt position resolver', () => {
       lastPromptIndex: 4,
       matchedPromptIndexes: [2, 3, 4],
       matchedBlockIds: ['response-4', 'response-2', 'response-3'],
+      matchedBlocks: [
+        { blockId: 'response-4', promptIndex: 4 },
+        { blockId: 'response-2', promptIndex: 2 },
+        { blockId: 'response-3', promptIndex: 3 },
+      ],
     });
   });
 
