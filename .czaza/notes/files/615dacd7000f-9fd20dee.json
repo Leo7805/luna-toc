@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:855c69d7b7cac6000f68862f940fbd64716383780d4f4e4e1b3d35af149ea82c",
+    "sourceHash": "sha256:0143942668646e8c6f1fe3a3efa4a3b8915ff2056e05aa8c31bdd5d61e3a8735",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T04:24:26.799Z",
-    "updatedAt": "2026-07-24T06:53:51.341Z"
+    "updatedAt": "2026-07-24T06:58:10.527Z"
   },
   "fileNote": {
     "userNote": "项目级统一配置入口，当前集中保存导航、指纹和搜索参数。\n\n1. navigation.algorithm　选择当前主目录导航算法，第一阶段保持 native，后续可切换为位置搜索算法。\n2. navigation.fingerprint.countPerAssistant　每条 Assistant 回答最多生成多少个分布式指纹，默认 3 个。\n3. navigation.fingerprint.probeLength　快速文本筛选保存的规范化字符数量，默认 40 个 Unicode 字符。\n4. navigation.fingerprint.verificationLength　短文本命中后，用于 SHA-256 确认的后续字符数量，默认 256 个 Unicode 字符。\n5. navigation.fingerprint.buildBatchSize　一次异步批次最多处理多少条 Assistant 回答，避免长时间阻塞页面。\n6. navigation.fingerprint.buildTimeBudgetMs　一个指纹生成批次允许连续占用主线程的大致时间预算。\n7. navigation.search.maxAttempts　位置估算和二分查找允许的最大探测次数。\n8. navigation.search.renderWaitMs　每次改变 scrollTop 后等待虚拟列表更新 DOM 的基础时间。\n9. navigation.search.maxDurationMs　一次自定义导航允许占用的最大总时间，超过后终止或进入兜底路径。\n\nobservationDebounceMs: 750 — DOM 停止变化 750ms 后生成指纹，避免流式回答频繁计算。\n\n增加锚点缓存配置。\nmaxConversations: 50 — 最多保留50个会话。\nmaxAnchorsPerConversation: 100 — 每个会话最多100个成功锚点。\nmaxAgeMs: 30天 — 30天后过期。\nviewportWidthTolerance: 48 — 页面宽度变化超过48px时不直接采用旧锚点。",
