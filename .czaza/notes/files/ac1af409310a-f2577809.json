@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:8a52c675126addf79d379b64416e19b61487686dbcaf3f4da7367828af234b23",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T03:23:13.263Z",
+    "updatedAt": "2026-07-24T03:26:47.413Z"
+  },
+  "fileNote": {
+    "userNote": "负责跳转期间侧边栏跟随和用户主动浏览时停止跟随。\n\ninitializeFollow()　初始化页面滚动、目录交互和原生激活项监听。\nkeepFollowing()　开启一段临时跟随窗口。\nstopFollowing()　用户主动浏览目录时停止自动跟随。\nisFollowing()　判断当前是否允许侧边栏跟随页面滚动。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -3,9 +3,12 @@
  * headings. This file intentionally keeps outline parsing separate from the
  * main content script UI code.
  */
-import type { NavigatorMessage } from './conversationPrompts/message';
-import { isPromptMarked as isMessageMarked } from './conversationPrompts/promptMark';
-import { jumpToPromptIndex, lockPromptIndex } from './jump';
+import type { NavigatorMessage } from '../conversationPrompts/message';
+import { isPromptMarked as isMessageMarked } from '../conversationPrompts/promptMark';
+import {
+  cancelOutlineNavigation,
+  jumpToOutlineEntry,
+} from './outlineNavigation';
 
 interface OutlineEntry {
   level: number;
@@ -30,20 +33,15 @@ interface PromptNavigationAction {
   shouldBuild: boolean;
 }
 const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
-const HEADING_HIGHLIGHT_CLASS = 'chat-toc-outline-heading-highlight';
 const OUTLINE_BUILD_RETRY_DELAY_MS = 300;
 const OUTLINE_BUILD_MAX_ATTEMPTS = 15;
-const OUTLINE_JUMP_RETRY_DELAY_MS = 250;
-const OUTLINE_JUMP_MAX_ATTEMPTS = 16;
 
 const promptOutlines = new Map<number, OutlineEntry[]>();
 const expandedPromptOutlines = new Set<number>();
 const promptItems = new Map<number, PromptItemEntry>();
 const promptMessageIds = new Map<number, string>();
 let currentPromptIndex: number | null = null;
-let highlightedHeadingElement: HTMLElement | null = null;
 let outlineBuildVersion = 0;
-let outlineJumpVersion = 0;
 
 /**
  * Extracts the two-level heading outline from a rendered prompt answer.
@@ -60,9 +58,8 @@ export function getPromptOutline(index: number): OutlineEntry[] {
  * Clears all outline state for the active conversation.
  */
 export function resetOutline(): void {
-  clearHighlightedHeading();
+  cancelOutlineNavigation();
   outlineBuildVersion += 1;
-  outlineJumpVersion += 1;
   promptOutlines.clear();
   expandedPromptOutlines.clear();
   promptMessageIds.clear();
@@ -139,8 +136,7 @@ export function handlePromptNavigation(
   index: number,
   activeIndex: number | null
 ): PromptNavigationAction {
-  outlineJumpVersion += 1;
-  clearHighlightedHeading();
+  cancelOutlineNavigation();
 
   if (index === activeIndex && promptOutlines.has(index)) {
     currentPromptIndex = index;
@@ -167,8 +163,7 @@ export function handlePromptNavigation(
 export function syncActivePrompt(index: number): void {
   if (index === currentPromptIndex) return;
 
-  outlineJumpVersion += 1;
-  clearHighlightedHeading();
+  cancelOutlineNavigation();
   setCurrentPrompt(index);
 }
 
@@ -568,124 +563,7 @@ function handleOutlineItemClick(
 ): void {
   event.stopPropagation();
 
-  startOutlineEntryJump(entry, promptIndex);
-}
-
-/**
- * Starts a child-outline jump. If the answer heading is virtualized, first
- * navigates to the parent prompt, then waits for the heading to render.
- * @param {{ level: number, text: string, element?: HTMLElement, sectionId?: string }} entry
- * @param {number} promptIndex Parent prompt index.
- */
-function startOutlineEntryJump(entry: OutlineEntry, promptIndex: number): void {
-  const jumpVersion = outlineJumpVersion + 1;
-
-  outlineJumpVersion = jumpVersion;
   currentPromptIndex = promptIndex;
   updateAllPromptItems();
-
-  const heading = resolveOutlineHeading(entry);
-
-  if (heading) {
-    finishOutlineEntryJump(heading, promptIndex, jumpVersion);
-    return;
-  }
-
-  jumpToPromptIndex(
-    promptIndex,
-    OUTLINE_JUMP_MAX_ATTEMPTS * OUTLINE_JUMP_RETRY_DELAY_MS
-  );
-
-  retryOutlineEntryJump(
-    entry,
-    promptIndex,
-    OUTLINE_JUMP_MAX_ATTEMPTS,
-    jumpVersion
-  );
-}
-
-/**
- * Waits for a virtualized answer heading to appear after parent prompt navigation.
- * @param {{ level: number, text: string, element?: HTMLElement, sectionId?: string }} entry
- * @param {number} promptIndex Parent prompt index.
- * @param {number} attempts Remaining retry attempts after prompt navigation.
- * @param {number} jumpVersion Version captured when this child jump started.
- */
-function retryOutlineEntryJump(
-  entry: OutlineEntry,
-  promptIndex: number,
-  attempts: number,
-  jumpVersion: number
-): void {
-  if (jumpVersion !== outlineJumpVersion) return;
-
-  const heading = resolveOutlineHeading(entry);
-
-  if (heading) {
-    finishOutlineEntryJump(heading, promptIndex, jumpVersion);
-    return;
-  }
-
-  if (attempts <= 1) return;
-
-  setTimeout(() => {
-    retryOutlineEntryJump(entry, promptIndex, attempts - 1, jumpVersion);
-  }, OUTLINE_JUMP_RETRY_DELAY_MS);
-}
-
-/**
- * Locks the parent prompt as active, then highlights and scrolls to a heading.
- * @param {HTMLElement} heading
- * @param {number} promptIndex Parent prompt index.
- * @param {number} jumpVersion Version captured when this child jump started.
- */
-function finishOutlineEntryJump(
-  heading: HTMLElement,
-  promptIndex: number,
-  jumpVersion: number
-): void {
-  if (jumpVersion !== outlineJumpVersion) return;
-
-  lockPromptIndex(promptIndex);
-  highlightHeading(heading);
-
-  heading.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center',
-  });
-}
-
-/**
- * Resolves the current DOM node for an outline heading. ChatGPT may rerender
- * answers, so prefer data-section-id over the originally captured element.
- * @param {{ element?: HTMLElement, sectionId?: string }} entry
- * @returns {HTMLElement | null}
- */
-function resolveOutlineHeading(entry: OutlineEntry): HTMLElement | null {
-  if (entry.sectionId) {
-    return document.querySelector<HTMLElement>(
-      `[data-section-id="${escapeCssIdentifier(entry.sectionId)}"]`
-    );
-  }
-
-  return entry.element?.isConnected ? entry.element : null;
-}
-
-/**
- * Applies the answer-heading highlight, replacing any previous highlight.
- * @param {HTMLElement} heading
- */
-function highlightHeading(heading: HTMLElement): void {
-  clearHighlightedHeading();
-
-  heading.classList.add(HEADING_HIGHLIGHT_CLASS);
-  highlightedHeadingElement = heading;
-}
-
-/**
- * Removes the current answer-heading highlight.
- */
-function clearHighlightedHeading(): void {
-  highlightedHeadingElement?.classList.remove(HEADING_HIGHLIGHT_CLASS);
-  highlightedHeadingElement = null;
+  jumpToOutlineEntry(entry, promptIndex);
 }

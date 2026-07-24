@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:ebcbb374cb050ddbcccfd1b9a2896d4b40087dbbc2957b799f8a3b3612472b38",
+    "sourceHash": "sha256:86c4a870362d4b77b17aa8a5c8197aa92987e181704bf679e3a6197afd994e8d",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:16:33.200Z",
-    "updatedAt": "2026-07-22T08:15:40.877Z"
+    "updatedAt": "2026-07-24T03:23:42.779Z"
   },
   "fileNote": {
-    "userNote": "包含会话数据、目录填充、跳转协调、路由迁移和高亮跟踪。",
-    "createdBy": "user"
+    "userNote": "更新 Navigation、Outline 和 Follow 的导入路径，并调用新的主目录初始化入口。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

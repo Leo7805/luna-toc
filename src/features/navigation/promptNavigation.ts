@@ -1,10 +1,10 @@
 /**
- * Handles jumping from ChatTOC items to ChatGPT prompt positions.
+ * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
-import type { NavigatorMessage } from './conversationPrompts/message';
+import type { NavigatorMessage } from '../conversationPrompts/message';
 import { keepFollowing } from './follow';
 
-interface JumpOptions {
+interface PromptNavigationOptions {
   getNativePromptButtons: () => HTMLElement[];
   normalizeText: (text: string) => string;
   findConversationIndexByElement: (element: HTMLElement) => number;
@@ -61,7 +61,9 @@ const debugStorageKey = 'chatTocDebugJump';
  * @param {() => number} options.getConversationMessageCount
  * @param {(index: number, duration?: number) => void} options.lockActiveIndex
  */
-export function initializeJump(options: JumpOptions): void {
+export function initializePromptNavigation(
+  options: PromptNavigationOptions
+): void {
   getNativePromptButtons = options.getNativePromptButtons;
   normalizeText = options.normalizeText;
   findConversationIndexByElement = options.findConversationIndexByElement;

@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-24T03:21:10.678Z",
+    "updatedAt": "2026-07-24T03:28:47.553Z"
+  },
+  "fileNote": {
+    "userNote": "目录导航的跳转，及目录自动跟随正文\n\npromptNavigation.ts    怎么跳主目录\noutline.ts             怎么生成和显示子目录\noutlineNavigation.ts   怎么跳子目录\nfollow.ts              跳转后怎么跟随\n\n\n📚 调用关系：\n\napplicationShell.ts\n        │\n        ▼\nnavigatorController.ts\n        │\n        ├──────────────► promptNavigation.ts\n        │                        │\n        │                        ▼\n        │                     follow.ts\n        │\n        ▼\n     outline.ts\n        │\n        ▼\noutlineNavigation.ts\n        │\n        ├──────────────► promptNavigation.ts\n        └──────────────► follow.ts（经主目录跳转间接调用）",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

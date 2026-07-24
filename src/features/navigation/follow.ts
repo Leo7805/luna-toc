@@ -1,5 +1,5 @@
 /**
- * Controls when ChatTOC's sidebar list is allowed to auto-scroll with the
+ * Controls when LunaTOC's sidebar list is allowed to auto-scroll with the
  * active ChatGPT prompt.
  *
  * Active prompt highlighting belongs to the navigator controller. This module only decides

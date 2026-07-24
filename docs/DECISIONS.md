@@ -274,3 +274,31 @@ button and disable it while following ChatGPT.
   remains the Tailwind entry and retains only theme tokens and document-level
   base rules.
 * No additional extension permissions are required.
+
+---
+
+## ADR 09: Navigation Feature Boundary
+* **Date**: 2026-07-24
+
+### Context
+Main-prompt navigation, child-outline navigation, outline rendering, and
+sidebar follow behavior were split across root-level feature files. The main
+jump implementation also prioritizes ChatGPT's native prompt navigator, which
+we intend to replace independently later.
+
+### Decision
+Group the complete TOC navigation feature under `features/navigation`.
+Separate main-prompt navigation in `promptNavigation.ts`, child-heading
+navigation in `outlineNavigation.ts`, child-outline extraction and display in
+`outline.ts`, and follow policy in `follow.ts`.
+
+Keep the current navigation algorithm unchanged during this move. Callers use
+the stable exports from `promptNavigation.ts`, allowing its native-first
+implementation to be replaced without changing the navigator or outline UI.
+
+### Consequences
+* Navigation-related files no longer add to the `features` root.
+* A displayed child outline remains the prerequisite for initiating a child
+  jump, while `outlineNavigation.ts` handles headings later virtualized away.
+* Main-prompt algorithm replacement is isolated from child-outline display and
+  sidebar follow behavior.

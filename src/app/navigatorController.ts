@@ -19,13 +19,13 @@ import {
   initializeFollow,
   isFollowing,
   keepFollowing,
-} from '../features/follow';
+} from '../features/navigation/follow';
 import {
-  initializeJump,
+  initializePromptNavigation,
   jumpToAbsoluteEdge as jumpToPageEdge,
   jumpToConversationEdge,
   jumpToMessage,
-} from '../features/jump';
+} from '../features/navigation/promptNavigation';
 import {
   collapseAll,
   createPromptItem,
@@ -36,7 +36,7 @@ import {
   setPromptMessages,
   syncActivePrompt,
   syncMarkState,
-} from '../features/outline';
+} from '../features/navigation/outline';
 import { previewTooltip } from '../features/tooltip';
 
 interface NavigatorControllerOptions {
@@ -124,7 +124,7 @@ export const navigatorController = (() => {
       setActiveIndex: setActiveNavigatorItem,
     });
 
-    initializeJump({
+    initializePromptNavigation({
       getNativePromptButtons,
       normalizeText,
       findConversationIndexByElement,

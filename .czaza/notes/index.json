@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-22T14:05:08.898Z",
+  "updatedAt": "2026-07-24T03:28:47.553Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -58,9 +58,9 @@
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
-      "sourceHash": "sha256:ebcbb374cb050ddbcccfd1b9a2896d4b40087dbbc2957b799f8a3b3612472b38",
+      "sourceHash": "sha256:86c4a870362d4b77b17aa8a5c8197aa92987e181704bf679e3a6197afd994e8d",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T08:15:40.877Z"
+      "updatedAt": "2026-07-24T03:23:42.779Z"
     },
     "src/content.ts": {
       "noteFile": "files/15c947723c16-72bdec3c.json",
@@ -189,6 +189,35 @@
       "sourceHash": "sha256:3fb8f391189e0f4245263bb87793d85a61e1712b0443781dbf08d99ddbdc9c9f",
       "programmingLanguage": "css",
       "updatedAt": "2026-07-22T14:04:57.763Z"
+    },
+    "src/features/navigation/promptNavigation.ts": {
+      "noteFile": "files/241fe34fddca-a4f793e6.json",
+      "sourceHash": "sha256:f3f5084a806e30f6f661def80efd8cf969eda54ecf3665c36aabcc13cf03eb30",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T03:25:23.771Z"
+    },
+    "src/features/navigation/outline.ts": {
+      "noteFile": "files/2c76dfd8293f-c0052e3a.json",
+      "sourceHash": "sha256:d52bdec3979cdd1619baf7ee9ee765183497df3bde895d38d846e860e71b1545",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T03:28:10.606Z"
+    },
+    "src/features/navigation": {
+      "noteFile": "files/ea799c14d79e-c037c6ab.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-07-24T03:28:47.553Z"
+    },
+    "src/features/navigation/follow.ts": {
+      "noteFile": "files/ac1af409310a-f2577809.json",
+      "sourceHash": "sha256:8a52c675126addf79d379b64416e19b61487686dbcaf3f4da7367828af234b23",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T03:26:47.413Z"
+    },
+    "src/features/navigation/outlineNavigation.ts": {
+      "noteFile": "files/c01c8105df9a-d0fa42f8.json",
+      "sourceHash": "sha256:2622644fd04afb9fd65f1eaa29fa5fbabd640bebe4895f71273ba0c7871d8cd6",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-24T03:26:27.453Z"
     }
   }
 }
