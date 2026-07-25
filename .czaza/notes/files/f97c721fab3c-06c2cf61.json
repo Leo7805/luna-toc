@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:5185e081c1f18f38b429f2bd3b69b2f4907d7a8f9727b2a3c178ea7d5baf5e9b",
+    "sourceHash": "sha256:c872026654439b4da454dbd093bc2ae4ba94c0bb0aed569c52557c20970adc3a",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
     "createdAt": "2026-07-25T04:36:33.096Z",
-    "updatedAt": "2026-07-25T04:36:33.096Z"
+    "updatedAt": "2026-07-25T13:54:56.797Z"
   },
   "fileNote": {
     "userNote": "显示 ChatGPT Native 和 LunaTOC Independent 两个 Radio Card。\nOptionsApp：读取、展示并即时保存导航算法。\nselectAlgorithm：切换本地状态并写入 Chrome Storage。",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

@@ -23,7 +23,7 @@ const NAVIGATION_CHOICES: NavigationChoice[] = [
     value: 'independent-virtual',
     label: 'LunaTOC Independent',
     description:
-      'Uses LunaTOC’s cross-platform virtual navigation algorithm.',
+      'Cross-platform virtual navigation. It may be slower or less reliable.',
   },
 ];
 
@@ -97,6 +97,11 @@ export function OptionsApp(): React.JSX.Element {
                     {choice.value === 'legacy-native' && (
                       <span className="ml-1.5 text-xs font-medium text-[var(--o-accent)]">
                         (Recommended)
+                      </span>
+                    )}
+                    {choice.value === 'independent-virtual' && (
+                      <span className="ml-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        (Experimental)
                       </span>
                     )}
                   </span>
