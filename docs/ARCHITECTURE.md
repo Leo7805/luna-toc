@@ -114,8 +114,8 @@ graph TD
 - **Purpose**: `src/content.ts` is declared in `manifest.json` and runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global JavaScript scope.
 - **Loading**: `src/content.ts` starts the application shell, and each module imports its explicit dependencies. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
 - **Source modules**:
-  - [outline.ts](../src/features/navigation/outline.ts): Extracts, caches, renders, and expands answer-heading child outlines.
-  - [outlineNavigation.ts](../src/features/navigation/outlineNavigation.ts): Navigates from a displayed child-outline item to its live ChatGPT heading, restoring the parent prompt first when needed.
+  - [outline.ts](../src/features/navigation/outline.ts): Extracts, renders, and caches answer-heading child outlines by Prompt message ID, with stable heading descriptors for resolving rebuilt DOM.
+  - [outlineNavigation.ts](../src/features/navigation/outlineNavigation.ts): Navigates from a displayed child-outline item to its current ChatGPT heading, restoring the parent prompt and re-resolving disconnected cached nodes when needed.
   - [follow.ts](../src/features/navigation/follow.ts): Provides typed chat-scroll tracking and sidebar auto-follow control through named exports.
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.

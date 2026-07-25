@@ -182,6 +182,10 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
   expire after 30 days, and never replace live position verification.
 * Anchor-cache schema changes invalidate older persisted coordinates rather
   than allowing incompatible positions to influence new searches.
+* Child-outline caches belong to a specific Prompt message ID rather than only
+  its numeric list index. Virtual DOM replacement re-resolves headings by
+  heading level, text, and duplicate occurrence; stale caches with no matching
+  current headings are invalidated instead of rendering phantom child items.
 
 ---
 

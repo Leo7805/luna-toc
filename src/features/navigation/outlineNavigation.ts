@@ -10,6 +10,9 @@ export interface OutlineNavigationEntry {
   text?: string;
 }
 
+/** Resolves the current DOM node for a cached Outline heading descriptor. */
+export type OutlineHeadingResolver = () => HTMLElement | null;
+
 const HEADING_HIGHLIGHT_CLASS = 'chat-toc-outline-heading-highlight';
 const OUTLINE_JUMP_RETRY_DELAY_MS = 250;
 const OUTLINE_JUMP_MAX_ATTEMPTS = 16;
@@ -23,7 +26,8 @@ let outlineJumpVersion = 0;
  */
 export function jumpToOutlineEntry(
   entry: OutlineNavigationEntry,
-  promptIndex: number
+  promptIndex: number,
+  resolveCurrentHeading: OutlineHeadingResolver
 ): void {
   const jumpVersion = outlineJumpVersion + 1;
   outlineJumpVersion = jumpVersion;
@@ -35,7 +39,7 @@ export function jumpToOutlineEntry(
     cachedElementConnected: entry.element?.isConnected ?? false,
     jumpVersion,
   });
-  const heading = resolveOutlineHeading(entry);
+  const heading = resolveOutlineHeading(entry, resolveCurrentHeading);
   if (heading) {
     finishOutlineEntryJump(heading, promptIndex, jumpVersion);
     return;
@@ -49,7 +53,8 @@ export function jumpToOutlineEntry(
     entry,
     promptIndex,
     OUTLINE_JUMP_MAX_ATTEMPTS,
-    jumpVersion
+    jumpVersion,
+    resolveCurrentHeading
   );
 }
 
@@ -63,11 +68,12 @@ function retryOutlineEntryJump(
   entry: OutlineNavigationEntry,
   promptIndex: number,
   attempts: number,
-  jumpVersion: number
+  jumpVersion: number,
+  resolveCurrentHeading: OutlineHeadingResolver
 ): void {
   if (jumpVersion !== outlineJumpVersion) return;
 
-  const heading = resolveOutlineHeading(entry);
+  const heading = resolveOutlineHeading(entry, resolveCurrentHeading);
   if (heading) {
     finishOutlineEntryJump(heading, promptIndex, jumpVersion);
     return;
@@ -84,7 +90,13 @@ function retryOutlineEntryJump(
   }
 
   setTimeout(() => {
-    retryOutlineEntryJump(entry, promptIndex, attempts - 1, jumpVersion);
+    retryOutlineEntryJump(
+      entry,
+      promptIndex,
+      attempts - 1,
+      jumpVersion,
+      resolveCurrentHeading
+    );
   }, OUTLINE_JUMP_RETRY_DELAY_MS);
 }
 
@@ -111,15 +123,10 @@ function finishOutlineEntryJump(
 }
 
 function resolveOutlineHeading(
-  entry: OutlineNavigationEntry
+  entry: OutlineNavigationEntry,
+  resolveCurrentHeading: OutlineHeadingResolver
 ): HTMLElement | null {
-  if (entry.sectionId) {
-    return document.querySelector<HTMLElement>(
-      `[data-section-id="${escapeCssIdentifier(entry.sectionId)}"]`
-    );
-  }
-
-  return entry.element?.isConnected ? entry.element : null;
+  return entry.element?.isConnected ? entry.element : resolveCurrentHeading();
 }
 
 function highlightHeading(heading: HTMLElement): void {
@@ -131,9 +138,4 @@ function highlightHeading(heading: HTMLElement): void {
 function clearHighlightedHeading(): void {
   highlightedHeadingElement?.classList.remove(HEADING_HIGHLIGHT_CLASS);
   highlightedHeadingElement = null;
-}
-
-function escapeCssIdentifier(value: string): string {
-  if (window.CSS?.escape) return window.CSS.escape(value);
-  return value.replace(/["\\]/g, '\\$&');
 }

@@ -1,20 +1,16 @@
 {
   "source": {
-    "sourceHash": "sha256:882cdd396b20c17102d3a8a3503547bb1aa054497fab4525aea348cdeac29219",
+    "sourceHash": "sha256:91685937b1dc727c8989b37706268131be13d5469e3abd5f882e19c0002bbf77",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T03:20:24.497Z",
-    "updatedAt": "2026-07-25T13:33:45.853Z"
+    "updatedAt": "2026-07-25T13:48:32.135Z"
   },
   "fileNote": {
-    "userNote": "怎么生成和显示子目录\n\n只负责子目录提取、缓存、渲染、展开和收起。\n\n\ngetPromptOutline()　从指定 Prompt 的回答中提取标题子目录。\ncreatePromptItem()　为主目录项创建子目录指示器和子目录容器。\nhandlePromptNavigation()　响应父 Prompt 点击，更新子目录当前状态和展开状态。\nsyncActivePrompt()　页面滚动改变当前 Prompt 时同步子目录状态。\nscheduleBuild()　等待回答渲染后构建子目录。\nresetOutline()　切换会话时清除子目录数据，并取消未完成的子目录跳转。\n\n\n📚 子目录跳转现在满足这个前提：\n\noutline.ts 成功构建并显示子目录\n               │\n               ▼\n用户点击已经显示的子目录项\n               │\n               ▼\noutlineNavigation.ts 开始标题跳转\n\n\n---\n记录子目录构建、来源解析、标题提取和缓存复用。\ngetPromptOutline：记录提取的 Heading、可见性、连接状态及是否位于 Code Block。\nhandlePromptNavigation：记录复用缓存时旧 Heading 是否仍连接。\nscheduleBuild：记录构建所属 Prompt index、messageId 和版本。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "userNote": "怎么生成和显示子目录\n\n只负责子目录提取、缓存、渲染、展开和收起。\n\n\ngetPromptOutline()　从指定 Prompt 的回答中提取标题子目录。\ncreatePromptItem()　为主目录项创建子目录指示器和子目录容器。\nhandlePromptNavigation()　响应父 Prompt 点击，更新子目录当前状态和展开状态。\nsyncActivePrompt()　页面滚动改变当前 Prompt 时同步子目录状态。\nscheduleBuild()　等待回答渲染后构建子目录。\nresetOutline()　切换会话时清除子目录数据，并取消未完成的子目录跳转。\n\n\n📚 子目录跳转现在满足这个前提：\n\noutline.ts 成功构建并显示子目录\n               │\n               ▼\n用户点击已经显示的子目录项\n               │\n               ▼\noutlineNavigation.ts 开始标题跳转\n\n\n---\n记录子目录构建、来源解析、标题提取和缓存复用。\ngetPromptOutline：记录提取的 Heading、可见性、连接状态及是否位于 Code Block。\nhandlePromptNavigation：记录复用缓存时旧 Heading 是否仍连接。\nscheduleBuild：记录构建所属 Prompt index、messageId 和版本。\n\n---\n\n为 Outline 缓存增加消息归属和稳定标题描述信息。\nsetPromptMessages()：Prompt message ID 改变时清除对应旧缓存。\ngetReusablePromptOutline()：检查旧标题节点是否仍连接，必要时重新提取。\ninvalidatePromptOutline()：清除失效缓存和幽灵子目录。\nextractHeadingOutline()：记录标题原始层级、文本以及同名标题出现次序。\nresolveCurrentOutlineHeading()：按照“层级 + 文本 + 出现次序”解析重建后的标题。",
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

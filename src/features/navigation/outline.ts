@@ -13,9 +13,16 @@ import { logOutlineDiagnostic } from './outlineDiagnostics';
 
 interface OutlineEntry {
   level: number;
+  headingLevel: number;
   text: string;
+  occurrence: number;
   element: HTMLElement;
   sectionId: string;
+}
+
+interface CachedPromptOutline {
+  promptMessageId: string;
+  entries: OutlineEntry[];
 }
 
 interface PromptItemEntry {
@@ -37,7 +44,7 @@ const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
 const OUTLINE_BUILD_RETRY_DELAY_MS = 300;
 const OUTLINE_BUILD_MAX_ATTEMPTS = 15;
 
-const promptOutlines = new Map<number, OutlineEntry[]>();
+const promptOutlines = new Map<number, CachedPromptOutline>();
 const expandedPromptOutlines = new Set<number>();
 const promptItems = new Map<number, PromptItemEntry>();
 const promptMessageIds = new Map<number, string>();
@@ -61,17 +68,21 @@ export function getPromptOutline(index: number): OutlineEntry[] {
     answerContainerFound: Boolean(answerContainer),
     answerContainerConnected: answerContainer?.isConnected ?? false,
     headingCount: outline.length,
-    headings: outline.map(({ level, text, element, sectionId }) => ({
-      level,
-      text,
-      tagName: element.tagName,
-      sectionId: sectionId || null,
-      connected: element.isConnected,
-      hidden:
-        element.hidden ||
-        element.closest('[hidden], [aria-hidden="true"]') !== null,
-      insideCodeBlock: element.closest('pre, code') !== null,
-    })),
+    headings: outline.map(
+      ({ level, headingLevel, text, occurrence, element, sectionId }) => ({
+        level,
+        headingLevel,
+        text,
+        occurrence,
+        tagName: element.tagName,
+        sectionId: sectionId || null,
+        connected: element.isConnected,
+        hidden:
+          element.hidden ||
+          element.closest('[hidden], [aria-hidden="true"]') !== null,
+        insideCodeBlock: element.closest('pre, code') !== null,
+      })
+    ),
   });
 
   return outline;
@@ -102,12 +113,20 @@ export function resetPromptItems(): void {
  * @param {Array<{ id: string }>} messages Navigator messages in display order.
  */
 export function setPromptMessages(messages: NavigatorMessage[]): void {
-  promptMessageIds.clear();
-
+  const nextPromptMessageIds = new Map<number, string>();
   messages.forEach((message, index) => {
-    if (message.id) {
-      promptMessageIds.set(index, message.id);
+    if (message.id) nextPromptMessageIds.set(index, message.id);
+  });
+
+  promptOutlines.forEach((cachedOutline, index) => {
+    if (cachedOutline.promptMessageId !== nextPromptMessageIds.get(index)) {
+      invalidatePromptOutline(index, 'message-id-changed');
     }
+  });
+
+  promptMessageIds.clear();
+  nextPromptMessageIds.forEach((messageId, index) => {
+    promptMessageIds.set(index, messageId);
   });
 }
 
@@ -161,17 +180,21 @@ export function handlePromptNavigation(
 ): PromptNavigationAction {
   cancelOutlineNavigation();
 
-  if (index === activeIndex && promptOutlines.has(index)) {
-    const cachedOutline = promptOutlines.get(index) || [];
+  const cachedOutline =
+    index === activeIndex ? getReusablePromptOutline(index) : null;
+  if (cachedOutline) {
     logOutlineDiagnostic('OUTLINE_CACHE_REUSED', {
       promptIndex: index,
       promptMessageId: promptMessageIds.get(index) || null,
-      headingCount: cachedOutline.length,
-      headings: cachedOutline.map(({ text, element, sectionId }) => ({
-        text,
-        sectionId: sectionId || null,
-        connected: element.isConnected,
-      })),
+      headingCount: cachedOutline.entries.length,
+      headings: cachedOutline.entries.map(
+        ({ text, occurrence, element, sectionId }) => ({
+          text,
+          occurrence,
+          sectionId: sectionId || null,
+          connected: element.isConnected,
+        })
+      ),
     });
     currentPromptIndex = index;
     togglePromptOutline(index);
@@ -297,8 +320,61 @@ function runBuild(index: number, attempts: number, buildVersion: number): void {
     return;
   }
 
+  const promptMessageId = promptMessageIds.get(index);
+  if (!promptMessageId) return;
+
   currentPromptIndex = index;
-  promptOutlines.set(index, outline);
+  promptOutlines.set(index, {
+    promptMessageId,
+    entries: outline,
+  });
+  updatePromptItemByIndex(index);
+}
+
+/**
+ * Returns a cache only when it still belongs to the current Prompt and its
+ * headings can be verified against the current Assistant DOM.
+ */
+function getReusablePromptOutline(index: number): CachedPromptOutline | null {
+  const cachedOutline = promptOutlines.get(index);
+  const promptMessageId = promptMessageIds.get(index);
+  if (!cachedOutline || !promptMessageId) return null;
+
+  if (cachedOutline.promptMessageId !== promptMessageId) {
+    invalidatePromptOutline(index, 'message-id-mismatch');
+    return null;
+  }
+
+  if (cachedOutline.entries.every(({ element }) => element.isConnected)) {
+    return cachedOutline;
+  }
+
+  const refreshedEntries = getPromptOutline(index);
+  if (refreshedEntries.length === 0) {
+    invalidatePromptOutline(index, 'disconnected-heading');
+    return null;
+  }
+
+  const refreshedOutline = {
+    promptMessageId,
+    entries: refreshedEntries,
+  };
+  promptOutlines.set(index, refreshedOutline);
+  return refreshedOutline;
+}
+
+/**
+ * Removes one stale Outline and its expanded state.
+ */
+function invalidatePromptOutline(index: number, reason: string): void {
+  if (!promptOutlines.delete(index)) return;
+
+  expandedPromptOutlines.delete(index);
+  logOutlineDiagnostic('OUTLINE_CACHE_INVALIDATED', {
+    promptIndex: index,
+    promptMessageId: promptMessageIds.get(index) || null,
+    reason,
+  });
   updatePromptItemByIndex(index);
 }
 
@@ -492,6 +568,8 @@ function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
   );
   const childLevel = baseLevel + 1;
 
+  const occurrenceByDescriptor = new Map<string, number>();
+
   return headings
     .filter((heading) => {
       const level = getHeadingLevel(heading);
@@ -499,11 +577,18 @@ function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
       return level === baseLevel || level === childLevel;
     })
     .map((heading) => {
-      const level = getHeadingLevel(heading);
+      const headingLevel = getHeadingLevel(heading);
+      const level = headingLevel === baseLevel ? 1 : 2;
+      const text = heading.textContent.trim();
+      const descriptorKey = `${headingLevel}\u0000${text}`;
+      const occurrence = occurrenceByDescriptor.get(descriptorKey) || 0;
+      occurrenceByDescriptor.set(descriptorKey, occurrence + 1);
 
       return {
-        level: level === baseLevel ? 1 : 2,
-        text: heading.textContent.trim(),
+        level,
+        headingLevel,
+        text,
+        occurrence,
         element: heading,
         sectionId: heading.dataset.sectionId || '',
       };
@@ -559,7 +644,7 @@ function updateAllPromptItems(): void {
  * @param {number} index Prompt index.
  */
 function updatePromptItemState(entry: PromptItemEntry, index: number): void {
-  const outline = promptOutlines.get(index) || [];
+  const outline = promptOutlines.get(index)?.entries || [];
   const isCurrent = index === currentPromptIndex;
   const isMarkExpanded =
     expandedPromptOutlines.has(index) && isPromptMarked(index);
@@ -637,5 +722,24 @@ function handleOutlineItemClick(
 
   currentPromptIndex = promptIndex;
   updateAllPromptItems();
-  jumpToOutlineEntry(entry, promptIndex);
+  jumpToOutlineEntry(entry, promptIndex, () =>
+    resolveCurrentOutlineHeading(promptIndex, entry)
+  );
+}
+
+/**
+ * Re-extracts the current Assistant and resolves one cached heading descriptor.
+ */
+function resolveCurrentOutlineHeading(
+  promptIndex: number,
+  targetEntry: OutlineEntry
+): HTMLElement | null {
+  const currentEntry = getPromptOutline(promptIndex).find(
+    ({ headingLevel, text, occurrence }) =>
+      headingLevel === targetEntry.headingLevel &&
+      text === targetEntry.text &&
+      occurrence === targetEntry.occurrence
+  );
+
+  return currentEntry?.element || null;
 }
