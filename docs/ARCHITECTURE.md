@@ -181,6 +181,7 @@ graph TD
 - Confirmed and observed anchors participate only in the initial estimate; every later movement is relative to the current live scroll position.
 - Response seeking estimates pixels per Prompt from consecutive observations, permits larger learned movements while far from the target, restores a smaller cap near the target, grows the step when the visible Prompt does not change, and halves the previous step after crossing the target.
 - Prompt mounting is an isolated feedback scan: repeated target-response observations grow the step, crossing into the previous response reverses and halves it, and neighboring responses never return control to response seeking.
+- Prompt snapshot revisions retain the previous complete Fingerprint and Segment indexes while replacements build, then swap in matching-revision results so navigation never observes an avoidable empty-index window.
 
 ### Navigation Diagnostics
 

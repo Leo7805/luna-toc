@@ -73,25 +73,15 @@ export function createNavigationSnapshotStore<
   ): number {
     const previousSnapshot = snapshots.get(conversationKey);
     const revision = (previousSnapshot?.revision ?? 0) + 1;
-    const observedRecords =
-      previousSnapshot?.fingerprintIndex?.filter(
-        ({ quality }) => quality === 'observed'
-      ) || [];
-    const observedSegments =
-      previousSnapshot?.segmentIndex?.filter(
-        ({ quality }) => quality === 'observed'
-      ) || [];
 
     snapshots.set(conversationKey, {
       prompts: structuredClone(prompts),
-      fingerprintIndex:
-        observedRecords.length > 0
-          ? cloneFingerprintIndex(observedRecords)
-          : null,
-      segmentIndex:
-        observedSegments.length > 0
-          ? cloneSegmentIndex(observedSegments)
-          : null,
+      fingerprintIndex: previousSnapshot?.fingerprintIndex
+        ? cloneFingerprintIndex(previousSnapshot.fingerprintIndex)
+        : null,
+      segmentIndex: previousSnapshot?.segmentIndex
+        ? cloneSegmentIndex(previousSnapshot.segmentIndex)
+        : null,
       revision,
     });
 

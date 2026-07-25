@@ -174,6 +174,9 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
   converging on the Prompt boundary without fixed-range assumptions.
 * Prompt snapshots, fingerprints, and unconfirmed search observations are
   discarded on page refresh or tab close.
+* Updating a Prompt snapshot keeps the previous complete derived and observed
+  indexes readable until the matching revision finishes. Completed builds
+  replace old derived data while retaining valid observed precedence.
 * Confirmed successful jump anchors may persist in local extension storage as
   bounded hints. They are validated against prompt identity and viewport width,
   expire after 30 days, and never replace live position verification.

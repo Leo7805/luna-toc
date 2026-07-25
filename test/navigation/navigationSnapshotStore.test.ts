@@ -41,6 +41,36 @@ const segmentIndex = [
     quality: 'derived' as const,
   },
 ];
+const replacementFingerprintIndex: NavigationFingerprintIndex = [
+  {
+    responseId: 'response-2',
+    promptIndex: 1,
+    quality: 'derived',
+    fingerprints: [
+      {
+        responseId: 'response-2',
+        sampleIndex: 0,
+        textOffset: 0,
+        probeText: 'New answer',
+        verificationHash: 'new-hash',
+        verificationLength: 10,
+      },
+    ],
+  },
+];
+const replacementSegmentIndex = [
+  {
+    responseId: 'response-2',
+    promptIndex: 1,
+    segmentIndex: 0,
+    segmentCount: 1,
+    positionRatio: 0,
+    probeText: 'New answer',
+    verificationHash: 'new-segment-hash',
+    verificationLength: 10,
+    quality: 'derived' as const,
+  },
+];
 
 describe('conversation snapshot store', () => {
   it('stores prompts immediately and completes matching fingerprint work', () => {
@@ -109,6 +139,51 @@ describe('conversation snapshot store', () => {
       )
     ).toBe(false);
     expect(store.getSnapshot('conversation-1')?.fingerprintIndex).toBeNull();
+  });
+
+  it('keeps complete derived indexes until the next revision replaces them', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    const firstRevision = store.replacePrompts('conversation-1', [
+      { id: 'prompt-1', text: 'Prompt' },
+    ]);
+    store.completeFingerprintIndex(
+      'conversation-1',
+      firstRevision,
+      fingerprintIndex
+    );
+    store.completeSegmentIndex(
+      'conversation-1',
+      firstRevision,
+      segmentIndex
+    );
+
+    const nextRevision = store.replacePrompts('conversation-1', [
+      { id: 'prompt-1', text: 'Prompt' },
+      { id: 'prompt-2', text: 'New prompt' },
+    ]);
+
+    expect(store.getSnapshot('conversation-1')).toMatchObject({
+      fingerprintIndex,
+      segmentIndex,
+      revision: nextRevision,
+    });
+
+    store.completeFingerprintIndex(
+      'conversation-1',
+      nextRevision,
+      replacementFingerprintIndex
+    );
+    store.completeSegmentIndex(
+      'conversation-1',
+      nextRevision,
+      replacementSegmentIndex
+    );
+
+    expect(store.getSnapshot('conversation-1')).toMatchObject({
+      fingerprintIndex: replacementFingerprintIndex,
+      segmentIndex: replacementSegmentIndex,
+      revision: nextRevision,
+    });
   });
 
   it('returns detached prompt and fingerprint arrays', () => {
