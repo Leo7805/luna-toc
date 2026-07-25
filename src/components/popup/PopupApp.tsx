@@ -97,11 +97,11 @@ export function PopupApp(): React.JSX.Element {
         </aside>
       </section>
 
-      <footer className="mt-2.5 flex items-center justify-between border-t border-[var(--p-toggle-border)] pt-2">
+      <footer className="mt-2.5 flex items-center justify-between border-t border-(--p-toggle-border) pt-2">
         <button
           type="button"
           title="Open LunaTOC settings"
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border-0 bg-transparent px-1 py-0.5 text-[10px] font-medium text-[var(--p-toggle-text)] outline-none transition hover:text-[var(--p-accent)] focus-visible:ring-2 focus-visible:ring-[var(--p-accent)]"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) outline-none transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent) active:scale-95 active:bg-(--p-bg-note)"
           onClick={() => void chrome.runtime.openOptionsPage()}
         >
           <Settings className="size-3.5" aria-hidden="true" />
@@ -118,7 +118,7 @@ interface PromptKeyProps {
 
 function PromptKey({ children }: PromptKeyProps): React.JSX.Element {
   return (
-    <kbd className="rounded-[3px] border border-[var(--p-border-kbd)] bg-[var(--p-bg-kbd)] px-1 py-px font-[inherit] text-[11px] text-[var(--p-text-kbd)]">
+    <kbd className="rounded-[3px] border border-(--p-border-kbd) bg-(--p-bg-kbd) px-1 py-px font-[inherit] text-[11px] text-(--p-text-kbd)">
       {children}
     </kbd>
   );
