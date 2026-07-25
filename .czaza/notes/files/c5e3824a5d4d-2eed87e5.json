@@ -6,11 +6,15 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T05:20:22.960Z",
-    "updatedAt": "2026-07-24T05:21:07.020Z"
+    "updatedAt": "2026-07-25T07:16:43.315Z"
   },
   "fileNote": {
     "userNote": "将可见文本与缓存指纹进行匹配，并判断所属 Prompt。\nfindProbeOffsets() — 标准化空白后，查找探针文本的全部出现位置。\nverifyFingerprintMatch() — 验证明文探针及其后续文本 Hash。\nmatchFingerprintIndex() — 将所有验证成功的指纹按照 promptIndex 汇总和排序。\nselectBestPromptMatch() — 仅在存在唯一最高分时确认 Prompt。\nfindProbeOffsetsInNormalizedText() — 在已标准化文本中查找可重叠的探针位置。\n\n匹配结果明确分成：\n{ status: 'matched', match }\n{ status: 'ambiguous', matches }\n{ status: 'none' }\n\n当前流程\nRenderedTextBlock[]\n        ↓\n查找 probeText\n        ↓\n验证后续文本 SHA-256\n        ↓\n按 promptIndex 累计匹配数量\n        ↓\n唯一最高 → matched\n并列最高 → ambiguous\n完全没有 → none",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "current",
+      "anchor": "needsConfirmation"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

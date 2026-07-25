@@ -493,7 +493,10 @@ function showAutocompleteMenu(
       anchorBottom: anchorRect.bottom,
       viewportHeight: window.innerHeight,
     },
-    selectAutocompleteItem
+    selectAutocompleteItem,
+    (nextIndex) => {
+      selectedMenuIndex = nextIndex;
+    }
   );
 }
 

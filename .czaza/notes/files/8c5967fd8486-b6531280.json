@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T07:21:13.243Z",
+    "updatedAt": "2026-07-25T07:21:13.243Z"
+  },
+  "fileNote": {
+    "userNote": "用来存放运行的一些脚本 。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

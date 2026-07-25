@@ -47,7 +47,7 @@ export function ThemeSettings({
           role="switch"
           aria-checked={settings.followChatGPT}
           aria-label="Follow ChatGPT theme"
-          className={`relative h-4.5 w-8 cursor-pointer rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) ${
+          className={`relative h-4.5 w-8 cursor-pointer rounded-full border outline-none transition duration-150 hover:border-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) active:scale-[0.97] ${
             settings.followChatGPT
               ? 'border-(--p-toggle-bg-active) bg-(--p-toggle-bg-active)'
               : 'border-(--p-toggle-border) bg-(--p-toggle-bg)'

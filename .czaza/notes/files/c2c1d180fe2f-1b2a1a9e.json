@@ -6,11 +6,15 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T13:35:28.029Z",
-    "updatedAt": "2026-07-22T08:14:19.998Z"
+    "updatedAt": "2026-07-25T07:16:43.296Z"
   },
   "fileNote": {
     "userNote": "实际滚动和虚拟列表扫描",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "current",
+      "anchor": "needsConfirmation"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:6d86e71ef748d505a5156f38d243b599ee07019221e37159fa484dfc9c9cf67e",
+    "sourceHash": "sha256:28fa52dee44095dfb061bb28f36208b80493d43e11844b9e096d78a998800bd0",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
     "createdAt": "2026-07-25T03:30:32.041Z",
-    "updatedAt": "2026-07-25T03:30:32.041Z"
+    "updatedAt": "2026-07-25T04:52:25.635Z"
   },
   "fileNote": {
     "userNote": "管理“跟随 ChatGPT”和手动 Dark/Light 的交互界面\n",
@@ -15,8 +15,7 @@
       "content": "stale",
       "anchor": "confirmed"
     },
-    "createdAt": "2026-07-22T13:38:45.151Z",
-    "updatedAt": "2026-07-25T03:32:57.579Z"
+    "createdAt": "2026-07-22T13:38:45.151Z"
   },
   "sectionNotes": {},
   "lineNotes": {
@@ -173,9 +172,8 @@
       },
       "status": {
         "content": "stale",
-        "anchor": "confirmed"
-      },
-      "updatedAt": "2026-07-25T03:32:55.150Z"
+        "anchor": "needsConfirmation"
+      }
     },
     "line:88": {
       "line": 88,
@@ -226,9 +224,8 @@
       },
       "status": {
         "content": "stale",
-        "anchor": "confirmed"
-      },
-      "updatedAt": "2026-07-25T03:32:57.579Z"
+        "anchor": "needsConfirmation"
+      }
     },
     "line:94": {
       "line": 94,

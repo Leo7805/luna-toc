@@ -162,7 +162,7 @@ graph TD
 - [components/ui](../src/components/ui) contains shadcn/ui primitives; feature-specific and shared React components will live in sibling component directories.
 - [reactHost.tsx](../src/reactHost/reactHost.tsx) owns the React Shadow Root, injects the compiled Tailwind stylesheet, and exposes the internal Portal container.
 - [PromptEditorDialog.tsx](../src/components/my-prompts/PromptEditorDialog.tsx) renders the first migrated My Prompts interface while saving remains in the feature layer.
-- [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature.
+- [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature and keeps a single highlight owned by the most recent pointer or keyboard interaction.
 - [PopupApp.tsx](../src/components/popup/PopupApp.tsx) renders the extension Popup, including the follow-ChatGPT and manual theme controls.
 - [OptionsApp.tsx](../src/components/options/OptionsApp.tsx) renders the ChatGPT navigation strategy setting as immediately saved radio cards.
 - Popup layout and component styling use Tailwind utilities; `popup.css` remains the Tailwind entry and retains only theme tokens and document-level base rules.

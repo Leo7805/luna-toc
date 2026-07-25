@@ -1,0 +1,63 @@
+{
+  "source": {
+    "sourceHash": "sha256:84b1e109a8438146343e4ee0b02519dd57f98a53a299b7912292e0ac9f5e34dc",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T07:17:39.291Z",
+    "updatedAt": "2026-07-25T07:17:39.291Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "更新manifest.json版本号为package.json中指定的版本",
+      "detail": "该脚本读取package.json和manifest.json，验证manifest.json包含版本字段，检查package.json版本格式为major.minor.patch，然后替换manifest.json中的版本字符串并写回文件。执行成功后打印更新信息。"
+    },
+    "userNote": "用于在 chrome extension 开发时，使用 \"npm version patch/minor/major\" 进行版本号管理。\n\n主要功能：\n1. 检查当前是否 commit\n2. 更新版本号、打上tag、为这个 tag 单独 commit",
+    "updatedAt": "2026-07-25T07:19:55.776Z"
+  },
+  "sectionNotes": {
+    "section:1:section:1-11": {
+      "title": "文件头部与路径常量",
+      "kind": "初始化",
+      "range": {
+        "startLine": 1,
+        "endLine": 11
+      },
+      "anchorHash": "sha256:10ec15c943bacecdd5fbb2ac91104c4b9b2f4aba4c23358769fefde47572c498",
+      "aiExplanation": {
+        "summary": "定义脚本执行环境、项目根目录及关键文件路径",
+        "detail": "第1行shebang指示使用Node.js执行。第7-10行通过import.meta.url获取脚本路径，计算项目根目录，并构造package.json和manifest.json的绝对路径。第2-6及第11行为空行。"
+      }
+    },
+    "section:2:section:12-25": {
+      "title": "版本接口与错误处理函数",
+      "kind": "辅助",
+      "range": {
+        "startLine": 12,
+        "endLine": 25
+      },
+      "anchorHash": "sha256:5706e66aca9f5b5c7640587a9dd8825dd76071d833176126245a9d640fdf3853",
+      "aiExplanation": {
+        "summary": "定义PackageData接口和fail函数",
+        "detail": "PackageData接口仅包含version字段。fail函数输出错误信息到stderr并以状态码1退出。第15、25行为空行。"
+      }
+    },
+    "section:3:section:26-49": {
+      "title": "版本更新主逻辑",
+      "kind": "流程",
+      "range": {
+        "startLine": 26,
+        "endLine": 49
+      },
+      "anchorHash": "sha256:dbc00b3cf24147ec7bde49cf74ee614517e50f4ee7b18fafd9b6f90218899859",
+      "aiExplanation": {
+        "summary": "读取文件、验证版本、替换并写回",
+        "detail": "读取package.json解析出版本号，读取manifest.json并用正则提取当前版本。验证package.json版本格式为major.minor.patch，否则调用fail退出。将manifest.json中的当前版本替换为package.json中的版本，写回文件并打印更新信息。",
+        "aiNotes": [
+          "替换基于正则匹配的字符串，若manifest.json中存在其他类似版本字符串可能被误替换，但通常结构简单，风险较低。"
+        ]
+      }
+    }
+  },
+  "lineNotes": {}
+}

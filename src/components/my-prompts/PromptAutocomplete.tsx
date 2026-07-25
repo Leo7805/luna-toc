@@ -47,10 +47,7 @@ function PromptAutocompleteMenu({
       state.position.viewportHeight - menuHeight - MENU_GAP
     );
     setTop(
-      Math.max(
-        MENU_GAP,
-        preferredTop >= MENU_GAP ? preferredTop : fallbackTop
-      )
+      Math.max(MENU_GAP, preferredTop >= MENU_GAP ? preferredTop : fallbackTop)
     );
   }, [state.position]);
 
@@ -84,13 +81,19 @@ function PromptAutocompleteMenu({
             role="option"
             aria-selected={isSelected}
             title={prompt.content}
-            className={`cursor-pointer border-b border-[var(--ct-border-autocomplete-item)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--ct-bg-item-hover)] ${
-              isSelected ? 'bg-[var(--ct-bg-item-hover)]' : ''
+            className={`cursor-pointer border-b border-(--ct-border-autocomplete-item) px-3 py-2.5 text-left transition-colors last:border-b-0 ${
+              isSelected ? 'bg-(--ct-bg-item-hover)' : ''
             }`}
+            onPointerMove={() =>
+              promptAutocompleteViewController.setSelectedIndex(
+                index,
+                'pointer'
+              )
+            }
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => promptAutocompleteViewController.select(index)}
           >
-            <div className="truncate text-[13px] font-semibold text-[var(--ct-text-autocomplete-title)]">
+            <div className="truncate text-[13px] font-semibold text-(--ct-text-autocomplete-title)">
               {prompt.title}
             </div>
           </div>

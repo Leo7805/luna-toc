@@ -6,11 +6,15 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T04:42:53.253Z",
-    "updatedAt": "2026-07-24T04:43:38.404Z"
+    "updatedAt": "2026-07-25T07:16:43.307Z"
   },
   "fileNote": {
     "userNote": "为平台无关的 AI 文本回答生成定位指纹。\nnormalizeFingerprintText() — 将换行、制表符和连续空格统一成单个空格。\ncalculateFingerprintOffsets() — 根据回答长度计算均匀分布的采样位置。\ncreateSha256() — 使用原生 Web Crypto 生成 SHA-256 Hash。\ncreateResponseFingerprints() — 为一条 AI 回答生成最多指定数量的指纹。\n\n📚 指纹结构\ninterface ResponseFingerprint {\n  responseId: string;\n  sampleIndex: number;\n  textOffset: number;\n  probeText: string;\n  verificationHash: string;\n  verificationLength: number;\n}\n每个指纹包含：\nprobeText：用于快速查找的 40 字符明文。\nverificationHash：后续最多 256 字符的 SHA-256。\nverificationLength：实际参与 Hash 的后续文本长度。\ntextOffset：该指纹在标准化回答中的位置。\n短回答没有后续验证文本时，会使用 probeText 本身生成 Hash，避免产生空内容 Hash。",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "current",
+      "anchor": "needsConfirmation"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

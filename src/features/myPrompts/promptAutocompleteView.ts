@@ -12,12 +12,16 @@ export interface PromptAutocompletePosition {
   viewportHeight: number;
 }
 
+export type AutocompleteInteractionMode = 'keyboard' | 'pointer';
+
 interface PromptAutocompleteViewState {
   id: number;
   prompts: SavedPrompt[];
   selectedIndex: number;
+  interactionMode: AutocompleteInteractionMode;
   position: PromptAutocompletePosition;
   onSelect: (prompt: SavedPrompt) => void;
+  onSelectedIndexChange: (selectedIndex: number) => void;
 }
 
 type PromptAutocompleteViewListener = () => void;
@@ -34,14 +38,17 @@ function show(
   prompts: SavedPrompt[],
   selectedIndex: number,
   position: PromptAutocompletePosition,
-  onSelect: PromptAutocompleteViewState['onSelect']
+  onSelect: PromptAutocompleteViewState['onSelect'],
+  onSelectedIndexChange: PromptAutocompleteViewState['onSelectedIndexChange']
 ): void {
   currentState = {
     id: ++viewId,
     prompts,
     selectedIndex,
+    interactionMode: 'keyboard',
     position,
     onSelect,
+    onSelectedIndexChange,
   };
   emitChange();
 }
@@ -52,9 +59,24 @@ function close(): void {
   emitChange();
 }
 
-function setSelectedIndex(selectedIndex: number): void {
-  if (!currentState || currentState.selectedIndex === selectedIndex) return;
-  currentState = { ...currentState, selectedIndex };
+function setSelectedIndex(
+  selectedIndex: number,
+  interactionMode: AutocompleteInteractionMode = 'keyboard'
+): void {
+  if (
+    !currentState ||
+    (currentState.selectedIndex === selectedIndex &&
+      currentState.interactionMode === interactionMode)
+  ) {
+    return;
+  }
+
+  currentState.onSelectedIndexChange(selectedIndex);
+  currentState = {
+    ...currentState,
+    selectedIndex,
+    interactionMode,
+  };
   emitChange();
 }
 
