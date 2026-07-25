@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:0dcd5b888a163cb1ef3f1016a3b3d2774e786bbca51eb8626580a40e35d43243",
+    "sourceHashKind": "text",
+    "programmingLanguage": "css"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T04:38:27.030Z",
+    "updatedAt": "2026-07-25T04:38:27.030Z"
+  },
+  "fileNote": {
+    "userNote": "设置页 Tailwind 入口、颜色 tokens 和基础样式。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

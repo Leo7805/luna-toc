@@ -72,8 +72,10 @@ Native prompt buttons remain the only reliable way to navigate virtualized file/
 ### Independent Navigation Development Mode
 
 ChatGPT navigation is selected by
-`APP_CONFIG.platforms.chatgpt.navigationAlgorithm`. The default
-`legacy-native` strategy preserves the native-button and legacy scan behavior.
+the runtime preference stored by `navigationSettings.ts`. The default
+`legacy-native` strategy preserves the native-button and legacy scan behavior,
+and the full-page extension Options UI can switch strategies without rebuilding
+or reloading existing ChatGPT tabs.
 The `independent-virtual` strategy uses only LunaTOC prompt IDs, fingerprints,
 an initial anchor hint, and adaptive relative feedback; it does not call the native
 ChatGPT TOC or silently fall back to the legacy scanner. Confirmed successful

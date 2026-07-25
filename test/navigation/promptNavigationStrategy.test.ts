@@ -14,6 +14,7 @@ import {
 } from '@/config/config';
 
 const mocks = vi.hoisted(() => ({
+  navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
   createAnchor: vi.fn(),
   findPrompt: vi.fn(),
   getContainer: vi.fn(),
@@ -51,14 +52,14 @@ vi.mock('@/features/navigation/follow', () => ({
   keepFollowing: vi.fn(),
 }));
 
+vi.mock('@/features/navigation/navigationSettings', () => ({
+  getChatGptNavigationAlgorithm: () => mocks.navigationAlgorithm,
+}));
+
 import {
   initializePromptNavigation,
   jumpToMessage,
 } from '@/features/navigation/promptNavigation';
-
-const mutableChatGptConfig = APP_CONFIG.platforms.chatgpt as {
-  navigationAlgorithm: ChatGptNavigationAlgorithm;
-};
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -85,7 +86,7 @@ beforeEach(() => {
       return 1;
     })
   );
-  mutableChatGptConfig.navigationAlgorithm = 'legacy-native';
+  mocks.navigationAlgorithm = 'legacy-native';
   mocks.recordConfirmed.mockResolvedValue(undefined);
   mocks.isPromptVisible.mockReturnValue(false);
   mocks.searchVirtualPrompt.mockResolvedValue({
@@ -156,7 +157,7 @@ describe('prompt navigation strategy', () => {
   });
 
   it('avoids native buttons when an independent target is rendered', async () => {
-    mutableChatGptConfig.navigationAlgorithm = 'independent-virtual';
+    mocks.navigationAlgorithm = 'independent-virtual';
     const nativeButton = document.createElement('button');
     const click = vi.spyOn(nativeButton, 'click');
     const container = document.createElement('div');
@@ -225,7 +226,7 @@ describe('prompt navigation strategy', () => {
   });
 
   it('searches when a retained target DOM node is outside the chat viewport', () => {
-    mutableChatGptConfig.navigationAlgorithm = 'independent-virtual';
+    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     const offscreenTarget = document.createElement('div');
     mocks.getContainer.mockReturnValue(container);
@@ -249,7 +250,7 @@ describe('prompt navigation strategy', () => {
   });
 
   it('starts independent virtual search without calling the legacy path', () => {
-    mutableChatGptConfig.navigationAlgorithm = 'independent-virtual';
+    mocks.navigationAlgorithm = 'independent-virtual';
     const nativeButton = document.createElement('button');
     const click = vi.spyOn(nativeButton, 'click');
     const container = document.createElement('div');

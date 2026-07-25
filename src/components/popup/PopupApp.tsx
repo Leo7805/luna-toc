@@ -100,9 +100,9 @@ export function PopupApp(): React.JSX.Element {
       <footer className="mt-2.5 flex items-center justify-between border-t border-[var(--p-toggle-border)] pt-2">
         <button
           type="button"
-          disabled
-          title="Settings will be available in the next step"
-          className="inline-flex cursor-default items-center gap-1.5 rounded-sm px-1 py-0.5 text-[10px] font-medium text-[var(--p-toggle-text)] opacity-75"
+          title="Open LunaTOC settings"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border-0 bg-transparent px-1 py-0.5 text-[10px] font-medium text-[var(--p-toggle-text)] outline-none transition hover:text-[var(--p-accent)] focus-visible:ring-2 focus-visible:ring-[var(--p-accent)]"
+          onClick={() => void chrome.runtime.openOptionsPage()}
         >
           <Settings className="size-3.5" aria-hidden="true" />
           Settings

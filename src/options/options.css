@@ -1,0 +1,41 @@
+@layer theme, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Options page theme tokens and document defaults. */
+:root {
+  color-scheme: light dark;
+  --o-bg: #f5f7fb;
+  --o-surface: #ffffff;
+  --o-border: #dbe3ef;
+  --o-text: #172033;
+  --o-muted: #64748b;
+  --o-accent: #2563eb;
+  --o-accent-soft: #eff6ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --o-bg: #0f172a;
+    --o-surface: #111827;
+    --o-border: #334155;
+    --o-text: #e5edf8;
+    --o-muted: #94a3b8;
+    --o-accent: #60a5fa;
+    --o-accent-soft: #172554;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--o-bg);
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--o-text);
+}

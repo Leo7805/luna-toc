@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:77bbc8752dcb1a6291d3b8f597d22e488151e0a2ad8fd2d1a79ca41a4c3737f4",
+    "sourceHash": "sha256:bc996f842a9c22805d4227dde84bec7996bd9e9a28a46f6503e2b31e1039a313",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T03:20:12.633Z",
-    "updatedAt": "2026-07-24T14:36:15.664Z"
+    "updatedAt": "2026-07-25T04:39:11.694Z"
   },
   "fileNote": {
-    "userNote": "怎么跳主目录\n\n\nfinishIndependentVirtualJump() — 首次定位后启动稳定阶段，不立即高亮或缓存。\nalignIndependentPromptToTop() — 使用scrollIntoView({ block: 'start' })定位，不再手工计算虚拟列表绝对位置。\nsettleIndependentVirtualJump() — 等待80ms，重新根据Prompt ID获取最新DOM，再次定位。\npersistConfirmedPromptAnchor() — 只在最终DOM定位成功后保存锚点。\ncancelActiveNavigationSearch() — 新跳转会让旧的延迟高亮和缓存任务失效。\n\n---\n\nfinishIndependentVirtualJump() — 改用独立模式的顶部对齐。\nalignIndependentPromptToTop() — 首次定位后在下一帧再校正一次，应对虚拟列表重新布局。\nscrollPromptToContainerTop() — 根据目标和滚动容器坐标计算准确scrollTop。\n\n---\n\n根据配置分流两套算法。\njumpWithLegacyNativeNavigation() — 保留原生目录和旧扫描。\njumpWithIndependentVirtualNavigation() — 只使用LunaTOC的新算法。\nfinishIndependentVirtualJump() — 完成跳转并保存确认锚点。\ngetNavigationAnchorStore() — 延迟创建锚点缓存。\ncancelActiveNavigationSearch() — 连续点击时取消旧搜索。\nusesIndependentVirtualNavigation() — 判断当前配置策略。\njumpToPromptIndex() — 独立模式下子目录恢复父Prompt也使用新算法。\njumpToConversationEdge() — 独立模式下顶部/底部不点击原生目录。\n\n---\n\n独立导航向位置观察器传递 Segment，并记录 Segment 数量。jumpWithIndependentVirtualNavigation()：搜索时同时提供完整指纹和 Segment 指纹。\n\n\n\n\n\n\n--- old ---\n\n删除内部重复的滚动容器检测，改用getChatGptScrollContainer()。\n\ninitializePromptNavigation()　注入原生目录按钮、消息数量、文本规范化和激活项锁定等依赖。\njumpToMessage()　主目录跳转总入口，依次尝试原生目录、DOM 文本、虚拟扫描和索引兜底。\njumpToPromptIndex()　按 Prompt 索引调用当前主目录算法，供子目录恢复父 Prompt 使用。\njumpToConversationEdge()　跳转到第一条或最后一条 Prompt。\njumpToAbsoluteEdge()　直接滚动到 ChatGPT 消息容器的绝对顶部或底部。\nlockPromptIndex()　锁定 LunaTOC 当前激活 Prompt，但不重复触发页面跳转。\njumpToUserMessageByVirtualScan()　估算目标位置并启动虚拟列表扫描。\nscanForRenderedMessage()　逐步滚动 ChatGPT 消息容器，直到目标 Prompt 被渲染。",
+    "userNote": "怎么跳主目录\n\n\nfinishIndependentVirtualJump() — 首次定位后启动稳定阶段，不立即高亮或缓存。\nalignIndependentPromptToTop() — 使用scrollIntoView({ block: 'start' })定位，不再手工计算虚拟列表绝对位置。\nsettleIndependentVirtualJump() — 等待80ms，重新根据Prompt ID获取最新DOM，再次定位。\npersistConfirmedPromptAnchor() — 只在最终DOM定位成功后保存锚点。\ncancelActiveNavigationSearch() — 新跳转会让旧的延迟高亮和缓存任务失效。\n\n---\n\nfinishIndependentVirtualJump() — 改用独立模式的顶部对齐。\nalignIndependentPromptToTop() — 首次定位后在下一帧再校正一次，应对虚拟列表重新布局。\nscrollPromptToContainerTop() — 根据目标和滚动容器坐标计算准确scrollTop。\n\n---\n\n根据配置分流两套算法。\njumpWithLegacyNativeNavigation() — 保留原生目录和旧扫描。\njumpWithIndependentVirtualNavigation() — 只使用LunaTOC的新算法。\nfinishIndependentVirtualJump() — 完成跳转并保存确认锚点。\ngetNavigationAnchorStore() — 延迟创建锚点缓存。\ncancelActiveNavigationSearch() — 连续点击时取消旧搜索。\nusesIndependentVirtualNavigation() — 判断当前配置策略。\njumpToPromptIndex() — 独立模式下子目录恢复父Prompt也使用新算法。\njumpToConversationEdge() — 独立模式下顶部/底部不点击原生目录。\n\n---\n\n独立导航向位置观察器传递 Segment，并记录 Segment 数量。jumpWithIndependentVirtualNavigation()：搜索时同时提供完整指纹和 Segment 指纹。\n\n---\n运行时设置选择算法。\nusesIndependentVirtualNavigation：读取当前内存设置，不再直接读取编译配置。\n\n\n\n\n\n\n--- old ---\n\n删除内部重复的滚动容器检测，改用getChatGptScrollContainer()。\n\ninitializePromptNavigation()　注入原生目录按钮、消息数量、文本规范化和激活项锁定等依赖。\njumpToMessage()　主目录跳转总入口，依次尝试原生目录、DOM 文本、虚拟扫描和索引兜底。\njumpToPromptIndex()　按 Prompt 索引调用当前主目录算法，供子目录恢复父 Prompt 使用。\njumpToConversationEdge()　跳转到第一条或最后一条 Prompt。\njumpToAbsoluteEdge()　直接滚动到 ChatGPT 消息容器的绝对顶部或底部。\nlockPromptIndex()　锁定 LunaTOC 当前激活 Prompt，但不重复触发页面跳转。\njumpToUserMessageByVirtualScan()　估算目标位置并启动虚拟列表扫描。\nscanForRenderedMessage()　逐步滚动 ChatGPT 消息容器，直到目标 Prompt 被渲染。",
     "createdBy": "user",
     "status": {
       "content": "stale",

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:09f9971829a8bcecd6e2d1e6a3505bbf462e08250b2823612fc7171cd193ac74",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T04:38:14.835Z",
+    "updatedAt": "2026-07-25T04:38:14.835Z"
+  },
+  "fileNote": {
+    "userNote": "挂载 React 设置页面。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

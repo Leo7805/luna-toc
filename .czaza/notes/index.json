@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-25T03:32:57.579Z",
+  "updatedAt": "2026-07-25T04:39:11.694Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -52,9 +52,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/828b26418229-088e14cb.json",
-      "sourceHash": "sha256:40a5c5ab6a668f70c975c663b31f43cb352a25f6190969a4081398cdc262d13a",
+      "sourceHash": "sha256:59060e7a52667c0f031091d58f99fdef75b32825c84ebbd50cfcfb0772bc3156",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-22T14:05:07.464Z"
+      "updatedAt": "2026-07-25T04:38:53.244Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
@@ -156,9 +156,9 @@
     },
     "src/components/popup/PopupApp.tsx": {
       "noteFile": "files/b65e4b46b3a3-36665232.json",
-      "sourceHash": "sha256:04fcb647c5ff5ea0d022e374f97b0752d65d594210119d63b0871f4bf388ddbf",
+      "sourceHash": "sha256:baa250c187838b6fe39d57e1a73dff969853397a5bd2e6acbc8fe72a76cacdcd",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-25T03:16:24.436Z"
+      "updatedAt": "2026-07-25T03:41:26.207Z"
     },
     "src/components/popup/ThemeSettings.tsx": {
       "noteFile": "files/0044ae0a939f-6ab610c3.json",
@@ -192,9 +192,9 @@
     },
     "src/features/navigation/promptNavigation.ts": {
       "noteFile": "files/241fe34fddca-a4f793e6.json",
-      "sourceHash": "sha256:77bbc8752dcb1a6291d3b8f597d22e488151e0a2ad8fd2d1a79ca41a4c3737f4",
+      "sourceHash": "sha256:bc996f842a9c22805d4227dde84bec7996bd9e9a28a46f6503e2b31e1039a313",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T14:36:15.664Z"
+      "updatedAt": "2026-07-25T04:39:11.694Z"
     },
     "src/features/navigation/outline.ts": {
       "noteFile": "files/2c76dfd8293f-c0052e3a.json",
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:5bf70abe5526a4c0f8b7b1b83e99c5cbb3ed9bb3ef35f33ca39f3975071dd02b",
+      "sourceHash": "sha256:230debe09468762cd3fcba04cbf34eb222c4cf0ef1fa67ebdfc47839cf3b60e2",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T15:17:48.623Z"
+      "updatedAt": "2026-07-25T03:41:26.108Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -355,6 +355,36 @@
       "sourceHash": "sha256:a6b50e226d5b7549b070ae587ffadca3f94d27d60a977724b98d2c634ad0d992",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-24T13:08:33.147Z"
+    },
+    "src/components/options/OptionsApp.tsx": {
+      "noteFile": "files/f97c721fab3c-06c2cf61.json",
+      "sourceHash": "sha256:5185e081c1f18f38b429f2bd3b69b2f4907d7a8f9727b2a3c178ea7d5baf5e9b",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-25T04:36:33.096Z"
+    },
+    "src/features/navigation/navigationSettings.ts": {
+      "noteFile": "files/2aa84acf23df-59fd975d.json",
+      "sourceHash": "sha256:10f152072ed11e5e83291cdd6a8800e729f164acbc92ee98e7b9b6c0a9c12d80",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-07-25T04:36:55.693Z"
+    },
+    "src/options/options.html": {
+      "noteFile": "files/594c44a28df5-7ee3c31f.json",
+      "sourceHash": "sha256:0aac0b0b1981d61ff150f490e765617eb864b3daa050c2c638cd6098202c2329",
+      "programmingLanguage": "html",
+      "updatedAt": "2026-07-25T04:38:04.524Z"
+    },
+    "src/options/options.tsx": {
+      "noteFile": "files/f2f774ffdfeb-d7fb97b2.json",
+      "sourceHash": "sha256:09f9971829a8bcecd6e2d1e6a3505bbf462e08250b2823612fc7171cd193ac74",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-07-25T04:38:14.835Z"
+    },
+    "src/options/options.css": {
+      "noteFile": "files/0f6ed3849705-ae7e8b3b.json",
+      "sourceHash": "sha256:0dcd5b888a163cb1ef3f1016a3b3d2774e786bbca51eb8626580a40e35d43243",
+      "programmingLanguage": "css",
+      "updatedAt": "2026-07-25T04:38:27.030Z"
     }
   }
 }

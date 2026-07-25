@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:0aac0b0b1981d61ff150f490e765617eb864b3daa050c2c638cd6098202c2329",
+    "sourceHashKind": "text",
+    "programmingLanguage": "html"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T04:38:04.524Z",
+    "updatedAt": "2026-07-25T04:38:04.524Z"
+  },
+  "fileNote": {
+    "userNote": "Options Page HTML 入口。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

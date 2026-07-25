@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:10f152072ed11e5e83291cdd6a8800e729f164acbc92ee98e7b9b6c0a9c12d80",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T04:36:55.693Z",
+    "updatedAt": "2026-07-25T04:36:55.693Z"
+  },
+  "fileNote": {
+    "userNote": "集中管理导航设置。\ninitializeNavigationSettings：Content Script 启动时读取设置并监听变化。\ngetChatGptNavigationAlgorithm：同步返回当前算法，避免增加点击延迟。\nreadNavigationSettings：读取设置，无有效值时返回 ChatGPT Native。\nwriteNavigationSettings：保存设置。\nsubscribeNavigationSettings：监听其他扩展页面修改设置。\nnormalizeNavigationSettings：拒绝无效存储值并恢复默认值。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

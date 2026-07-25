@@ -49,6 +49,7 @@ graph TD
         navigator[navigatorController.ts]
         shell[applicationShell.ts]
         popup[popup.tsx]
+        options[options.tsx]
     end
 
     subgraph isolatedWorld["Isolated World"]
@@ -152,7 +153,8 @@ graph TD
   - [content.ts](../src/content.ts): Calls the application initializer as the minimal Isolated World entry.
   - [themeSettings.ts](../src/features/theme/themeSettings.ts): Defines, persists, and migrates the follow/manual theme preference shared by the Popup and Content Script.
   - [chatGptTheme.ts](../src/features/theme/chatGptTheme.ts): Detects ChatGPT's resolved root-class theme and shares the latest value with the Popup.
-  - [popup.tsx](../src/popup/popup.tsx): Mounts the React Popup application.
+- [popup.tsx](../src/popup/popup.tsx): Mounts the React Popup application.
+- [options.tsx](../src/options/options.tsx): Mounts the full-page React settings application.
 
 ### React UI Foundation
 
@@ -162,6 +164,7 @@ graph TD
 - [PromptEditorDialog.tsx](../src/components/my-prompts/PromptEditorDialog.tsx) renders the first migrated My Prompts interface while saving remains in the feature layer.
 - [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature.
 - [PopupApp.tsx](../src/components/popup/PopupApp.tsx) renders the extension Popup, including the follow-ChatGPT and manual theme controls.
+- [OptionsApp.tsx](../src/components/options/OptionsApp.tsx) renders the ChatGPT navigation strategy setting as immediately saved radio cards.
 - Popup layout and component styling use Tailwind utilities; `popup.css` remains the Tailwind entry and retains only theme tokens and document-level base rules.
 - `@/` resolves to the entire `src/` directory for browser code, React components, styles, and utilities.
 - Tailwind CSS is loaded as an inline string inside the React Shadow Root, so generated global rules cannot affect ChatGPT or the legacy Content Script UI.
@@ -171,7 +174,7 @@ graph TD
 ### Build Outputs
 
 - `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning; runtime user preferences remain in their existing storage modules.
-- `platforms.chatgpt.navigationAlgorithm` selects either the default `legacy-native` ChatGPT TOC path or the fully independent `independent-virtual` anchor-and-fingerprint path.
+- `platforms.chatgpt.navigationAlgorithm` supplies the default `legacy-native` fallback, while `navigationSettings.ts` persists and synchronizes the user's runtime choice between native and independent navigation.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
 - `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress.

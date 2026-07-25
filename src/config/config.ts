@@ -8,7 +8,7 @@ export type ChatGptNavigationAlgorithm =
 export const APP_CONFIG = {
   platforms: {
     chatgpt: {
-      navigationAlgorithm: 'independent-virtual' as ChatGptNavigationAlgorithm,
+      navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
       promptTopOffsetPx: 16,
       settleAttempts: 3,
     },

@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:40a5c5ab6a668f70c975c663b31f43cb352a25f6190969a4081398cdc262d13a",
+    "sourceHash": "sha256:59060e7a52667c0f031091d58f99fdef75b32825c84ebbd50cfcfb0772bc3156",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:17:02.107Z",
-    "updatedAt": "2026-07-22T14:05:07.464Z"
+    "updatedAt": "2026-07-25T04:38:53.244Z"
   },
   "fileNote": {
-    "userNote": "纯 UI/启动层 - 负责侧栏 DOM、主题、拖动、视图切换、My Prompts 和整体初始化。",
+    "userNote": "纯 UI/启动层 - 负责侧栏 DOM、主题、拖动、视图切换、My Prompts 和整体初始化。\n\ninitializeApplication：等待设置加载后再启动导航功能。",
     "createdBy": "user"
   },
   "sectionNotes": {},

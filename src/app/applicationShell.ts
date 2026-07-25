@@ -17,6 +17,7 @@ import {
   type ResolvedTheme,
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
+import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
 import { navigatorController } from './navigatorController';
 
 type ConversationEdge = 'top' | 'bottom';
@@ -528,6 +529,7 @@ function initTheme(): void {
  * Starts the application after all feature and controller scripts load.
  */
 export async function initializeApplication(): Promise<void> {
+  await initializeNavigationSettings();
   initTheme();
   navigatorController.init({
     onRouteChanged() {

@@ -2,6 +2,7 @@
  * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
 import { APP_CONFIG } from '@/config/config';
+import { getChatGptNavigationAlgorithm } from './navigationSettings';
 import type { NavigationFingerprintIndex } from './fingerprint/index';
 import type { NavigationSegmentIndex } from './fingerprint/segments';
 import {
@@ -723,9 +724,7 @@ function cancelActiveNavigationSearch(): void {
  * Returns whether ChatGPT navigation must avoid all native TOC behavior.
  */
 function usesIndependentVirtualNavigation(): boolean {
-  return (
-    APP_CONFIG.platforms.chatgpt.navigationAlgorithm === 'independent-virtual'
-  );
+  return getChatGptNavigationAlgorithm() === 'independent-virtual';
 }
 
 /**
