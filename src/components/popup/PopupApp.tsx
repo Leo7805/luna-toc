@@ -1,5 +1,5 @@
 /** Renders the complete extension popup and coordinates its theme state. */
-import { Info } from 'lucide-react';
+import { Info, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   readResolvedChatGPTTheme,
@@ -96,6 +96,18 @@ export function PopupApp(): React.JSX.Element {
           </p>
         </aside>
       </section>
+
+      <footer className="mt-2.5 flex items-center justify-between border-t border-[var(--p-toggle-border)] pt-2">
+        <button
+          type="button"
+          disabled
+          title="Settings will be available in the next step"
+          className="inline-flex cursor-default items-center gap-1.5 rounded-sm px-1 py-0.5 text-[10px] font-medium text-[var(--p-toggle-text)] opacity-75"
+        >
+          <Settings className="size-3.5" aria-hidden="true" />
+          Settings
+        </button>
+      </footer>
     </main>
   );
 }

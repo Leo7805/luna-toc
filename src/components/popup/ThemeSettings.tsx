@@ -11,7 +11,7 @@ interface ThemeSettingsProps {
   onChange: (settings: ThemeSettingsValue) => void;
 }
 
-/** Displays follow and resolved theme controls in two compact rows. */
+/** Displays follow and resolved theme controls in one compact row. */
 export function ThemeSettings({
   settings,
   resolvedTheme,
@@ -29,64 +29,69 @@ export function ThemeSettings({
 
   return (
     <section
-      className="mb-3 border-b border-[var(--p-toggle-border)] pb-2.5"
+      className="mb-2.5 border-b border-(--p-toggle-border) pb-2"
       aria-labelledby="theme-heading"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-          <h2
-            id="theme-heading"
-            className="m-0 uppercase tracking-[0.05em] text-[var(--p-toggle-text)]"
-          >
-            Theme
-          </h2>
-          <span aria-hidden="true" className="text-[var(--p-toggle-border)]">
-            ·
-          </span>
-          <span>Follow ChatGPT</span>
-        </div>
+      <div className="flex min-h-6 items-center gap-2">
+        <h2
+          id="theme-heading"
+          className="m-0 mr-auto text-[10px] font-semibold uppercase tracking-[0.08em] text-(--p-toggle-text)"
+        >
+          Theme
+        </h2>
+        <span className="text-[10px] font-medium text-(--p-toggle-text)">
+          Follow ChatGPT
+        </span>
         <button
           type="button"
           role="switch"
           aria-checked={settings.followChatGPT}
           aria-label="Follow ChatGPT theme"
-          className={`relative h-5 w-9 cursor-pointer rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--p-bg-main)] ${
+          className={`relative h-4.5 w-8 cursor-pointer rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) ${
             settings.followChatGPT
-              ? 'border-[var(--p-toggle-bg-active)] bg-[var(--p-toggle-bg-active)]'
-              : 'border-[var(--p-toggle-border)] bg-[var(--p-toggle-bg)]'
+              ? 'border-(--p-toggle-bg-active) bg-(--p-toggle-bg-active)'
+              : 'border-(--p-toggle-border) bg-(--p-toggle-bg)'
           }`}
           onClick={toggleFollow}
         >
           <span
-            className={`absolute top-0.5 left-0 size-3.5 rounded-full bg-white shadow-sm transition-transform ${
-              settings.followChatGPT ? 'translate-x-4' : 'translate-x-0.5'
+            className={`absolute top-0.5 left-0 size-3 rounded-full bg-white shadow-sm transition-transform ${
+              settings.followChatGPT ? 'translate-x-4.25' : 'translate-x-0.5'
             }`}
           />
         </button>
-      </div>
-
-      <div
-        className={`mt-2 flex items-center justify-between gap-3 transition-opacity ${
-          settings.followChatGPT ? 'opacity-65' : 'opacity-100'
-        }`}
-      >
-        <span className="text-[11px] text-[var(--p-toggle-text)]">
-          Current theme
-        </span>
         <button
           type="button"
           disabled={settings.followChatGPT}
-          className="inline-flex min-w-[76px] cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--p-toggle-border)] bg-[var(--p-toggle-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--p-toggle-text)] outline-none transition hover:border-[var(--p-accent)] hover:text-[var(--p-accent)] focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--p-bg-main)] active:translate-y-px disabled:cursor-not-allowed"
+          aria-label={
+            settings.followChatGPT
+              ? `Current theme: ${resolvedTheme}`
+              : `Current theme: ${resolvedTheme}. Click to switch theme`
+          }
+          title={
+            settings.followChatGPT
+              ? `Following ChatGPT: ${resolvedTheme}`
+              : `Current theme: ${resolvedTheme}. Click to switch`
+          }
+          className={`inline-flex size-6 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) ${
+            settings.followChatGPT
+              ? 'cursor-default opacity-55'
+              : 'cursor-pointer hover:scale-110 hover:brightness-125 active:scale-95'
+          } ${resolvedTheme === 'dark' ? 'text-blue-400' : 'text-amber-600'}`}
           onClick={toggleManualTheme}
         >
           {resolvedTheme === 'dark' ? (
-            <>
-              <Moon aria-hidden="true" className="size-3.5" /> Dark
-            </>
+            <Moon
+              aria-hidden="true"
+              viewBox="2 2 20 20"
+              className="size-5 drop-shadow-[0_0_4px_currentColor]"
+            />
           ) : (
-            <>
-              <Sun aria-hidden="true" className="size-3.5" /> Light
-            </>
+            <Sun
+              aria-hidden="true"
+              viewBox="2 2 20 20"
+              className="size-5 drop-shadow-[0_0_4px_currentColor]"
+            />
           )}
         </button>
       </div>

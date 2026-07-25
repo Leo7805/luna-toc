@@ -1,17 +1,266 @@
 {
   "source": {
-    "sourceHash": "sha256:9d31d01d96dd50417f59d0e9a5c5e3a7d8a3a8fb9f72a10805e24769127123d7",
+    "sourceHash": "sha256:6d86e71ef748d505a5156f38d243b599ee07019221e37159fa484dfc9c9cf67e",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
-    "createdAt": "2026-07-22T13:38:45.151Z",
-    "updatedAt": "2026-07-22T13:38:49.580Z"
+    "createdAt": "2026-07-25T03:30:32.041Z",
+    "updatedAt": "2026-07-25T03:30:32.041Z"
   },
   "fileNote": {
     "userNote": "管理“跟随 ChatGPT”和手动 Dark/Light 的交互界面\n",
-    "createdBy": "user"
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    },
+    "createdAt": "2026-07-22T13:38:45.151Z",
+    "updatedAt": "2026-07-25T03:32:57.579Z"
   },
   "sectionNotes": {},
-  "lineNotes": {}
+  "lineNotes": {
+    "line:67": {
+      "line": 67,
+      "anchorText": "            settings.followChatGPT",
+      "aiExplanation": {
+        "summary": "条件判断：是否跟随ChatGPT主题",
+        "detail": "检查 settings.followChatGPT 的值，决定下方显示文本的格式。"
+      }
+    },
+    "line:68": {
+      "line": 68,
+      "anchorText": "              ? `Current theme: ${resolvedTheme}`",
+      "aiExplanation": {
+        "summary": "当跟随ChatGPT时显示的文本",
+        "detail": "如果 followChatGPT 为 true，则显示 'Current theme: {resolvedTheme}'，表示主题由ChatGPT控制，无需手动切换。"
+      }
+    },
+    "line:69": {
+      "line": 69,
+      "anchorText": "              : `Current theme: ${resolvedTheme}. Click to switch theme`",
+      "aiExplanation": {
+        "summary": "当不跟随ChatGPT时显示的文本",
+        "detail": "如果 followChatGPT 为 false，则显示 'Current theme: {resolvedTheme}. Click to switch theme'，提示用户可点击切换。"
+      }
+    },
+    "line:71": {
+      "line": 71,
+      "anchorText": "          title={",
+      "aiExplanation": {
+        "summary": "按钮的 title 属性设置",
+        "detail": "根据 followChatGPT 的值动态设置按钮的 title 提示文本，与上方显示文本逻辑一致。"
+      }
+    },
+    "line:72": {
+      "line": 72,
+      "anchorText": "            settings.followChatGPT",
+      "aiExplanation": {
+        "summary": "条件判断：跟随ChatGPT时的标题",
+        "detail": "检查 followChatGPT 状态，为 true 时标题为 'Following ChatGPT: {resolvedTheme}'。"
+      }
+    },
+    "line:73": {
+      "line": 73,
+      "anchorText": "              ? `Following ChatGPT: ${resolvedTheme}`",
+      "aiExplanation": {
+        "summary": "跟随ChatGPT时的标题内容",
+        "detail": "如果 followChatGPT 为 true，标题显示 'Following ChatGPT: {resolvedTheme}'，强调主题由ChatGPT决定。"
+      }
+    },
+    "line:74": {
+      "line": 74,
+      "anchorText": "              : `Current theme: ${resolvedTheme}. Click to switch`",
+      "aiExplanation": {
+        "summary": "不跟随ChatGPT时的标题内容",
+        "detail": "如果 followChatGPT 为 false，标题显示 'Current theme: {resolvedTheme}. Click to switch'，提示用户可以手动切换。"
+      }
+    },
+    "line:76": {
+      "line": 76,
+      "anchorText": "          className={`inline-flex size-6 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) ${",
+      "aiExplanation": {
+        "summary": "按钮的 className 动态生成（外观样式）",
+        "detail": "设置按钮的基础样式类，包括尺寸、布局、边框、背景、过渡动画及焦点可见样式。"
+      }
+    },
+    "line:77": {
+      "line": 77,
+      "anchorText": "            settings.followChatGPT",
+      "aiExplanation": {
+        "summary": "条件判断：跟随ChatGPT时的按钮样式",
+        "detail": "检查 followChatGPT 状态，为 true 时应用只读样式（cursor-default opacity-55）。"
+      }
+    },
+    "line:78": {
+      "line": 78,
+      "anchorText": "              ? 'cursor-default opacity-55'",
+      "aiExplanation": {
+        "summary": "跟随ChatGPT时的按钮样式类",
+        "detail": "当 followChatGPT 为 true 时，按钮变为默认光标并降低透明度，表示不可点击。"
+      }
+    },
+    "line:79": {
+      "line": 79,
+      "anchorText": "              : 'cursor-pointer hover:scale-110 hover:brightness-125 active:scale-95'",
+      "aiExplanation": {
+        "summary": "不跟随ChatGPT时的按钮样式类",
+        "detail": "当 followChatGPT 为 false 时，按钮为指针样式并有悬停/点击动画效果，表示可交互。"
+      }
+    },
+    "line:80": {
+      "line": 80,
+      "anchorText": "          } ${resolvedTheme === 'dark' ? 'text-blue-400' : 'text-amber-600'}`}",
+      "aiExplanation": {
+        "summary": "根据暗色/亮色主题设置文本颜色",
+        "detail": "根据 resolvedTheme 的值，若为 'dark' 则文本为蓝色，否则为琥珀色。"
+      }
+    },
+    "line:81": {
+      "line": 81,
+      "anchorText": "          onClick={toggleManualTheme}",
+      "aiExplanation": {
+        "summary": "按钮点击事件绑定",
+        "detail": "绑定 onClick 事件到 toggleManualTheme 函数，用于手动切换主题。"
+      }
+    },
+    "line:82": {
+      "line": 82,
+      "anchorText": "        >",
+      "aiExplanation": {
+        "summary": "按钮内开始条件渲染",
+        "detail": "根据 resolvedTheme 是否为 'dark' 来决定渲染 Moon 图标还是 Sun 图标。"
+      }
+    },
+    "line:83": {
+      "line": 83,
+      "anchorText": "          {resolvedTheme === 'dark' ? (",
+      "aiExplanation": {
+        "summary": "暗色主题时渲染月亮图标",
+        "detail": "如果 resolvedTheme 为 'dark'，则渲染 Moon 组件。"
+      }
+    },
+    "line:84": {
+      "line": 84,
+      "anchorText": "            <Moon",
+      "aiExplanation": {
+        "summary": "Moon 组件调用",
+        "detail": "渲染 Moon 月亮图标组件。"
+      }
+    },
+    "line:85": {
+      "line": 85,
+      "anchorText": "              aria-hidden=\"true\"",
+      "aiExplanation": {
+        "summary": "Moon 图标属性 aria-hidden",
+        "detail": "设置 aria-hidden='true'，使屏幕阅读器忽略该图标。"
+      }
+    },
+    "line:86": {
+      "line": 86,
+      "anchorText": "              viewBox=\"2 2 20 20\"",
+      "aiExplanation": {
+        "summary": "Moon 图标 viewBox 属性",
+        "detail": "设置 SVG viewBox 为 '2 2 20 20'，控制图标可视区域。"
+      }
+    },
+    "line:87": {
+      "line": 87,
+      "anchorText": "              className=\"size-6 drop-shadow-[0_0_4px_currentColor]\"",
+      "aiExplanation": {
+        "summary": "Moon 图标 className 样式",
+        "detail": "设置图标尺寸和阴影效果，大小为 6，添加深色投影。"
+      },
+      "status": {
+        "content": "stale",
+        "anchor": "confirmed"
+      },
+      "updatedAt": "2026-07-25T03:32:55.150Z"
+    },
+    "line:88": {
+      "line": 88,
+      "anchorText": "            />",
+      "aiExplanation": {
+        "summary": "暗色分支结束",
+        "detail": "暗色主题分支的闭合标签，对应 Moon 图标的渲染结束。"
+      }
+    },
+    "line:89": {
+      "line": 89,
+      "anchorText": "          ) : (",
+      "aiExplanation": {
+        "summary": "亮色主题时渲染太阳图标",
+        "detail": "如果 resolvedTheme 不为 'dark'（即为亮色），则渲染 Sun 组件。"
+      }
+    },
+    "line:90": {
+      "line": 90,
+      "anchorText": "            <Sun",
+      "aiExplanation": {
+        "summary": "Sun 组件调用",
+        "detail": "渲染 Sun 太阳图标组件。"
+      }
+    },
+    "line:91": {
+      "line": 91,
+      "anchorText": "              aria-hidden=\"true\"",
+      "aiExplanation": {
+        "summary": "Sun 图标属性 aria-hidden",
+        "detail": "设置 aria-hidden='true'，使屏幕阅读器忽略该图标。"
+      }
+    },
+    "line:92": {
+      "line": 92,
+      "anchorText": "              viewBox=\"2 2 20 20\"",
+      "aiExplanation": {
+        "summary": "Sun 图标 viewBox 属性",
+        "detail": "设置 SVG viewBox 为 '2 2 20 20'，控制图标可视区域。"
+      }
+    },
+    "line:93": {
+      "line": 93,
+      "anchorText": "              className=\"size-6 drop-shadow-[0_0_4px_currentColor]\"",
+      "aiExplanation": {
+        "summary": "Sun 图标 className 样式",
+        "detail": "设置图标尺寸和阴影效果，与 Moon 图标保持一致。"
+      },
+      "status": {
+        "content": "stale",
+        "anchor": "confirmed"
+      },
+      "updatedAt": "2026-07-25T03:32:57.579Z"
+    },
+    "line:94": {
+      "line": 94,
+      "anchorText": "            />",
+      "aiExplanation": {
+        "summary": "亮色分支结束",
+        "detail": "亮色主题分支的闭合标签，对应 Sun 图标的渲染结束。"
+      }
+    },
+    "line:96": {
+      "line": 96,
+      "anchorText": "        </button>",
+      "aiExplanation": {
+        "summary": "按钮标签闭合",
+        "detail": "关闭 button 元素标签。"
+      }
+    },
+    "line:97": {
+      "line": 97,
+      "anchorText": "      </div>",
+      "aiExplanation": {
+        "summary": "div 容器闭合",
+        "detail": "关闭按钮所在的 div 容器。"
+      }
+    },
+    "line:98": {
+      "line": 98,
+      "anchorText": "    </section>",
+      "aiExplanation": {
+        "summary": "section 标签闭合",
+        "detail": "关闭整个主题设置区域所在的 section 元素。"
+      }
+    }
+  }
 }

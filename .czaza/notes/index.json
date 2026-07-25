@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-24T15:17:49.601Z",
+  "updatedAt": "2026-07-25T03:32:57.579Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -156,15 +156,15 @@
     },
     "src/components/popup/PopupApp.tsx": {
       "noteFile": "files/b65e4b46b3a3-36665232.json",
-      "sourceHash": "sha256:9870409366698122749c6ab541b077e46a19c061662ba0b40a8e83a9293a54b8",
+      "sourceHash": "sha256:04fcb647c5ff5ea0d022e374f97b0752d65d594210119d63b0871f4bf388ddbf",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-22T14:04:59.822Z"
+      "updatedAt": "2026-07-25T03:16:24.436Z"
     },
     "src/components/popup/ThemeSettings.tsx": {
       "noteFile": "files/0044ae0a939f-6ab610c3.json",
-      "sourceHash": "sha256:9d31d01d96dd50417f59d0e9a5c5e3a7d8a3a8fb9f72a10805e24769127123d7",
+      "sourceHash": "sha256:6d86e71ef748d505a5156f38d243b599ee07019221e37159fa484dfc9c9cf67e",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-22T13:38:49.580Z"
+      "updatedAt": "2026-07-25T03:32:57.579Z"
     },
     "src/features/theme/themeSettings.ts": {
       "noteFile": "files/7e3fb88c921c-80fdda6d.json",
