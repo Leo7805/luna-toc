@@ -9,6 +9,7 @@ import {
   cancelOutlineNavigation,
   jumpToOutlineEntry,
 } from './outlineNavigation';
+import { logOutlineDiagnostic } from './outlineDiagnostics';
 
 interface OutlineEntry {
   level: number;
@@ -50,8 +51,30 @@ let outlineBuildVersion = 0;
  */
 export function getPromptOutline(index: number): OutlineEntry[] {
   const answerContainer = getAnswerContainerForPrompt(index);
+  const outline = answerContainer
+    ? extractHeadingOutline(answerContainer)
+    : [];
 
-  return answerContainer ? extractHeadingOutline(answerContainer) : [];
+  logOutlineDiagnostic('OUTLINE_EXTRACTED', {
+    promptIndex: index,
+    promptMessageId: promptMessageIds.get(index) || null,
+    answerContainerFound: Boolean(answerContainer),
+    answerContainerConnected: answerContainer?.isConnected ?? false,
+    headingCount: outline.length,
+    headings: outline.map(({ level, text, element, sectionId }) => ({
+      level,
+      text,
+      tagName: element.tagName,
+      sectionId: sectionId || null,
+      connected: element.isConnected,
+      hidden:
+        element.hidden ||
+        element.closest('[hidden], [aria-hidden="true"]') !== null,
+      insideCodeBlock: element.closest('pre, code') !== null,
+    })),
+  });
+
+  return outline;
 }
 
 /**
@@ -139,6 +162,17 @@ export function handlePromptNavigation(
   cancelOutlineNavigation();
 
   if (index === activeIndex && promptOutlines.has(index)) {
+    const cachedOutline = promptOutlines.get(index) || [];
+    logOutlineDiagnostic('OUTLINE_CACHE_REUSED', {
+      promptIndex: index,
+      promptMessageId: promptMessageIds.get(index) || null,
+      headingCount: cachedOutline.length,
+      headings: cachedOutline.map(({ text, element, sectionId }) => ({
+        text,
+        sectionId: sectionId || null,
+        connected: element.isConnected,
+      })),
+    });
     currentPromptIndex = index;
     togglePromptOutline(index);
     updateAllPromptItems();
@@ -227,6 +261,12 @@ export function scheduleBuild(
 ): void {
   const buildVersion = outlineBuildVersion + 1;
 
+  logOutlineDiagnostic('OUTLINE_BUILD_SCHEDULED', {
+    promptIndex: index,
+    promptMessageId: promptMessageIds.get(index) || null,
+    attempts,
+    buildVersion,
+  });
   outlineBuildVersion = buildVersion;
   runBuild(index, attempts, buildVersion);
 }
@@ -271,8 +311,40 @@ function getAnswerContainerForPrompt(index: number): HTMLElement | null {
   const userMessage = getRenderedUserMessageForPrompt(index);
   const userTurn = userMessage?.closest('section[data-turn="user"]');
   const answerTurn = userTurn ? findNextAssistantTurn(userTurn) : null;
+  const answerContainer = answerTurn
+    ? getAnswerMarkdownContainer(answerTurn)
+    : null;
 
-  return answerTurn ? getAnswerMarkdownContainer(answerTurn) : null;
+  logOutlineDiagnostic('OUTLINE_SOURCE_RESOLVED', {
+    promptIndex: index,
+    expectedPromptMessageId: promptMessageIds.get(index) || null,
+    renderedPromptMessageId:
+      userMessage?.dataset.messageId || null,
+    userMessageConnected: userMessage?.isConnected ?? false,
+    userTurnFound: Boolean(userTurn),
+    assistantTurnFound: Boolean(answerTurn),
+    assistantMessageIds: answerTurn
+      ? Array.from(
+          answerTurn.querySelectorAll<HTMLElement>(
+            '[data-message-author-role="assistant"][data-message-id]'
+          )
+        ).map(({ dataset }) => dataset.messageId || null)
+      : [],
+    answerContainerConnected: answerContainer?.isConnected ?? false,
+    answerContainerHidden:
+      Boolean(answerContainer?.hidden) ||
+      Boolean(
+        answerContainer?.closest('[hidden], [aria-hidden="true"]')
+      ),
+    markdownContainerCount:
+      answerTurn?.querySelectorAll(
+        '[data-message-author-role="assistant"] .markdown'
+      ).length ?? 0,
+    rawHeadingCount:
+      answerContainer?.querySelectorAll(HEADING_SELECTOR).length ?? 0,
+  });
+
+  return answerContainer;
 }
 
 /**

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:0f2d55d0708d7b74f2e2d86707c66cc3ab879c86b930a38a2d766c5053621aa1",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-25T13:33:20.909Z",
+    "updatedAt": "2026-07-25T13:33:20.909Z"
+  },
+  "fileNote": {
+    "userNote": "提供独立的 Outline 日志开关。\nlogOutlineDiagnostic：仅在开关开启时输出结构化日志。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

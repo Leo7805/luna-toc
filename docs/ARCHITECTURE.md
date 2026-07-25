@@ -193,6 +193,16 @@ localStorage.setItem('chatTocDebugJump', '1');
 location.reload();
 ```
 
+Per-Prompt Assistant Outline diagnostics use a separate opt-in switch and may
+include extracted heading text:
+
+```js
+localStorage.setItem('chatTocDebugOutline', '1');
+location.reload();
+```
+
+Remove `chatTocDebugOutline` and reload to stop Outline logging.
+
 Override selected test parameters without rebuilding:
 
 ```js

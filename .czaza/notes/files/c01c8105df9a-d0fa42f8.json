@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:2622644fd04afb9fd65f1eaa29fa5fbabd640bebe4895f71273ba0c7871d8cd6",
+    "sourceHash": "sha256:818221344fffe17b34424c0f73069156845cfe3a58d0a4701a1f91f395606239",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T03:26:03.442Z",
-    "updatedAt": "2026-07-24T03:26:27.453Z"
+    "updatedAt": "2026-07-25T13:34:02.245Z"
   },
   "fileNote": {
-    "userNote": "负责已经显示出来的子目录项对应的标题定位、等待、滚动和高亮。\n\njumpToOutlineEntry()　子目录跳转总入口；标题不存在时先恢复父 Prompt，再等待标题渲染。\ncancelOutlineNavigation()　取消旧的标题查找任务并清除标题高亮。\nretryOutlineEntryJump()　等待虚拟化回答标题重新进入 DOM。\nresolveOutlineHeading()　优先通过 data-section-id 重新定位当前标题元素。\nfinishOutlineEntryJump()　锁定父 Prompt，滚动到标题并添加高亮。",
-    "createdBy": "user"
+    "userNote": "负责已经显示出来的子目录项对应的标题定位、等待、滚动和高亮。\n\njumpToOutlineEntry()　子目录跳转总入口；标题不存在时先恢复父 Prompt，再等待标题渲染。\ncancelOutlineNavigation()　取消旧的标题查找任务并清除标题高亮。\nretryOutlineEntryJump()　等待虚拟化回答标题重新进入 DOM。\nresolveOutlineHeading()　优先通过 data-section-id 重新定位当前标题元素。\nfinishOutlineEntryJump()　锁定父 Prompt，滚动到标题并添加高亮。\n\n---\n记录子目录点击后的解析结果。\njumpToOutlineEntry：记录点击项及缓存 DOM 状态。\nretryOutlineEntryJump：记录最终无法恢复的子目录。\nfinishOutlineEntryJump：记录最终匹配到的 Heading。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

@@ -1,14 +1,13 @@
 /**
  * Navigates from a visible LunaTOC child-outline item to its ChatGPT heading.
  */
-import {
-  jumpToPromptIndex,
-  lockPromptIndex,
-} from './promptNavigation';
+import { jumpToPromptIndex, lockPromptIndex } from './promptNavigation';
+import { logOutlineDiagnostic } from './outlineDiagnostics';
 
 export interface OutlineNavigationEntry {
   element?: HTMLElement;
   sectionId?: string;
+  text?: string;
 }
 
 const HEADING_HIGHLIGHT_CLASS = 'chat-toc-outline-heading-highlight';
@@ -29,6 +28,13 @@ export function jumpToOutlineEntry(
   const jumpVersion = outlineJumpVersion + 1;
   outlineJumpVersion = jumpVersion;
 
+  logOutlineDiagnostic('OUTLINE_JUMP_STARTED', {
+    promptIndex,
+    text: entry.text || null,
+    sectionId: entry.sectionId || null,
+    cachedElementConnected: entry.element?.isConnected ?? false,
+    jumpVersion,
+  });
   const heading = resolveOutlineHeading(entry);
   if (heading) {
     finishOutlineEntryJump(heading, promptIndex, jumpVersion);
@@ -66,7 +72,16 @@ function retryOutlineEntryJump(
     finishOutlineEntryJump(heading, promptIndex, jumpVersion);
     return;
   }
-  if (attempts <= 1) return;
+  if (attempts <= 1) {
+    logOutlineDiagnostic('OUTLINE_JUMP_EXHAUSTED', {
+      promptIndex,
+      text: entry.text || null,
+      sectionId: entry.sectionId || null,
+      cachedElementConnected: entry.element?.isConnected ?? false,
+      jumpVersion,
+    });
+    return;
+  }
 
   setTimeout(() => {
     retryOutlineEntryJump(entry, promptIndex, attempts - 1, jumpVersion);
@@ -80,6 +95,13 @@ function finishOutlineEntryJump(
 ): void {
   if (jumpVersion !== outlineJumpVersion) return;
 
+  logOutlineDiagnostic('OUTLINE_JUMP_RESOLVED', {
+    promptIndex,
+    headingText: heading.textContent?.trim() || null,
+    sectionId: heading.dataset.sectionId || null,
+    headingConnected: heading.isConnected,
+    jumpVersion,
+  });
   lockPromptIndex(promptIndex);
   highlightHeading(heading);
   heading.scrollIntoView({
