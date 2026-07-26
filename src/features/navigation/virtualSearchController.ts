@@ -340,11 +340,13 @@ export async function searchVirtualPrompt({
         metrics.scrollTop,
         metrics.maximumScrollTop,
         metrics.viewportHeight,
-        lastDirection ??
-          getInteriorRecoveryDirection(
-            targetPromptIndex,
-            promptCount
-          )
+        getUnresolvedRecoveryDirection({
+          scrollTop: metrics.scrollTop,
+          maximumScrollTop: metrics.maximumScrollTop,
+          lastDirection,
+          targetPromptIndex,
+          promptCount,
+        })
       );
       phase = 'unresolved-recovery';
     }
@@ -458,6 +460,37 @@ export function getInteriorRecoveryDirection(
   return targetPromptIndex >= Math.max(0, promptCount - 1) / 2
     ? -1
     : 1;
+}
+
+/**
+ * Moves inward from a scroll boundary before reusing the latest search
+ * direction for an unresolved position.
+ */
+function getUnresolvedRecoveryDirection({
+  scrollTop,
+  maximumScrollTop,
+  lastDirection,
+  targetPromptIndex,
+  promptCount,
+}: {
+  scrollTop: number;
+  maximumScrollTop: number;
+  lastDirection: 1 | -1 | null;
+  targetPromptIndex: number;
+  promptCount: number;
+}): 1 | -1 {
+  if (scrollTop <= SCROLL_POSITION_TOLERANCE_PX) return 1;
+  if (
+    maximumScrollTop - scrollTop <=
+    SCROLL_POSITION_TOLERANCE_PX
+  ) {
+    return -1;
+  }
+
+  return (
+    lastDirection ??
+    getInteriorRecoveryDirection(targetPromptIndex, promptCount)
+  );
 }
 
 function createRelativePlan(

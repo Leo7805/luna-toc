@@ -112,6 +112,13 @@ export function logChatGptNavigationEvent(
       `[LunaTOC navigation][${jumpId}] ${eventName}`,
       details
     );
+    console.debug(
+      `[LunaTOC navigation JSON] ${JSON.stringify({
+        jumpId,
+        eventName,
+        details,
+      })}`
+    );
   } catch {
     // Ignore diagnostics when page storage is unavailable.
   }

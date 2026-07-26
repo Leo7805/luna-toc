@@ -84,9 +84,16 @@ describe('ChatGPT navigation diagnostics', () => {
       method: 'interpolation',
     });
 
-    expect(debug).toHaveBeenCalledWith(
+    expect(debug).toHaveBeenNthCalledWith(
+      1,
       '[LunaTOC navigation][jump-1] SEARCH_PLAN',
       { method: 'interpolation' }
+    );
+    expect(debug).toHaveBeenNthCalledWith(
+      2,
+      '[LunaTOC navigation JSON] ' +
+        '{"jumpId":"jump-1","eventName":"SEARCH_PLAN",' +
+        '"details":{"method":"interpolation"}}'
     );
   });
 });

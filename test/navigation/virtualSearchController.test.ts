@@ -201,4 +201,86 @@ describe('adaptive virtual search controller', () => {
     expect(phases).toEqual(['initial-mount-recovery']);
     expect(scrollTop).toBe(9_000);
   });
+
+  it('recovers upward after a learned estimate overshoots the bottom edge', async () => {
+    let scrollTop = 2_000;
+    let rendered = false;
+    const plannedScrollTops: number[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-21',
+      targetPromptIndex: 21,
+      promptCount: 25,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 10_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        if (scrollTop === 2_000) {
+          return createLocatedObservation(8, scrollTop);
+        }
+        if (scrollTop === 8_750) {
+          return createLocatedObservation(13, scrollTop);
+        }
+        return { position: { status: 'none' }, anchors: [] };
+      },
+      isTargetRendered: () => rendered,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+        plannedScrollTops.push(nextScrollTop);
+        if (nextScrollTop === 9_000) rendered = true;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 5,
+    });
+
+    expect(result.status).toBe('found');
+    expect(plannedScrollTops).toEqual([8_750, 10_000, 9_000]);
+  });
+
+  it('recovers downward after a learned estimate overshoots the top edge', async () => {
+    let scrollTop = 8_000;
+    let rendered = false;
+    const plannedScrollTops: number[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-3',
+      targetPromptIndex: 3,
+      promptCount: 25,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 10_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        if (scrollTop === 8_000) {
+          return createLocatedObservation(16, scrollTop);
+        }
+        if (scrollTop === 1_250) {
+          return createLocatedObservation(12, scrollTop);
+        }
+        return { position: { status: 'none' }, anchors: [] };
+      },
+      isTargetRendered: () => rendered,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+        plannedScrollTops.push(nextScrollTop);
+        if (nextScrollTop === 1_000) rendered = true;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 5,
+    });
+
+    expect(result.status).toBe('found');
+    expect(plannedScrollTops).toEqual([1_250, 0, 1_000]);
+  });
 });

@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:777e92a2cfe3733f9c1f113b7280abb5ba80658a9b6a4809d236189f76da5a27",
+    "sourceHash": "sha256:6f0e91aca31243a97e564995aa5f1e592d4ae97dd09acec108f69047d11a7123",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-24T07:04:07.415Z",
-    "updatedAt": "2026-07-24T15:17:49.601Z"
+    "updatedAt": "2026-07-26T03:18:18.183Z"
   },
   "fileNote": {
     "userNote": "虚拟搜索执行器. 执行完整、有限且可取消的虚拟列表搜索。\n\nsearchVirtualPrompt() — 循环执行观察、规划、滚动和重新定位。\nwaitForVirtualRender() — 等待虚拟列表完成下一轮渲染。\ngetTargetDistance() — 计算目标与当前可见范围的索引距离。\ngetTerminalStatus() — 检查成功、取消和超时状态。\nhasVisitedScrollTop() — 防止重复访问相同位置。\nnormalizeScrollTop() — 将子像素位置转换为可比较值。\ncreateResult() — 创建统一的搜索结果。\n\n\n---修复---\ngetTargetDistance()不再根据first～last范围判断距离。\n现在计算目标与实际matchedPromptIndexes之间的最近距离。",

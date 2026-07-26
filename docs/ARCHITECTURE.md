@@ -180,6 +180,7 @@ graph TD
 - `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress.
 - Confirmed and observed anchors participate only in the initial estimate; every later movement is relative to the current live scroll position.
 - Response seeking estimates pixels per Prompt from consecutive observations, permits larger learned movements while far from the target, restores a smaller cap near the target, grows the step when the visible Prompt does not change, and halves the previous step after crossing the target.
+- An unresolved observation at the top or bottom scroll boundary always moves inward before position recognition resumes, rather than retrying an impossible outward movement.
 - Prompt mounting is an isolated feedback scan: repeated target-response observations grow the step, crossing into the previous response reverses and halves it, and neighboring responses never return control to response seeking.
 - Prompt snapshot revisions retain the previous complete Fingerprint and Segment indexes while replacements build, then swap in matching-revision results so navigation never observes an avoidable empty-index window.
 
@@ -192,6 +193,10 @@ page `localStorage`. Enable structured, text-free jump events with:
 localStorage.setItem('chatTocDebugJump', '1');
 location.reload();
 ```
+
+Each event is written both as an expandable console object and as a
+`[LunaTOC navigation JSON]` line whose complete fields survive copied or saved
+console logs.
 
 Per-Prompt Assistant Outline diagnostics use a separate opt-in switch and may
 include extracted heading text:

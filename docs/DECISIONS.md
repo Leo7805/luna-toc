@@ -165,6 +165,10 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
 * An unresolved exact anchor at the current scroll position does not terminate
   with zero attempts. Targets near either list edge first move one viewport
   toward the interior, allowing the virtual list to mount before re-observation.
+* If a later estimate reaches either scroll boundary and position recognition
+  becomes unresolved, recovery also moves one viewport inward. The previous
+  outward direction cannot terminate a search merely because the boundary
+  clamps the next scroll position.
 * Once a target response is located without its Prompt DOM, a dedicated mount
   phase owns the search until completion or its bounded step limit. It scans
   relative to the current live scroll rather than an Assistant anchor captured
