@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-26T01:34:26.215Z",
+  "updatedAt": "2026-07-26T05:41:29.751Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -223,7 +223,7 @@
       "noteFile": "files/615dacd7000f-9fd20dee.json",
       "sourceHash": "sha256:ee40541b4e789d767f9875a773d3bdb2ff86c4f2934205cf18fb995fa08c7dda",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T01:33:13.756Z"
+      "updatedAt": "2026-07-26T05:41:28.965Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",
@@ -342,7 +342,7 @@
       "noteFile": "files/2f6f8b44f5de-00cd1729.json",
       "sourceHash": "sha256:ec320757968c6ddd63d911e611442e502933ae324552be4aa168f635f3c60f09",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T13:41:38.682Z"
+      "updatedAt": "2026-07-26T05:41:29.751Z"
     },
     "src/features/navigation/fingerprint/segments.ts": {
       "noteFile": "files/c586105013ac-052a4323.json",
