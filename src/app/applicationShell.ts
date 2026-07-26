@@ -35,6 +35,8 @@ const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 let viewMode: ViewMode = 'toc';
 let searchQuery = '';
 let myPromptsRefreshQueued = false;
+let tocPromptCount = 0;
+let myPromptsCount = 0;
 
 /**
  * Resolves when document.body exists during document_start execution.
@@ -99,6 +101,7 @@ async function createSidebar(): Promise<HTMLElement> {
             type="button"
             aria-label="Reset TOC view"
             data-tooltip="${escapeHtml(getConversationTitle())}"
+            data-tooltip-overflow-only="true"
           >
             ${escapeHtml(getConversationTitle())}
           </button>
@@ -107,6 +110,7 @@ async function createSidebar(): Promise<HTMLElement> {
             id="search-toggle-btn"
             type="button"
             aria-label="Toggle search"
+            disabled
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
@@ -206,6 +210,8 @@ function clearSearch(): void {
 }
 
 function renderCurrentView(): void {
+  updateSearchAvailability();
+
   if (viewMode === 'myPrompts') {
     renderMyPrompts();
     return;
@@ -340,6 +346,30 @@ function setNavigatorTitle(): void {
 
   title.textContent = titleText;
   title.dataset.tooltip = titleText;
+}
+
+function updateSearchAvailability(): void {
+  const searchButton =
+    document.getElementById('search-toggle-btn') as HTMLButtonElement | null;
+  const searchInput =
+    document.getElementById('navigator-search') as HTMLInputElement | null;
+  if (!searchButton || !searchInput) return;
+
+  const hasSearchableItems =
+    viewMode === 'myPrompts' ? myPromptsCount > 0 : tocPromptCount > 0;
+  searchButton.disabled = !hasSearchableItems;
+  searchButton.setAttribute('aria-disabled', String(!hasSearchableItems));
+
+  if (hasSearchableItems) return;
+
+  const shouldResetTocQuery = viewMode === 'toc' && searchQuery.length > 0;
+  searchQuery = '';
+  searchInput.value = '';
+  searchInput.style.display = 'none';
+
+  if (shouldResetTocQuery) {
+    queueMicrotask(() => navigatorController.setSearchQuery(''));
+  }
 }
 
 function escapeHtml(text: string): string {
@@ -559,6 +589,10 @@ export async function initializeApplication(): Promise<void> {
   await initializeNavigationSettings();
   initTheme();
   navigatorController.init({
+    onPromptCountChanged(count) {
+      tocPromptCount = count;
+      updateSearchAvailability();
+    },
     onRouteChanged() {
       clearSearch();
       setNavigatorTitle();
@@ -577,13 +611,19 @@ export async function initializeApplication(): Promise<void> {
   myPrompts.initAutocomplete();
   navigatorController.attach();
 
-  myPrompts.onPromptsChanged(() => {
+  myPrompts.onPromptsChanged((prompts) => {
+    myPromptsCount = prompts.length;
+    updateSearchAvailability();
     if (viewMode !== 'myPrompts' || myPromptsRefreshQueued) return;
     myPromptsRefreshQueued = true;
     queueMicrotask(() => {
       myPromptsRefreshQueued = false;
       if (viewMode === 'myPrompts') renderCurrentView();
     });
+  });
+  void myPrompts.getMyPrompts().then((prompts) => {
+    myPromptsCount = prompts.length;
+    updateSearchAvailability();
   });
 }
 

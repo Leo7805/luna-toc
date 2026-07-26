@@ -51,5 +51,6 @@
             "run_at": "document_start",
             "world": "ISOLATED"
         }
-    ]
+    ],
+    "version_name": "1.10.11-d1"
 }

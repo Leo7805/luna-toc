@@ -263,6 +263,18 @@ html[data-theme='light'] {
   text-underline-offset: 3px;
 }
 
+#search-toggle-btn:disabled {
+  color: var(--ct-text-muted);
+  cursor: default;
+  opacity: 0.4;
+}
+
+#search-toggle-btn:disabled:hover,
+#search-toggle-btn:disabled:active {
+  background: transparent;
+  color: var(--ct-text-muted);
+}
+
 .navigator-jump-controls {
   position: absolute;
   right: 8px;

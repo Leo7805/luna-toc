@@ -43,9 +43,13 @@ import {
   syncActivePrompt,
   syncMarkState,
 } from '../features/navigation/outline';
-import { previewTooltip } from '../features/tooltip';
+import {
+  isElementTextTruncated,
+  previewTooltip,
+} from '@/features/tooltip';
 
 interface NavigatorControllerOptions {
+  onPromptCountChanged?: (count: number) => void;
   onRouteChanged?: () => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   onTitleChanged?: () => void;
@@ -102,6 +106,8 @@ export const navigatorController = (() => {
   let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
   let isInitialized = false;
   let isAttached = false;
+  let reportedPromptCount = -1;
+  let onPromptCountChanged = (_count: number) => {};
   let onRouteChanged = () => {};
   let onSavePrompt: (message: NavigatorMessage) => void = () => {};
   let onTitleChanged = () => {};
@@ -109,6 +115,7 @@ export const navigatorController = (() => {
   /**
    * Initializes data and route listeners before the page hook starts emitting.
    * @param {Object} [options]
+   * @param {Function} [options.onPromptCountChanged]
    * @param {Function} [options.onRouteChanged]
    * @param {Function} [options.onSavePrompt]
    * @param {Function} [options.onTitleChanged]
@@ -116,6 +123,8 @@ export const navigatorController = (() => {
   function init(options: NavigatorControllerOptions = {}): void {
     if (isInitialized) return;
 
+    onPromptCountChanged =
+      options.onPromptCountChanged || onPromptCountChanged;
     onRouteChanged = options.onRouteChanged || onRouteChanged;
     onSavePrompt = options.onSavePrompt || onSavePrompt;
     onTitleChanged = options.onTitleChanged || onTitleChanged;
@@ -237,6 +246,7 @@ export const navigatorController = (() => {
     navigatorItems = [];
     resetPromptItems();
     setPromptMessages(conversationMessages);
+    reportPromptCount();
 
     const normalizedQuery = normalizeText(searchQuery).toLowerCase();
     const visibleMessages = conversationMessages
@@ -314,7 +324,7 @@ export const navigatorController = (() => {
 
     item.addEventListener('click', (event) => {
       handleNavigatorItemClick(message, index);
-      if (isTextTruncated(itemText) && item.matches(':hover')) {
+      if (isElementTextTruncated(itemText) && item.matches(':hover')) {
         previewTooltip.show(message.text, event, itemMain);
       }
     });
@@ -323,7 +333,7 @@ export const navigatorController = (() => {
       onSavePrompt(message);
     });
     item.addEventListener('mouseenter', (event) => {
-      if (isTextTruncated(itemText)) {
+      if (isElementTextTruncated(itemText)) {
         previewTooltip.show(message.text, event, itemMain);
       }
     });
@@ -352,8 +362,12 @@ export const navigatorController = (() => {
     }
   }
 
-  function isTextTruncated(element: HTMLElement): boolean {
-    return element.scrollWidth > element.clientWidth;
+  function reportPromptCount(): void {
+    const promptCount = conversationMessages.length;
+    if (promptCount === reportedPromptCount) return;
+
+    reportedPromptCount = promptCount;
+    onPromptCountChanged(promptCount);
   }
 
   function normalizeText(text: string): string {
