@@ -20,6 +20,55 @@ function createMessage(
 }
 
 describe('createChatGptNavigationTurns', () => {
+  it('keeps response indexes aligned after consecutive unanswered prompts', () => {
+    const data: ConversationData = {
+      current_node: 'ai-4',
+      mapping: {
+        root: {
+          message: createMessage('system', 'system', ['System']),
+          parent: null,
+        },
+        'user-1': {
+          message: createMessage('user-1', 'user', ['Stopped one']),
+          parent: 'root',
+        },
+        'user-2': {
+          message: createMessage('user-2', 'user', ['Stopped two']),
+          parent: 'user-1',
+        },
+        'user-3': {
+          message: createMessage('user-3', 'user', ['Answered prompt']),
+          parent: 'user-2',
+        },
+        'ai-3': {
+          message: createMessage('ai-3', 'assistant', ['First answer']),
+          parent: 'user-3',
+        },
+        'user-4': {
+          message: createMessage('user-4', 'user', ['Next prompt']),
+          parent: 'ai-3',
+        },
+        'ai-4': {
+          message: createMessage('ai-4', 'assistant', ['Next answer']),
+          parent: 'user-4',
+        },
+      },
+    };
+
+    expect(createChatGptNavigationTurns(data)).toEqual([
+      {
+        promptIndex: 0,
+        prompt: { id: 'user-3', text: 'Answered prompt' },
+        responses: [{ id: 'ai-3', text: 'First answer' }],
+      },
+      {
+        promptIndex: 1,
+        prompt: { id: 'user-4', text: 'Next prompt' },
+        responses: [{ id: 'ai-4', text: 'Next answer' }],
+      },
+    ]);
+  });
+
   it('uses only the active branch and keeps the final unanswered prompt', () => {
     const data: ConversationData = {
       current_node: 'user-2',

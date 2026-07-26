@@ -151,6 +151,12 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
 * Independent jumps report success only when the target Prompt itself
   intersects the chat viewport; a retained offscreen Prompt DOM node cannot
   end search early or produce a confirmed anchor.
+* ChatGPT response fingerprints use the same navigable Prompt IDs as the
+  native TOC. Consecutive unanswered User messages excluded by the native
+  Prompt model cannot shift every later response index.
+* Independent navigation accepts only directly resolved Prompt DOM as a
+  successful target. Assistant adjacency is not used to guess missing User
+  ownership, preventing false highlights and confirmed anchors.
 * Absolute anchors participate only in the initial estimate because virtual
   list rebuilds can change the relationship between old scroll coordinates and
   currently mounted content.

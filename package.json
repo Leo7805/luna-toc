@@ -11,7 +11,8 @@
         "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
         "version": "tsx scripts/version.ts && git add -- manifest.json",
         "stamp": "node scripts/stamp.mjs",
-        "preversion": "npm run stamp -- clean"
+        "preversion": "npm run stamp -- clean",
+        "prebuild": "npm run stamp"
     },
     "devDependencies": {
         "@crxjs/vite-plugin": "^2.7.1",

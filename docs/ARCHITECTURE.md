@@ -119,7 +119,7 @@ graph TD
   - [follow.ts](../src/features/navigation/follow.ts): Provides typed chat-scroll tracking and sidebar auto-follow control through named exports.
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
-  - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary, currently using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
+  - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary and accepts only directly resolved Prompt DOM as an independent-navigation success.
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
@@ -134,7 +134,7 @@ graph TD
   - [virtualSearchMachine.ts](../src/features/navigation/virtualSearchMachine.ts): Owns the explicit initial-estimate, seek-response, and mount-prompt phases.
   - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Orchestrates observation, state transitions, relative planning, scrolling, diagnostics, and bounded completion without retaining absolute search bounds.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists plus revision-protected whole-response and segment fingerprint indexes by conversation for the current tab.
-  - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
+  - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns, aligns response indexes with the native TOC prompt set, and excludes tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts mounted ChatGPT Assistant Markdown into generic rendered text and exposes owned Markdown containers for observed viewport-segment measurement while excluding tools and attachments.
   - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces mounted Assistant DOM changes and upgrades mapped responses to observed whole-response fingerprints without running Segment geometry measurement.
   - [virtualSearchAdapter.ts](../src/platforms/chatgpt/virtualSearchAdapter.ts): Adapts ChatGPT scroll containers, viewport response text, derived Segments, mounted prompt IDs, and element geometry to generic virtual-search observations.

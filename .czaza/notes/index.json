@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-26T04:18:55.003Z",
+  "updatedAt": "2026-07-26T05:17:07.942Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -194,7 +194,7 @@
       "noteFile": "files/241fe34fddca-a4f793e6.json",
       "sourceHash": "sha256:136b379709b44cf1d4ba80a0e0afed40fdb87c271c6c4acf20947dab55f61817",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T04:18:10.248Z"
+      "updatedAt": "2026-07-26T05:05:56.917Z"
     },
     "src/features/navigation/outline.ts": {
       "noteFile": "files/2c76dfd8293f-c0052e3a.json",
@@ -239,9 +239,9 @@
     },
     "src/platforms/chatgpt/navigationAdapter.ts": {
       "noteFile": "files/b11547259a4d-2e948228.json",
-      "sourceHash": "sha256:6bb72d72a892c0e54288dba5aaf6ab4602ee1c1ec1784810441c4a35d5bf11f5",
+      "sourceHash": "sha256:f4ddde3634d6408bc0d97dd3c51302d807a1d042510efb95d50c3e3562e35bba",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T04:37:02.996Z"
+      "updatedAt": "2026-07-26T05:04:29.356Z"
     },
     "src/features/navigation/fingerprint.ts": {
       "noteFile": "files/3a376c50ca24-7de3a70c.json",
@@ -330,19 +330,19 @@
       "noteFile": "files/89fe88091801-4d7f6667.json",
       "sourceHash": "sha256:e7c7d5eab4998bbbec67d0ff781b12082843f2b4e5b0d9575a64f921c79365af",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T08:46:03.198Z"
+      "updatedAt": "2026-07-26T05:15:58.619Z"
     },
     "src/features/navigation/virtualSearchController.ts": {
       "noteFile": "files/ba6aa3ee5c15-2926c662.json",
       "sourceHash": "sha256:a0df30f4a4b490c2c25b5707b1b11d5604116f534a79890bceae4f0c9c9049d5",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T04:18:55.003Z"
+      "updatedAt": "2026-07-26T05:17:07.942Z"
     },
     "src/platforms/chatgpt/virtualSearchAdapter.ts": {
       "noteFile": "files/2f6f8b44f5de-00cd1729.json",
       "sourceHash": "sha256:151d66c15f62f2d256f9facd0574cfe6e20376903bc066155abe6657ce3c366f",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T04:11:40.093Z"
+      "updatedAt": "2026-07-26T05:04:28.747Z"
     },
     "src/features/navigation/fingerprint/segments.ts": {
       "noteFile": "files/c586105013ac-052a4323.json",
