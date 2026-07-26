@@ -1,40 +1,46 @@
 /**
  * Development Version Stamp Utility
  *
- * Adds a local development version name to a Chrome Extension manifest.
+ * This utility manages local development version names for a Chrome
+ * Extension without changing the official semantic version.
  *
- * Example:
+ * Development example:
  *
  *     "version": "1.10.7",
  *     "version_name": "1.10.7-d3"
  *
- * The script also configures the project automatically:
- *
- *     "stamp": "node scripts/stamp.mjs"
- *     "prebuild": "npm run stamp"
- *     "preversion": "npm run stamp -- clean"
- *
- * Commands:
+ * Supported commands:
  *
  *     node scripts/stamp.mjs
  *     npm run stamp
  *     npm run stamp -- clean
  *
- * The default stamp command:
+ * The stamp command:
  *
  *     1. Creates or increments the local development counter.
- *     2. Updates `version_name` in manifest.json.
+ *     2. Adds or updates `version_name` in manifest.json.
+ *     3. Creates `.dev-stamp.json` when necessary.
  *
  * The clean command:
  *
  *     1. Removes `version_name` from manifest.json.
  *     2. Deletes `.dev-stamp.json`.
  *
+ * The script automatically configures:
+ *
+ *     "stamp": "node scripts/stamp.mjs"
+ *     "preversion": "npm run stamp -- clean"
+ *
+ * The script deliberately does not configure `prebuild`.
+ * Development stamping and building must remain separate so that a final
+ * release build does not accidentally restore `version_name`.
+ *
  * Expected project structure:
  *
  *     project/
  *     ├── package.json
  *     ├── manifest.json
+ *     ├── .gitignore
  *     └── scripts/
  *         └── stamp.mjs
  */
@@ -65,20 +71,11 @@ const COMMAND_CLEAN = 'clean';
 
 const STAMP_STATE_FILENAME = '.dev-stamp.json';
 
-const REQUIRED_SCRIPTS = {
-  stamp: {
-    command: 'node scripts/stamp.mjs',
-    position: 'replace-if-missing',
-  },
-  prebuild: {
-    command: 'npm run stamp',
-    position: 'prepend',
-  },
-  preversion: {
-    command: 'npm run stamp -- clean',
-    position: 'prepend',
-  },
-};
+const STAMP_SCRIPT_NAME = 'stamp';
+const STAMP_SCRIPT_COMMAND = 'node scripts/stamp.mjs';
+
+const PREVERSION_SCRIPT_NAME = 'preversion';
+const PREVERSION_CLEAN_COMMAND = 'npm run stamp -- clean';
 
 const command = process.argv[2] ?? COMMAND_STAMP;
 
@@ -98,7 +95,7 @@ function fail(message) {
 }
 
 /**
- * Returns a readable error message from an unknown error value.
+ * Converts an unknown error value into a readable message.
  *
  * @param {unknown} error Caught error value.
  * @returns {string} Readable error message.
@@ -138,17 +135,20 @@ function writeJson(filePath, value) {
 }
 
 /**
- * Checks whether a string contains a complete command in an npm script.
+ * Checks whether an npm lifecycle script already contains a command.
+ *
+ * Commands joined with `&&` are compared separately so that the same command
+ * is not added repeatedly.
  *
  * @param {string} script Existing npm script.
- * @param {string} commandToFind Command to search for.
+ * @param {string} requiredCommand Command to find.
  * @returns {boolean} True when the command is already present.
  */
-function containsCommand(script, commandToFind) {
+function containsCommand(script, requiredCommand) {
   return script
     .split('&&')
     .map((part) => part.trim())
-    .includes(commandToFind);
+    .includes(requiredCommand);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -194,81 +194,93 @@ function ensureScriptsObject(packageJson) {
 }
 
 /**
- * Adds a required npm script without overwriting unrelated commands.
+ * Ensures that the `stamp` npm script exists.
  *
- * For lifecycle scripts such as prebuild and preversion, the required command
- * is prepended to the existing command.
+ * An existing command with the same name is preserved because it may contain
+ * intentional project-specific behaviour.
  *
  * @param {Record<string, string>} scripts npm scripts object.
- * @param {string} scriptName npm script name.
- * @param {string} requiredCommand Command that must be present.
- * @param {"prepend" | "replace-if-missing"} position Update strategy.
- * @returns {boolean} True when the scripts object was modified.
+ * @returns {boolean} True when package.json was modified.
  */
-function ensureNpmScript(scripts, scriptName, requiredCommand, position) {
-  const existingScript = scripts[scriptName];
+function ensureStampScript(scripts) {
+  const existingScript = scripts[STAMP_SCRIPT_NAME];
 
   if (!existingScript) {
-    scripts[scriptName] = requiredCommand;
-
-    console.log(`Added npm script: "${scriptName}": "${requiredCommand}"`);
-
-    return true;
-  }
-
-  if (containsCommand(existingScript, requiredCommand)) {
-    return false;
-  }
-
-  if (position === 'prepend') {
-    scripts[scriptName] = `${requiredCommand} && ${existingScript}`;
+    scripts[STAMP_SCRIPT_NAME] = STAMP_SCRIPT_COMMAND;
 
     console.log(
-      `Updated npm script: "${scriptName}": ` + `"${scripts[scriptName]}"`
+      `Added npm script: "${STAMP_SCRIPT_NAME}": ` + `"${STAMP_SCRIPT_COMMAND}"`
     );
 
     return true;
   }
 
-  /*
-   * Do not overwrite an existing `stamp` script because it may be an
-   * intentional project-specific command.
-   */
-  console.warn(
-    `Warning: Existing "${scriptName}" script was preserved: ` +
-      `"${existingScript}"`
-  );
+  if (existingScript !== STAMP_SCRIPT_COMMAND) {
+    console.warn(
+      `Warning: Existing "${STAMP_SCRIPT_NAME}" script was preserved: ` +
+        `"${existingScript}"`
+    );
+  }
 
   return false;
 }
 
 /**
- * Adds the required stamp lifecycle scripts to package.json.
+ * Ensures that the clean command runs before `npm version`.
  *
- * The configured scripts are:
+ * If `preversion` already contains other commands, the clean command is
+ * prepended instead of replacing the existing workflow.
+ *
+ * @param {Record<string, string>} scripts npm scripts object.
+ * @returns {boolean} True when package.json was modified.
+ */
+function ensurePreversionScript(scripts) {
+  const existingScript = scripts[PREVERSION_SCRIPT_NAME];
+
+  if (!existingScript) {
+    scripts[PREVERSION_SCRIPT_NAME] = PREVERSION_CLEAN_COMMAND;
+
+    console.log(
+      `Added npm script: "${PREVERSION_SCRIPT_NAME}": ` +
+        `"${PREVERSION_CLEAN_COMMAND}"`
+    );
+
+    return true;
+  }
+
+  if (containsCommand(existingScript, PREVERSION_CLEAN_COMMAND)) {
+    return false;
+  }
+
+  scripts[PREVERSION_SCRIPT_NAME] =
+    `${PREVERSION_CLEAN_COMMAND} && ${existingScript}`;
+
+  console.log(
+    `Updated npm script: "${PREVERSION_SCRIPT_NAME}": ` +
+      `"${scripts[PREVERSION_SCRIPT_NAME]}"`
+  );
+
+  return true;
+}
+
+/**
+ * Adds the required stamp-related scripts to package.json.
+ *
+ * This function intentionally configures only:
  *
  *     "stamp": "node scripts/stamp.mjs"
- *     "prebuild": "npm run stamp"
  *     "preversion": "npm run stamp -- clean"
+ *
+ * It does not add a `prebuild` script.
  */
 function ensurePackageScripts() {
   const packageJson = readJson(packagePath);
   const scripts = ensureScriptsObject(packageJson);
 
-  let changed = false;
+  const stampChanged = ensureStampScript(scripts);
+  const preversionChanged = ensurePreversionScript(scripts);
 
-  for (const [scriptName, config] of Object.entries(REQUIRED_SCRIPTS)) {
-    const scriptChanged = ensureNpmScript(
-      scripts,
-      scriptName,
-      config.command,
-      config.position
-    );
-
-    changed = scriptChanged || changed;
-  }
-
-  if (changed) {
+  if (stampChanged || preversionChanged) {
     writeJson(packagePath, packageJson);
   }
 }
@@ -340,7 +352,7 @@ function getManifestVersion(manifest) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Creates a new initial stamp state.
+ * Creates an initial development stamp state.
  *
  * @param {string} version Current official extension version.
  * @returns {{version: string, count: number}} Initial state.
@@ -369,7 +381,7 @@ function isValidStampState(state) {
 /**
  * Loads the local development stamp state.
  *
- * If the state file does not exist or is invalid, a new state is returned.
+ * If the state file is missing or invalid, a new state is returned.
  *
  * @param {string} currentVersion Current official extension version.
  * @returns {{version: string, count: number}} Stamp state.
@@ -403,15 +415,15 @@ function loadStampState(currentVersion) {
 /**
  * Calculates the next development stamp state.
  *
- * The counter is incremented when the official version is unchanged.
+ * The counter increments when the official version is unchanged.
  * It restarts at 1 when the official version has changed.
  *
- * @param {{version: string, count: number}} state Current state.
+ * @param {{version: string, count: number}} currentState Current state.
  * @param {string} currentVersion Current official version.
- * @returns {{version: string, count: number}} Updated state.
+ * @returns {{version: string, count: number}} Next state.
  */
-function getNextStampState(state, currentVersion) {
-  if (state.version !== currentVersion) {
+function getNextStampState(currentState, currentVersion) {
+  if (currentState.version !== currentVersion) {
     return {
       version: currentVersion,
       count: 1,
@@ -420,7 +432,7 @@ function getNextStampState(state, currentVersion) {
 
   return {
     version: currentVersion,
-    count: state.count + 1,
+    count: currentState.count + 1,
   };
 }
 
@@ -429,11 +441,11 @@ function getNextStampState(state, currentVersion) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Creates or increments the development version stamp.
+ * Creates or increments the local development version name.
  *
  * Example:
  *
- *     "version": "1.10.7"
+ *     "version": "1.10.7",
  *     "version_name": "1.10.7-d4"
  */
 function runStamp() {
@@ -464,8 +476,8 @@ function runStamp() {
  *     1. Removes `version_name` from manifest.json.
  *     2. Deletes `.dev-stamp.json`.
  *
- * The state file will be recreated automatically the next time the stamp
- * command or build command runs.
+ * The state file will be recreated the next time `npm run stamp` is executed.
+ * Running `npm run build` alone will not recreate the development state.
  */
 function runClean() {
   const manifest = readJson(manifestPath);
@@ -517,8 +529,9 @@ function main() {
   ensureRequiredFiles();
 
   /*
-   * These operations are idempotent. Existing correct configuration is
-   * preserved, and missing configuration is added automatically.
+   * These operations are idempotent:
+   * missing configuration is added, while existing valid configuration is
+   * left unchanged.
    */
   ensurePackageScripts();
   ensureGitignoreEntry();
