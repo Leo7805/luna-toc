@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:39829adaa65788540718da12050e00b30eca96ed484da3053115580efd5536a2",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-26T10:09:05.978Z",
+    "updatedAt": "2026-07-26T10:09:05.978Z"
+  },
+  "fileNote": {
+    "userNote": "通用检测宿主页面的全屏媒体预览层。\nisFullscreenMediaOverlay() — 判断元素是否同时满足：body 直接子元素、打开状态、固定定位、覆盖至少 80% 视口并包含图片。\nobserveExternalOverlays() — 监听媒体层的添加、删除和状态变化，并同步根元素状态类。\nisRelevantOverlayMutation() — 过滤普通 ChatGPT DOM 变化，避免每次页面更新都重新检测。\nfindDirectBodyChild() — 找到发生变化节点所属的 body 一级容器。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

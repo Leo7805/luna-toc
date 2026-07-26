@@ -141,6 +141,7 @@ graph TD
   - [tooltip.ts](../src/features/tooltip.ts): Provides typed preview-tooltip and button-tooltip APIs through named exports.
   - [toggleButton.ts](../src/features/toggleButton.ts): Provides the typed floating toggle-button factory and session-bound drag positioning.
   - [sidebarVisibility.ts](../src/features/sidebarVisibility.ts): Provides typed sidebar showing, auto-hiding, pinning, and inert accessibility control.
+  - [externalOverlay.ts](../src/features/externalOverlay.ts): Detects open body-level fullscreen media overlays and temporarily yields all LunaTOC surfaces so host-page modal controls remain accessible.
   - [promptStore.ts](../src/features/myPrompts/promptStore.ts): Defines the saved-prompt model and provides typed persistence, caching, and change notifications.
   - [promptUsageStore.ts](../src/features/myPrompts/promptUsageStore.ts): Persists autocomplete usage counts and last-used timestamps separately from exportable prompt content.
   - [promptLibrary.ts](../src/features/myPrompts/promptLibrary.ts): Manages the saved prompt list, persistence operations, legacy confirmation dialogs, sorting, import, and export through named exports.

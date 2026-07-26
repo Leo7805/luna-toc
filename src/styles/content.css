@@ -416,6 +416,15 @@ html[data-theme='light'] {
   visibility: hidden;
 }
 
+html.luna-toc-external-overlay-open #luna-toc-sidebar,
+html.luna-toc-external-overlay-open #luna-toc-toggle-btn,
+html.luna-toc-external-overlay-open #luna-toc-preview-tooltip,
+html.luna-toc-external-overlay-open #luna-toc-button-tooltip,
+html.luna-toc-external-overlay-open #luna-toc-react-host {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 #luna-toc-toggle-btn {
   position: fixed;
   right: 0;
