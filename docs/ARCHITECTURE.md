@@ -196,7 +196,10 @@ location.reload();
 
 Each event is written both as an expandable console object and as a
 `[LunaTOC navigation JSON]` line whose complete fields survive copied or saved
-console logs.
+console logs. `PROMPT_MOUNT_EXHAUSTED` adds text-free ChatGPT DOM evidence:
+mounted and visible user-message IDs, exact target-ID candidates, matched
+Assistant nodes, their inferred navigator indexes and target-text-match flags,
+and their connection, visibility, and geometry state.
 
 Per-Prompt Assistant Outline diagnostics use a separate opt-in switch and may
 include extracted heading text:

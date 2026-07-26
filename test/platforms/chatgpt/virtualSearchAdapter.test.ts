@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt,
+  getChatGptPromptMountDiagnostic,
   getChatGptScrollContainer,
   getChatGptScrollMetrics,
   isChatGptElementVisible,
@@ -100,6 +101,84 @@ describe('ChatGPT virtual search adapter', () => {
     expect(isChatGptElementVisible(visiblePrompt, container)).toBe(true);
     expect(isChatGptElementVisible(offscreenPrompt, container)).toBe(false);
     expect(isChatGptElementVisible(touchingBoundary, container)).toBe(false);
+  });
+
+  it('collects text-free DOM evidence for exhausted Prompt mounting', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="chat-scroll">
+          <section data-turn="user" data-message-id="prompt-20">
+            <div data-message-author-role="user">Private prompt text</div>
+          </section>
+          <section data-turn="assistant">
+            <div
+              data-message-author-role="assistant"
+              data-message-id="response-20"
+            >
+              <div class="markdown">Private response text</div>
+            </div>
+          </section>
+        </div>
+      </main>
+    `;
+    const container = document.getElementById('chat-scroll')!;
+    const prompt = document.querySelector<HTMLElement>(
+      '[data-message-author-role="user"]'
+    )!;
+    const assistant = document.querySelector<HTMLElement>(
+      '[data-message-author-role="assistant"]'
+    )!;
+    setElementMeasurements(container, {
+      clientWidth: 900,
+      clientHeight: 500,
+      top: 100,
+    });
+    setElementMeasurements(prompt, { clientHeight: 100, top: 200 });
+    setElementMeasurements(assistant, {
+      clientHeight: 100,
+      top: 350,
+    });
+
+    const diagnostic = getChatGptPromptMountDiagnostic({
+      promptId: 'prompt-20',
+      matchedBlockIds: ['response-20'],
+      scrollContainer: container,
+      getNavigatorIndex: (element) =>
+        element.dataset.messageAuthorRole === 'user' ? 20 : -1,
+      matchesTargetPromptText: (element) =>
+        element.dataset.messageAuthorRole === 'user',
+    });
+
+    expect(diagnostic).toMatchObject({
+      mountedUserMessageCount: 1,
+      visibleUserMessages: [
+        {
+          role: 'user',
+          messageId: 'prompt-20',
+          navigatorIndex: 20,
+          matchesTargetPromptText: true,
+          visible: true,
+        },
+      ],
+      targetPromptCandidates: [
+        {
+          messageId: 'prompt-20',
+        },
+      ],
+      targetIdNodes: [
+        {
+          messageId: 'prompt-20',
+          turn: 'user',
+        },
+      ],
+      matchedAssistantNodes: [
+        {
+          role: 'assistant',
+          messageId: 'response-20',
+        },
+      ],
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain('Private');
   });
 
   it('creates an anchor from the element position inside its container', () => {

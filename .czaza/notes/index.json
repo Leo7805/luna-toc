@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-26T03:18:18.183Z",
+  "updatedAt": "2026-07-26T04:11:40.189Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -192,9 +192,9 @@
     },
     "src/features/navigation/promptNavigation.ts": {
       "noteFile": "files/241fe34fddca-a4f793e6.json",
-      "sourceHash": "sha256:bc996f842a9c22805d4227dde84bec7996bd9e9a28a46f6503e2b31e1039a313",
+      "sourceHash": "sha256:10e107f9325be3b0ff4da2136697b83d3fb563af62f7dc84ee2b44efdcf24de3",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-25T04:39:11.694Z"
+      "updatedAt": "2026-07-26T04:11:40.189Z"
     },
     "src/features/navigation/outline.ts": {
       "noteFile": "files/2c76dfd8293f-c0052e3a.json",
@@ -334,15 +334,15 @@
     },
     "src/features/navigation/virtualSearchController.ts": {
       "noteFile": "files/ba6aa3ee5c15-2926c662.json",
-      "sourceHash": "sha256:6f0e91aca31243a97e564995aa5f1e592d4ae97dd09acec108f69047d11a7123",
+      "sourceHash": "sha256:0f91a51bd46e494b4e24ff7547afc552310c77f2bfdbebda7eb8952d457947b0",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T03:18:18.183Z"
+      "updatedAt": "2026-07-26T04:06:52.025Z"
     },
     "src/platforms/chatgpt/virtualSearchAdapter.ts": {
       "noteFile": "files/2f6f8b44f5de-00cd1729.json",
-      "sourceHash": "sha256:ec320757968c6ddd63d911e611442e502933ae324552be4aa168f635f3c60f09",
+      "sourceHash": "sha256:151d66c15f62f2d256f9facd0574cfe6e20376903bc066155abe6657ce3c366f",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-24T13:41:38.682Z"
+      "updatedAt": "2026-07-26T04:11:40.093Z"
     },
     "src/features/navigation/fingerprint/segments.ts": {
       "noteFile": "files/c586105013ac-052a4323.json",

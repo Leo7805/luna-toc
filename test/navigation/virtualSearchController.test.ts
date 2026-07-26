@@ -283,4 +283,38 @@ describe('adaptive virtual search controller', () => {
     expect(result.status).toBe('found');
     expect(plannedScrollTops).toEqual([1_250, 0, 1_000]);
   });
+
+  it('reports diagnostic context when Prompt mounting is exhausted', async () => {
+    let scrollTop = 500_000;
+    const eventNames: string[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-5',
+      targetPromptIndex: 5,
+      promptCount: 10,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 1_000_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () =>
+        createLocatedObservation(5, scrollTop),
+      isTargetRendered: () => false,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 20,
+      onDiagnosticEvent: ({ eventName }) => {
+        eventNames.push(eventName);
+      },
+    });
+
+    expect(result.status).toBe('exhausted');
+    expect(eventNames).toContain('PROMPT_MOUNT_EXHAUSTED');
+  });
 });

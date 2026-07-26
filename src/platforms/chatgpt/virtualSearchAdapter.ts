@@ -29,6 +29,28 @@ export interface ChatGptVirtualPositionOptions {
   scrollContainer?: HTMLElement | null;
 }
 
+interface ChatGptMountNodeDiagnostic {
+  tagName: string;
+  role: string | null;
+  messageId: string | null;
+  navigatorIndex: number;
+  matchesTargetPromptText: boolean;
+  turn: string | null;
+  connected: boolean;
+  visible: boolean;
+  top: number;
+  bottom: number;
+  height: number;
+}
+
+export interface ChatGptPromptMountDiagnostic {
+  mountedUserMessageCount: number;
+  visibleUserMessages: ChatGptMountNodeDiagnostic[];
+  targetPromptCandidates: ChatGptMountNodeDiagnostic[];
+  targetIdNodes: ChatGptMountNodeDiagnostic[];
+  matchedAssistantNodes: ChatGptMountNodeDiagnostic[];
+}
+
 /**
  * Finds the scrollable container that owns ChatGPT's mounted messages.
  *
@@ -112,6 +134,84 @@ export function getChatGptScrollMetrics(
     ),
     viewportWidth: container.clientWidth || window.innerWidth,
     viewportHeight: container.clientHeight || window.innerHeight,
+  };
+}
+
+/**
+ * Collects text-free DOM evidence when a target Prompt cannot be mounted.
+ */
+export function getChatGptPromptMountDiagnostic({
+  promptId,
+  matchedBlockIds,
+  scrollContainer,
+  getNavigatorIndex,
+  matchesTargetPromptText,
+  root = document,
+}: {
+  promptId: string;
+  matchedBlockIds: string[];
+  scrollContainer: HTMLElement;
+  getNavigatorIndex: (element: HTMLElement) => number;
+  matchesTargetPromptText: (element: HTMLElement) => boolean;
+  root?: ParentNode;
+}): ChatGptPromptMountDiagnostic {
+  const userMessages = Array.from(
+    root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)
+  );
+  const idNodes = Array.from(
+    root.querySelectorAll<HTMLElement>('[data-message-id]')
+  );
+  const matchedBlockIdSet = new Set(matchedBlockIds);
+  const assistantMessages = Array.from(
+    root.querySelectorAll<HTMLElement>(ASSISTANT_MESSAGE_SELECTOR)
+  );
+
+  return {
+    mountedUserMessageCount: userMessages.length,
+    visibleUserMessages: userMessages
+      .filter((element) =>
+        isChatGptElementVisible(element, scrollContainer)
+      )
+      .map((element) =>
+        createMountNodeDiagnostic(
+          element,
+          scrollContainer,
+          getNavigatorIndex,
+          matchesTargetPromptText
+        )
+      ),
+    targetPromptCandidates: userMessages
+      .filter((element) => getChatGptMessageId(element) === promptId)
+      .map((element) =>
+        createMountNodeDiagnostic(
+          element,
+          scrollContainer,
+          getNavigatorIndex,
+          matchesTargetPromptText
+        )
+      ),
+    targetIdNodes: idNodes
+      .filter((element) => element.dataset.messageId === promptId)
+      .map((element) =>
+        createMountNodeDiagnostic(
+          element,
+          scrollContainer,
+          getNavigatorIndex,
+          matchesTargetPromptText
+        )
+      ),
+    matchedAssistantNodes: assistantMessages
+      .filter((element, index) =>
+        matchedBlockIdSet.has(getAssistantMessageId(element, index))
+      )
+      .map((element) =>
+        createMountNodeDiagnostic(
+          element,
+          scrollContainer,
+          getNavigatorIndex,
+          matchesTargetPromptText
+        )
+      ),
   };
 }
 
@@ -242,6 +342,46 @@ function getChatGptMessageId(element: HTMLElement): string | null {
     element.closest<HTMLElement>('[data-message-id]')?.dataset.messageId ||
     null
   );
+}
+
+/**
+ * Returns the rendered Assistant ID used by position diagnostics.
+ */
+function getAssistantMessageId(
+  element: HTMLElement,
+  index: number
+): string {
+  return (
+    getChatGptMessageId(element) || `chatgpt-assistant-${index}`
+  );
+}
+
+/**
+ * Describes one mounted node without logging conversation text.
+ */
+function createMountNodeDiagnostic(
+  element: HTMLElement,
+  scrollContainer: HTMLElement,
+  getNavigatorIndex: (element: HTMLElement) => number,
+  matchesTargetPromptText: (element: HTMLElement) => boolean
+): ChatGptMountNodeDiagnostic {
+  const rect = element.getBoundingClientRect();
+
+  return {
+    tagName: element.tagName,
+    role: element.dataset.messageAuthorRole || null,
+    messageId: getChatGptMessageId(element),
+    navigatorIndex: getNavigatorIndex(element),
+    matchesTargetPromptText: matchesTargetPromptText(element),
+    turn:
+      element.closest<HTMLElement>('[data-turn]')?.dataset.turn ||
+      null,
+    connected: element.isConnected,
+    visible: isChatGptElementVisible(element, scrollContainer),
+    top: rect.top,
+    bottom: rect.bottom,
+    height: rect.height,
+  };
 }
 
 /**

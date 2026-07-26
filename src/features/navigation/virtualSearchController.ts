@@ -263,6 +263,20 @@ export async function searchVirtualPrompt({
         machine.mountAttempts >=
         APP_CONFIG.navigation.search.maximumPromptMountAttempts
       ) {
+        onDiagnosticEvent?.({
+          eventName: 'PROMPT_MOUNT_EXHAUSTED',
+          details: {
+            targetPromptId,
+            targetPromptIndex,
+            mountAttempts: machine.mountAttempts,
+            mountDirection: machine.mountDirection,
+            mountStepViewportRatio: machine.mountStepViewportRatio,
+            lastPosition: getPositionDiagnosticDetails(
+              lastPosition,
+              observation.anchors.length
+            ),
+          },
+        });
         return finish('exhausted');
       }
       const searchConfig = APP_CONFIG.navigation.search;
