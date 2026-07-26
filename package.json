@@ -1,6 +1,6 @@
 {
   "name": "luna-toc",
-  "version": "1.10.7",
+  "version": "1.10.10",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
-    "version": "tsx scripts/version.ts && git add -- manifest.json"
+    "version": "tsx scripts/version.ts && git add -- manifest.json",
+    "stamp": "node scripts/stamp.mjs",
+    "preversion": "npm run stamp -- clean"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.7.1",

@@ -6,7 +6,7 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T06:59:25.052Z",
-    "updatedAt": "2026-07-24T08:46:03.198Z"
+    "updatedAt": "2026-07-26T05:15:58.619Z"
   },
   "fileNote": {
     "userNote": "把持久化锚点、临时锚点、比例估算和二分兜底组合成每次搜索的位置计划\n\n组合实时锚点、持久化锚点、比例估算、插值和二分策略。\nplanVirtualSearch() — 生成下一次滚动计划。\nmergeCompatibleAnchors() — 合并锚点，同一 index 优先使用实时观察值。\nfindNearestLowerAnchor() — 查找距离目标最近的下界。\nfindNearestUpperAnchor() — 查找距离目标最近的上界。\ninterpolateScrollTop() — 在最小上下界范围内进行插值。\ncreateBoundaryAnchor() — 缺少一侧锚点时创建页面边界。\ncreatePlan() — 创建并限制最终滚动计划。",

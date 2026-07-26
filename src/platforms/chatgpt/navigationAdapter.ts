@@ -2,6 +2,7 @@
  * Adapts ChatGPT conversation payloads to platform-independent navigation data.
  */
 import {
+  extractUserMessages,
   getMessageDisplayText,
   getOrderedConversationNodes,
   type ChatMessage,
@@ -29,7 +30,15 @@ export function createChatGptNavigationTurns(
     .map((node) => toNavigationSourceMessage(node.message))
     .filter((message): message is NavigationSourceMessage => Boolean(message));
 
-  return createNavigationTurns(messages);
+  const turns = createNavigationTurns(messages);
+  const promptIndexes = new Map(
+    extractUserMessages(data).map(({ id }, index) => [id, index])
+  );
+
+  return turns.flatMap((turn) => {
+    const promptIndex = promptIndexes.get(turn.prompt.id);
+    return promptIndex === undefined ? [] : [{ ...turn, promptIndex }];
+  });
 }
 
 /**

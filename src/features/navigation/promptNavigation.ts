@@ -14,6 +14,7 @@ import type { NavigatorMessage } from '../conversationPrompts/message';
 import {
   createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt,
+  getChatGptPromptMountDiagnostic,
   getChatGptScrollContainer,
   getChatGptScrollMetrics,
   isChatGptElementVisible,
@@ -365,10 +366,27 @@ function jumpWithIndependentVirtualNavigation(
     maxUnproductiveAttempts:
       testConfig.maxUnproductiveSearchAttempts,
     maxDurationMs: testConfig.maxSearchDurationMs,
-    unresolvedPositionsBeforeAbort: testConfig.unresolvedPositionsBeforeAbort,
     targetDomRecoveryDirection: -1,
     onDiagnosticEvent: ({ eventName, details }) => {
-      logChatGptNavigationEvent(jumpId, eventName, details);
+      const diagnosticDetails =
+        eventName === 'PROMPT_MOUNT_EXHAUSTED'
+          ? {
+              ...details,
+              chatGptDom: getChatGptPromptMountDiagnostic({
+                promptId: message.id,
+                matchedBlockIds: getLastMatchedBlockIds(details),
+                scrollContainer: container,
+                getNavigatorIndex: findConversationIndexByElement,
+                matchesTargetPromptText: (element) =>
+                  doesElementMatchPromptText(element, message),
+              }),
+            }
+          : details;
+      logChatGptNavigationEvent(
+        jumpId,
+        eventName,
+        diagnosticDetails
+      );
     },
   })
     .then((result) => {
@@ -417,6 +435,50 @@ function jumpWithIndependentVirtualNavigation(
       });
       console.warn('[LunaTOC] Independent navigation failed.', error);
     });
+}
+
+/**
+ * Reads the final matched Assistant IDs from a generic mount diagnostic event.
+ */
+function getLastMatchedBlockIds(
+  details: Record<string, unknown>
+): string[] {
+  const lastPosition = details.lastPosition;
+  if (!isRecord(lastPosition)) return [];
+
+  const matchedBlocks = lastPosition.matchedBlocks;
+  if (!Array.isArray(matchedBlocks)) return [];
+
+  return matchedBlocks.flatMap((block) => {
+    if (!isRecord(block) || typeof block.blockId !== 'string') {
+      return [];
+    }
+    return [block.blockId];
+  });
+}
+
+/**
+ * Checks target Prompt text without exposing either value to diagnostics.
+ */
+function doesElementMatchPromptText(
+  element: HTMLElement,
+  message: NavigatorMessage
+): boolean {
+  if (!message.canMatchByText) return false;
+
+  const domText = normalizeText(
+    element.innerText || element.textContent || ''
+  );
+  const promptText = normalizeText(message.text);
+
+  return domText === promptText || domText.includes(promptText);
+}
+
+/**
+ * Returns whether an unknown value can be inspected as a record.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 /**

@@ -59,7 +59,6 @@ export interface VirtualSearchControllerOptions {
   maxAttempts?: number;
   maxUnproductiveAttempts?: number;
   maxDurationMs?: number;
-  unresolvedPositionsBeforeAbort?: number;
   targetDomRecoveryDirection?: 1 | -1 | null;
   onDiagnosticEvent?: (event: VirtualSearchDiagnosticEvent) => void;
 }
@@ -101,8 +100,6 @@ export async function searchVirtualPrompt({
   maxUnproductiveAttempts = APP_CONFIG.navigation.search
     .maxUnproductiveAttempts,
   maxDurationMs = APP_CONFIG.navigation.search.maxDurationMs,
-  unresolvedPositionsBeforeAbort = APP_CONFIG.navigation.search
-    .unresolvedPositionsBeforeAbort,
   targetDomRecoveryDirection = null,
   onDiagnosticEvent,
 }: VirtualSearchControllerOptions): Promise<VirtualSearchResult> {
@@ -111,7 +108,6 @@ export async function searchVirtualPrompt({
   let machine = createVirtualSearchMachine();
   let attempts = 0;
   let unproductiveAttempts = 0;
-  let unresolvedAttempts = 0;
   let previousDistance: number | null = null;
   let previousSample: RelativeSearchSample | null = null;
   let lastScrollDelta: number | null = null;
@@ -230,21 +226,10 @@ export async function searchVirtualPrompt({
         unproductiveAttempts >=
         Math.max(1, maxUnproductiveAttempts)
       ) {
-        return finish('exhausted');
+        return finish(
+          logicalPosition === null ? 'unresolved' : 'exhausted'
+        );
       }
-    }
-
-    if (logicalPosition === null) {
-      unresolvedAttempts += 1;
-      if (
-        attempts > 0 &&
-        unresolvedAttempts >=
-          Math.max(1, unresolvedPositionsBeforeAbort)
-      ) {
-        return finish('unresolved');
-      }
-    } else {
-      unresolvedAttempts = 0;
     }
 
     let plan: VirtualSearchPlan;
@@ -263,6 +248,20 @@ export async function searchVirtualPrompt({
         machine.mountAttempts >=
         APP_CONFIG.navigation.search.maximumPromptMountAttempts
       ) {
+        onDiagnosticEvent?.({
+          eventName: 'PROMPT_MOUNT_EXHAUSTED',
+          details: {
+            targetPromptId,
+            targetPromptIndex,
+            mountAttempts: machine.mountAttempts,
+            mountDirection: machine.mountDirection,
+            mountStepViewportRatio: machine.mountStepViewportRatio,
+            lastPosition: getPositionDiagnosticDetails(
+              lastPosition,
+              observation.anchors.length
+            ),
+          },
+        });
         return finish('exhausted');
       }
       const searchConfig = APP_CONFIG.navigation.search;
@@ -335,17 +334,21 @@ export async function searchVirtualPrompt({
       lastDirection =
         targetPromptIndex >= currentSample.logicalPosition ? 1 : -1;
     } else {
+      const recoveryDirection = getUnresolvedRecoveryDirection({
+        scrollTop: metrics.scrollTop,
+        maximumScrollTop: metrics.maximumScrollTop,
+        lastDirection,
+        targetPromptIndex,
+        promptCount,
+      });
       plan = createRelativePlan(
         targetPromptIndex,
         metrics.scrollTop,
         metrics.maximumScrollTop,
         metrics.viewportHeight,
-        lastDirection ??
-          getInteriorRecoveryDirection(
-            targetPromptIndex,
-            promptCount
-          )
+        recoveryDirection
       );
+      lastDirection = recoveryDirection;
       phase = 'unresolved-recovery';
     }
 
@@ -458,6 +461,37 @@ export function getInteriorRecoveryDirection(
   return targetPromptIndex >= Math.max(0, promptCount - 1) / 2
     ? -1
     : 1;
+}
+
+/**
+ * Moves inward from a scroll boundary before reusing the latest search
+ * direction for an unresolved position.
+ */
+function getUnresolvedRecoveryDirection({
+  scrollTop,
+  maximumScrollTop,
+  lastDirection,
+  targetPromptIndex,
+  promptCount,
+}: {
+  scrollTop: number;
+  maximumScrollTop: number;
+  lastDirection: 1 | -1 | null;
+  targetPromptIndex: number;
+  promptCount: number;
+}): 1 | -1 {
+  if (scrollTop <= SCROLL_POSITION_TOLERANCE_PX) return 1;
+  if (
+    maximumScrollTop - scrollTop <=
+    SCROLL_POSITION_TOLERANCE_PX
+  ) {
+    return -1;
+  }
+
+  return (
+    lastDirection ??
+    getInteriorRecoveryDirection(targetPromptIndex, promptCount)
+  );
 }
 
 function createRelativePlan(

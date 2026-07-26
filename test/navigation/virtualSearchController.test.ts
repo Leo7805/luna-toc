@@ -201,4 +201,168 @@ describe('adaptive virtual search controller', () => {
     expect(phases).toEqual(['initial-mount-recovery']);
     expect(scrollTop).toBe(9_000);
   });
+
+  it('recovers upward after a learned estimate overshoots the bottom edge', async () => {
+    let scrollTop = 2_000;
+    let rendered = false;
+    const plannedScrollTops: number[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-21',
+      targetPromptIndex: 21,
+      promptCount: 25,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 10_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        if (scrollTop === 2_000) {
+          return createLocatedObservation(8, scrollTop);
+        }
+        if (scrollTop === 8_750) {
+          return createLocatedObservation(13, scrollTop);
+        }
+        return { position: { status: 'none' }, anchors: [] };
+      },
+      isTargetRendered: () => rendered,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+        plannedScrollTops.push(nextScrollTop);
+        if (nextScrollTop === 9_000) rendered = true;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 5,
+    });
+
+    expect(result.status).toBe('found');
+    expect(plannedScrollTops).toEqual([8_750, 10_000, 9_000]);
+  });
+
+  it('continues inward across multiple unresolved viewports', async () => {
+    let scrollTop = 2_000;
+    let rendered = false;
+    const plannedScrollTops: number[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-21',
+      targetPromptIndex: 21,
+      promptCount: 25,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 10_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        if (scrollTop === 2_000) {
+          return createLocatedObservation(8, scrollTop);
+        }
+        if (scrollTop === 8_750) {
+          return createLocatedObservation(13, scrollTop);
+        }
+        return { position: { status: 'none' }, anchors: [] };
+      },
+      isTargetRendered: () => rendered,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+        plannedScrollTops.push(nextScrollTop);
+        if (nextScrollTop === 7_000) rendered = true;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 8,
+      maxUnproductiveAttempts: 6,
+    });
+
+    expect(result.status).toBe('found');
+    expect(plannedScrollTops).toEqual([
+      8_750,
+      10_000,
+      9_000,
+      8_000,
+      7_000,
+    ]);
+  });
+
+  it('recovers downward after a learned estimate overshoots the top edge', async () => {
+    let scrollTop = 8_000;
+    let rendered = false;
+    const plannedScrollTops: number[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-3',
+      targetPromptIndex: 3,
+      promptCount: 25,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 10_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () => {
+        if (scrollTop === 8_000) {
+          return createLocatedObservation(16, scrollTop);
+        }
+        if (scrollTop === 1_250) {
+          return createLocatedObservation(12, scrollTop);
+        }
+        return { position: { status: 'none' }, anchors: [] };
+      },
+      isTargetRendered: () => rendered,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+        plannedScrollTops.push(nextScrollTop);
+        if (nextScrollTop === 1_000) rendered = true;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 5,
+    });
+
+    expect(result.status).toBe('found');
+    expect(plannedScrollTops).toEqual([1_250, 0, 1_000]);
+  });
+
+  it('reports diagnostic context when Prompt mounting is exhausted', async () => {
+    let scrollTop = 500_000;
+    const eventNames: string[] = [];
+
+    const result = await searchVirtualPrompt({
+      targetPromptId: 'prompt-5',
+      targetPromptIndex: 5,
+      promptCount: 10,
+      getConfirmedAnchors: async () => [],
+      getObservedAnchors: () => [],
+      recordObservation: () => {},
+      getScrollMetrics: () => ({
+        scrollTop,
+        maximumScrollTop: 1_000_000,
+        viewportWidth: 1_280,
+        viewportHeight: 1_000,
+      }),
+      observePosition: async () =>
+        createLocatedObservation(5, scrollTop),
+      isTargetRendered: () => false,
+      scrollTo: (nextScrollTop) => {
+        scrollTop = nextScrollTop;
+      },
+      waitForRender: async () => {},
+      maxAttempts: 20,
+      onDiagnosticEvent: ({ eventName }) => {
+        eventNames.push(eventName);
+      },
+    });
+
+    expect(result.status).toBe('exhausted');
+    expect(eventNames).toContain('PROMPT_MOUNT_EXHAUSTED');
+  });
 });

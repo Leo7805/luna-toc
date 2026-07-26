@@ -6,3 +6,4 @@ release/
 icons/v*/
 node_modules/
 dist/
+.dev-stamp.json

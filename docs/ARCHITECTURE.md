@@ -119,7 +119,7 @@ graph TD
   - [follow.ts](../src/features/navigation/follow.ts): Provides typed chat-scroll tracking and sidebar auto-follow control through named exports.
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
-  - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary, currently using ChatGPT's native buttons first and DOM/virtualized-scroll fallbacks second.
+  - [promptNavigation.ts](../src/features/navigation/promptNavigation.ts): Provides the replaceable main-prompt navigation boundary and accepts only directly resolved Prompt DOM as an independent-navigation success.
   - [navigationData.ts](../src/features/navigation/navigationData.ts): Defines platform-independent prompt/response turns for future fingerprinting and navigation algorithms.
   - [fingerprint/comparableText.ts](../src/features/navigation/fingerprint/comparableText.ts): Converts raw or rendered content into Unicode letter-and-number text shared by fingerprint generation and matching.
   - [fingerprint/generator.ts](../src/features/navigation/fingerprint/generator.ts): Generates bounded text probes and SHA-256 verification hashes from platform-independent AI responses.
@@ -134,7 +134,7 @@ graph TD
   - [virtualSearchMachine.ts](../src/features/navigation/virtualSearchMachine.ts): Owns the explicit initial-estimate, seek-response, and mount-prompt phases.
   - [virtualSearchController.ts](../src/features/navigation/virtualSearchController.ts): Orchestrates observation, state transitions, relative planning, scrolling, diagnostics, and bounded completion without retaining absolute search bounds.
   - [navigationSnapshotStore.ts](../src/features/navigation/navigationSnapshotStore.ts): Stores prompt lists plus revision-protected whole-response and segment fingerprint indexes by conversation for the current tab.
-  - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns while excluding tool and attachment content from AI responses.
+  - [navigationAdapter.ts](../src/platforms/chatgpt/navigationAdapter.ts): Converts ChatGPT's active conversation branch into generic navigation turns, aligns response indexes with the native TOC prompt set, and excludes tool and attachment content from AI responses.
   - [renderedTextAdapter.ts](../src/platforms/chatgpt/renderedTextAdapter.ts): Converts mounted ChatGPT Assistant Markdown into generic rendered text and exposes owned Markdown containers for observed viewport-segment measurement while excluding tools and attachments.
   - [renderedFingerprintCollector.ts](../src/platforms/chatgpt/renderedFingerprintCollector.ts): Debounces mounted Assistant DOM changes and upgrades mapped responses to observed whole-response fingerprints without running Segment geometry measurement.
   - [virtualSearchAdapter.ts](../src/platforms/chatgpt/virtualSearchAdapter.ts): Adapts ChatGPT scroll containers, viewport response text, derived Segments, mounted prompt IDs, and element geometry to generic virtual-search observations.
@@ -177,9 +177,10 @@ graph TD
 - `platforms.chatgpt.navigationAlgorithm` supplies the default `legacy-native` fallback, while `navigationSettings.ts` persists and synchronizes the user's runtime choice between native and independent navigation.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
-- `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress.
+- `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress; unresolved positions use the same no-progress budget instead of a separate smaller limit.
 - Confirmed and observed anchors participate only in the initial estimate; every later movement is relative to the current live scroll position.
 - Response seeking estimates pixels per Prompt from consecutive observations, permits larger learned movements while far from the target, restores a smaller cap near the target, grows the step when the visible Prompt does not change, and halves the previous step after crossing the target.
+- An unresolved observation at the top or bottom scroll boundary always moves inward before position recognition resumes, and that inward direction continues across consecutive unresolved viewports rather than returning to the stale outward direction.
 - Prompt mounting is an isolated feedback scan: repeated target-response observations grow the step, crossing into the previous response reverses and halves it, and neighboring responses never return control to response seeking.
 - Prompt snapshot revisions retain the previous complete Fingerprint and Segment indexes while replacements build, then swap in matching-revision results so navigation never observes an avoidable empty-index window.
 
@@ -192,6 +193,13 @@ page `localStorage`. Enable structured, text-free jump events with:
 localStorage.setItem('chatTocDebugJump', '1');
 location.reload();
 ```
+
+Each event is written both as an expandable console object and as a
+`[LunaTOC navigation JSON]` line whose complete fields survive copied or saved
+console logs. `PROMPT_MOUNT_EXHAUSTED` adds text-free ChatGPT DOM evidence:
+mounted and visible user-message IDs, exact target-ID candidates, matched
+Assistant nodes, their inferred navigator indexes and target-text-match flags,
+and their connection, visibility, and geometry state.
 
 Per-Prompt Assistant Outline diagnostics use a separate opt-in switch and may
 include extracted heading text:
@@ -214,7 +222,6 @@ localStorage.setItem(
     maxSearchAttempts: 12,
     maxUnproductiveSearchAttempts: 6,
     maxSearchDurationMs: 3000,
-    unresolvedPositionsBeforeAbort: 4,
     useConfirmedAnchors: false,
     useObservedAnchors: true,
   })
