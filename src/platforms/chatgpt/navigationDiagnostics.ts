@@ -13,7 +13,6 @@ export interface ChatGptNavigationTestConfig {
   maxSearchAttempts: number;
   maxUnproductiveSearchAttempts: number;
   maxSearchDurationMs: number;
-  unresolvedPositionsBeforeAbort: number;
   useConfirmedAnchors: boolean;
   useObservedAnchors: boolean;
 }
@@ -68,12 +67,6 @@ export function getChatGptNavigationTestConfig(
         defaults.maxSearchDurationMs,
         100,
         15_000
-      ),
-      unresolvedPositionsBeforeAbort: readBoundedInteger(
-        value.unresolvedPositionsBeforeAbort,
-        defaults.unresolvedPositionsBeforeAbort,
-        1,
-        10
       ),
       useConfirmedAnchors: readBoolean(
         value.useConfirmedAnchors,
@@ -135,8 +128,6 @@ function getDefaultNavigationTestConfig(): ChatGptNavigationTestConfig {
     maxUnproductiveSearchAttempts:
       APP_CONFIG.navigation.search.maxUnproductiveAttempts,
     maxSearchDurationMs: APP_CONFIG.navigation.search.maxDurationMs,
-    unresolvedPositionsBeforeAbort:
-      APP_CONFIG.navigation.search.unresolvedPositionsBeforeAbort,
     useConfirmedAnchors: true,
     useObservedAnchors: true,
   };

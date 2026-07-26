@@ -46,7 +46,6 @@ export const APP_CONFIG = {
       renderWaitMs: 80,
       maxDurationMs: 4_000,
       interpolationFailuresBeforeBinary: 2,
-      unresolvedPositionsBeforeAbort: 2,
       relativeViewportRatio: 0.75,
       minimumRelativeViewportRatio: 0.25,
       maximumRelativeViewportCount: 16,

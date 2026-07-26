@@ -168,7 +168,9 @@ migration separate so temporary `WEB:` routes retain newly submitted prompts.
 * If a later estimate reaches either scroll boundary and position recognition
   becomes unresolved, recovery also moves one viewport inward. The previous
   outward direction cannot terminate a search merely because the boundary
-  clamps the next scroll position.
+  clamps the next scroll position. Consecutive unresolved viewports retain
+  that inward direction and share the normal no-progress budget instead of
+  stopping under a separate two-observation limit.
 * Once a target response is located without its Prompt DOM, a dedicated mount
   phase owns the search until completion or its bounded step limit. It scans
   relative to the current live scroll rather than an Assistant anchor captured

@@ -59,7 +59,6 @@ export interface VirtualSearchControllerOptions {
   maxAttempts?: number;
   maxUnproductiveAttempts?: number;
   maxDurationMs?: number;
-  unresolvedPositionsBeforeAbort?: number;
   targetDomRecoveryDirection?: 1 | -1 | null;
   onDiagnosticEvent?: (event: VirtualSearchDiagnosticEvent) => void;
 }
@@ -101,8 +100,6 @@ export async function searchVirtualPrompt({
   maxUnproductiveAttempts = APP_CONFIG.navigation.search
     .maxUnproductiveAttempts,
   maxDurationMs = APP_CONFIG.navigation.search.maxDurationMs,
-  unresolvedPositionsBeforeAbort = APP_CONFIG.navigation.search
-    .unresolvedPositionsBeforeAbort,
   targetDomRecoveryDirection = null,
   onDiagnosticEvent,
 }: VirtualSearchControllerOptions): Promise<VirtualSearchResult> {
@@ -111,7 +108,6 @@ export async function searchVirtualPrompt({
   let machine = createVirtualSearchMachine();
   let attempts = 0;
   let unproductiveAttempts = 0;
-  let unresolvedAttempts = 0;
   let previousDistance: number | null = null;
   let previousSample: RelativeSearchSample | null = null;
   let lastScrollDelta: number | null = null;
@@ -230,21 +226,10 @@ export async function searchVirtualPrompt({
         unproductiveAttempts >=
         Math.max(1, maxUnproductiveAttempts)
       ) {
-        return finish('exhausted');
+        return finish(
+          logicalPosition === null ? 'unresolved' : 'exhausted'
+        );
       }
-    }
-
-    if (logicalPosition === null) {
-      unresolvedAttempts += 1;
-      if (
-        attempts > 0 &&
-        unresolvedAttempts >=
-          Math.max(1, unresolvedPositionsBeforeAbort)
-      ) {
-        return finish('unresolved');
-      }
-    } else {
-      unresolvedAttempts = 0;
     }
 
     let plan: VirtualSearchPlan;
@@ -349,19 +334,21 @@ export async function searchVirtualPrompt({
       lastDirection =
         targetPromptIndex >= currentSample.logicalPosition ? 1 : -1;
     } else {
+      const recoveryDirection = getUnresolvedRecoveryDirection({
+        scrollTop: metrics.scrollTop,
+        maximumScrollTop: metrics.maximumScrollTop,
+        lastDirection,
+        targetPromptIndex,
+        promptCount,
+      });
       plan = createRelativePlan(
         targetPromptIndex,
         metrics.scrollTop,
         metrics.maximumScrollTop,
         metrics.viewportHeight,
-        getUnresolvedRecoveryDirection({
-          scrollTop: metrics.scrollTop,
-          maximumScrollTop: metrics.maximumScrollTop,
-          lastDirection,
-          targetPromptIndex,
-          promptCount,
-        })
+        recoveryDirection
       );
+      lastDirection = recoveryDirection;
       phase = 'unresolved-recovery';
     }
 

@@ -177,10 +177,10 @@ graph TD
 - `platforms.chatgpt.navigationAlgorithm` supplies the default `legacy-native` fallback, while `navigationSettings.ts` persists and synchronizes the user's runtime choice between native and independent navigation.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
-- `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress.
+- `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress; unresolved positions use the same no-progress budget instead of a separate smaller limit.
 - Confirmed and observed anchors participate only in the initial estimate; every later movement is relative to the current live scroll position.
 - Response seeking estimates pixels per Prompt from consecutive observations, permits larger learned movements while far from the target, restores a smaller cap near the target, grows the step when the visible Prompt does not change, and halves the previous step after crossing the target.
-- An unresolved observation at the top or bottom scroll boundary always moves inward before position recognition resumes, rather than retrying an impossible outward movement.
+- An unresolved observation at the top or bottom scroll boundary always moves inward before position recognition resumes, and that inward direction continues across consecutive unresolved viewports rather than returning to the stale outward direction.
 - Prompt mounting is an isolated feedback scan: repeated target-response observations grow the step, crossing into the previous response reverses and halves it, and neighboring responses never return control to response seeking.
 - Prompt snapshot revisions retain the previous complete Fingerprint and Segment indexes while replacements build, then swap in matching-revision results so navigation never observes an avoidable empty-index window.
 
@@ -222,7 +222,6 @@ localStorage.setItem(
     maxSearchAttempts: 12,
     maxUnproductiveSearchAttempts: 6,
     maxSearchDurationMs: 3000,
-    unresolvedPositionsBeforeAbort: 4,
     useConfirmedAnchors: false,
     useObservedAnchors: true,
   })

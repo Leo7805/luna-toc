@@ -366,7 +366,6 @@ function jumpWithIndependentVirtualNavigation(
     maxUnproductiveAttempts:
       testConfig.maxUnproductiveSearchAttempts,
     maxDurationMs: testConfig.maxSearchDurationMs,
-    unresolvedPositionsBeforeAbort: testConfig.unresolvedPositionsBeforeAbort,
     targetDomRecoveryDirection: -1,
     onDiagnosticEvent: ({ eventName, details }) => {
       const diagnosticDetails =
