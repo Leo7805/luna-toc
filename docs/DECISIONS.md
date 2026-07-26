@@ -305,8 +305,10 @@ interface is migrated behind that React boundary.
 * React interfaces can be migrated one at a time without rewriting the content
   script or existing feature logic.
 * Tailwind and shadcn generated rules cannot modify ChatGPT's document styles.
-* Every React mount container must live inside the Shadow Root and include the
-  `.luna-toc-ui` class.
+* Overlay React mount containers live inside the Shadow Root and include the
+  `.luna-toc-ui` class. The incremental sidebar shell is a temporary light-DOM
+  exception because existing CSS and feature modules still address its stable
+  IDs; it does not use Tailwind until those consumers migrate.
 * Tailwind class prefixes are unnecessary because the Shadow Root provides the
   CSS boundary.
 * Dialogs, popovers, tooltips, and other portals must target the Portal
@@ -321,6 +323,9 @@ interface is migrated behind that React boundary.
   prompt insertion remain in `promptAutocomplete.ts`.
 * Autocomplete rows show titles only for faster scanning; prompt content is
   available through the native hover title.
+* The ChatGPT-page sidebar shell is mounted by React first, while its Prompt
+  list, Outline, My Prompts list, event binding, and state remain under the
+  existing feature modules through stable compatibility slots.
 
 ---
 

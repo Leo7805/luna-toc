@@ -1,17 +1,21 @@
 {
   "source": {
-    "sourceHash": "sha256:c39c46b38538ecb9620784173f93b963a5f46bb49111816391dd2496685f04fa",
+    "sourceHash": "sha256:b4e6cb0e9118676c4a08bbd6d13c730b1368edef378137b1e5c628663fd4ae86",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
     "createdAt": "2026-07-22T11:18:24.674Z",
-    "updatedAt": "2026-07-22T12:28:20.405Z"
+    "updatedAt": "2026-07-26T05:55:03.704Z"
   },
   "fileNote": {
-    "userNote": "创建 Shadow Root、注入样式并启动 React\n\n整体调用关系是：\ninitializeReactHost()\n├── waitForBody()\n├── synchronizeTheme()\n├── 创建 Shadow Root\n├── 注入 Tailwind CSS\n├── 创建 React 容器\n├── 创建 Portal 容器\n└── createRoot().render(null)\n\n如:\n在 React Root 中挂载 Prompt Editor，并提供 Shadow Root 内的 Portal 容器。",
+    "userNote": "创建 Shadow Root、注入样式并启动 React\n\n整体调用关系是：\ninitializeReactHost()\n├── waitForBody()\n├── synchronizeTheme()\n├── 创建 Shadow Root\n├── 注入 Tailwind CSS\n├── 创建 React 容器\n├── 创建 Portal 容器\n└── createRoot().render(null)\n\n如:\n在 React Root 中挂载 Prompt Editor，并提供 Shadow Root 内的 Portal 容器。\n\n\n---\n统一管理 React 应用的挂载。\nmountSidebarReactApp() — 将侧边栏 React 应用同步挂载到现有侧边栏容器，确保后续旧逻辑绑定时 DOM 已经生成。\n原有 Prompt Editor 和 Autocomplete 的 Shadow DOM 挂载逻辑保持不变。",
     "createdBy": "user",
-    "updatedAt": "2026-07-22T12:33:01.031Z"
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    },
+    "updatedAt": "2026-07-26T06:10:53.950Z"
   },
   "sectionNotes": {
     "section:user:21-47": {
@@ -67,8 +71,11 @@
       },
       "anchorHash": "sha256:f03973e8ef09655749f7c74ba5da7b970667ddd070749f6efc8117f6e4663647",
       "createdBy": "user",
-      "createdAt": "2026-07-22T12:36:11.484Z",
-      "updatedAt": "2026-07-22T12:36:11.484Z"
+      "status": {
+        "content": "stale",
+        "anchor": "needsConfirmation"
+      },
+      "createdAt": "2026-07-22T12:36:11.484Z"
     }
   },
   "lineNotes": {}

@@ -2,10 +2,15 @@
  * Owns the Shadow DOM environment that isolates LunaTOC React components,
  * Tailwind styles, and portal content from the host page.
  */
-import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { createRoot, type Root } from 'react-dom/client';
 
 import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomplete';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
+import {
+  SidebarApp,
+  type SidebarAppProps,
+} from '@/components/sidebar/SidebarApp';
 import tailwindCss from '@/styles/tailwind.css?inline';
 
 const REACT_HOST_ID = 'luna-toc-react-host';
@@ -13,6 +18,30 @@ const REACT_ROOT_ID = 'luna-toc-react-root';
 const PORTAL_ROOT_ID = 'luna-toc-react-portals';
 
 let portalContainer: HTMLDivElement | null = null;
+const sidebarRoots = new WeakMap<HTMLElement, Root>();
+
+/**
+ * Mounts the React sidebar shell synchronously so legacy controls can bind to
+ * its stable light-DOM slots immediately afterward.
+ *
+ * @example
+ * mountSidebarReactApp(sidebar, {
+ *   title: 'Conversation',
+ *   emptyHint: 'Waiting for prompts...',
+ * });
+ */
+export function mountSidebarReactApp(
+  sidebar: HTMLElement,
+  props: SidebarAppProps
+): void {
+  if (sidebarRoots.has(sidebar)) return;
+
+  const root = createRoot(sidebar);
+  sidebarRoots.set(sidebar, root);
+  flushSync(() => {
+    root.render(<SidebarApp {...props} />);
+  });
+}
 
 /**
  * Creates the isolated React host once the document body is available.

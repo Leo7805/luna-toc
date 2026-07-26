@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:0f6251e97e24966d6f737476ce6a6e1bd43d52f5222ead76e11322848eb1623b",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-26T06:10:14.944Z",
+    "updatedAt": "2026-07-26T06:10:14.944Z"
+  },
+  "fileNote": {
+    "userNote": "ChatGPT 侧边栏的 React 应用入口。\nSidebarApp() — 接收标题和空状态提示，并组合侧边栏静态框架。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -149,7 +149,7 @@ graph TD
   - [promptAutocompleteView.ts](../src/features/myPrompts/promptAutocompleteView.ts): Bridges composer autocomplete state to the React suggestion menu.
   - [myPrompts.ts](../src/features/myPrompts/myPrompts.ts): Composes the typed My Prompts modules and exports the unified `myPrompts` API consumed by the application shell.
   - [navigatorController.ts](../src/app/navigatorController.ts): Provides typed conversation data, TOC rendering, prompt navigation coordination, route resets, and active-prompt tracking.
-  - [applicationShell.ts](../src/app/applicationShell.ts): Provides the typed sidebar shell, view-mode coordination, shared UI, and application initializer.
+  - [applicationShell.ts](../src/app/applicationShell.ts): Creates the sidebar host, mounts its React shell, and coordinates legacy view-mode and application behavior.
   - [content.ts](../src/content.ts): Calls the application initializer as the minimal Isolated World entry.
   - [themeSettings.ts](../src/features/theme/themeSettings.ts): Defines, persists, and migrates the follow/manual theme preference shared by the Popup and Content Script.
   - [chatGptTheme.ts](../src/features/theme/chatGptTheme.ts): Detects ChatGPT's resolved root-class theme and shares the latest value with the Popup.
@@ -161,6 +161,8 @@ graph TD
 - React is introduced incrementally: existing DOM-driven features remain unchanged until their individual UI boundaries are migrated.
 - [components/ui](../src/components/ui) contains shadcn/ui primitives; feature-specific and shared React components will live in sibling component directories.
 - [reactHost.tsx](../src/reactHost/reactHost.tsx) owns the React Shadow Root, injects the compiled Tailwind stylesheet, and exposes the internal Portal container.
+- [SidebarApp.tsx](../src/components/sidebar/SidebarApp.tsx) is the React entry for the ChatGPT-page sidebar.
+- [SidebarShell.tsx](../src/components/sidebar/SidebarShell.tsx) renders stable light-DOM slots that existing navigation, My Prompts, visibility, and resize modules continue to use during migration.
 - [PromptEditorDialog.tsx](../src/components/my-prompts/PromptEditorDialog.tsx) renders the first migrated My Prompts interface while saving remains in the feature layer.
 - [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature and keeps a single highlight owned by the most recent pointer or keyboard interaction.
 - [PopupApp.tsx](../src/components/popup/PopupApp.tsx) renders the extension Popup, including the follow-ChatGPT and manual theme controls.
@@ -170,6 +172,7 @@ graph TD
 - Tailwind CSS is loaded as an inline string inside the React Shadow Root, so generated global rules cannot affect ChatGPT or the legacy Content Script UI.
 - shadcn theme variables are scoped to `.luna-toc-ui`, which is applied to both the React and Portal containers inside the Shadow Root.
 - The React host mirrors the document's `data-theme` value onto itself so Shadow DOM components follow LunaTOC theme changes without selecting across the boundary.
+- The sidebar shell temporarily mounts into its existing light-DOM host because legacy CSS and imperative feature modules address its stable IDs directly; it uses no Tailwind utilities until those consumers migrate to React.
 
 ### Build Outputs
 

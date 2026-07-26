@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:c302e31961b380184550f799446c457e2828380431d217fe305c34e868f301df",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-26T06:10:24.446Z",
+    "updatedAt": "2026-07-26T06:10:24.446Z"
+  },
+  "fileNote": {
+    "userNote": "使用 JSX 定义侧边栏的静态结构和遗留功能插槽。\nSidebarShell() — 渲染标题栏、搜索框、My Prompts 工具栏插槽、导航列表和跳转按钮。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

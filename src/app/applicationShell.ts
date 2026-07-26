@@ -19,6 +19,7 @@ import {
 } from '@/features/theme/themeSettings';
 import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
+import { mountSidebarReactApp } from '@/reactHost/reactHost';
 import { navigatorController } from './navigatorController';
 
 type ConversationEdge = 'top' | 'bottom';
@@ -79,66 +80,11 @@ async function createSidebar(): Promise<HTMLElement> {
     '--navigator-max-width',
     `${sidebarConfig.maximumWidthPx}px`
   );
-  sidebar.innerHTML = `
-      <div id="navigator-resizer"></div>
-      <div class="navigator-topbar">
-        <div class="navigator-header">
-          <button
-            class="navigator-icon-btn navigator-header-icon-btn luna-toc-sidebar-pin-btn"
-            id="luna-toc-sidebar-pin-btn"
-            type="button"
-            aria-label="Enable sidebar auto-hide"
-            aria-pressed="true"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M12 17v5M7 3h10l-1 8 4 4v2H4v-2l4-4-1-8Z" />
-            </svg>
-          </button>
-          <button id="navigator-title" type="button" aria-label="Reset TOC view">
-            ${escapeHtml(getConversationTitle())}
-          </button>
-          <button
-            class="navigator-icon-btn navigator-header-icon-btn"
-            id="search-toggle-btn"
-            type="button"
-            aria-label="Toggle search"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
-        </div>
-        <p class="navigator-hint">${NAVIGATOR_EMPTY_HINT_TEXT}</p>
-        <input
-          id="navigator-search"
-          type="search"
-          placeholder="Search prompts..."
-          autocomplete="off"
-        />
-        <div id="myprompts-toolbar-container"></div>
-      </div>
-      <div class="navigator-jump-controls">
-        <button class="navigator-icon-btn" id="jump-chat-top-btn" type="button" aria-label="Jump to top">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M6 5h12M12 19V9M7 14l5-5 5 5" />
-          </svg>
-        </button>
-        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
-          </svg>
-        </button>
-        <button class="navigator-icon-btn" id="jump-chat-bottom-btn" type="button" aria-label="Jump to bottom">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M6 19h12M12 5v10M7 10l5 5 5-5" />
-          </svg>
-        </button>
-      </div>
-      <div id="navigator-list"></div>
-    `;
-
   document.body.appendChild(sidebar);
+  mountSidebarReactApp(sidebar, {
+    title: getConversationTitle(),
+    emptyHint: NAVIGATOR_EMPTY_HINT_TEXT,
+  });
   bindSidebarControls();
   return sidebar;
 }
@@ -332,19 +278,6 @@ function setNavigatorTitle(): void {
   if (!title) return;
   title.textContent =
     viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (char) => {
-    const entities: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return entities[char];
-  });
 }
 
 function initSidebarResize(sidebar: HTMLElement): void {
