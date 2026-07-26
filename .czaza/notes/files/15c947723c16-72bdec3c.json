@@ -5,13 +5,16 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T11:11:20.055Z",
-    "updatedAt": "2026-07-22T11:14:59.465Z"
+    "updatedAt": "2026-07-26T10:26:55.292Z"
   },
   "fileNote": {
-    "userNote": "LunaTOC 的“总控制器/装配层”，启动入口。同时启动 Application Shell (旧侧边栏) 和 React Host。\n\n它不负责所有具体功能，而是负责创建界面、维护共享状态、接收数据，再协调其他模块。\n\nChatGPT 页面\n   │ fetch / 路由变化\n   ▼\npageHook.js（Main World）\n   │ window.postMessage\n   ▼\ncontent.js（总控制器）\n   ├── message.js          解析会话数据\n   ├── jump.js             跳转消息\n   ├── follow.js           滚动跟随\n   ├── outline.js          回复标题大纲\n   ├── promptMark.js       标记 Prompt\n   ├── myPrompts.js        自定义 Prompt\n   ├── tooltip.js          悬浮提示\n   ├── toggleButton.js     浮动开关\n   └── sidebarVisibility.js 侧栏显隐\n\ncontent.js                      # 极短的启动入口\n\ncore/\n  app.js                        # 生命周期与模块组装\n  conversationState.js          # 当前路由、消息和新会话迁移状态\n  conversationSync.js           # 处理完整快照与实时消息的竞态\n  routeController.js            # SPA 路由变化\n\nnavigator/\n  navigatorView.js              # 创建和渲染 TOC\n  navigatorController.js        # 点击、搜索、模式切换\n  activePromptController.js     # 当前提示词跟踪\n\nsidebar/\n  sidebarView.js                # Sidebar DOM\n  sidebarResize.js              # 调整宽度\n  jumpControls.js               # 顶部/底部控件\n\nplatform/\n  pageBridge.js                 # 与 pageHook 的 postMessage 协议\n  pageHookLoader.js             # 注入 pageHook.js\n  themeStorage.js               # Chrome storage\n",
+    "userNote": "LunaTOC 的“总控制器/装配层”，启动入口。同时启动 Application Shell (旧侧边栏) 和 React Host。\n\n它不负责所有具体功能，而是负责创建界面、维护共享状态、接收数据，再协调其他模块。\n\nChatGPT 页面\n   │ fetch / 路由变化\n   ▼\npageHook.js（Main World）\n   │ window.postMessage\n   ▼\ncontent.js（总控制器）\n   ├── message.js          解析会话数据\n   ├── jump.js             跳转消息\n   ├── follow.js           滚动跟随\n   ├── outline.js          回复标题大纲\n   ├── promptMark.js       标记 Prompt\n   ├── myPrompts.js        自定义 Prompt\n   ├── tooltip.js          悬浮提示\n   ├── toggleButton.js     浮动开关\n   └── sidebarVisibility.js 侧栏显隐\n\ncontent.js                      # 极短的启动入口\n\ncore/\n  app.js                        # 生命周期与模块组装\n  conversationState.js          # 当前路由、消息和新会话迁移状态\n  conversationSync.js           # 处理完整快照与实时消息的竞态\n  routeController.js            # SPA 路由变化\n\nnavigator/\n  navigatorView.js              # 创建和渲染 TOC\n  navigatorController.js        # 点击、搜索、模式切换\n  activePromptController.js     # 当前提示词跟踪\n\nsidebar/\n  sidebarView.js                # Sidebar DOM\n  sidebarResize.js              # 调整宽度\n  jumpControls.js               # 顶部/底部控件\n\nplatform/\n  pageBridge.js                 # 与 pageHook 的 postMessage 协议\n  pageHookLoader.js             # 注入 pageHook.js\n  themeStorage.js               # Chrome storage\n\n---\n启动通用全屏媒体层 Observer。\nwaitForBody() — 等待 document.body 创建后再启动监听。\n",
     "createdBy": "user",
-    "createdAt": "2026-07-21T11:14:35.949Z",
-    "updatedAt": "2026-07-22T14:05:08.898Z"
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    },
+    "createdAt": "2026-07-21T11:14:35.949Z"
   },
   "sectionNotes": {
     "section:user:1351-1384": {
