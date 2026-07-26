@@ -173,7 +173,7 @@ graph TD
 
 ### Build Outputs
 
-- `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning; runtime user preferences remain in their existing storage modules.
+- `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning, including the shared sidebar's default, minimum, and maximum widths; runtime user preferences remain in their existing storage modules.
 - `platforms.chatgpt.navigationAlgorithm` supplies the default `legacy-native` fallback, while `navigationSettings.ts` persists and synchronizes the user's runtime choice between native and independent navigation.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.

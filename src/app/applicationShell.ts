@@ -17,6 +17,7 @@ import {
   type ResolvedTheme,
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
+import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
 import { navigatorController } from './navigatorController';
 
@@ -62,8 +63,22 @@ async function createSidebar(): Promise<HTMLElement> {
   await waitForBody();
 
   const sidebar = document.createElement('div');
+  const sidebarConfig = APP_CONFIG.ui.sidebar;
+
   sidebar.id = 'luna-toc-sidebar';
   sidebar.className = 'luna-toc-navigator-initializing';
+  sidebar.style.setProperty(
+    '--navigator-width',
+    `${sidebarConfig.defaultWidthPx}px`
+  );
+  sidebar.style.setProperty(
+    '--navigator-min-width',
+    `${sidebarConfig.minimumWidthPx}px`
+  );
+  sidebar.style.setProperty(
+    '--navigator-max-width',
+    `${sidebarConfig.maximumWidthPx}px`
+  );
   sidebar.innerHTML = `
       <div id="navigator-resizer"></div>
       <div class="navigator-topbar">
@@ -335,6 +350,7 @@ function escapeHtml(text: string): string {
 function initSidebarResize(sidebar: HTMLElement): void {
   const resizer = document.getElementById('navigator-resizer');
   if (!resizer) return;
+  const sidebarConfig = APP_CONFIG.ui.sidebar;
 
   resizer.addEventListener('mousedown', (event: MouseEvent) => {
     event.preventDefault();
@@ -343,7 +359,10 @@ function initSidebarResize(sidebar: HTMLElement): void {
 
     function handleMouseMove(moveEvent: MouseEvent): void {
       const delta = startX - moveEvent.clientX;
-      const nextWidth = Math.min(520, Math.max(240, startWidth + delta));
+      const nextWidth = Math.min(
+        sidebarConfig.maximumWidthPx,
+        Math.max(sidebarConfig.minimumWidthPx, startWidth + delta)
+      );
       sidebar.style.setProperty('--navigator-width', `${nextWidth}px`);
     }
 

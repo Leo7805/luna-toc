@@ -6,6 +6,13 @@ export type ChatGptNavigationAlgorithm =
 
 /** Shared compile-time configuration for navigation and future project sections. */
 export const APP_CONFIG = {
+  ui: {
+    sidebar: {
+      defaultWidthPx: 300,
+      minimumWidthPx: 240,
+      maximumWidthPx: 520,
+    },
+  },
   platforms: {
     chatgpt: {
       navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,

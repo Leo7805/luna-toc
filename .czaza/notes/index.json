@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-25T13:54:56.797Z",
+  "updatedAt": "2026-07-26T01:34:26.215Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -16,7 +16,7 @@
     "src": {
       "noteFile": "files/25a6634263c1-e0366a0a.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-07-22T11:05:06.922Z"
+      "updatedAt": "2026-07-26T01:24:59.088Z"
     },
     ".npmrc": {
       "noteFile": "files/e813096d69c4-9409f8d8.json",
@@ -52,9 +52,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/828b26418229-088e14cb.json",
-      "sourceHash": "sha256:59060e7a52667c0f031091d58f99fdef75b32825c84ebbd50cfcfb0772bc3156",
+      "sourceHash": "sha256:7e64c7d9eb9d80aa0addd7688cbe24f3f6fae3df3054c6353aefb9da2d45be9d",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-25T04:38:53.244Z"
+      "updatedAt": "2026-07-26T01:34:26.215Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
@@ -221,9 +221,9 @@
     },
     "src/config/config.ts": {
       "noteFile": "files/615dacd7000f-9fd20dee.json",
-      "sourceHash": "sha256:230debe09468762cd3fcba04cbf34eb222c4cf0ef1fa67ebdfc47839cf3b60e2",
+      "sourceHash": "sha256:ee40541b4e789d767f9875a773d3bdb2ff86c4f2934205cf18fb995fa08c7dda",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-25T03:41:26.108Z"
+      "updatedAt": "2026-07-26T01:33:13.756Z"
     },
     "src/features/myPrompts/myPrompts.ts": {
       "noteFile": "files/e9a2006d6743-afdf2bdc.json",

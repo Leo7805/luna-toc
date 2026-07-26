@@ -1,16 +1,20 @@
 {
   "source": {
-    "sourceHash": "sha256:59060e7a52667c0f031091d58f99fdef75b32825c84ebbd50cfcfb0772bc3156",
+    "sourceHash": "sha256:7e64c7d9eb9d80aa0addd7688cbe24f3f6fae3df3054c6353aefb9da2d45be9d",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:17:02.107Z",
-    "updatedAt": "2026-07-25T04:38:53.244Z"
+    "updatedAt": "2026-07-26T01:34:26.215Z"
   },
   "fileNote": {
-    "userNote": "纯 UI/启动层 - 负责侧栏 DOM、主题、拖动、视图切换、My Prompts 和整体初始化。\n\ninitializeApplication：等待设置加载后再启动导航功能。",
-    "createdBy": "user"
+    "userNote": "纯 UI/启动层 - 负责侧栏 DOM、主题、拖动、视图切换、My Prompts 和整体初始化。\n\ninitializeApplication：等待设置加载后再启动导航功能。\n\n---\n\n创建侧边栏时写入 CSS Variables，拖拽限制改为读取统一配置。\ncreateSidebar()：应用默认、最小和最大宽度。\ninitSidebarResize()：使用 Config 限制拖拽范围。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
   },
   "sectionNotes": {},
   "lineNotes": {}

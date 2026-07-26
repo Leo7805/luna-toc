@@ -4,10 +4,10 @@
   },
   "defaults": {
     "createdAt": "2026-07-21T11:22:11.261Z",
-    "updatedAt": "2026-07-22T11:05:06.922Z"
+    "updatedAt": "2026-07-26T01:24:59.088Z"
   },
   "fileNote": {
-    "userNote": "集中存放插件的核心业务代码\n\nsrc/\n├── app/          协调整个 Chrome 插件的现有功能: 应用初始化、目录状态和模块协调逻辑\n├── components/   存放所有 React 界面组件\n├── features/     存放业务逻辑和浏览器交互: 跳转、大纲、标记等独立功能模块\n├── icons/        Chrome 工具栏和扩展图标\n├── page/         注入 ChatGPT 主页面环境的 Hook 脚本\n├── popup/        插件弹出窗口的页面、样式和逻辑\n├── reactHost/    管理 React、Shadow DOM、样式和 Portal 运行环境\n├── styles/       注入 ChatGPT 页面的侧栏与组件样式\n└── content.js    插件内容脚本的总入口 ❤️",
+    "userNote": "集中存放插件的核心业务代码\n\nsrc/\n├── app/          协调整个 Chrome 插件的现有功能: 应用初始化、目录状态和模块协调逻辑\n├── components/   存放所有 React 界面组件\n├── features/     存放业务逻辑和浏览器交互: 跳转、大纲、标记等独立功能模块\n├── icons/        Chrome 工具栏和扩展图标\n├── page/         注入 ChatGPT 主页面环境的 Hook 脚本\n├── popup/        插件弹出窗口的页面、样式和逻辑\n├── reactHost/    管理 React、Shadow DOM、样式和 Portal 运行环境\n├── styles/       注入 ChatGPT 页面的侧栏与组件样式\n└── content.js    插件内容脚本的总入口 ❤️\n\n\n---\n\nsrc/\n├── app/\n│   ├── applicationShell.ts       公共侧边栏的创建和界面协调\n│   └── application.ts            根据当前平台启动对应功能\n├── platforms/\n│   ├── platform.ts               平台类型、能力和检测逻辑\n│   ├── chatgpt/\n│   │   ├── chatGptApplication.ts 启动现有 ChatGPT 功能\n│   │   └── viewportSpoof.ts      ChatGPT 专用宽度模拟\n│   └── copilot/\n│       └── copilotApplication.ts 启动 Copilot 的空侧边栏\n└── content.ts                    最小 Content Script 入口",
     "createdBy": "user"
   },
   "sectionNotes": {},

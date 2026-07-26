@@ -179,9 +179,9 @@ html[data-theme='light'] {
   position: fixed;
   right: 0;
   top: 0;
-  width: var(--navigator-width, 300px);
-  min-width: 240px;
-  max-width: 520px;
+  width: var(--navigator-width);
+  min-width: var(--navigator-min-width);
+  max-width: var(--navigator-max-width);
   height: 100vh;
   background: var(--ct-bg-sidebar);
   backdrop-filter: blur(12px);
