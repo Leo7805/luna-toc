@@ -94,7 +94,12 @@ async function createSidebar(): Promise<HTMLElement> {
               <path d="M12 17v5M7 3h10l-1 8 4 4v2H4v-2l4-4-1-8Z" />
             </svg>
           </button>
-          <button id="navigator-title" type="button" aria-label="Reset TOC view">
+          <button
+            id="navigator-title"
+            type="button"
+            aria-label="Reset TOC view"
+            data-tooltip="${escapeHtml(getConversationTitle())}"
+          >
             ${escapeHtml(getConversationTitle())}
           </button>
           <button
@@ -330,8 +335,11 @@ function getConversationTitle(): string {
 function setNavigatorTitle(): void {
   const title = document.getElementById('navigator-title');
   if (!title) return;
-  title.textContent =
+  const titleText =
     viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
+
+  title.textContent = titleText;
+  title.dataset.tooltip = titleText;
 }
 
 function escapeHtml(text: string): string {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-26T05:17:07.942Z",
+  "updatedAt": "2026-07-26T07:50:29.161Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -52,9 +52,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/828b26418229-088e14cb.json",
-      "sourceHash": "sha256:7e64c7d9eb9d80aa0addd7688cbe24f3f6fae3df3054c6353aefb9da2d45be9d",
+      "sourceHash": "sha256:ff5b0624339c421d3e1b615fedcd2e9eea5f20841b5e365d77d40120539c0f2b",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T01:34:26.215Z"
+      "updatedAt": "2026-07-26T07:50:29.161Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/0f3c7788d19f-a74f7f72.json",
@@ -104,7 +104,7 @@
       "noteFile": "files/b3b5c9e5e87a-bcad151e.json",
       "sourceHash": "sha256:c39c46b38538ecb9620784173f93b963a5f46bb49111816391dd2496685f04fa",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-22T12:36:11.484Z"
+      "updatedAt": "2026-07-26T07:47:51.881Z"
     },
     "src/features/myPrompts/promptEditor.ts": {
       "noteFile": "files/1aa3720a7aff-46109e48.json",
