@@ -1,15 +1,15 @@
 {
   "source": {
-    "sourceHash": "sha256:39829adaa65788540718da12050e00b30eca96ed484da3053115580efd5536a2",
+    "sourceHash": "sha256:a7589499d387c75dd7ee831b4c2a3ee7029c4af575ed55c363e6963e4e381b10",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-26T10:09:05.978Z",
-    "updatedAt": "2026-07-26T10:09:05.978Z"
+    "updatedAt": "2026-07-26T10:26:24.443Z"
   },
   "fileNote": {
-    "userNote": "通用检测宿主页面的全屏媒体预览层。\nisFullscreenMediaOverlay() — 判断元素是否同时满足：body 直接子元素、打开状态、固定定位、覆盖至少 80% 视口并包含图片。\nobserveExternalOverlays() — 监听媒体层的添加、删除和状态变化，并同步根元素状态类。\nisRelevantOverlayMutation() — 过滤普通 ChatGPT DOM 变化，避免每次页面更新都重新检测。\nfindDirectBodyChild() — 找到发生变化节点所属的 body 一级容器。",
+    "userNote": "通用检测宿主页面的全屏媒体预览层。\nisFullscreenMediaOverlay() — 判断元素是否同时满足：body 直接子元素、打开状态、固定定位、覆盖至少 80% 视口并包含图片。\nobserveExternalOverlays() — 监听媒体层的添加、删除和状态变化，并同步根元素状态类。\nisRelevantOverlayMutation() — 过滤普通 ChatGPT DOM 变化，避免每次页面更新都重新检测。\nfindDirectBodyChild() — 找到发生变化节点所属的 body 一级容器。\n\n---\n\n同时支持两类全屏图片层。\nisFullscreenMediaOverlay() — 现在支持 fixed + data-state=open 和 absolute/fixed + lightbox close button 两种结构。\nisVisiblePositionedLayer() — 检查定位方式、显示状态、可见性和透明度。\ncoversMostOfViewport() — 要求图片层覆盖至少 80% 视口。\nfindLightboxLayer() — 从关闭按钮向上寻找真正的全屏 Lightbox 容器。\nhasLightboxLayerAncestor() — 判断 DOM 变化是否发生在 Lightbox 内。\ncontainsLightboxControl() — 识别新增或移除的 Lightbox 关闭按钮。\n\n---\n\n将两类图片预览的识别逻辑完全分离。\nisFullscreenMediaOverlay() — 只负责组合两个检测器的结果。\nisOpenBodyImageOverlay() — 恢复原来已经验证成功的 Prompt 图片判断。\nisFullscreenLightboxOverlay() — 单独处理 Assistant 多图 Lightbox。\nisVisiblePositionedLayer() — 现在只由 Assistant Lightbox 使用，不再影响 Prompt 图片。",
     "createdBy": "user"
   },
   "sectionNotes": {},

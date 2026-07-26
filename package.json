@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "version": "tsx scripts/version.ts && git add -- manifest.json",
     "stamp": "node scripts/stamp.mjs",
+    "sbuild": "npm run stamp && npm run build",
     "preversion": "npm run stamp -- clean"
   },
   "devDependencies": {

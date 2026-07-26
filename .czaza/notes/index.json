@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-26T10:09:44.674Z",
+  "updatedAt": "2026-07-26T10:26:24.443Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -405,9 +405,9 @@
     },
     "src/features/externalOverlay.ts": {
       "noteFile": "files/e0eb24335462-bf307c7e.json",
-      "sourceHash": "sha256:39829adaa65788540718da12050e00b30eca96ed484da3053115580efd5536a2",
+      "sourceHash": "sha256:a7589499d387c75dd7ee831b4c2a3ee7029c4af575ed55c363e6963e4e381b10",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-26T10:09:05.978Z"
+      "updatedAt": "2026-07-26T10:26:24.443Z"
     },
     "src/styles/content.css": {
       "noteFile": "files/e8cf11d7d05d-42ff8341.json",
