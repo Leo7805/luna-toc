@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:82df527991e7e54193841173303395227eeba6447a4ab551d1b2c843a83ab8d0",
+    "sourceHashKind": "text",
+    "programmingLanguage": "css"
+  },
+  "defaults": {
+    "createdAt": "2026-07-26T10:09:44.674Z",
+    "updatedAt": "2026-07-26T10:28:06.610Z"
+  },
+  "fileNote": {
+    "userNote": "外部全屏媒体层打开时隐藏所有 LunaTOC 浮动界面。\n隐藏 Sidebar、Toggle、两种 Tooltip 和 React Shadow Host。\n图片关闭后由状态类移除自动恢复。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

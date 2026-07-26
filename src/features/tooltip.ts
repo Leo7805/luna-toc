@@ -10,6 +10,16 @@ export interface PreviewTooltipContent {
   content: string;
 }
 
+/**
+ * Reports whether an element's single-line text exceeds its visible width.
+ *
+ * @example
+ * isElementTextTruncated(document.getElementById('navigator-title')!);
+ */
+export function isElementTextTruncated(element: HTMLElement): boolean {
+  return element.scrollWidth > element.clientWidth;
+}
+
 export const previewTooltip = (() => {
   const SHOW_DELAY_MS = 500;
   const HIDE_DELAY_MS = 200;
@@ -211,6 +221,15 @@ export const buttonTooltip = (() => {
       const isSidebarToggle = target.closest('#luna-toc-toggle-btn');
       const isControls = target.closest('.navigator-jump-controls');
       if (!isInsideSidebar && !isSidebarToggle && !isControls) return;
+
+      if (
+        target.dataset.tooltipOverflowOnly === 'true' &&
+        !isElementTextTruncated(target)
+      ) {
+        if (activeTarget) hide();
+        activeTarget = null;
+        return;
+      }
 
       if (target === activeTarget) return;
       activeTarget = target;

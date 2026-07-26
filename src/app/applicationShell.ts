@@ -36,6 +36,8 @@ const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 let viewMode: ViewMode = 'toc';
 let searchQuery = '';
 let myPromptsRefreshQueued = false;
+let tocPromptCount = 0;
+let myPromptsCount = 0;
 
 /**
  * Resolves when document.body exists during document_start execution.
@@ -80,6 +82,72 @@ async function createSidebar(): Promise<HTMLElement> {
     '--navigator-max-width',
     `${sidebarConfig.maximumWidthPx}px`
   );
+  sidebar.innerHTML = `
+      <div id="navigator-resizer"></div>
+      <div class="navigator-topbar">
+        <div class="navigator-header">
+          <button
+            class="navigator-icon-btn navigator-header-icon-btn luna-toc-sidebar-pin-btn"
+            id="luna-toc-sidebar-pin-btn"
+            type="button"
+            aria-label="Enable sidebar auto-hide"
+            aria-pressed="true"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 17v5M7 3h10l-1 8 4 4v2H4v-2l4-4-1-8Z" />
+            </svg>
+          </button>
+          <button
+            id="navigator-title"
+            type="button"
+            aria-label="Reset TOC view"
+            data-tooltip="${escapeHtml(getConversationTitle())}"
+            data-tooltip-overflow-only="true"
+          >
+            ${escapeHtml(getConversationTitle())}
+          </button>
+          <button
+            class="navigator-icon-btn navigator-header-icon-btn"
+            id="search-toggle-btn"
+            type="button"
+            aria-label="Toggle search"
+            disabled
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        </div>
+        <p class="navigator-hint">${NAVIGATOR_EMPTY_HINT_TEXT}</p>
+        <input
+          id="navigator-search"
+          type="search"
+          placeholder="Search prompts..."
+          autocomplete="off"
+        />
+        <div id="myprompts-toolbar-container"></div>
+      </div>
+      <div class="navigator-jump-controls">
+        <button class="navigator-icon-btn" id="jump-chat-top-btn" type="button" aria-label="Jump to top">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M6 5h12M12 19V9M7 14l5-5 5 5" />
+          </svg>
+        </button>
+        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
+          </svg>
+        </button>
+        <button class="navigator-icon-btn" id="jump-chat-bottom-btn" type="button" aria-label="Jump to bottom">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M6 19h12M12 5v10M7 10l5 5 5-5" />
+          </svg>
+        </button>
+      </div>
+      <div id="navigator-list"></div>
+    `;
+
   document.body.appendChild(sidebar);
   mountSidebarReactApp(sidebar, {
     title: getConversationTitle(),
@@ -137,16 +205,18 @@ function bindSidebarControls(): void {
   });
 }
 
-function clearSearch(): void {
+function clearSearch(syncController = true): void {
   searchQuery = '';
   const searchInput = document.getElementById(
     'navigator-search'
   ) as HTMLInputElement | null;
   if (searchInput) searchInput.value = '';
-  navigatorController.setSearchQuery('');
+  if (syncController) navigatorController.setSearchQuery('');
 }
 
 function renderCurrentView(): void {
+  updateSearchAvailability();
+
   if (viewMode === 'myPrompts') {
     renderMyPrompts();
     return;
@@ -172,7 +242,7 @@ function handleTitleClick(): void {
     return;
   }
 
-  clearSearch();
+  clearSearch(false);
   navigatorController.resetView();
 }
 
@@ -276,8 +346,50 @@ function getConversationTitle(): string {
 function setNavigatorTitle(): void {
   const title = document.getElementById('navigator-title');
   if (!title) return;
-  title.textContent =
+  const titleText =
     viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
+
+  title.textContent = titleText;
+  title.dataset.tooltip = titleText;
+}
+
+function updateSearchAvailability(): void {
+  const searchButton = document.getElementById(
+    'search-toggle-btn'
+  ) as HTMLButtonElement | null;
+  const searchInput = document.getElementById(
+    'navigator-search'
+  ) as HTMLInputElement | null;
+  if (!searchButton || !searchInput) return;
+
+  const hasSearchableItems =
+    viewMode === 'myPrompts' ? myPromptsCount > 0 : tocPromptCount > 0;
+  searchButton.disabled = !hasSearchableItems;
+  searchButton.setAttribute('aria-disabled', String(!hasSearchableItems));
+
+  if (hasSearchableItems) return;
+
+  const shouldResetTocQuery = viewMode === 'toc' && searchQuery.length > 0;
+  searchQuery = '';
+  searchInput.value = '';
+  searchInput.style.display = 'none';
+
+  if (shouldResetTocQuery) {
+    queueMicrotask(() => navigatorController.setSearchQuery(''));
+  }
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[char];
+  });
 }
 
 function initSidebarResize(sidebar: HTMLElement): void {
@@ -464,9 +576,7 @@ function initTheme(): void {
   const applySettings = (nextSettings: ThemeSettings): void => {
     settings = nextSettings;
     applyTheme(
-      nextSettings.followChatGPT
-        ? getChatGPTTheme()
-        : nextSettings.manualTheme
+      nextSettings.followChatGPT ? getChatGPTTheme() : nextSettings.manualTheme
     );
   };
 
@@ -484,6 +594,10 @@ export async function initializeApplication(): Promise<void> {
   await initializeNavigationSettings();
   initTheme();
   navigatorController.init({
+    onPromptCountChanged(count) {
+      tocPromptCount = count;
+      updateSearchAvailability();
+    },
     onRouteChanged() {
       clearSearch();
       setNavigatorTitle();
@@ -502,13 +616,19 @@ export async function initializeApplication(): Promise<void> {
   myPrompts.initAutocomplete();
   navigatorController.attach();
 
-  myPrompts.onPromptsChanged(() => {
+  myPrompts.onPromptsChanged((prompts) => {
+    myPromptsCount = prompts.length;
+    updateSearchAvailability();
     if (viewMode !== 'myPrompts' || myPromptsRefreshQueued) return;
     myPromptsRefreshQueued = true;
     queueMicrotask(() => {
       myPromptsRefreshQueued = false;
       if (viewMode === 'myPrompts') renderCurrentView();
     });
+  });
+  void myPrompts.getMyPrompts().then((prompts) => {
+    myPromptsCount = prompts.length;
+    updateSearchAvailability();
   });
 }
 
