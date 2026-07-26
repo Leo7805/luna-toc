@@ -91,8 +91,8 @@ function PromptEditorDialog({
     >
       <DialogContent
         portalContainer={getReactPortalContainer()}
-        overlayClassName="bg-black/65 backdrop-blur-sm"
-        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-120 sm:max-w-120 flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
+        overlayClassName="z-[var(--ct-z-modal,1100)] bg-black/65 backdrop-blur-sm"
+        className="z-[var(--ct-z-modal,1100)] flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-120 sm:max-w-120 flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
       >
         <DialogHeader className="shrink-0 gap-0 border-b border-border px-5 py-4 pr-12">
           <DialogTitle className="text-lg text-primary">

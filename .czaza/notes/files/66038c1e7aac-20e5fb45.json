@@ -4,10 +4,10 @@
   },
   "defaults": {
     "createdAt": "2026-07-22T11:09:16.984Z",
-    "updatedAt": "2026-07-22T11:09:16.984Z"
+    "updatedAt": "2026-07-26T10:55:02.082Z"
   },
   "fileNote": {
-    "userNote": "shadcn 基础组件",
+    "userNote": "shadcn/ui  官方基础组件",
     "createdBy": "user"
   },
   "sectionNotes": {},

@@ -12,6 +12,15 @@ export const APP_CONFIG = {
       minimumWidthPx: 240,
       maximumWidthPx: 520,
     },
+    stacking: {
+      baseZIndex: 1_000,
+      offsets: {
+        sidebar: 0,
+        toggle: 10,
+        popover: 20,
+        modal: 100,
+      },
+    },
   },
   platforms: {
     chatgpt: {
