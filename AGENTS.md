@@ -75,6 +75,17 @@ Update documentation when appropriate:
 
 Do not create unnecessary documentation files.
 
+## Persistent Context
+
+1. Use `docs/context.md` as the concise, persistent handoff for work that must continue across sessions or agents.
+2. Write and maintain all persistent context in English.
+3. Read `docs/context.md` when starting a new session, recovering from lost or compacted context, resuming paused work, or switching to a different area of the project.
+4. Update `docs/context.md` when the active goal, implementation state, key decision, blocker, validation result, or next step materially changes.
+5. Replace stale information instead of appending a chronological conversation log.
+6. Keep the file concise and link to `docs/ARCHITECTURE.md` or `docs/DECISIONS.md` instead of duplicating durable documentation.
+7. Never store secrets, credentials, tokens, or private user data in the context file.
+8. The primary coordinating agent is the default and only writer; sub-agents may read the file and report findings unless write ownership is explicitly delegated.
+
 ## Testing
 
 1. Put logic tests in the root `test/` directory and use Vitest.
@@ -86,15 +97,31 @@ Do not create unnecessary documentation files.
 7. After implementation, list the manual checks the user should perform and mention relevant edge cases.
 8. Do not claim automated or manual testing unless it was actually performed.
 
+### Testing Report
+
+1. List every automated test command that was actually run and its result.
+2. Do not claim that a test passed unless it was actually executed.
+3. List the manual tests the user should perform, one test per line.
+4. Explain the expected result of each manual test.
+5. List relevant edge cases that should be checked manually.
+6. If no manual testing is necessary, explicitly state why.
+7. Clearly distinguish completed automated tests from manual tests that remain for the user.
+
 ## Change Summary
 
-1. List every added, moved, deleted, or modified source or configuration file.
-2. Present each existing file as a clickable Markdown link.
-3. Give every listed file a one-line description of its responsibility or change.
-4. Under each file, give every newly added or materially changed function a one-line description.
-5. Do not list unchanged private functions.
-6. Clearly identify deleted or moved files whose old paths can no longer be linked.
-7. End source changes with automated test results, manual test instructions, and a suggested commit message.
+After every implementation:
+
+1. Organize the change summary by file.
+2. List every added, modified, moved, or deleted source, test, documentation, or configuration file.
+3. Present each existing file name as a clickable Markdown link.
+4. Give each file a one-line description explaining its responsibility and what changed.
+5. Under each file, list every added or materially changed function.
+6. Give each listed function a one-line description explaining its responsibility and what changed.
+7. Do not list unchanged functions.
+8. Clearly identify moved or deleted files whose old paths can no longer be linked.
+9. Report the automated tests that were actually run and their results.
+10. List any manual tests the user should perform, one test per line, with the expected result.
+11. End with one suggested commit message using Conventional Commits format.
 
 ## Maintainability
 
