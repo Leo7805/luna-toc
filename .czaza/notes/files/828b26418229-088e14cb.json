@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:f4175c3778a26996f4efef9508e638edea6f116cd432516d2b6cbb87cade154a",
+    "sourceHash": "sha256:67da2eca27a7f360c29c794c4b91e0a04b2f91bfcf14e7443a4561864bceab86",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-21T13:17:02.107Z",
-    "updatedAt": "2026-07-26T08:05:51.897Z"
+    "updatedAt": "2026-07-26T08:12:42.983Z"
   },
   "fileNote": {
     "userNote": "纯 UI/启动层 - 负责侧栏 DOM、主题、拖动、视图切换、My Prompts 和整体初始化。\n\ninitializeApplication：等待设置加载后再启动导航功能。\n\n---\n\n创建侧边栏时写入 CSS Variables，拖拽限制改为读取统一配置。\ncreateSidebar()：应用默认、最小和最大宽度。\ninitSidebarResize()：使用 Config 限制拖拽范围。\n\n---\n\n创建侧边栏宿主，并协调现有业务模块。\ncreateSidebar() — 创建宿主容器、挂载 React 静态框架，然后绑定原有控制逻辑。\n删除了原来的大段 innerHTML 模板。\n删除了不再需要的 escapeHtml()，React 会自动转义标题内容。",

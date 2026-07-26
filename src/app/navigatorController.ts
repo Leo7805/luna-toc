@@ -25,6 +25,7 @@ import {
   initializeFollow,
   isFollowing,
   keepFollowing,
+  stopFollowing,
 } from '../features/navigation/follow';
 import {
   initializePromptNavigation,
@@ -198,12 +199,13 @@ export const navigatorController = (() => {
   function resetView(): void {
     searchQuery = '';
     previewTooltip.hide();
+    stopFollowing();
     collapseAll();
-    render({ refreshObservers: true });
+    render();
 
     document.getElementById('navigator-list')?.scrollTo({
       top: 0,
-      behavior: 'smooth',
+      behavior: 'auto',
     });
   }
 

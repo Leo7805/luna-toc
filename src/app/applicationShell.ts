@@ -200,13 +200,13 @@ function bindSidebarControls(): void {
   });
 }
 
-function clearSearch(): void {
+function clearSearch(syncController = true): void {
   searchQuery = '';
   const searchInput = document.getElementById(
     'navigator-search'
   ) as HTMLInputElement | null;
   if (searchInput) searchInput.value = '';
-  navigatorController.setSearchQuery('');
+  if (syncController) navigatorController.setSearchQuery('');
 }
 
 function renderCurrentView(): void {
@@ -237,7 +237,7 @@ function handleTitleClick(): void {
     return;
   }
 
-  clearSearch();
+  clearSearch(false);
   navigatorController.resetView();
 }
 
