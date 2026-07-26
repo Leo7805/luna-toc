@@ -1,56 +1,42 @@
 {
-    "manifest_version": 3,
-    "name": "ChatGPT Table of Contents - LunaTOC",
-    "short_name": "LunaTOC",
-    "version": "1.10.8",
-    "description": "Add a table of contents, prompt navigator, and MyPrompts sidebar to long ChatGPT conversations.",
-    "icons": {
-        "16": "src/icons/icon16.png",
-        "32": "src/icons/icon32.png",
-        "48": "src/icons/icon48.png",
-        "128": "src/icons/icon128.png"
+  "manifest_version": 3,
+  "name": "ChatGPT Table of Contents - LunaTOC",
+  "short_name": "LunaTOC",
+  "version": "1.10.8",
+  "description": "Add a table of contents, prompt navigator, and MyPrompts sidebar to long ChatGPT conversations.",
+  "icons": {
+    "16": "src/icons/icon16.png",
+    "32": "src/icons/icon32.png",
+    "48": "src/icons/icon48.png",
+    "128": "src/icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "src/icons/icon16.png",
+      "32": "src/icons/icon32.png",
+      "48": "src/icons/icon48.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/page/pageHook.iife.ts"],
+      "run_at": "document_start",
+      "world": "MAIN"
     },
-    "action": {
-        "default_popup": "src/popup/popup.html",
-        "default_icon": {
-            "16": "src/icons/icon16.png",
-            "32": "src/icons/icon32.png",
-            "48": "src/icons/icon48.png"
-        }
-    },
-    "options_ui": {
-        "page": "src/options/options.html",
-        "open_in_tab": true
-    },
-    "permissions": [
-        "storage"
-    ],
-    "content_scripts": [
-        {
-            "matches": [
-                "https://chatgpt.com/*",
-                "https://chat.openai.com/*"
-            ],
-            "js": [
-                "src/page/pageHook.iife.ts"
-            ],
-            "run_at": "document_start",
-            "world": "MAIN"
-        },
-        {
-            "matches": [
-                "https://chatgpt.com/*",
-                "https://chat.openai.com/*"
-            ],
-            "js": [
-                "src/content.ts"
-            ],
-            "css": [
-                "src/styles/content.css"
-            ],
-            "run_at": "document_start",
-            "world": "ISOLATED"
-        }
-    ],
-    "version_name": "1.10.8-d16"
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/content.ts"],
+      "css": ["src/styles/content.css"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ],
+  "version_name": "1.10.8-d18"
 }
