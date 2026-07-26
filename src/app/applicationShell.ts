@@ -583,9 +583,30 @@ function initTheme(): void {
 }
 
 /**
+ * Publishes semantic global layers as CSS variables shared by legacy and
+ * Shadow DOM interfaces.
+ */
+function applyStackingConfig(): void {
+  const { baseZIndex, offsets } = APP_CONFIG.ui.stacking;
+  const rootStyle = document.documentElement.style;
+
+  rootStyle.setProperty(
+    '--ct-z-sidebar',
+    String(baseZIndex + offsets.sidebar)
+  );
+  rootStyle.setProperty('--ct-z-toggle', String(baseZIndex + offsets.toggle));
+  rootStyle.setProperty(
+    '--ct-z-popover',
+    String(baseZIndex + offsets.popover)
+  );
+  rootStyle.setProperty('--ct-z-modal', String(baseZIndex + offsets.modal));
+}
+
+/**
  * Starts the application after all feature and controller scripts load.
  */
 export async function initializeApplication(): Promise<void> {
+  applyStackingConfig();
   await initializeNavigationSettings();
   initTheme();
   navigatorController.init({

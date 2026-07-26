@@ -187,7 +187,7 @@ html[data-theme='light'] {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: var(--ct-text-primary);
-  z-index: 999999;
+  z-index: var(--ct-z-sidebar, 1000);
   padding: 12px;
   box-sizing: border-box;
   font-size: 14px;
@@ -432,7 +432,7 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   bottom: auto;
   width: 42px;
   height: 42px;
-  z-index: 1000000;
+  z-index: var(--ct-z-toggle, 1010);
   border-radius: 50%;
   background: transparent;
   color: var(--ct-toggle-btn-color);
@@ -708,7 +708,7 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   font-size: 13px;
   line-height: 1.45;
 
-  z-index: 1000001;
+  z-index: var(--ct-z-popover, 1020);
 
   display: none;
 }
@@ -744,7 +744,7 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   font-weight: 500;
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  z-index: 10000002;
+  z-index: var(--ct-z-popover, 1020);
   pointer-events: none;
   opacity: 0;
   transition: opacity 100ms ease;
@@ -974,7 +974,7 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   height: 100vh;
   background: var(--ct-modal-overlay-bg);
   backdrop-filter: blur(4px);
-  z-index: 10000000;
+  z-index: var(--ct-z-modal, 1100);
   display: none;
   justify-content: center;
   align-items: center;

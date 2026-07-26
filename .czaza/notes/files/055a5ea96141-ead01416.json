@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:45dd461f8ee62ab6d73e84c6784b8733ccc3eba709bc9181e69372a1ea89391e",
+    "sourceHash": "sha256:c6ca12d1905f8b1c51a43ad37334bf97e694964915bbabbf913fcb3c41f92fda",
     "sourceHashKind": "text",
     "programmingLanguage": "typescriptreact"
   },
   "defaults": {
     "createdAt": "2026-07-22T12:44:52.489Z",
-    "updatedAt": "2026-07-25T07:27:53.784Z"
+    "updatedAt": "2026-07-26T10:50:42.929Z"
   },
   "fileNote": {
     "userNote": "PromptAutocomplete.tsx\n├── 渲染建议列表\n├── 渲染标题和内容预览\n├── Hover 和选中状态\n├── 鼠标点击选择\n└── 保证键盘选中项可见",
