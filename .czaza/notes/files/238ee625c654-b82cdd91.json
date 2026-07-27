@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T06:53:24.433Z",
-    "updatedAt": "2026-07-24T14:07:08.736Z"
+    "updatedAt": "2026-07-27T01:59:48.772Z"
   },
   "fileNote": {
     "userNote": "管理临时观察锚点和持久化成功锚点。\ncreateNavigationAnchorStore() — 创建两级锚点缓存。\nrecordObservation() — 将搜索过程中的位置存入内存。\ngetObservedAnchors() — 返回指定会话的临时锚点。\nrecordConfirmed() — 持久化确认成功的跳转位置。\nfindConfirmed() — 按会话、Prompt ID、index 和视口宽度查找缓存。\ngetConfirmedAnchors() — 返回会话中所有有效持久化锚点。\ncreateChromeNavigationAnchorStorage() — 连接 chrome.storage.local。\ncreateNavigationAnchor() — 规范化滚动位置并计算滚动比例。\n其余内部函数负责格式校验、排序、克隆、过期清理和容量限制。\n\n\nnavigationAnchorStore\n├── observed anchors     搜索过程数据，仅保存在内存\n└── confirmed anchors    成功跳转位置，保存到 chrome.storage.local",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

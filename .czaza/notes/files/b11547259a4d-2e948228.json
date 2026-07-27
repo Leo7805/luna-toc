@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T04:37:02.996Z",
-    "updatedAt": "2026-07-26T05:04:29.356Z"
+    "updatedAt": "2026-07-27T01:59:57.015Z"
   },
   "fileNote": {
     "userNote": "将 ChatGPT 原始会话转换为通用导航轮次。\n\ncreateChatGptNavigationTurns() — 提取 ChatGPT 当前有效分支并生成 NavigationTurn[]。\ntoNavigationSourceMessage() — 将 ChatGPT 的 user/assistant 角色转换为 prompt/response。\ngetAssistantText() — 只提取 AI 回答中的字符串正文，排除附件和结构化内容。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}
