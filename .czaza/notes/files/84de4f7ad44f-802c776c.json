@@ -6,7 +6,7 @@
   },
   "defaults": {
     "createdAt": "2026-07-22T13:40:24.593Z",
-    "updatedAt": "2026-07-27T01:43:56.715Z"
+    "updatedAt": "2026-07-27T02:29:28.164Z"
   },
   "fileNote": {
     "userNote": "Tailwind 入口、主题变量、页面基础规则\n\npopup.css\n├── Tailwind 入口\n├── Dark/Light 主题 tokens\n└── body 与 box-sizing 基础规则",

@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-22T10:09:55.741Z",
-    "updatedAt": "2026-07-24T04:35:27.371Z"
+    "updatedAt": "2026-07-27T02:28:17.342Z"
   },
   "fileNote": {
     "userNote": "提供 ChatGPT 会话类型、消息标准化和 active branch 遍历。\n\ngetOrderedConversationNodes() — 按顺序返回 ChatGPT 当前有效分支中的节点；现在导出给 ChatGPT 适配器复用。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

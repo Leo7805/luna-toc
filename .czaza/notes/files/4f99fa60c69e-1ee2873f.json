@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-24T06:30:12.176Z",
-    "updatedAt": "2026-07-24T13:26:02.113Z"
+    "updatedAt": "2026-07-27T01:59:50.206Z"
   },
   "fileNote": {
     "userNote": "监听并采集 ChatGPT 已渲染的 Assistant 文本。\ncreateRenderedFingerprintCollector() — 创建带防抖、去重和上下文保护的采集器。\nsetContext() — 更新当前会话、revision 和回答映射。\nobserve() — 监听 DOM 内容变化。\ncollect() — 提取文本并生成 observed 指纹。\ndisconnect() — 停止监听并清理状态。\n\n---\n\n在采集完整回答指纹的同时，根据真实 DOM 高度生成 observed segments。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}
