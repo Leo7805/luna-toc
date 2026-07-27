@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:28fa52dee44095dfb061bb28f36208b80493d43e11844b9e096d78a998800bd0",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-27T05:02:33.086Z",
+    "updatedAt": "2026-07-27T05:02:33.086Z"
+  },
+  "fileNote": {
+    "userNote": "test",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
