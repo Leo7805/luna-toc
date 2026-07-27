@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:8ee832748f79c9f764a361d5cac962dde1bb39050c00e6e36047ffedb64460c3",
+    "sourceHashKind": "text",
+    "programmingLanguage": "html"
+  },
+  "defaults": {
+    "createdAt": "2026-07-27T00:55:14.301Z",
+    "updatedAt": "2026-07-27T00:55:51.465Z"
+  },
+  "fileNote": {
+    "userNote": "只是 HTML 容器和 React 入口。\n\n构建之后:\npopup.html\n    │\n    ├── 保留为 dist/src/popup/popup.html\n    │\n    └── 引用 popup.tsx\n              │\n              ├── TypeScript 类型被移除\n              ├── JSX 转换为 JavaScript\n              ├── 合并 PopupApp、ThemeSettings 等依赖\n              └── 输出 dist/assets/popup-DU_XCtoD.js",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

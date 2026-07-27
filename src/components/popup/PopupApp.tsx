@@ -51,7 +51,7 @@ export function PopupApp(): React.JSX.Element {
   };
 
   return (
-    <main className="rounded-lg bg-[var(--p-bg-main)] p-3">
+    <main className="popup-glass">
       <ThemeSettings
         settings={settings}
         resolvedTheme={resolvedTheme}

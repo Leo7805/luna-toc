@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:214dc114141bf81740b59e9f9db8fca155534ed059d8f3426a481fefd72deeed",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-27T00:56:13.702Z",
+    "updatedAt": "2026-07-27T00:56:13.702Z"
+  },
+  "fileNote": {
+    "userNote": "使用 createRoot() 挂载 React。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
