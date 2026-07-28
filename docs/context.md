@@ -48,4 +48,6 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 
 ## Next Step
 
-- Resume from the user's next confirmed task. Update this section when a concrete implementation goal is selected.
+- My Prompts uses a shared React context menu: empty panel space offers clear-all after confirmation, while saved prompt rows offer Copy Prompt. The right-click target has a temporary selected state while its menu is open. An open menu counts as a sidebar hover surface so auto-hide matches preview-tooltip behavior.
+- `npm run typecheck`, `npm run build`, and the focused context-menu test passed. The full test suite currently has two unrelated failures in `test/platforms/chatgpt/renderedFingerprintCollector.test.ts`.
+- Resume from the user's next confirmed task.

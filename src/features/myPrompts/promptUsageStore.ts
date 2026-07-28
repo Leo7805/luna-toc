@@ -17,6 +17,7 @@ export interface PromptUsageStore {
   getAll(): Promise<PromptUsageMap>;
   recordUse(promptId: string): Promise<void>;
   remove(promptId: string): Promise<void>;
+  clear(): Promise<void>;
 }
 
 /**
@@ -75,6 +76,14 @@ export function createPromptUsageStore(): PromptUsageStore {
         const nextUsage = { ...cache };
         delete nextUsage[promptId];
         cache = nextUsage;
+        await writeUsage(cache);
+      });
+      return writeQueue;
+    },
+    clear: () => {
+      writeQueue = writeQueue.catch(() => undefined).then(async () => {
+        await hydrate();
+        cache = {};
         await writeUsage(cache);
       });
       return writeQueue;

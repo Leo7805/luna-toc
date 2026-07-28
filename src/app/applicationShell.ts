@@ -19,6 +19,7 @@ import {
 } from '@/features/theme/themeSettings';
 import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import { navigatorController } from './navigatorController';
 
 type ConversationEdge = 'top' | 'bottom';
@@ -311,6 +312,9 @@ function toggleViewMode(): void {
   if (!isMyPrompts) {
     const toolbar = document.getElementById('myprompts-toolbar-container');
     if (toolbar) toolbar.innerHTML = '';
+    const list = document.getElementById('navigator-list');
+    if (list) list.oncontextmenu = null;
+    promptContextMenuController.close();
   }
 
   clearSearch();

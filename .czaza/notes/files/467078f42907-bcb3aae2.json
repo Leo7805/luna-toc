@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:74f9510033b353ab1d8ea7f4296bc7c9cf9d54aab8782f64721f314025da6086",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:01:12.034Z",
+    "updatedAt": "2026-07-28T04:01:12.034Z"
+  },
+  "fileNote": {
+    "userNote": "清空全部 Prompt 时同步删除使用统计。\nclear：清除所有 usage metadata。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

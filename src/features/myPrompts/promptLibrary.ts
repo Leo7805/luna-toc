@@ -12,6 +12,7 @@ import {
   promptEditorController,
   type PromptEditorValues,
 } from './promptEditor';
+import { promptContextMenuController } from './promptContextMenu';
 
 import { previewTooltip } from '@/features/tooltip';
 
@@ -460,6 +461,43 @@ function createSortBar(
   return bar;
 }
 
+/** Clears all saved prompts and their associated usage metadata. */
+async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
+  const prompts = await getMyPrompts();
+  if (!prompts.length) return;
+
+  const shouldClear = await showPromptModal({
+    title: 'Clear all My Prompts',
+    message: `Are you sure you want to permanently delete all ${prompts.length} prompts?`,
+    confirm: true,
+    confirmText: 'Clear all',
+  });
+  if (!shouldClear) return;
+
+  try {
+    await saveMyPrompts([]);
+    await requirePromptUsageStore().clear();
+    onRefresh();
+  } catch (error) {
+    await showPromptModal({
+      title: 'Clear all My Prompts',
+      message: 'Unable to clear your prompts.',
+    });
+  }
+}
+
+/** Copies text to the system clipboard and reports an error through the prompt modal. */
+async function copyPromptText(text: string, title: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    await showPromptModal({
+      title,
+      message: 'Unable to copy the prompt text.',
+    });
+  }
+}
+
 /**
  * Draws an import or export arrow icon on a toolbar canvas.
  * @param {HTMLCanvasElement} canvas
@@ -572,10 +610,39 @@ export async function renderMyPrompts(
   }
 
   let list = await getMyPrompts();
+  const savedPromptCount = list.length;
 
   if (currentRenderVersion !== renderVersion) {
     return;
   }
+
+  container.oncontextmenu = (event) => {
+    const target = event.target;
+    if (
+      !savedPromptCount ||
+      !(target instanceof Element) ||
+      target.closest('.my-prompts-item-row')
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    previewTooltip.hide();
+    promptContextMenuController.show(
+      { left: event.clientX, top: event.clientY },
+      [
+        {
+          id: 'clear-all',
+          label: 'Clear all My Prompts',
+          icon: 'trash',
+          variant: 'destructive',
+        },
+      ],
+      (itemId) => {
+        if (itemId === 'clear-all') void clearAllMyPrompts(onRefresh);
+      }
+    );
+  };
 
   container.innerHTML = '';
 
@@ -678,6 +745,23 @@ export async function renderMyPrompts(
     row.addEventListener('click', () => {
       previewTooltip.hide();
       insertIntoChatGPTInput(item.content);
+    });
+
+    row.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      previewTooltip.hide();
+      row.classList.add('my-prompts-item-context-active');
+      promptContextMenuController.show(
+        { left: event.clientX, top: event.clientY },
+        [{ id: 'copy-prompt', label: 'Copy Prompt', icon: 'copy' }],
+        (itemId) => {
+          if (itemId === 'copy-prompt') {
+            void copyPromptText(item.content, 'Copy Prompt');
+          }
+        },
+        () => row.classList.remove('my-prompts-item-context-active')
+      );
     });
 
     row.addEventListener('mouseenter', (event) => {

@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:3ac97f6d2aa6fe5644da5663232393f52ff22365d74663e597c8424e97b50f92",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:01:40.724Z",
+    "updatedAt": "2026-07-28T04:06:07.031Z"
+  },
+  "fileNote": {
+    "userNote": "注入当前对话 Prompt 来源，并在离开 My Prompts 时清理菜单。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

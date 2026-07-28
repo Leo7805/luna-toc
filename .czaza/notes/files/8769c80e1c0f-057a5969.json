@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:bdeb02c7ceeef0e3fbc099352fddfda5d8d3c084bba944313cc1a41f1902fc76",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:02:26.442Z",
+    "updatedAt": "2026-07-28T04:02:26.442Z"
+  },
+  "fileNote": {
+    "userNote": "将打开的右键菜单纳入自动隐藏范围。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
