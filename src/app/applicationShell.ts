@@ -291,13 +291,20 @@ function handleSavePrompt(message: NavigatorMessage): void {
 }
 
 function toggleViewMode(): void {
+  setViewMode(viewMode === 'toc' ? 'myPrompts' : 'toc');
+}
+
+/**
+ * Switches the sidebar view and synchronizes its controls with the rendered panel.
+ */
+function setViewMode(nextViewMode: ViewMode): void {
   const button = document.getElementById(
     'toggle-view-mode-btn'
   ) as HTMLButtonElement | null;
   if (!button) return;
 
   previewTooltip.hide();
-  viewMode = viewMode === 'toc' ? 'myPrompts' : 'toc';
+  viewMode = nextViewMode;
   const isMyPrompts = viewMode === 'myPrompts';
 
   button.classList.toggle('mode-myprompts-active', isMyPrompts);
@@ -617,6 +624,9 @@ export async function initializeApplication(): Promise<void> {
     onPromptCountChanged(count) {
       tocPromptCount = count;
       updateSearchAvailability();
+    },
+    onPromptAdded() {
+      setViewMode('toc');
     },
     onRouteChanged() {
       clearSearch();

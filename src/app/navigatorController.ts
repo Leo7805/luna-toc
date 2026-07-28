@@ -51,6 +51,7 @@ import {
 
 interface NavigatorControllerOptions {
   onPromptCountChanged?: (count: number) => void;
+  onPromptAdded?: () => void;
   onRouteChanged?: () => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   onTitleChanged?: () => void;
@@ -109,6 +110,7 @@ export const navigatorController = (() => {
   let isAttached = false;
   let reportedPromptCount = -1;
   let onPromptCountChanged = (_count: number) => {};
+  let onPromptAdded = () => {};
   let onRouteChanged = () => {};
   let onSavePrompt: (message: NavigatorMessage) => void = () => {};
   let onTitleChanged = () => {};
@@ -126,6 +128,7 @@ export const navigatorController = (() => {
 
     onPromptCountChanged =
       options.onPromptCountChanged || onPromptCountChanged;
+    onPromptAdded = options.onPromptAdded || onPromptAdded;
     onRouteChanged = options.onRouteChanged || onRouteChanged;
     onSavePrompt = options.onSavePrompt || onSavePrompt;
     onTitleChanged = options.onTitleChanged || onTitleChanged;
@@ -691,7 +694,10 @@ export const navigatorController = (() => {
     if (!pendingNewChatMessage) return;
     const didAppend = appendNavigatorMessage(pendingNewChatMessage);
     clearPendingNewChat();
-    if (didAppend) render({ refreshObservers: true });
+    if (didAppend) {
+      onPromptAdded();
+      render({ refreshObservers: true });
+    }
   }
 
   function initMarkedPrompts(): void {
@@ -822,7 +828,10 @@ export const navigatorController = (() => {
           pendingNewChatMessage = newMessage;
         }
 
-        if (didAppend) render({ refreshObservers: true });
+        if (didAppend) {
+          onPromptAdded();
+          render({ refreshObservers: true });
+        }
       }
     });
   }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-28T04:06:07.129Z",
+  "updatedAt": "2026-07-28T05:04:30.937Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "src/reactHost/reactHost.tsx": {
@@ -53,15 +53,15 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/678c8485ed6c-d3fdf5bf.json",
-      "sourceHash": "sha256:3ac97f6d2aa6fe5644da5663232393f52ff22365d74663e597c8424e97b50f92",
+      "sourceHash": "sha256:1314739244afbd93338f3a06884deb0d23cd23e4200a21955aebc0844bf686b8",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:06:07.031Z"
+      "updatedAt": "2026-07-28T05:04:30.937Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-5ff29bd7.json",
-      "sourceHash": "sha256:2b5e30da41dbcfe4765b42b555a39a93e53e2cf7784a1962fade3979fd472060",
+      "sourceHash": "sha256:2200cac48b97e14049ba2715d347b0e3cac124503a48e3ae0ec8dd14196e69c8",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:06:07.129Z"
+      "updatedAt": "2026-07-28T05:04:30.937Z"
     },
     "src/features/sidebarVisibility.ts": {
       "noteFile": "files/8769c80e1c0f-057a5969.json",
