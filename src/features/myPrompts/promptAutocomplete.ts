@@ -55,7 +55,6 @@ export function initializePromptAutocomplete(
 export function initAutocomplete(): void {
   document.addEventListener('input', (event) => {
     if (isProgrammaticInsert) {
-      closeAutocompleteMenu();
       return;
     }
 
