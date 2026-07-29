@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:cb61cf832f88d30a77adf29a0c18e375c13ffa668807bd5078fe3cfa0a13ef81",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:00:30.431Z",
+    "updatedAt": "2026-07-28T04:00:30.431Z"
+  },
+  "fileNote": {
+    "userNote": "连接 My Prompts 状态与通用菜单，并标记菜单为侧边栏悬停延伸区域。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

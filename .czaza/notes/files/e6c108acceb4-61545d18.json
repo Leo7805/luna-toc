@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:76dd9dcc81dfef2d377d1dc0d8c7fedcee7bbef5d638d1adf3d7ca31dc209a36",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:01:02.268Z",
+    "updatedAt": "2026-07-28T04:06:06.843Z"
+  },
+  "fileNote": {
+    "userNote": "实现面板空白区域清空、单条 Prompt 复制和剪贴板错误提示。\nsetCurrentPromptTextProvider：配置当前对话 Prompt 的来源。\nclearAllMyPrompts：确认后清空 Prompt 与使用记录。\ncopyPromptText：复制内容到系统剪贴板。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

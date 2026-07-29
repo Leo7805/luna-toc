@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:b6fcc9d3c25b3c118521fa1a8b36f9ce992b535ca5a789abd0f92cb4acbc8e6c",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:01:27.921Z",
+    "updatedAt": "2026-07-28T04:06:06.938Z"
+  },
+  "fileNote": {
+    "userNote": "公开当前 Prompt 提供者配置。",
+    "createdBy": "user",
+    "status": {
+      "content": "stale",
+      "anchor": "confirmed"
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

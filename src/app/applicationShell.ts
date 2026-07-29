@@ -19,7 +19,11 @@ import {
 } from '@/features/theme/themeSettings';
 import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
+<<<<<<< HEAD
 import { mountSidebarReactApp } from '@/reactHost/reactHost';
+=======
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
+>>>>>>> main
 import { navigatorController } from './navigatorController';
 
 type ConversationEdge = 'top' | 'bottom';
@@ -295,13 +299,20 @@ function handleSavePrompt(message: NavigatorMessage): void {
 }
 
 function toggleViewMode(): void {
+  setViewMode(viewMode === 'toc' ? 'myPrompts' : 'toc');
+}
+
+/**
+ * Switches the sidebar view and synchronizes its controls with the rendered panel.
+ */
+function setViewMode(nextViewMode: ViewMode): void {
   const button = document.getElementById(
     'toggle-view-mode-btn'
   ) as HTMLButtonElement | null;
   if (!button) return;
 
   previewTooltip.hide();
-  viewMode = viewMode === 'toc' ? 'myPrompts' : 'toc';
+  viewMode = nextViewMode;
   const isMyPrompts = viewMode === 'myPrompts';
 
   button.classList.toggle('mode-myprompts-active', isMyPrompts);
@@ -316,6 +327,9 @@ function toggleViewMode(): void {
   if (!isMyPrompts) {
     const toolbar = document.getElementById('myprompts-toolbar-container');
     if (toolbar) toolbar.innerHTML = '';
+    const list = document.getElementById('navigator-list');
+    if (list) list.oncontextmenu = null;
+    promptContextMenuController.close();
   }
 
   clearSearch();
@@ -618,6 +632,9 @@ export async function initializeApplication(): Promise<void> {
     onPromptCountChanged(count) {
       tocPromptCount = count;
       updateSearchAvailability();
+    },
+    onPromptAdded() {
+      setViewMode('toc');
     },
     onRouteChanged() {
       clearSearch();

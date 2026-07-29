@@ -6,6 +6,7 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 
 import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomplete';
+import { PromptContextMenuHost } from '@/components/my-prompts/PromptContextMenu';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
 import {
   SidebarApp,
@@ -78,6 +79,7 @@ export async function initializeReactHost(): Promise<void> {
   createRoot(reactContainer).render(
     <>
       <PromptAutocompleteHost />
+      <PromptContextMenuHost />
       <PromptEditorDialogHost />
     </>
   );

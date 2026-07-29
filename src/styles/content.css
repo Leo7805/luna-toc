@@ -935,6 +935,10 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   opacity: 1;
 }
 
+.my-prompts-item-row.my-prompts-item-context-active {
+  background-color: var(--ct-bg-item-hover);
+}
+
 .myprompt-action-btn {
   background: transparent;
   border: none;

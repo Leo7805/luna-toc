@@ -1,6 +1,7 @@
 /** Tests memory and persisted virtual-navigation anchor caching. */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  createChromeNavigationAnchorStorage,
   createNavigationAnchorStore,
   type NavigationAnchorInput,
   type NavigationAnchorStorage,
@@ -8,6 +9,10 @@ import {
 } from '@/features/navigation/navigationAnchorStore';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function createInput(
   overrides: Partial<NavigationAnchorInput> = {}
@@ -44,6 +49,14 @@ function createMemoryStorage(
 }
 
 describe('navigation anchor store', () => {
+  it('degrades safely when Chrome local storage is unavailable', async () => {
+    vi.stubGlobal('chrome', { storage: undefined });
+    const storage = createChromeNavigationAnchorStorage();
+
+    await expect(storage.read()).resolves.toBeUndefined();
+    await expect(storage.write({ version: 2, conversations: {} })).resolves.toBeUndefined();
+  });
+
   it('keeps observations in memory without writing persistent storage', () => {
     const storage = createMemoryStorage();
     const store = createNavigationAnchorStore({ storage, now: () => 100 });

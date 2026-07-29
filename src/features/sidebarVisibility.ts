@@ -82,7 +82,8 @@ function scheduleAutoHide(): void {
     if (
       isPointerInside(sidebar) ||
       isPointerInside(toggleBtn) ||
-      isPointerInsidePreviewTooltip()
+      isPointerInsidePreviewTooltip() ||
+      isPointerInsideContextMenu()
     ) {
       return;
     }
@@ -109,7 +110,8 @@ export function setSidebarPinned(
   } else if (
     !isPointerInside(sidebar) &&
     !isPointerInside(toggleBtn) &&
-    !isPointerInsidePreviewTooltip()
+    !isPointerInsidePreviewTooltip() &&
+    !isPointerInsideContextMenu()
   ) {
     setSidebarHidden(true);
   }
@@ -222,8 +224,16 @@ function isPointerInsidePreviewTooltip(): boolean {
   );
 }
 
+function isPointerInsideContextMenu(): boolean {
+  const host = document.getElementById('luna-toc-react-host');
+  return (
+    !!host?.hasAttribute('data-luna-toc-context-menu-open') &&
+    isPointerInside(host)
+  );
+}
+
 function handleDocumentPointerOver(event: Event): void {
-  if (!isTooltipEvent(event)) return;
+  if (!isSidebarExtensionSurfaceEvent(event)) return;
 
   if (isPinned) return;
 
@@ -232,16 +242,18 @@ function handleDocumentPointerOver(event: Event): void {
 }
 
 function handleDocumentPointerOut(event: Event): void {
-  if (!isTooltipEvent(event)) return;
+  if (!isSidebarExtensionSurfaceEvent(event)) return;
 
   scheduleAutoHide();
 }
 
-function isTooltipEvent(event: Event): boolean {
+function isSidebarExtensionSurfaceEvent(event: Event): boolean {
   const target = event.target;
   if (!(target instanceof Element)) return false;
 
-  return !!target.closest('#luna-toc-preview-tooltip');
+  return !!target.closest(
+    '#luna-toc-preview-tooltip, #luna-toc-react-host[data-luna-toc-context-menu-open]'
+  );
 }
 
 /**

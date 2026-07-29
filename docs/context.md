@@ -48,4 +48,13 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 
 ## Next Step
 
+<<<<<<< HEAD
 - Resume from the user's next confirmed task. Update this section when a concrete implementation goal is selected.
+=======
+- My Prompts uses a shared React context menu: empty panel space offers clear-all after confirmation, while saved prompt rows offer Copy Prompt. The right-click target has a temporary selected state while its menu is open. An open menu counts as a sidebar hover surface so auto-hide matches preview-tooltip behavior.
+- Prompt autocomplete keeps its suggestion menu open while programmatically inserting a selected prompt, then closes it once after insertion completes to avoid an extra synchronous React update.
+- Sidebar view changes are centralized in the application shell. A newly sent ChatGPT prompt explicitly switches My Prompts back to TOC so the panel, title, and toggle button stay synchronized.
+- Navigation-anchor persistence safely degrades to memory-only behavior when an extension reload leaves `chrome.storage.local` unavailable, so independent navigation can continue.
+- `npm run typecheck`, `npm run build`, and the focused context-menu test passed. The full test suite currently has two unrelated failures in `test/platforms/chatgpt/renderedFingerprintCollector.test.ts`.
+- Resume from the user's next confirmed task.
+>>>>>>> main

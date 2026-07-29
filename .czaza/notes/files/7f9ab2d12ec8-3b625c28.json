@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:447014a84fb34db3a1a225a2ce44cf21d52b69a2ccef66e4d5da816e5f0510b4",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-07-28T04:00:42.080Z",
+    "updatedAt": "2026-07-28T04:00:42.080Z"
+  },
+  "fileNote": {
+    "userNote": "新增通用右键菜单组件。\nContextMenu：提供定位、图标、菜单项、外部点击和 Escape 关闭。\nContextMenuIcon：渲染 copy、clipboard、trash 图标。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
