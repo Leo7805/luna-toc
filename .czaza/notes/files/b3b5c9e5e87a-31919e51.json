@@ -11,11 +11,7 @@
   "fileNote": {
     "userNote": "创建 Shadow Root、注入样式并启动 React\n\n整体调用关系是：\ninitializeReactHost()\n├── waitForBody()\n├── synchronizeTheme()\n├── 创建 Shadow Root\n├── 注入 Tailwind CSS\n├── 创建 React 容器\n├── 创建 Portal 容器\n└── createRoot().render(null)\n\n如:\n在 React Root 中挂载 Prompt Editor，并提供 Shadow Root 内的 Portal 容器。\n\n\n---\n统一管理 React 应用的挂载。\nmountSidebarReactApp() — 将侧边栏 React 应用同步挂载到现有侧边栏容器，确保后续旧逻辑绑定时 DOM 已经生成。\n原有 Prompt Editor 和 Autocomplete 的 Shadow DOM 挂载逻辑保持不变。",
     "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    },
-    "updatedAt": "2026-07-27T02:29:28.156Z"
+    "updatedAt": "2026-07-30T12:02:55.507Z"
   },
   "sectionNotes": {
     "section:user:21-47": {

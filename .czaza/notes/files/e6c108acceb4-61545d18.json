@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-28T04:01:02.268Z",
-    "updatedAt": "2026-07-28T04:06:06.843Z"
+    "updatedAt": "2026-07-30T12:02:55.498Z"
   },
   "fileNote": {
     "userNote": "实现面板空白区域清空、单条 Prompt 复制和剪贴板错误提示。\nsetCurrentPromptTextProvider：配置当前对话 Prompt 的来源。\nclearAllMyPrompts：确认后清空 Prompt 与使用记录。\ncopyPromptText：复制内容到系统剪贴板。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}

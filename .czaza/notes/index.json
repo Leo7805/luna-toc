@@ -1,13 +1,13 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-28T05:04:30.937Z",
+  "updatedAt": "2026-07-30T12:02:55.507Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "src/reactHost/reactHost.tsx": {
       "noteFile": "files/b3b5c9e5e87a-31919e51.json",
       "sourceHash": "sha256:c51b01dbef3653001f817347fbefd9549d1ecebd8d7fcb6265b9262cd28a8410",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-28T03:39:00.871Z"
+      "updatedAt": "2026-07-30T12:02:55.507Z"
     },
     "src/components/popup/ThemeSettings.tsx": {
       "noteFile": "files/0044ae0a939f-5e4d6d6c.json",
@@ -31,13 +31,13 @@
       "noteFile": "files/fa999d1fe3a2-79ed4b50.json",
       "sourceHash": "sha256:34cf6732d6353f0e56a868395c4cf7a918014f22f4358c1eebbdbf86bb0b8c96",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:06:06.699Z"
+      "updatedAt": "2026-07-30T12:02:55.503Z"
     },
     "src/features/myPrompts/promptLibrary.ts": {
       "noteFile": "files/e6c108acceb4-61545d18.json",
       "sourceHash": "sha256:76dd9dcc81dfef2d377d1dc0d8c7fedcee7bbef5d638d1adf3d7ca31dc209a36",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:06:06.843Z"
+      "updatedAt": "2026-07-30T12:02:55.498Z"
     },
     "src/features/myPrompts/promptUsageStore.ts": {
       "noteFile": "files/467078f42907-bcb3aae2.json",
@@ -49,19 +49,19 @@
       "noteFile": "files/e9a2006d6743-cb092e5a.json",
       "sourceHash": "sha256:b6fcc9d3c25b3c118521fa1a8b36f9ce992b535ca5a789abd0f92cb4acbc8e6c",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:06:06.938Z"
+      "updatedAt": "2026-07-30T12:02:55.494Z"
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/678c8485ed6c-d3fdf5bf.json",
       "sourceHash": "sha256:1314739244afbd93338f3a06884deb0d23cd23e4200a21955aebc0844bf686b8",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T05:04:30.937Z"
+      "updatedAt": "2026-07-30T12:02:55.491Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-5ff29bd7.json",
       "sourceHash": "sha256:2200cac48b97e14049ba2715d347b0e3cac124503a48e3ae0ec8dd14196e69c8",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T05:04:30.937Z"
+      "updatedAt": "2026-07-30T12:02:55.460Z"
     },
     "src/features/sidebarVisibility.ts": {
       "noteFile": "files/8769c80e1c0f-057a5969.json",
