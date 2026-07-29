@@ -233,13 +233,34 @@ export function createChromeNavigationAnchorStorage(
 ): NavigationAnchorStorage {
   return {
     async read() {
-      const values = await chrome.storage.local.get(storageKey);
-      return values[storageKey];
+      const localStorage = getChromeLocalStorage();
+      if (!localStorage) return undefined;
+
+      try {
+        const values = await localStorage.get(storageKey);
+        return values[storageKey];
+      } catch {
+        return undefined;
+      }
     },
     async write(value) {
-      await chrome.storage.local.set({ [storageKey]: value });
+      const localStorage = getChromeLocalStorage();
+      if (!localStorage) return;
+
+      try {
+        await localStorage.set({ [storageKey]: value });
+      } catch {}
     },
   };
+}
+
+/**
+ * Returns Chrome local storage only while the active content-script context
+ * still exposes it. Extension reloads can leave a page with an invalid context.
+ */
+function getChromeLocalStorage(): chrome.storage.StorageArea | null {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return null;
+  return chrome.storage.local;
 }
 
 /**
