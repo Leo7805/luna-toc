@@ -6,15 +6,11 @@
   },
   "defaults": {
     "createdAt": "2026-07-28T04:01:27.921Z",
-    "updatedAt": "2026-07-28T04:06:06.938Z"
+    "updatedAt": "2026-07-30T10:59:57.817Z"
   },
   "fileNote": {
     "userNote": "公开当前 Prompt 提供者配置。",
-    "createdBy": "user",
-    "status": {
-      "content": "stale",
-      "anchor": "confirmed"
-    }
+    "createdBy": "user"
   },
   "sectionNotes": {},
   "lineNotes": {}
