@@ -1,11 +1,11 @@
 /**
  * Builds the LunaTOC sidebar shell and coordinates application-level features.
  */
-import { myPrompts } from '../features/myPrompts/myPrompts';
-import type { NavigatorMessage } from '../features/conversationPrompts/message';
-import { initializeSidebarVisibility } from '../features/sidebarVisibility';
-import { createToggleButton } from '../features/toggleButton';
-import { buttonTooltip, previewTooltip } from '../features/tooltip';
+import { myPrompts } from '@/features/myPrompts/myPrompts';
+import type { NavigatorMessage } from '@/features/conversationPrompts/message';
+import { initializeSidebarVisibility } from '@/features/sidebarVisibility';
+import { createToggleButton } from '@/features/toggleButton';
+import { buttonTooltip, previewTooltip } from '@/features/tooltip';
 import {
   getChatGPTTheme,
   observeChatGPTTheme,
@@ -19,11 +19,8 @@ import {
 } from '@/features/theme/themeSettings';
 import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
-<<<<<<< HEAD
-import { mountSidebarReactApp } from '@/reactHost/reactHost';
-=======
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
->>>>>>> main
+import { mountSidebarReactApp } from '@/reactHost/reactHost';
 import { navigatorController } from './navigatorController';
 
 type ConversationEdge = 'top' | 'bottom';
@@ -609,15 +606,9 @@ function applyStackingConfig(): void {
   const { baseZIndex, offsets } = APP_CONFIG.ui.stacking;
   const rootStyle = document.documentElement.style;
 
-  rootStyle.setProperty(
-    '--ct-z-sidebar',
-    String(baseZIndex + offsets.sidebar)
-  );
+  rootStyle.setProperty('--ct-z-sidebar', String(baseZIndex + offsets.sidebar));
   rootStyle.setProperty('--ct-z-toggle', String(baseZIndex + offsets.toggle));
-  rootStyle.setProperty(
-    '--ct-z-popover',
-    String(baseZIndex + offsets.popover)
-  );
+  rootStyle.setProperty('--ct-z-popover', String(baseZIndex + offsets.popover));
   rootStyle.setProperty('--ct-z-modal', String(baseZIndex + offsets.modal));
 }
 

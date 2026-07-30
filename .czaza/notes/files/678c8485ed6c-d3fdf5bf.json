@@ -1,12 +1,12 @@
 {
   "source": {
-    "sourceHash": "sha256:6101e851077f0c2a26fcf7792320f6f5cc4248ca314d129bf0ad5243512cf9e0",
+    "sourceHash": "sha256:60df5324279342d0d4cae6b29a07dd47daf290c1d7d0af97061cb88b03ef3287",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-07-28T04:01:40.724Z",
-    "updatedAt": "2026-07-30T12:02:55.491Z"
+    "updatedAt": "2026-07-30T12:25:25.268Z"
   },
   "fileNote": {
     "userNote": "注入当前对话 Prompt 来源，并在离开 My Prompts 时清理菜单。",

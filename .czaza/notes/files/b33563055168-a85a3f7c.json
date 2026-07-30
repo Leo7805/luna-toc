@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:ecb7341e69fd38ab812b09d07a00d6bde5267480c4a5d7fca74a3bc6664e1e2e",
+    "sourceHashKind": "text",
+    "programmingLanguage": "markdown"
+  },
+  "defaults": {
+    "createdAt": "2026-07-30T12:39:33.336Z",
+    "updatedAt": "2026-07-30T12:49:38.951Z"
+  },
+  "fileNote": {
+    "userNote": "readme",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

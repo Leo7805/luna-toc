@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-30T12:02:55.507Z",
+  "updatedAt": "2026-07-30T12:39:33.336Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "src/reactHost/reactHost.tsx": {
@@ -53,9 +53,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/678c8485ed6c-d3fdf5bf.json",
-      "sourceHash": "sha256:6101e851077f0c2a26fcf7792320f6f5cc4248ca314d129bf0ad5243512cf9e0",
+      "sourceHash": "sha256:60df5324279342d0d4cae6b29a07dd47daf290c1d7d0af97061cb88b03ef3287",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-30T12:02:55.491Z"
+      "updatedAt": "2026-07-30T12:25:25.268Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-5ff29bd7.json",
@@ -68,6 +68,12 @@
       "sourceHash": "sha256:bdeb02c7ceeef0e3fbc099352fddfda5d8d3c084bba944313cc1a41f1902fc76",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-28T04:02:26.442Z"
+    },
+    "README.md": {
+      "noteFile": "files/b33563055168-a85a3f7c.json",
+      "sourceHash": "sha256:ecb7341e69fd38ab812b09d07a00d6bde5267480c4a5d7fca74a3bc6664e1e2e",
+      "programmingLanguage": "markdown",
+      "updatedAt": "2026-07-30T12:39:33.336Z"
     }
   }
 }
