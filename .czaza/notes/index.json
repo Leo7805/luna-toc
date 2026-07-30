@@ -1,13 +1,13 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-29T04:08:43.561Z",
+  "updatedAt": "2026-07-29T04:07:14.100Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "src/reactHost/reactHost.tsx": {
       "noteFile": "files/b3b5c9e5e87a-31919e51.json",
       "sourceHash": "sha256:43c1ec51e1e09214aaaa37bf11b85b680b54c66b74f776c7dae0c05f46d6b1c9",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-29T04:08:43.561Z"
+      "updatedAt": "2026-07-29T04:07:14.100Z"
     },
     "src/components/popup/ThemeSettings.tsx": {
       "noteFile": "files/0044ae0a939f-5e4d6d6c.json",
@@ -55,7 +55,7 @@
       "noteFile": "files/678c8485ed6c-d3fdf5bf.json",
       "sourceHash": "sha256:6101e851077f0c2a26fcf7792320f6f5cc4248ca314d129bf0ad5243512cf9e0",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-29T04:08:43.560Z"
+      "updatedAt": "2026-07-29T04:07:14.100Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-5ff29bd7.json",
