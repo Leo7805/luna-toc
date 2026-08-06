@@ -26,6 +26,9 @@ body[data-theme='dark'] {
   --p-toggle-bg-active: #1d4ed8;
   --p-toggle-border: #334155;
   --p-toggle-text: #94a3b8;
+
+  /* Rate link */
+  --p-rate-hover-color: #fcd34d;
 }
 
 html[data-theme='light'],
@@ -46,6 +49,13 @@ body[data-theme='light'] {
   --p-toggle-bg-active: #2563eb;
   --p-toggle-border: #93c5fd;
   --p-toggle-text: #3b6b9e;
+
+  /* Rate link */
+  --p-rate-hover-color: #2563eb;
+
+  /* Coffee button */
+  .coffee-img-dark { display: none; }
+  .coffee-img-light { display: inline; }
 }
 
 * {

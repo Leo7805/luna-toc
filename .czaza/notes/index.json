@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-07-30T12:02:55.507Z",
+  "updatedAt": "2026-08-06T08:30:22.236Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "src/reactHost/reactHost.tsx": {
@@ -68,6 +68,11 @@
       "sourceHash": "sha256:bdeb02c7ceeef0e3fbc099352fddfda5d8d3c084bba944313cc1a41f1902fc76",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-07-28T04:02:26.442Z"
+    },
+    "": {
+      "noteFile": "files/e3b0c44298fc-b2890c37.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-06T08:30:22.236Z"
     }
   }
 }

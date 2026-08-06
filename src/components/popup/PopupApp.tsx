@@ -13,6 +13,12 @@ import {
   type ThemeSettings as ThemeSettingsValue,
 } from '@/features/theme/themeSettings';
 import { ThemeSettings } from './ThemeSettings';
+import coffeeImage from './black-button.png';
+import coffeeImageLight from './yellow-button.png';
+
+const WEB_STORE_URL =
+  'https://chromewebstore.google.com/detail/chatgpt-table-of-contents/ibfdglfgljonajofiiaonlimoiolkcpa';
+const COFFEE_URL = 'https://buymeacoffee.com/jinleo';
 
 const INITIAL_SETTINGS: ThemeSettingsValue = {
   followChatGPT: true,
@@ -107,6 +113,38 @@ export function PopupApp(): React.JSX.Element {
           <Settings className="size-3.5" aria-hidden="true" />
           Settings
         </button>
+        <a
+          href={WEB_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rate-link inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) no-underline transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-rate-hover-color)"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="size-3.5 fill-none stroke-current stroke-2"
+          >
+            <path d="m12 2 3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.74 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2Z" />
+          </svg>
+          Rate
+        </a>
+        <a
+          href={COFFEE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="coffee-link inline-flex items-center rounded-md px-1.5 py-1 transition duration-150 hover:bg-(--p-toggle-bg) hover:scale-105 active:scale-95"
+        >
+          <img
+            src={coffeeImage}
+            alt="Buy me a coffee"
+            className="coffee-img-dark h-7 w-auto"
+          />
+          <img
+            src={coffeeImageLight}
+            alt="Buy me a coffee"
+            className="coffee-img-light hidden h-7 w-auto"
+          />
+        </a>
       </footer>
     </main>
   );
