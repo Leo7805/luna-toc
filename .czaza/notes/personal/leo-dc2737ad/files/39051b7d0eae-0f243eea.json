@@ -1,0 +1,20 @@
+{
+  "source": {
+    "sourceHash": "sha256:991a366ef6d8f427451dec34bc22d23a5b76515e907a1aff9985df0d9be00fa8"
+  },
+  "defaults": {
+    "createdAt": "2026-08-21T06:04:51.214Z",
+    "updatedAt": "2026-08-21T06:04:51.214Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "识别 ChatGPT 新旧完整会话 API 路径并提取 conversation ID。",
+      "detail": "- `getConversationIdFromApiPath`：兼容 `/backend-api/conversation/{id}` 与 `/backend-api/conversations/{id}`，解码 ID，并拒绝 `/init`、列表路径及所有子资源。",
+      "aiNotes": [
+        "匹配必须停在 conversation ID 层级，避免空的 `textdocs` 响应覆盖有效会话数据。"
+      ]
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

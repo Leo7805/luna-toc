@@ -18,14 +18,17 @@ export interface ChatMessage {
   createTime?: number;
 }
 
-export interface ConversationNode {
-  message?: ChatMessage;
-  parent?: string | null;
+export interface ConversationPageInfo {
+  start_cursor?: string;
+  end_cursor?: string;
+  has_previous_page?: boolean;
+  has_next_page?: boolean;
 }
 
 export interface ConversationData {
-  mapping: Record<string, ConversationNode>;
+  messages: ChatMessage[];
   current_node?: string | null;
+  page_info?: ConversationPageInfo;
 }
 
 export interface NavigatorMessage {
@@ -167,46 +170,16 @@ export function createNavigatorMessage(message: ChatMessage): NavigatorMessage {
 }
 
 /**
- * Walks the current conversation branch from current_node back to the root.
- * ChatGPT's mapping can contain alternate branches, so this avoids listing
- * prompts outside the active branch.
- * @param {Object} data
- * @returns {Object[]}
- */
-export function getOrderedConversationNodes(
-  data: ConversationData
-): ConversationNode[] {
-  const mapping = data.mapping;
-  const orderedNodes: ConversationNode[] = [];
-
-  let currentNodeId = data.current_node;
-
-  while (currentNodeId) {
-    const node = mapping[currentNodeId];
-
-    if (!node) break;
-
-    orderedNodes.push(node);
-
-    currentNodeId = node.parent;
-  }
-
-  return orderedNodes.reverse();
-}
-
-/**
- * Extracts user prompts from ChatGPT's conversation payload in display order.
+ * Extracts user prompts from ChatGPT's flat message array in display order.
+ * Consecutive user messages (regenerated or stopped versions of the same
+ * prompt) collapse to the final one, matching the pre-pagination behavior.
  * @param {Object} data
  * @returns {Object[]}
  */
 export function extractUserMessages(
   data: ConversationData | null | undefined
 ): NavigatorMessage[] {
-  if (!data || !data.mapping) {
-    return [];
-  }
-
-  const orderedNodes = getOrderedConversationNodes(data);
+  const orderedMessages = data?.messages ?? [];
   const messages: NavigatorMessage[] = [];
   let pendingUserMessage: ChatMessage | null = null;
 
@@ -222,8 +195,7 @@ export function extractUserMessages(
     pendingUserMessage = null;
   }
 
-  orderedNodes.forEach((node) => {
-    const message = node.message;
+  orderedMessages.forEach((message) => {
     const role = message?.author?.role;
 
     if (!role) return;

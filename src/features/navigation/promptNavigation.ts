@@ -276,8 +276,11 @@ function jumpWithIndependentVirtualNavigation(
     derivedSegmentCount: context.segmentIndex.length,
     testConfig,
   });
-  lockActiveIndex(index, 4000);
-  keepFollowing(4000);
+  // Far jumps slide the virtual render window over several seconds. Hold the
+  // active-row lock for the whole slide so scroll-follow cannot snap the
+  // highlight to intermediate prompts mid-jump.
+  lockActiveIndex(index, 15_000);
+  keepFollowing(15_000);
 
   if (!container || !context.conversationKey) {
     debugJump('independent-search:missing-context', {
@@ -544,6 +547,10 @@ function finishIndependentVirtualJump(
   testConfig: ChatGptNavigationTestConfig
 ): void {
   const jumpVersion = navigationJumpVersion;
+
+  // Re-assert the target row and shorten the lock so scroll-follow resumes
+  // shortly after the jump settles instead of waiting out the full slide lock.
+  lockActiveIndex(index, 1800);
 
   logChatGptNavigationEvent(jumpId, 'TARGET_FOUND', {
     promptId: message.id,

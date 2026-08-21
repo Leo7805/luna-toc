@@ -1,6 +1,27 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-13T01:22:18.848Z",
+  "updatedAt": "2026-08-21T06:04:51.216Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
-  "files": {}
+  "files": {
+    "": {
+      "noteFile": "files/e3b0c44298fc-13491bdf.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-21T05:48:42.162Z"
+    },
+    "src/page/pageHook.iife.ts": {
+      "noteFile": "files/a8e5241e739a-faf1a811.json",
+      "sourceHash": "sha256:f574e8cba67598fe65406059b314e44da8f723c1977ff593da040d176a3a9e24",
+      "updatedAt": "2026-08-21T06:04:51.202Z"
+    },
+    "src/platforms/chatgpt/conversationRequest.ts": {
+      "noteFile": "files/39051b7d0eae-0f243eea.json",
+      "sourceHash": "sha256:991a366ef6d8f427451dec34bc22d23a5b76515e907a1aff9985df0d9be00fa8",
+      "updatedAt": "2026-08-21T06:04:51.214Z"
+    },
+    "test/platforms/chatgpt/conversationRequest.test.ts": {
+      "noteFile": "files/d9c194d03e97-2d38b211.json",
+      "sourceHash": "sha256:4b2969f32b3e3d8ad574fc080068d0b07263fabb2d6a0eed33276401f2d60efc",
+      "updatedAt": "2026-08-21T06:04:51.216Z"
+    }
+  }
 }

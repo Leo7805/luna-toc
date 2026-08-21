@@ -1,0 +1,20 @@
+{
+  "source": {
+    "sourceHash": "sha256:4b2969f32b3e3d8ad574fc080068d0b07263fabb2d6a0eed33276401f2d60efc"
+  },
+  "defaults": {
+    "createdAt": "2026-08-21T06:04:51.216Z",
+    "updatedAt": "2026-08-21T06:04:51.216Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "验证 ChatGPT 完整会话 API 的新旧路径兼容与子资源排除行为。",
+      "detail": "- `ChatGPT conversation request paths`：覆盖单数、复数、编码 ID、可选尾斜杠，以及列表、`init`、`textdocs` 和附件子路径。",
+      "aiNotes": [
+        "这些测试保护 page hook 不再因 ChatGPT 路径复数化而丢失目录数据。"
+      ]
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

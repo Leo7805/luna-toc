@@ -37,9 +37,9 @@ beforeEach(() => {
 });
 
 describe('navigation settings', () => {
-  it('defaults to ChatGPT native navigation', async () => {
+  it('defaults to independent virtual navigation', async () => {
     await expect(readNavigationSettings()).resolves.toEqual({
-      chatgpt: 'legacy-native',
+      chatgpt: 'independent-virtual',
     });
   });
 
@@ -47,7 +47,7 @@ describe('navigation settings', () => {
     storedValue = { chatgpt: 'unknown' };
 
     await expect(readNavigationSettings()).resolves.toEqual({
-      chatgpt: 'legacy-native',
+      chatgpt: 'independent-virtual',
     });
   });
 

@@ -16,7 +16,7 @@ import {
 export interface VisiblePromptBlockMatch {
   blockId: string;
   promptIndex: number;
-  source: 'segment' | 'response-id' | 'fingerprint';
+  source: 'segment' | 'response-id' | 'fingerprint' | 'user-message-id';
   segmentIndex?: number;
   segmentCount?: number;
   positionRatio?: number;
@@ -205,4 +205,65 @@ function indexPromptIndexesByResponseId(
   });
 
   return promptIndexesByResponseId;
+}
+
+/**
+ * Maps message IDs onto ordered prompt indexes by exact ID match.
+ *
+ * This is the deterministic fast path for position observation: ChatGPT user
+ * messages carry `data-message-id` equal to the fetched prompt IDs, so visible
+ * messages can be located without text fingerprints.
+ *
+ * @example
+ * const position = resolvePromptIndexesFromIds(['prompt-b'], [
+ *   { id: 'prompt-a' },
+ *   { id: 'prompt-b' },
+ * ]);
+ */
+export function resolvePromptIndexesFromIds(
+  ids: ReadonlyArray<string | null | undefined>,
+  prompts: ReadonlyArray<{ id: string }>
+): LocatedVisiblePromptPosition | null {
+  const promptIndexById = new Map<string, number>();
+
+  prompts.forEach((prompt, index) => {
+    if (!promptIndexById.has(prompt.id)) {
+      promptIndexById.set(prompt.id, index);
+    }
+  });
+
+  const matchedPromptIndexes = new Set<number>();
+  const matchedBlockIds = new Set<string>();
+  const matchedBlocks: VisiblePromptBlockMatch[] = [];
+
+  for (const id of ids) {
+    if (!id) continue;
+
+    const promptIndex = promptIndexById.get(id);
+    if (promptIndex === undefined) continue;
+    if (matchedBlockIds.has(id)) continue;
+
+    matchedBlockIds.add(id);
+    matchedPromptIndexes.add(promptIndex);
+    matchedBlocks.push({
+      blockId: id,
+      promptIndex,
+      source: 'user-message-id',
+    });
+  }
+
+  if (matchedPromptIndexes.size === 0) return null;
+
+  const sortedPromptIndexes = [...matchedPromptIndexes].sort(
+    (first, second) => first - second
+  );
+
+  return {
+    status: 'located',
+    firstPromptIndex: sortedPromptIndexes[0]!,
+    lastPromptIndex: sortedPromptIndexes.at(-1)!,
+    matchedPromptIndexes: sortedPromptIndexes,
+    matchedBlockIds: [...matchedBlockIds],
+    matchedBlocks,
+  };
 }

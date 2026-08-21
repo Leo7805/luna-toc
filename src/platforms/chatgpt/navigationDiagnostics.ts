@@ -66,7 +66,7 @@ export function getChatGptNavigationTestConfig(
         value.maxSearchDurationMs,
         defaults.maxSearchDurationMs,
         100,
-        15_000
+        60_000
       ),
       useConfirmedAnchors: readBoolean(
         value.useConfirmedAnchors,

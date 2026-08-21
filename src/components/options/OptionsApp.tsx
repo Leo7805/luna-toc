@@ -17,13 +17,14 @@ const NAVIGATION_CHOICES: NavigationChoice[] = [
   {
     value: 'legacy-native',
     label: 'ChatGPT Native',
-    description: 'Faster and more reliable for ChatGPT conversations.',
+    description:
+      'Uses ChatGPT\'s built-in prompt navigator, which was removed in recent layouts and now falls back to a slow text scan.',
   },
   {
     value: 'independent-virtual',
     label: 'LunaTOC Independent',
     description:
-      'Cross-platform virtual navigation. It may be slower or less reliable.',
+      'Deterministic message-ID navigation that targets each prompt turn precisely.',
   },
 ];
 
@@ -95,13 +96,13 @@ export function OptionsApp(): React.JSX.Element {
                   <span className="block text-sm font-semibold text-[var(--o-text)]">
                     {choice.label}
                     {choice.value === 'legacy-native' && (
-                      <span className="ml-1.5 text-xs font-medium text-[var(--o-accent)]">
-                        (Recommended)
+                      <span className="ml-1.5 text-xs font-medium text-[var(--o-muted)]">
+                        (Legacy)
                       </span>
                     )}
                     {choice.value === 'independent-virtual' && (
-                      <span className="ml-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                        (Experimental)
+                      <span className="ml-1.5 text-xs font-medium text-[var(--o-accent)]">
+                        (Recommended)
                       </span>
                     )}
                   </span>

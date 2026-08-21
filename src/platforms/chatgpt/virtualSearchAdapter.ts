@@ -7,7 +7,12 @@ import {
 } from '@/features/navigation/navigationAnchorStore';
 import type { NavigationFingerprintIndex } from '@/features/navigation/fingerprint/index';
 import type { NavigationSegmentIndex } from '@/features/navigation/fingerprint/segments';
-import { resolveVisiblePromptPosition } from '@/features/navigation/visiblePositionResolver';
+import {
+  resolvePromptIndexesFromIds,
+  resolveVisiblePromptPosition,
+  type LocatedVisiblePromptPosition,
+  type VisiblePromptPosition,
+} from '@/features/navigation/visiblePositionResolver';
 import type {
   VirtualScrollMetrics,
   VirtualSearchObservation,
@@ -216,6 +221,38 @@ export function getChatGptPromptMountDiagnostic({
 }
 
 /**
+ * Returns mounted user messages that intersect the chat viewport.
+ */
+function getVisibleUserMessages(
+  root: ParentNode,
+  scrollContainer: HTMLElement
+): HTMLElement[] {
+  const containerRect = scrollContainer.getBoundingClientRect();
+
+  return Array.from(root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR))
+    .filter((element) => isElementWithinScrollViewport(element, containerRect));
+}
+
+/**
+ * Resolves the visible prompt-index range from exact user-message IDs.
+ *
+ * Returns null when no visible user message maps to a known prompt, so the
+ * caller can fall back to text-fingerprint resolution.
+ */
+function resolveVisiblePromptPositionByUserMessageId(
+  prompts: ReadonlyArray<{ id: string }>,
+  scrollContainer: HTMLElement,
+  root: ParentNode
+): LocatedVisiblePromptPosition | null {
+  const visibleUserMessages = getVisibleUserMessages(root, scrollContainer);
+
+  return resolvePromptIndexesFromIds(
+    visibleUserMessages.map((element) => getChatGptMessageId(element)),
+    prompts
+  );
+}
+
+/**
  * Resolves mounted Assistant responses and converts their element positions
  * into prompt-specific in-memory navigation anchors.
  *
@@ -239,6 +276,43 @@ export async function observeChatGptVirtualPosition({
       position: { status: 'none' },
       anchors: [],
     };
+  }
+
+  const directPosition = resolveVisiblePromptPositionByUserMessageId(
+    prompts,
+    scrollContainer,
+    root
+  );
+
+  if (directPosition) {
+    const visibleUserMessages = getVisibleUserMessages(root, scrollContainer);
+    const elementsByBlockId = new Map<string, HTMLElement>();
+
+    for (const element of visibleUserMessages) {
+      const id = getChatGptMessageId(element);
+      if (id) elementsByBlockId.set(id, element);
+    }
+
+    const anchors = directPosition.matchedBlocks.flatMap(
+      ({ blockId, promptIndex }): NavigationAnchor[] => {
+        const element = elementsByBlockId.get(blockId);
+        const prompt = prompts[promptIndex];
+
+        if (!element || !prompt) return [];
+
+        return [
+          createChatGptElementNavigationAnchor({
+            conversationKey,
+            promptId: prompt.id,
+            promptIndex,
+            element,
+            scrollContainer,
+          }),
+        ];
+      }
+    );
+
+    return { position: directPosition, anchors };
   }
 
   const entries = getRenderedAssistantEntries(root);

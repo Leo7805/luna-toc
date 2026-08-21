@@ -4,7 +4,6 @@
 import {
   extractUserMessages,
   getMessageDisplayText,
-  getOrderedConversationNodes,
   type ChatMessage,
   type ConversationData,
 } from '@/features/conversationPrompts/message';
@@ -24,10 +23,10 @@ import {
 export function createChatGptNavigationTurns(
   data: ConversationData | null | undefined
 ): NavigationTurn[] {
-  if (!data?.mapping) return [];
+  if (!data?.messages?.length) return [];
 
-  const messages = getOrderedConversationNodes(data)
-    .map((node) => toNavigationSourceMessage(node.message))
+  const messages = data.messages
+    .map((message) => toNavigationSourceMessage(message))
     .filter((message): message is NavigationSourceMessage => Boolean(message));
 
   const turns = createNavigationTurns(messages);

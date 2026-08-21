@@ -20,7 +20,7 @@ describe('ChatGPT navigation diagnostics', () => {
       settleAttempts: 3,
       maxSearchAttempts: 32,
       maxUnproductiveSearchAttempts: 6,
-      maxSearchDurationMs: 4_000,
+      maxSearchDurationMs: 30_000,
       useConfirmedAnchors: true,
       useObservedAnchors: true,
     });
@@ -34,7 +34,7 @@ describe('ChatGPT navigation diagnostics', () => {
         settleAttempts: 99,
         maxSearchAttempts: 12,
         maxUnproductiveSearchAttempts: 6,
-        maxSearchDurationMs: 50_000,
+        maxSearchDurationMs: 100_000,
         useConfirmedAnchors: false,
         useObservedAnchors: false,
       })
@@ -45,7 +45,7 @@ describe('ChatGPT navigation diagnostics', () => {
       settleAttempts: 20,
       maxSearchAttempts: 12,
       maxUnproductiveSearchAttempts: 6,
-      maxSearchDurationMs: 15_000,
+      maxSearchDurationMs: 60_000,
       useConfirmedAnchors: false,
       useObservedAnchors: false,
     });

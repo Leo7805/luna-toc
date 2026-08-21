@@ -24,9 +24,10 @@ export const APP_CONFIG = {
   },
   platforms: {
     chatgpt: {
-      navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
+      navigationAlgorithm: 'independent-virtual' as ChatGptNavigationAlgorithm,
       promptTopOffsetPx: 16,
       settleAttempts: 3,
+      backfillMaxPages: 10,
     },
   },
   navigation: {
@@ -53,7 +54,9 @@ export const APP_CONFIG = {
       maxAttempts: 32,
       maxUnproductiveAttempts: 6,
       renderWaitMs: 80,
-      maxDurationMs: 4_000,
+      maxDurationMs: 30_000,
+      edgeBackfillWaitMs: 1_200,
+      maximumWindowSlideCycles: 16,
       interpolationFailuresBeforeBinary: 2,
       relativeViewportRatio: 0.75,
       minimumRelativeViewportRatio: 0.25,

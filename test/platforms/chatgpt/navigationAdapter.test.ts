@@ -22,37 +22,15 @@ function createMessage(
 describe('createChatGptNavigationTurns', () => {
   it('keeps response indexes aligned after consecutive unanswered prompts', () => {
     const data: ConversationData = {
-      current_node: 'ai-4',
-      mapping: {
-        root: {
-          message: createMessage('system', 'system', ['System']),
-          parent: null,
-        },
-        'user-1': {
-          message: createMessage('user-1', 'user', ['Stopped one']),
-          parent: 'root',
-        },
-        'user-2': {
-          message: createMessage('user-2', 'user', ['Stopped two']),
-          parent: 'user-1',
-        },
-        'user-3': {
-          message: createMessage('user-3', 'user', ['Answered prompt']),
-          parent: 'user-2',
-        },
-        'ai-3': {
-          message: createMessage('ai-3', 'assistant', ['First answer']),
-          parent: 'user-3',
-        },
-        'user-4': {
-          message: createMessage('user-4', 'user', ['Next prompt']),
-          parent: 'ai-3',
-        },
-        'ai-4': {
-          message: createMessage('ai-4', 'assistant', ['Next answer']),
-          parent: 'user-4',
-        },
-      },
+      messages: [
+        createMessage('system', 'system', ['System']),
+        createMessage('user-1', 'user', ['Stopped one']),
+        createMessage('user-2', 'user', ['Stopped two']),
+        createMessage('user-3', 'user', ['Answered prompt']),
+        createMessage('ai-3', 'assistant', ['First answer']),
+        createMessage('user-4', 'user', ['Next prompt']),
+        createMessage('ai-4', 'assistant', ['Next answer']),
+      ],
     };
 
     expect(createChatGptNavigationTurns(data)).toEqual([
@@ -69,31 +47,14 @@ describe('createChatGptNavigationTurns', () => {
     ]);
   });
 
-  it('uses only the active branch and keeps the final unanswered prompt', () => {
+  it('keeps the final unanswered prompt', () => {
     const data: ConversationData = {
-      current_node: 'user-2',
-      mapping: {
-        root: {
-          message: createMessage('system', 'system', ['System']),
-          parent: null,
-        },
-        'user-1': {
-          message: createMessage('user-1', 'user', ['First']),
-          parent: 'root',
-        },
-        'ai-1': {
-          message: createMessage('ai-1', 'assistant', ['Answer']),
-          parent: 'user-1',
-        },
-        branch: {
-          message: createMessage('branch', 'user', ['Inactive']),
-          parent: 'ai-1',
-        },
-        'user-2': {
-          message: createMessage('user-2', 'user', ['Second']),
-          parent: 'ai-1',
-        },
-      },
+      messages: [
+        createMessage('system', 'system', ['System']),
+        createMessage('user-1', 'user', ['First']),
+        createMessage('ai-1', 'assistant', ['Answer']),
+        createMessage('user-2', 'user', ['Second']),
+      ],
     };
 
     expect(createChatGptNavigationTurns(data)).toEqual([
@@ -112,29 +73,19 @@ describe('createChatGptNavigationTurns', () => {
 
   it('excludes tool messages, attachments, and structured Assistant parts', () => {
     const data: ConversationData = {
-      current_node: 'tool',
-      mapping: {
-        user: {
-          message: createMessage('user', 'user', ['Prompt']),
-          parent: null,
-        },
-        assistant: {
-          message: {
-            ...createMessage('assistant', 'assistant', [
-              ' Visible answer ',
-              { content_type: 'image_asset_pointer' },
-            ]),
-            metadata: {
-              attachments: [{ name: 'answer.png', mime_type: 'image/png' }],
-            },
+      messages: [
+        createMessage('user', 'user', ['Prompt']),
+        {
+          ...createMessage('assistant', 'assistant', [
+            ' Visible answer ',
+            { content_type: 'image_asset_pointer' },
+          ]),
+          metadata: {
+            attachments: [{ name: 'answer.png', mime_type: 'image/png' }],
           },
-          parent: 'user',
         },
-        tool: {
-          message: createMessage('tool', 'tool', ['Tool output']),
-          parent: 'assistant',
-        },
-      },
+        createMessage('tool', 'tool', ['Tool output']),
+      ],
     };
 
     expect(createChatGptNavigationTurns(data)).toEqual([

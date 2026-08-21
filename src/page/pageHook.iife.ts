@@ -3,6 +3,12 @@
  * streams newly submitted user prompts, and spoofs width media queries while
  * the ChatTOC sidebar is visible.
  */
+import {
+  getConversationIdFromApiPath,
+  getConversationMessagesIdFromApiPath,
+} from '@/platforms/chatgpt/conversationRequest';
+import { APP_CONFIG } from '@/config/config';
+
 (() => {
   type FetchArgs = Parameters<typeof window.fetch>;
   type MediaQueryListener = EventListenerOrEventListenerObject;
@@ -10,8 +16,20 @@
 
   interface RequestMeta {
     isConversationGet: boolean;
+    isInitialConversationLoad: boolean;
     isSendMessage: boolean;
     routeKey: string;
+  }
+
+  interface ConversationPageInfo {
+    start_cursor?: string;
+    end_cursor?: string;
+    has_previous_page?: boolean;
+    has_next_page?: boolean;
+  }
+
+  interface ConversationPayload {
+    page_info?: ConversationPageInfo;
   }
 
   interface OutgoingMessage {
@@ -37,7 +55,6 @@
   const HOOK_FLAG = '__conversationNavigatorFetchHookInstalled';
   const MESSAGE_TYPE = 'CHATGPT_CONVERSATION_DATA';
   const WIDTH_SPOOF_MESSAGE_TYPE = 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF';
-  const CONVERSATION_API_PATH = '/backend-api/conversation/';
   const SEND_MESSAGE_PATH = '/backend-api/f/conversation';
   const SPOOFED_VIEWPORT_WIDTH = 1400;
   const MEDIA_QUERY_LISTENER_METHODS = {
@@ -47,9 +64,32 @@
     removeListener: { track: false, modern: false },
   };
 
+  const BACKFILL_MAX_PAGES = APP_CONFIG.platforms.chatgpt.backfillMaxPages;
+  const BACKFILL_NUM_TURNS = 10;
+  const FORBIDDEN_REQUEST_HEADERS = new Set([
+    'accept-charset',
+    'accept-encoding',
+    'connection',
+    'content-length',
+    'cookie',
+    'cookie2',
+    'date',
+    'dnt',
+    'expect',
+    'host',
+    'keep-alive',
+    'origin',
+    'referer',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+    'via',
+  ]);
   let streamBuffer = '';
   let wideViewportSpoofEnabled = true;
   const spoofedMediaQueryLists = new Set<SpoofedMediaQueryEntry>();
+  const backfillingConversationIds = new Set<string>();
   const hookWindow = window as unknown as Window & Record<string, unknown>;
 
   if (hookWindow[HOOK_FLAG]) {
@@ -77,7 +117,16 @@
 
     try {
       if (requestMeta?.isConversationGet) {
-        postConversationData(response, requestMeta.routeKey);
+        const authHeaders = requestMeta.isInitialConversationLoad
+          ? getRequestHeaders(args[0], args[1])
+          : null;
+
+        postConversationData(
+          response,
+          requestMeta.routeKey,
+          requestMeta.isInitialConversationLoad,
+          authHeaders
+        );
       }
 
       if (requestMeta?.isSendMessage) {
@@ -138,14 +187,19 @@
 
       const method = getFetchMethod(input, init);
       const pathname = new URL(url, window.location.origin).pathname;
+      const conversationId = getConversationIdFromApiPath(pathname);
+      const messagesConversationId =
+        getConversationMessagesIdFromApiPath(pathname);
+      const effectiveConversationId = conversationId ?? messagesConversationId;
       const isConversationGet =
-        method === 'GET' && pathname.startsWith(CONVERSATION_API_PATH);
+        method === 'GET' && effectiveConversationId !== null;
 
       return {
         isConversationGet,
+        isInitialConversationLoad: conversationId !== null,
         isSendMessage: method === 'POST' && pathname === SEND_MESSAGE_PATH,
         routeKey: isConversationGet
-          ? getConversationKeyFromApiPath(pathname)
+          ? effectiveConversationId
           : getCurrentConversationKey(),
       };
     } catch {
@@ -184,6 +238,71 @@
   }
 
   /**
+   * Collects request headers so backfill requests can replay ChatGPT's
+   * authentication. Forbidden (browser-controlled) headers are skipped because
+   * they cannot be set on a fetch and would otherwise be dropped.
+   * @param {RequestInfo | URL} input
+   * @param {RequestInit} [init]
+   * @returns {Record<string, string>}
+   */
+  function getRequestHeaders(
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Record<string, string> {
+    const rawHeaders: Record<string, string> = {};
+
+    if (input instanceof Request) {
+      collectHeaderEntries(rawHeaders, input.headers);
+    }
+
+    if (init?.headers) {
+      collectHeaderEntries(rawHeaders, init.headers);
+    }
+
+    const headers: Record<string, string> = {};
+
+    for (const [name, value] of Object.entries(rawHeaders)) {
+      const normalizedName = name.toLowerCase();
+
+      if (FORBIDDEN_REQUEST_HEADERS.has(normalizedName)) continue;
+      if (normalizedName.startsWith('proxy-')) continue;
+      if (normalizedName.startsWith('sec-')) continue;
+
+      headers[normalizedName] = value;
+    }
+
+    return headers;
+  }
+
+  /**
+   * Merges a HeadersInit into a lowercase-keyed header map.
+   * @param {Record<string, string>} target
+   * @param {HeadersInit} source
+   */
+  function collectHeaderEntries(
+    target: Record<string, string>,
+    source: HeadersInit
+  ): void {
+    if (source instanceof Headers) {
+      source.forEach((value, name) => {
+        target[name.toLowerCase()] = value;
+      });
+      return;
+    }
+
+    if (Array.isArray(source)) {
+      for (const [name, value] of source) {
+        target[name.toLowerCase()] = value;
+      }
+      return;
+    }
+
+    for (const [name, value] of Object.entries(source)) {
+      target[name.toLowerCase()] = value;
+    }
+  }
+
+  /**
    * Returns the ChatGPT route key at the time a request is intercepted.
    * @returns {string}
    */
@@ -191,18 +310,6 @@
     const match = location.pathname.match(/\/c\/([^/]+)/);
 
     return match?.[1] || `new-chat:${location.pathname}`;
-  }
-
-  /**
-   * Reads the target conversation ID from a conversation GET request so the
-   * response remains associated with its destination across SPA route timing.
-   * @param {string} pathname
-   * @returns {string}
-   */
-  function getConversationKeyFromApiPath(pathname: string): string {
-    const match = pathname.match(/^\/backend-api\/conversation\/([^/]+)/);
-
-    return match ? decodeURIComponent(match[1]) : getCurrentConversationKey();
   }
 
   /**
@@ -563,21 +670,132 @@
    * @param {Response} response
    * @param {string} routeKey Route key captured when the request was made.
    */
-  function postConversationData(response: Response, routeKey: string): void {
+  function postConversationData(
+    response: Response,
+    routeKey: string,
+    isInitialConversationLoad: boolean,
+    authHeaders: Record<string, string> | null
+  ): void {
     response
       .clone()
       .json()
       .then((data) => {
-        window.postMessage(
-          {
-            type: MESSAGE_TYPE,
-            routeKey,
-            payload: data,
-          },
-          '*'
-        );
+        postConversationPayload(data, routeKey);
+
+        if (isInitialConversationLoad) {
+          startBackfillIfNeeded(data, routeKey, authHeaders);
+        }
       })
       .catch(() => {});
+  }
+
+  /**
+   * Forwards one parsed conversation payload to the content script.
+   * @param {unknown} payload
+   * @param {string} routeKey
+   */
+  function postConversationPayload(payload: unknown, routeKey: string): void {
+    window.postMessage(
+      {
+        type: MESSAGE_TYPE,
+        routeKey,
+        payload,
+      },
+      '*'
+    );
+  }
+
+  /**
+   * Starts a bounded backfill of older conversation pages when the initial
+   * response indicates there is earlier history to load.
+   * @param {unknown} data Parsed initial conversation payload.
+   * @param {string} routeKey Conversation ID captured when the request was made.
+   */
+  function startBackfillIfNeeded(
+    data: unknown,
+    routeKey: string,
+    authHeaders: Record<string, string> | null
+  ): void {
+    const pageInfo = (data as ConversationPayload | undefined)?.page_info;
+
+    if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return;
+    if (!routeKey || backfillingConversationIds.has(routeKey)) return;
+
+    backfillingConversationIds.add(routeKey);
+    void backfillPreviousPages(
+      routeKey,
+      pageInfo.start_cursor,
+      authHeaders
+    ).finally(() => {
+      backfillingConversationIds.delete(routeKey);
+    });
+  }
+
+  /**
+   * Fetches earlier pages by cursor until the beginning of the conversation or
+   * the page cap is reached. Any failure stops the chain silently so the
+   * navigator falls back to accumulating whatever pages ChatGPT loads itself.
+   * @param {string} conversationId
+   * @param {string} startCursor Cursor of the next older page to fetch.
+   * @returns {Promise<void>}
+   */
+  async function backfillPreviousPages(
+    conversationId: string,
+    startCursor: string,
+    authHeaders: Record<string, string> | null
+  ): Promise<void> {
+    let cursor = startCursor;
+
+    for (let page = 0; page < BACKFILL_MAX_PAGES; page++) {
+      if (!cursor) return;
+
+      let data: ConversationPayload;
+
+      try {
+        const response = await originalFetch(
+          buildBackfillUrl(conversationId, cursor),
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: authHeaders ?? undefined,
+          }
+        );
+
+        if (!response.ok) return;
+        data = (await response.json()) as ConversationPayload;
+      } catch {
+        return;
+      }
+
+      postConversationPayload(data, conversationId);
+
+      const pageInfo = data?.page_info;
+      if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return;
+
+      cursor = pageInfo.start_cursor;
+    }
+  }
+
+  /**
+   * Builds the paginated messages URL for one older conversation page.
+   * @param {string} conversationId
+   * @param {string} beforeCursor
+   * @returns {string}
+   */
+  function buildBackfillUrl(
+    conversationId: string,
+    beforeCursor: string
+  ): string {
+    const url = new URL(
+      `/backend-api/conversations/${conversationId}/messages`,
+      window.location.origin
+    );
+
+    url.searchParams.set('before', beforeCursor);
+    url.searchParams.set('include_has_versions', 'true');
+    url.searchParams.set('num_turns', String(BACKFILL_NUM_TURNS));
+
+    return url.toString();
   }
 
   /**

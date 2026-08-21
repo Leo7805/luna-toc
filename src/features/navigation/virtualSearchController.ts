@@ -114,6 +114,7 @@ export async function searchVirtualPrompt({
   let lastDirection: 1 | -1 | null = null;
   let lastPlan: VirtualSearchPlan | null = null;
   let lastPosition: VisiblePromptPosition = { status: 'none' };
+  let networkBackfillDone = false;
 
   const finish = (
     status: VirtualSearchResultStatus
@@ -353,6 +354,89 @@ export async function searchVirtualPrompt({
     }
 
     if (isSameScrollTop(plan.scrollTop, metrics.scrollTop)) {
+      const atScrollEdge =
+        plan.scrollTop <= SCROLL_POSITION_TOLERANCE_PX ||
+        plan.scrollTop >=
+          metrics.maximumScrollTop - SCROLL_POSITION_TOLERANCE_PX;
+
+      if (atScrollEdge && !isTargetRendered()) {
+        const slideDirection: 1 | -1 =
+          plan.scrollTop <= SCROLL_POSITION_TOLERANCE_PX ? -1 : 1;
+
+        onDiagnosticEvent?.({
+          eventName: 'EDGE_BACKFILL_WAIT',
+          details: {
+            phase,
+            scrollTop: metrics.scrollTop,
+            maximumScrollTop: metrics.maximumScrollTop,
+            targetPromptIndex,
+          },
+        });
+
+        // Wait once for the network backfill to land (scrollHeight grows as
+        // ChatGPT fetches the next page of history). The remaining far-jump
+        // work is sliding the virtualized render window, which only needs
+        // scroll events, not network time.
+        if (!networkBackfillDone) {
+          networkBackfillDone = true;
+          const backfillLanded = await waitForTargetBackfill({
+            signal,
+            isTargetRendered,
+            getScrollMetrics,
+          });
+          onDiagnosticEvent?.({
+            eventName: 'BACKFILL_RESULT',
+            details: {
+              backfillLanded,
+              maximumScrollTop: getScrollMetrics().maximumScrollTop,
+              targetPromptIndex,
+            },
+          });
+        }
+
+        // Slide the render window one chunk at a time. At an edge a
+        // scrollTo(edge) is a no-op, so nudge inward first to make the return
+        // scroll a real movement that mounts the adjacent turns.
+        const slideCycles =
+          APP_CONFIG.navigation.search.maximumWindowSlideCycles;
+        for (let cycle = 0; cycle < slideCycles; cycle++) {
+          if (signal?.aborted || isTargetRendered()) break;
+
+          const slideMetrics = getScrollMetrics();
+          const edge =
+            slideDirection === -1 ? 0 : slideMetrics.maximumScrollTop;
+          const inward =
+            slideDirection === -1
+              ? Math.min(
+                  slideMetrics.maximumScrollTop,
+                  slideMetrics.scrollTop + slideMetrics.viewportHeight
+                )
+              : Math.max(
+                  0,
+                  slideMetrics.scrollTop - slideMetrics.viewportHeight
+                );
+
+          scrollTo(inward);
+          await waitForRender();
+          scrollTo(edge);
+          await waitForRender();
+
+          onDiagnosticEvent?.({
+            eventName: 'WINDOW_SLIDE_STEP',
+            details: {
+              cycle: cycle + 1,
+              direction: slideDirection,
+              inward: Math.round(inward),
+              edge: Math.round(edge),
+              targetPromptIndex,
+            },
+          });
+        }
+
+        attempts += 1;
+        continue;
+      }
+
       lastPlan = plan;
       return finish('exhausted');
     }
@@ -415,6 +499,54 @@ export function waitForVirtualRender(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, APP_CONFIG.navigation.search.renderWaitMs);
   });
+}
+
+/**
+ * Waits for ChatGPT to finish asynchronously mounting turns beyond the
+ * currently loaded window. During this backfill the browser re-anchors the
+ * scroll position, so the caller must re-observe and re-plan afterwards.
+ */
+async function waitForTargetBackfill({
+  signal,
+  isTargetRendered,
+  getScrollMetrics,
+}: {
+  signal?: AbortSignal;
+  isTargetRendered: () => boolean;
+  getScrollMetrics: () => VirtualScrollMetrics;
+}): Promise<boolean> {
+  const deadline =
+    performance.now() + APP_CONFIG.navigation.search.edgeBackfillWaitMs;
+
+  // Wait for ChatGPT to backfill the next page of history. The scrollable
+  // height growing is the signal that a backfill landed; once it has grown we
+  // wait for it to stabilise before returning, so the caller re-observes on
+  // settled content. If it never grows we keep waiting for the full interval:
+  // an in-flight network backfill is indistinguishable from "not started yet"
+  // during the first few polls, so an early return would starve it.
+  let previousMaximumScrollTop = getScrollMetrics().maximumScrollTop;
+  let sawChange = false;
+  let stableRounds = 0;
+
+  while (performance.now() < deadline) {
+    if (signal?.aborted || isTargetRendered()) return sawChange;
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const currentMaximumScrollTop = getScrollMetrics().maximumScrollTop;
+    if (
+      Math.abs(currentMaximumScrollTop - previousMaximumScrollTop) >
+      SCROLL_POSITION_TOLERANCE_PX
+    ) {
+      previousMaximumScrollTop = currentMaximumScrollTop;
+      sawChange = true;
+      stableRounds = 0;
+    } else {
+      stableRounds += 1;
+      if (sawChange && stableRounds >= 2) return true;
+    }
+  }
+
+  return sawChange;
 }
 
 /**

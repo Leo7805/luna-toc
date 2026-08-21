@@ -93,6 +93,7 @@ export const navigatorController = (() => {
   });
 
   let conversationMessages: NavigatorMessage[] = [];
+  const accumulatedConversationMessages = new Map<string, Map<string, ChatMessage>>();
   let searchQuery = '';
   let currentConversationKey: string | null = null;
   let pendingNewChatRouteKey: string | null = null;
@@ -790,12 +791,71 @@ export const navigatorController = (() => {
   }
 
   function handleConversationData(data: ConversationData): void {
-    if (!data?.mapping) return;
+    const incomingMessages = data?.messages;
+    if (!Array.isArray(incomingMessages)) return;
 
     onTitleChanged();
-    conversationMessages = extractUserMessages(data);
-    cacheConversationNavigationData(getCurrentConversationKey(), data);
+
+    const conversationKey = getCurrentConversationKey();
+    const messageMap = getAccumulatedMessageMap(conversationKey);
+
+    for (const message of incomingMessages) {
+      if (message?.id) messageMap.set(message.id, message);
+    }
+
+    const mergedData = buildMergedConversationData(
+      conversationKey,
+      data.current_node
+    );
+    conversationMessages = extractUserMessages(mergedData);
+    cacheConversationNavigationData(conversationKey, mergedData);
     render({ refreshObservers: true });
+  }
+
+  /**
+   * Returns the per-conversation raw message accumulator used to merge pages.
+   * @param {string} conversationKey
+   * @returns {Map<string, ChatMessage>}
+   */
+  function getAccumulatedMessageMap(
+    conversationKey: string
+  ): Map<string, ChatMessage> {
+    let messageMap = accumulatedConversationMessages.get(conversationKey);
+
+    if (!messageMap) {
+      messageMap = new Map();
+      accumulatedConversationMessages.set(conversationKey, messageMap);
+    }
+
+    return messageMap;
+  }
+
+  /**
+   * Builds a merged conversation payload from accumulated pages, ordered oldest
+   * first so downstream turns and prompts keep a stable chronological order.
+   * @param {string} conversationKey
+   * @param {string | null} [current_node]
+   * @returns {ConversationData}
+   */
+  function buildMergedConversationData(
+    conversationKey: string,
+    current_node?: string | null
+  ): ConversationData {
+    const messageMap = accumulatedConversationMessages.get(conversationKey);
+    const messages = messageMap ? Array.from(messageMap.values()) : [];
+
+    messages.sort((a, b) => getMessageCreateTime(a) - getMessageCreateTime(b));
+
+    return { messages, current_node };
+  }
+
+  /**
+   * Returns a message's creation timestamp, tolerating both API field names.
+   * @param {ChatMessage} message
+   * @returns {number}
+   */
+  function getMessageCreateTime(message: ChatMessage): number {
+    return message.create_time ?? message.createTime ?? 0;
   }
 
   function listenForConversationData(): void {
