@@ -115,6 +115,8 @@ beforeEach(() => {
       segmentIndex: [],
     }),
     lockActiveIndex: vi.fn(),
+      setJumpProgress: vi.fn(),
+      clearJumpProgress: vi.fn(),
   });
 });
 
@@ -139,6 +141,8 @@ describe('prompt navigation strategy', () => {
         segmentIndex: [],
       }),
       lockActiveIndex: vi.fn(),
+      setJumpProgress: vi.fn(),
+      clearJumpProgress: vi.fn(),
     });
 
     jumpToMessage(
@@ -197,6 +201,8 @@ describe('prompt navigation strategy', () => {
         segmentIndex: [],
       }),
       lockActiveIndex: vi.fn(),
+      setJumpProgress: vi.fn(),
+      clearJumpProgress: vi.fn(),
     });
 
     jumpToMessage(
@@ -275,6 +281,8 @@ describe('prompt navigation strategy', () => {
         segmentIndex: [],
       }),
       lockActiveIndex: vi.fn(),
+      setJumpProgress: vi.fn(),
+      clearJumpProgress: vi.fn(),
     });
 
     jumpToMessage(

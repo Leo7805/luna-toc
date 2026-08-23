@@ -41,6 +41,7 @@ import {
   resetPromptItems,
   scheduleBuild,
   setPromptMessages,
+  setSidebarStatus,
   syncActivePrompt,
   syncMarkState,
 } from '../features/navigation/outline';
@@ -104,6 +105,14 @@ export const navigatorController = (() => {
   let activePromptMutationObserver: MutationObserver | null = null;
   let activePromptMutationTimer: ReturnType<typeof setTimeout> | null = null;
   let activeNativeTocObserver: MutationObserver | null = null;
+  /** True while prompts are still arriving (backfill / pagination in flight). */
+  let isLoadingPrompts = true;
+  /** Active jump navigation progress, or null when idle. */
+  let jumpProgress: {
+    active: boolean;
+    targetIndex: number;
+    remainingSteps: number;
+  } | null = null;
   let activeNativeTocTimer: ReturnType<typeof setTimeout> | null = null;
   let lockedNavigatorIndex: number | null = null;
   let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
@@ -171,6 +180,8 @@ export const navigatorController = (() => {
         };
       },
       lockActiveIndex: lockActiveNavigatorItem,
+      setJumpProgress,
+      clearJumpProgress,
     });
 
     initActivePromptTracking();
@@ -253,6 +264,7 @@ export const navigatorController = (() => {
     resetPromptItems();
     setPromptMessages(conversationMessages);
     reportPromptCount();
+    setSidebarStatus(getJumpProgress(), isLoadingPrompts, conversationMessages.length);
 
     const normalizedQuery = normalizeText(searchQuery).toLowerCase();
     const visibleMessages = conversationMessages
@@ -374,6 +386,37 @@ export const navigatorController = (() => {
 
     reportedPromptCount = promptCount;
     onPromptCountChanged(promptCount);
+  }
+
+  /**
+   * Returns the current jump progress snapshot, or null when no jump is
+   * active. Consumed by the sidebar status element.
+   */
+  function getJumpProgress(): typeof jumpProgress {
+    return jumpProgress;
+  }
+
+  /**
+   * Marks a jump as active and records the target index plus the remaining
+   * slide-loop step budget. Re-renders so the sidebar status picks up the
+   * change on the next animation frame.
+   */
+  function setJumpProgress(
+    next: NonNullable<typeof jumpProgress>
+  ): void {
+    jumpProgress = next;
+    render();
+  }
+
+  /**
+   * Clears any active jump progress. Called by the navigation layer when a
+   * jump resolves or aborts so the sidebar status returns to the idle
+   * prompt-count display.
+   */
+  function clearJumpProgress(): void {
+    if (jumpProgress === null) return;
+    jumpProgress = null;
+    render();
   }
 
   function normalizeText(text: string): string {
@@ -809,6 +852,9 @@ export const navigatorController = (() => {
     );
     conversationMessages = extractUserMessages(mergedData);
     cacheConversationNavigationData(conversationKey, mergedData);
+    isLoadingPrompts =
+      (data?.page_info as { has_previous_page?: boolean } | undefined)
+        ?.has_previous_page !== false;
     render({ refreshObservers: true });
   }
 
@@ -898,12 +944,15 @@ export const navigatorController = (() => {
 
   return {
     attach,
+    clearJumpProgress,
     getCurrentConversationKey,
+    getJumpProgress,
     init,
     jumpToAbsoluteEdge,
     jumpToEdge,
     render,
     resetView,
+    setJumpProgress,
     setSearchQuery,
   };
 })();

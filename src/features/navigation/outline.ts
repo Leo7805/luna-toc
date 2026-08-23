@@ -131,6 +131,96 @@ export function setPromptMessages(messages: NavigatorMessage[]): void {
 }
 
 /**
+ * How long the completed-status text lingers before retracting. Shared by
+ * the loading-complete and jump-complete transitions.
+ */
+const STATUS_LINGER_MS = 2000;
+
+type SidebarStatusMode = 'idle' | 'loading' | 'jumping' | 'complete';
+let currentStatusMode: SidebarStatusMode = 'idle';
+let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
+/**
+ * Last text rendered while in `jumping` mode. Reused as the lingering
+ * text after a jump finishes so the user sees the final target instead of
+ * an empty band.
+ */
+let lastJumpingText = '';
+
+/**
+ * Updates the small status line that lives between the sidebar header and
+ * the prompt list. Owns the appear / linger / retract lifecycle:
+ *
+ *   - `jumping` / `loading`: shown immediately.
+ *   - `complete` (just-finished loading or just-finished jump): shown, then
+ *     retracted after `STATUS_LINGER_MS`.
+ *   - `idle` (no operation in flight, no linger pending): hidden, no
+ *     reserved space.
+ *
+ * Safe to call on every render — the helper short-circuits when neither
+ * the mode nor the rendered text changes, and it never resets the linger
+ * timer once it is running.
+ *
+ * @param {object | null} jump Current jump progress, or null when idle.
+ * @param {boolean} loading True while prompts are still arriving.
+ * @param {number} promptCount Total prompts accumulated so far.
+ */
+export function setSidebarStatus(
+  jump: { active: boolean; targetIndex: number; remainingSteps: number } | null,
+  loading: boolean,
+  promptCount: number
+): void {
+  const element = document.getElementById('luna-toc-status');
+  if (!element) return;
+
+  let targetMode: SidebarStatusMode;
+  let text: string;
+
+  if (jump && jump.active) {
+    targetMode = 'jumping';
+    text = `Jumping to prompt #${jump.targetIndex}... (${jump.remainingSteps} steps left)`;
+    lastJumpingText = text;
+  } else if (loading) {
+    targetMode = 'loading';
+    text = `Loading... (${promptCount} so far)`;
+  } else if (currentStatusMode === 'loading') {
+    targetMode = 'complete';
+    text = `${promptCount} prompts`;
+  } else if (currentStatusMode === 'jumping') {
+    targetMode = 'complete';
+    text = lastJumpingText;
+  } else if (currentStatusMode === 'complete') {
+    // The linger timer is in flight; keep the band visible and do not
+    // reset the timer.
+    targetMode = 'complete';
+    text = `${promptCount} prompts`;
+  } else {
+    targetMode = 'idle';
+    text = '';
+  }
+
+  if (targetMode === currentStatusMode && element.textContent === text) {
+    return;
+  }
+
+  currentStatusMode = targetMode;
+  element.textContent = text;
+  element.classList.toggle('navigator-status-active', targetMode !== 'idle');
+
+  if (statusLingerTimer !== null) {
+    clearTimeout(statusLingerTimer);
+    statusLingerTimer = null;
+  }
+  if (targetMode === 'complete') {
+    statusLingerTimer = window.setTimeout(() => {
+      currentStatusMode = 'idle';
+      element.textContent = '';
+      element.classList.remove('navigator-status-active');
+      statusLingerTimer = null;
+    }, STATUS_LINGER_MS);
+  }
+}
+
+/**
  * Creates and registers the outline-related DOM pieces for a prompt row.
  * @param {Object} params
  * @param {HTMLElement} params.item Prompt row element.

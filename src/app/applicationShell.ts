@@ -120,6 +120,12 @@ async function createSidebar(): Promise<HTMLElement> {
           </button>
         </div>
         <p class="navigator-hint">${NAVIGATOR_EMPTY_HINT_TEXT}</p>
+        <div
+          id="luna-toc-status"
+          class="navigator-status"
+          aria-live="polite"
+          role="status"
+        ></div>
         <input
           id="navigator-search"
           type="search"

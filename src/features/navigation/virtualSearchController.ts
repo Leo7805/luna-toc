@@ -61,6 +61,12 @@ export interface VirtualSearchControllerOptions {
   maxDurationMs?: number;
   targetDomRecoveryDirection?: 1 | -1 | null;
   onDiagnosticEvent?: (event: VirtualSearchDiagnosticEvent) => void;
+  /**
+   * Optional progress callback fired at the top of every main-loop
+   * iteration. The reported `remaining` is the budget of attempts left
+   * before the search gives up.
+   */
+  onProgress?: (info: { remaining: number }) => void;
 }
 
 export type VirtualSearchResultStatus =
@@ -102,6 +108,7 @@ export async function searchVirtualPrompt({
   maxDurationMs = APP_CONFIG.navigation.search.maxDurationMs,
   targetDomRecoveryDirection = null,
   onDiagnosticEvent,
+  onProgress,
 }: VirtualSearchControllerOptions): Promise<VirtualSearchResult> {
   const startedAt = now();
   const confirmedAnchors = await getConfirmedAnchors();
@@ -147,6 +154,8 @@ export async function searchVirtualPrompt({
   });
 
   while (attempts < Math.max(0, maxAttempts)) {
+    onProgress?.({ remaining: Math.max(0, maxAttempts - attempts) });
+
     const terminalStatus = getTerminalStatus({
       signal,
       startedAt,

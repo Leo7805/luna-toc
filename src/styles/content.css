@@ -794,6 +794,30 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   line-height: 1.4;
 }
 
+.navigator-status {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0 12px;
+  text-align: center;
+  color: var(--ct-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.3s ease,
+    padding 0.3s ease;
+}
+
+.navigator-status.navigator-status-active {
+  max-height: 32px;
+  opacity: 1;
+  padding: 4px 12px;
+}
+
 /* My Prompts Styling */
 #toggle-view-mode-btn.mode-myprompts-active {
   color: var(--ct-accent-strong);

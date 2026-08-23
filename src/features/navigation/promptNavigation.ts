@@ -42,6 +42,12 @@ interface PromptNavigationOptions {
   getConversationMessageCount: () => number;
   getVirtualSearchContext: () => VirtualSearchContext;
   lockActiveIndex: (index: number, duration?: number) => void;
+  setJumpProgress: (progress: {
+    active: boolean;
+    targetIndex: number;
+    remainingSteps: number;
+  }) => void;
+  clearJumpProgress: () => void;
 }
 
 interface ScrollToMessageOptions {
@@ -87,6 +93,12 @@ let getVirtualSearchContext: () => VirtualSearchContext = () => ({
   segmentIndex: [],
 });
 let lockActiveIndex: (index: number, duration?: number) => void = () => {};
+let setJumpProgress: (progress: {
+  active: boolean;
+  targetIndex: number;
+  remainingSteps: number;
+}) => void = () => {};
+let clearJumpProgress: () => void = () => {};
 let virtualScanToken = 0;
 let navigationAnchorStore: NavigationAnchorStore | null = null;
 let activeIndependentSearch: AbortController | null = null;
@@ -101,6 +113,8 @@ const debugStorageKey = 'chatTocDebugJump';
  * @param {(element: HTMLElement) => number} options.findConversationIndexByElement
  * @param {() => number} options.getConversationMessageCount
  * @param {(index: number, duration?: number) => void} options.lockActiveIndex
+ * @param {(progress: object) => void} options.setJumpProgress
+ * @param {() => void} options.clearJumpProgress
  */
 export function initializePromptNavigation(
   options: PromptNavigationOptions
@@ -111,6 +125,8 @@ export function initializePromptNavigation(
   getConversationMessageCount = options.getConversationMessageCount;
   getVirtualSearchContext = options.getVirtualSearchContext;
   lockActiveIndex = options.lockActiveIndex;
+  setJumpProgress = options.setJumpProgress;
+  clearJumpProgress = options.clearJumpProgress;
 }
 
 /**
@@ -313,6 +329,12 @@ function jumpWithIndependentVirtualNavigation(
   activeIndependentSearch = controller;
   const anchorStore = getNavigationAnchorStore();
 
+  setJumpProgress({
+    active: true,
+    targetIndex: index,
+    remainingSteps: testConfig.maxSearchAttempts,
+  });
+
   void searchVirtualPrompt({
     targetPromptId: message.id,
     targetPromptIndex: index,
@@ -366,6 +388,13 @@ function jumpWithIndependentVirtualNavigation(
       }),
     signal: controller.signal,
     maxAttempts: testConfig.maxSearchAttempts,
+    onProgress: ({ remaining }) => {
+      setJumpProgress({
+        active: true,
+        targetIndex: index,
+        remainingSteps: remaining,
+      });
+    },
     maxUnproductiveAttempts:
       testConfig.maxUnproductiveSearchAttempts,
     maxDurationMs: testConfig.maxSearchDurationMs,
@@ -437,6 +466,9 @@ function jumpWithIndependentVirtualNavigation(
         status: 'error',
       });
       console.warn('[LunaTOC] Independent navigation failed.', error);
+    })
+    .finally(() => {
+      clearJumpProgress();
     });
 }
 
