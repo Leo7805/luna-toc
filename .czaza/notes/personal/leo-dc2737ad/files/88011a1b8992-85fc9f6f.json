@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:092016cb6a4ba073594fd82d54d6a993ea94b8178965b4709837291f140db798",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T11:50:00.609Z",
+    "updatedAt": "2026-08-23T11:50:00.609Z"
+  },
+  "fileNote": {
+    "userNote": "提升 ChatGPT 每次从服务端获取的 Turns 总数 (turns 不是 prompts，大概是另一种按长度和 prompts 一起把内容分成几条的方式?)",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

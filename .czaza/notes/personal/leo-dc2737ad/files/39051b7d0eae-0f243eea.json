@@ -1,6 +1,7 @@
 {
   "source": {
-    "sourceHash": "sha256:991a366ef6d8f427451dec34bc22d23a5b76515e907a1aff9985df0d9be00fa8"
+    "sourceHash": "sha256:4bb77da3e8602e69e3e46468dec85bc89678df61f926a10059124dcc67256b44",
+    "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-08-21T06:04:51.214Z",

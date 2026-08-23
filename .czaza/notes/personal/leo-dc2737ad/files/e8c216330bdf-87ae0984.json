@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:7a3f8d7d9d0703e14d546716d282ed05339d35adaaf0430feb4c4107d7baee7a",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T13:02:27.667Z",
+    "updatedAt": "2026-08-23T13:12:50.910Z"
+  },
+  "fileNote": {
+    "userNote": "全局 \"ChatGPT 参数/接口等更新提醒\" 弹窗英文文案常量\n\n弹窗里所有\"给老外看的英文文案\"集中地，改文案不用满世界翻代码。\n\n它做了啥： 导出 6 个常量 — 标题 COMPATIBILITY_ALERT_TITLE、正文 COMPATIBILITY_ALERT_BODY（带 {label} 占位符）、技术细节折叠区的 ..._SUMMARY / _EXPECTED / _OBSERVED、多条记录时的提示 ..._MULTI_NOTE、以及按钮文案 ..._DISMISS。就这点事，一个纯字符串文件。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

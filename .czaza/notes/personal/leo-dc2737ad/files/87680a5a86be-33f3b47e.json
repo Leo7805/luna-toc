@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:cbfc6a7ef308dcb6a5a5c2fb8863d80b15fc6dc84f3fb6e9f2a576077cdf5b82",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T13:13:57.114Z",
+    "updatedAt": "2026-08-23T13:13:57.114Z"
+  },
+  "fileNote": {
+    "userNote": "\"检测到 ChatGPT 改版了 → 先记一笔\"的地方，是整个告警功能的\"账本\"。\n\n它做了啥： 模块级维护两张小本本：\n1. 一个 Map<contractId, MismatchRecord>（存放未处理的 mismatch\n2. 一个 Set<Listener>（订阅者）。对外露 5 个函数：  recordMismatch(...) 按 contractId 去重记录第一条；dismissMismatch(id) 删单条；\ndismissAllMismatches() 清空；\ngetPendingMismatches() 拿当前快照；\nsubscribeMismatches(fn) 订阅并立刻同步一次最新状态（返回反订阅函数）。\n\n另外 shouldDisplayAlert(...) 包了一层\"开关是否打开\"的判断逻辑。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

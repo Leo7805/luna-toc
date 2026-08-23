@@ -7,7 +7,16 @@ import {
   getConversationIdFromApiPath,
   getConversationMessagesIdFromApiPath,
 } from '@/platforms/chatgpt/conversationRequest';
-import { APP_CONFIG } from '@/config/config';
+import {
+  maybeBumpChatGptFetchNumTurns,
+  getFetchUrl,
+} from '@/platforms/chatgpt/chatGptFetchBumper';
+import {
+  APP_CONFIG,
+  getActiveContractValue,
+  type ChatGptContractId,
+} from '@/config/config';
+import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } from '@/features/contractAlert/pageHookBridge';
 
 (() => {
   type FetchArgs = Parameters<typeof window.fetch>;
@@ -93,6 +102,21 @@ import { APP_CONFIG } from '@/config/config';
   let wideViewportSpoofEnabled = true;
   const spoofedMediaQueryLists = new Set<SpoofedMediaQueryEntry>();
   const backfillingConversationIds = new Set<string>();
+  const contractMismatchCounters = new Map<ChatGptContractId, number>();
+  /**
+   * Effective contract values pushed from the content script. When a value
+   * is present it overrides the hard-coded fallback used by the page-hook
+   * detection. Populated on startup and on every `chrome.storage` change.
+   */
+  const effectiveContractValues: Partial<Record<ChatGptContractId, string>> = {};
+  let effectiveUseLocalConfig = false;
+  /**
+   * Minimum number of times a given contract mismatch must be observed in a
+   * session before it is forwarded to the content-script detector. One-off
+   * path variations are filtered out; consistent mismatches reach the
+   * developer-facing alert.
+   */
+  const CONTRACT_MISMATCH_REPORT_THRESHOLD = 2;
   const hookWindow = window as unknown as Window & Record<string, unknown>;
 
   if (hookWindow[HOOK_FLAG]) {
@@ -107,8 +131,47 @@ import { APP_CONFIG } from '@/config/config';
 
   const originalFetch = window.fetch.bind(window);
 
+  window.addEventListener('message', (event: MessageEvent): void => {
+    const data = event.data as
+      | {
+          type?: string;
+          useLocalConfig?: unknown;
+          contractValues?: Record<string, unknown>;
+        }
+      | null;
+    if (!data || data.type !== CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE) return;
+    if (typeof data.useLocalConfig === 'boolean') {
+      effectiveUseLocalConfig = data.useLocalConfig;
+    }
+    if (data.contractValues && typeof data.contractValues === 'object') {
+      for (const [key, value] of Object.entries(data.contractValues)) {
+        if (typeof value === 'string') {
+          effectiveContractValues[key as ChatGptContractId] = value;
+        }
+      }
+    }
+  });
+
   window.fetch = async function (...args) {
     const requestMeta = getRequestMeta(args);
+
+    try {
+      const requestUrl = getFetchUrl(args[0]);
+      const requestPath = new URL(requestUrl, window.location.origin).pathname;
+      if (
+        requestMeta &&
+        requestMeta.isConversationGet &&
+        requestPath.includes('/backend-api/conversations/')
+      ) {
+        const expectedTemplate = effectiveContractValues['api.conversation.path'];
+        if (
+          expectedTemplate &&
+          !buildPathRegexFromTemplate(expectedTemplate).test(requestPath)
+        ) {
+          reportContractMismatch('api.conversation.path', requestPath);
+        }
+      }
+    } catch {}
 
     try {
       if (requestMeta?.isSendMessage) {
@@ -116,7 +179,12 @@ import { APP_CONFIG } from '@/config/config';
       }
     } catch {}
 
-    const fetchArgs = maybeBumpChatGptPaginationNumTurns(args);
+    const fetchArgs = maybeBumpChatGptFetchNumTurns(args, {
+      paginationNumTurns:
+        APP_CONFIG.platforms.chatgpt.interceptChatGptPaginationNumTurns,
+      initialLoadNumTurns:
+        APP_CONFIG.platforms.chatgpt.interceptChatGptInitialLoadNumTurns,
+    });
     const response = await originalFetch(...fetchArgs);
 
     try {
@@ -212,63 +280,48 @@ import { APP_CONFIG } from '@/config/config';
   }
 
   /**
-   * Rewrites ChatGPT's own older-page pagination requests
-   * (`/backend-api/conversations/{id}/messages?before=...`) to carry a larger
-   * `num_turns` so its renderer fills the message store in a single fetch
-   * instead of several small ones. The renderer's virtual window then slides
-   * over pre-loaded data on subsequent scrolls, which dramatically speeds up
-   * far-jump navigation. Our own backfill calls `originalFetch` directly, so
-   * it bypasses this rewrite.
-   * @param {FetchArgs} args
-   * @returns {FetchArgs}
+   * Increments the per-contract mismatch counter and, once it crosses the
+   * report threshold, posts a `LUNA_CONTRACT_MISMATCH` message to the
+   * content-script detector. Subsequent observations of the same contract
+   * are ignored so a noisy page does not spam the bridge.
+   * @param {ChatGptContractId} contractId
+   * @param {string} actual The value the page-hook actually observed.
    */
-  function maybeBumpChatGptPaginationNumTurns(args: FetchArgs): FetchArgs {
-    const target =
-      APP_CONFIG.platforms.chatgpt.interceptChatGptPaginationNumTurns;
-    if (typeof target !== 'number') return args;
-
-    const input = args[0];
-    const init = args[1];
+  function reportContractMismatch(
+    contractId: ChatGptContractId,
+    actual: string
+  ): void {
+    const previous = contractMismatchCounters.get(contractId) ?? 0;
+    if (previous >= CONTRACT_MISMATCH_REPORT_THRESHOLD) return;
+    const next = previous + 1;
+    contractMismatchCounters.set(contractId, next);
+    if (next < CONTRACT_MISMATCH_REPORT_THRESHOLD) return;
 
     try {
-      const urlString = getFetchUrl(input);
-      const url = new URL(urlString, window.location.origin);
-
-      if (getConversationMessagesIdFromApiPath(url.pathname) === null) {
-        return args;
-      }
-      if (!url.searchParams.has('before')) return args;
-
-      url.searchParams.set('num_turns', String(target));
-
-      if (typeof Request !== 'undefined' && input instanceof Request) {
-        return [
-          new Request(url.toString(), input),
-          init,
-        ] as unknown as FetchArgs;
-      }
-      return [url.toString(), init] as FetchArgs;
-    } catch {
-      return args;
-    }
+      window.postMessage(
+        {
+          type: PAGE_HOOK_MISMATCH_MESSAGE_TYPE,
+          contractId,
+          expected: getActiveContractValue(contractId, false),
+          actual,
+        },
+        window.location.origin
+      );
+    } catch {}
   }
 
   /**
-   * Normalizes fetch input into a URL string so Request objects and string
-   * URLs are handled the same way.
-   * @param {RequestInfo | URL} input
-   * @returns {string}
+   * Builds a RegExp from a contract path template by escaping every regex
+   * special character and substituting the `{id}` placeholder with a path
+   * segment matcher.
+   * @param {string} template
+   * @returns {RegExp}
    */
-  function getFetchUrl(input: RequestInfo | URL): string {
-    if (typeof input === 'string') {
-      return input;
-    }
-
-    if (input instanceof Request) {
-      return input.url;
-    }
-
-    return input instanceof URL ? input.toString() : '';
+  function buildPathRegexFromTemplate(template: string): RegExp {
+    const parts = template.split('{id}').map((part) =>
+      part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    );
+    return new RegExp('^' + parts.join('([^/]+)') + '/?$');
   }
 
   /**
@@ -727,6 +780,14 @@ import { APP_CONFIG } from '@/config/config';
       .json()
       .then((data) => {
         postConversationPayload(data, routeKey);
+
+        const messages = (data as { messages?: unknown } | null)?.messages;
+        if (!Array.isArray(messages)) {
+          reportContractMismatch(
+            'response.messages-field',
+            `typeof messages = ${typeof messages}`
+          );
+        }
 
         if (isInitialConversationLoad) {
           startBackfillIfNeeded(data, routeKey, authHeaders);

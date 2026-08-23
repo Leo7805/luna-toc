@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomplete';
 import { PromptContextMenuHost } from '@/components/my-prompts/PromptContextMenu';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
+import { ContractAlert } from '@/features/contractAlert/ContractAlert';
 import tailwindCss from '@/styles/tailwind.css?inline';
 
 const REACT_HOST_ID = 'luna-toc-react-host';
@@ -52,6 +53,7 @@ export async function initializeReactHost(): Promise<void> {
       <PromptAutocompleteHost />
       <PromptContextMenuHost />
       <PromptEditorDialogHost />
+      <ContractAlert />
     </>
   );
 }

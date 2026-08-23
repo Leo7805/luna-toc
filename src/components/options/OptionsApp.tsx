@@ -1,6 +1,11 @@
 /** Renders LunaTOC's full-page extension settings. */
 import { useEffect, useState } from 'react';
-import type { ChatGptNavigationAlgorithm } from '@/config/config';
+import {
+  loadChatGptRuntimeConfig,
+  saveChatGptRuntimeConfig,
+  type ChatGptRuntimeConfig,
+  type ChatGptNavigationAlgorithm,
+} from '@/config/config';
 import {
   readNavigationSettings,
   subscribeNavigationSettings,
@@ -32,6 +37,8 @@ const NAVIGATION_CHOICES: NavigationChoice[] = [
 export function OptionsApp(): React.JSX.Element {
   const [algorithm, setAlgorithm] =
     useState<ChatGptNavigationAlgorithm>('legacy-native');
+  const [runtimeConfig, setRuntimeConfig] =
+    useState<ChatGptRuntimeConfig | null>(null);
 
   useEffect(() => {
     void readNavigationSettings().then(({ chatgpt }) => {
@@ -42,11 +49,45 @@ export function OptionsApp(): React.JSX.Element {
     });
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void loadChatGptRuntimeConfig().then((cfg) => {
+      if (!cancelled) setRuntimeConfig(cfg);
+    });
+
+    const handleChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: chrome.storage.AreaName
+    ): void => {
+      if (areaName !== 'local') return;
+      if (!('chatGptRuntimeConfig' in changes)) return;
+      void loadChatGptRuntimeConfig().then((cfg) => {
+        if (!cancelled) setRuntimeConfig(cfg);
+      });
+    };
+
+    chrome.storage.onChanged.addListener(handleChange);
+
+    return () => {
+      cancelled = true;
+      chrome.storage.onChanged.removeListener(handleChange);
+    };
+  }, []);
+
   const selectAlgorithm = (
     nextAlgorithm: ChatGptNavigationAlgorithm
   ): void => {
     setAlgorithm(nextAlgorithm);
     void writeNavigationSettings({ chatgpt: nextAlgorithm });
+  };
+
+  const toggleCompatibilityAlert = (next: boolean): void => {
+    setRuntimeConfig((prev) =>
+      prev
+        ? { ...prev, showCompatibilityAlert: next }
+        : { useLocalConfig: false, showCompatibilityAlert: next }
+    );
+    void saveChatGptRuntimeConfig({ showCompatibilityAlert: next });
   };
 
   return (
@@ -113,6 +154,48 @@ export function OptionsApp(): React.JSX.Element {
               </label>
             );
           })}
+        </fieldset>
+      </section>
+
+      <section aria-labelledby="compat-heading" className="mt-10">
+        <h2
+          id="compat-heading"
+          className="m-0 text-lg font-semibold text-[var(--o-text)]"
+        >
+          Compatibility
+        </h2>
+        <p className="mt-1 mb-4 text-sm text-[var(--o-muted)]">
+          Developer diagnostics. Off by default so end users are not notified.
+        </p>
+
+        <fieldset className="m-0 grid gap-3 border-0 p-0">
+          <legend className="sr-only">ChatGPT Compatibility Alert</legend>
+          <label
+            className={`grid cursor-pointer grid-cols-[18px_minmax(0,1fr)] gap-3 rounded-xl border p-4 transition ${
+              runtimeConfig?.showCompatibilityAlert
+                ? 'border-[var(--o-accent)] bg-[var(--o-accent-soft)]'
+                : 'border-[var(--o-border)] bg-[var(--o-surface)] hover:border-[var(--o-accent)]'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={runtimeConfig?.showCompatibilityAlert ?? false}
+              onChange={(event) =>
+                toggleCompatibilityAlert(event.currentTarget.checked)
+              }
+              className="mt-0.5 size-4 accent-[var(--o-accent)]"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[var(--o-text)]">
+                ChatGPT Compatibility Alert
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-[var(--o-muted)]">
+                Notify me on this page when ChatGPT&apos;s API or layout changes
+                may affect LunaTOC. (Developer feature — leave off unless
+                you&apos;re maintaining the extension.)
+              </span>
+            </span>
+          </label>
         </fieldset>
       </section>
     </main>

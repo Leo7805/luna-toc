@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-21T06:04:51.216Z",
+  "updatedAt": "2026-08-23T13:40:12.188Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -10,18 +10,57 @@
     },
     "src/page/pageHook.iife.ts": {
       "noteFile": "files/a8e5241e739a-faf1a811.json",
-      "sourceHash": "sha256:f574e8cba67598fe65406059b314e44da8f723c1977ff593da040d176a3a9e24",
-      "updatedAt": "2026-08-21T06:04:51.202Z"
+      "sourceHash": "sha256:af013677525b930adc60273c2764ac8adb4ab5a97666bcb42d24e6c125082c4e",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.188Z"
     },
     "src/platforms/chatgpt/conversationRequest.ts": {
       "noteFile": "files/39051b7d0eae-0f243eea.json",
-      "sourceHash": "sha256:991a366ef6d8f427451dec34bc22d23a5b76515e907a1aff9985df0d9be00fa8",
-      "updatedAt": "2026-08-21T06:04:51.214Z"
+      "sourceHash": "sha256:4bb77da3e8602e69e3e46468dec85bc89678df61f926a10059124dcc67256b44",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.182Z"
     },
     "test/platforms/chatgpt/conversationRequest.test.ts": {
       "noteFile": "files/d9c194d03e97-2d38b211.json",
-      "sourceHash": "sha256:4b2969f32b3e3d8ad574fc080068d0b07263fabb2d6a0eed33276401f2d60efc",
-      "updatedAt": "2026-08-21T06:04:51.216Z"
+      "sourceHash": "sha256:b4110a5fed9404f262dc92d918090a63c690743e8b3a1848c8ff29d9d65c4930",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.178Z"
+    },
+    "src/platforms/chatgpt/chatGptFetchBumper.ts": {
+      "noteFile": "files/88011a1b8992-85fc9f6f.json",
+      "sourceHash": "sha256:092016cb6a4ba073594fd82d54d6a993ea94b8178965b4709837291f140db798",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T11:50:00.609Z"
+    },
+    "src/features/contractAlert/copy.ts": {
+      "noteFile": "files/e8c216330bdf-87ae0984.json",
+      "sourceHash": "sha256:7a3f8d7d9d0703e14d546716d282ed05339d35adaaf0430feb4c4107d7baee7a",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:02:27.667Z"
+    },
+    "src/features/contractAlert/ContractAlert.tsx": {
+      "noteFile": "files/3393e170cb07-d020dcce.json",
+      "sourceHash": "sha256:61cba423303457fdab2a9ab34fae382788e1d065c55a7ee2c9b5995441bd532f",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-08-23T13:04:33.037Z"
+    },
+    "src/components/ui/dialog.tsx": {
+      "noteFile": "files/c24ba5eb166e-ae27a9c4.json",
+      "sourceHash": "sha256:0ab45cc42b90717ddb8bf1dd02fb05644581b44be64df4bef28b45fff4a29879",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-08-23T13:12:03.589Z"
+    },
+    "src/features/contractAlert/detector.ts": {
+      "noteFile": "files/87680a5a86be-33f3b47e.json",
+      "sourceHash": "sha256:cbfc6a7ef308dcb6a5a5c2fb8863d80b15fc6dc84f3fb6e9f2a576077cdf5b82",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:13:57.114Z"
+    },
+    "src/features/contractAlert/pageHookBridge.ts": {
+      "noteFile": "files/cc2340967349-4fe20fe5.json",
+      "sourceHash": "sha256:859f5f56e155f3a0a6c03c51b36f0203070162259b21cd62b07868e5752ce5e8",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.172Z"
     }
   }
 }

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:859f5f56e155f3a0a6c03c51b36f0203070162259b21cd62b07868e5752ce5e8",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T13:14:28.047Z",
+    "updatedAt": "2026-08-23T13:14:28.047Z"
+  },
+  "fileNote": {
+    "userNote": "把\"在网页主世界（MAIN world）里跑的那段 page hook\"发出来的告警消息，搬到\"扩展隔离世界（ISOLATED world）的账本\"里。\n\n它做了啥： 注册一个 window.message 监听器，过滤 type === 'LUNA_CONTRACT_MISMATCH' 的消息，校验 contractId 必须存在于 APP_CONFIG.platforms.chatgpt.contract 白名单里，然后把 expected / actual 喂给 recordMismatch(...)。返回一个 cleanup 函数，谁启动谁负责卸载，避免重复监听。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

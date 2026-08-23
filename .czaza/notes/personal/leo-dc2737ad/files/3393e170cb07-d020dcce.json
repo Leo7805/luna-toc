@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:61cba423303457fdab2a9ab34fae382788e1d065c55a7ee2c9b5995441bd532f",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T13:04:33.037Z",
+    "updatedAt": "2026-08-23T13:14:56.456Z"
+  },
+  "fileNote": {
+    "userNote": "真正画在 chatgpt.com 屏幕上、压所有东西一头的告警弹窗组件，开发者在 Options 页里打开了 showCompatibilityAlert 才出现。\n\n它做了啥： 用 useState + 两个 useEffect 干三件事：① 读一次 loadChatGptRuntimeConfig() 并监听 chrome.storage.onChanged，拿到最新的开关状态；② 通过 subscribeMismatches 订阅账本；③ 开关关掉 or records 为空 → 直接 return null（啥也不渲染）。开关开 + 有记录 → 渲染 <Dialog>：把 portalContainer 设到 React portal 容器（保住 shadow DOM 里的 Tailwind），用 z-[2147483647]（即 ALERT_Z_INDEX，接近 int32 上限）确保压过任何宿主遮罩，标题描述走 copy.ts，每条 mismatch 画成 <li>：正文 + <details> 折叠预期值/观察值/单条 Dismiss 按钮；底栏一个\"Dismiss\"按钮触发 dismissAllMismatches() 一次性清空。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

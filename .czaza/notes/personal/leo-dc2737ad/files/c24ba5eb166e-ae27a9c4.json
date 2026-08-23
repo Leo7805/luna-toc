@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:0ab45cc42b90717ddb8bf1dd02fb05644581b44be64df4bef28b45fff4a29879",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T13:12:03.589Z",
+    "updatedAt": "2026-08-23T13:12:03.589Z"
+  },
+  "fileNote": {
+    "userNote": "项目里的\"通用弹窗组件\"，用的是 shadcn 写法 + Base UI 做底层（@base-ui/react/dialog），整页里所有弹窗都靠它。\n\n它做了啥： 把 Base UI 的 Root / Trigger / Portal / Close / Backdrop / Popup 包成 shadcn 风格的零件 — Dialog、DialogTrigger、DialogContent（带可选的右上角 × 关闭按钮）、DialogOverlay、DialogHeader/Footer、DialogTitle、DialogDescription。其中 DialogContent 多接了两个 prop：portalContainer（让弹窗挂到指定 DOM 节点下面）和 overlayClassName（给遮罩层加额外 class），就是为了兼容 shadow DOM + 拉满 z-index 的特殊场景。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
