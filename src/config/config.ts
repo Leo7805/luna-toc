@@ -28,6 +28,10 @@ export const APP_CONFIG = {
       promptTopOffsetPx: 16,
       settleAttempts: 3,
       backfillMaxPages: 10,
+      // Rewrites ChatGPT's own older-page pagination requests so its
+      // renderer fills the message store in a single fetch (speeds up
+      // far-jump navigation). Set to null to disable.
+      interceptChatGptPaginationNumTurns: 100 as number | null,
     },
   },
   navigation: {

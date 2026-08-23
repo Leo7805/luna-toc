@@ -65,7 +65,10 @@ import { APP_CONFIG } from '@/config/config';
   };
 
   const BACKFILL_MAX_PAGES = APP_CONFIG.platforms.chatgpt.backfillMaxPages;
-  const BACKFILL_NUM_TURNS = 10;
+  // One page can carry the whole history for typical conversations: the
+  // server does not cap `num_turns` at least up to 100, and the payload is
+  // bounded by message count (user + assistant), not prompt count.
+  const BACKFILL_NUM_TURNS = 100;
   const FORBIDDEN_REQUEST_HEADERS = new Set([
     'accept-charset',
     'accept-encoding',
@@ -113,7 +116,8 @@ import { APP_CONFIG } from '@/config/config';
       }
     } catch {}
 
-    const response = await originalFetch(...args);
+    const fetchArgs = maybeBumpChatGptPaginationNumTurns(args);
+    const response = await originalFetch(...fetchArgs);
 
     try {
       if (requestMeta?.isConversationGet) {
@@ -204,6 +208,48 @@ import { APP_CONFIG } from '@/config/config';
       };
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Rewrites ChatGPT's own older-page pagination requests
+   * (`/backend-api/conversations/{id}/messages?before=...`) to carry a larger
+   * `num_turns` so its renderer fills the message store in a single fetch
+   * instead of several small ones. The renderer's virtual window then slides
+   * over pre-loaded data on subsequent scrolls, which dramatically speeds up
+   * far-jump navigation. Our own backfill calls `originalFetch` directly, so
+   * it bypasses this rewrite.
+   * @param {FetchArgs} args
+   * @returns {FetchArgs}
+   */
+  function maybeBumpChatGptPaginationNumTurns(args: FetchArgs): FetchArgs {
+    const target =
+      APP_CONFIG.platforms.chatgpt.interceptChatGptPaginationNumTurns;
+    if (typeof target !== 'number') return args;
+
+    const input = args[0];
+    const init = args[1];
+
+    try {
+      const urlString = getFetchUrl(input);
+      const url = new URL(urlString, window.location.origin);
+
+      if (getConversationMessagesIdFromApiPath(url.pathname) === null) {
+        return args;
+      }
+      if (!url.searchParams.has('before')) return args;
+
+      url.searchParams.set('num_turns', String(target));
+
+      if (typeof Request !== 'undefined' && input instanceof Request) {
+        return [
+          new Request(url.toString(), input),
+          init,
+        ] as unknown as FetchArgs;
+      }
+      return [url.toString(), init] as FetchArgs;
+    } catch {
+      return args;
     }
   }
 
