@@ -218,18 +218,21 @@ export function setSidebarStatus(
       clearTimeout(statusLingerTimer);
       statusLingerTimer = null;
     }
+    const jumpingHint = document.querySelector<HTMLElement>('.navigator-hint');
+    if (jumpingHint) {
+      jumpingHint.hidden = promptCount > 0 || targetMode !== 'idle';
+    }
     return;
   }
 
   element.textContent = text;
   element.classList.toggle('navigator-status-active', targetMode !== 'idle');
-  // Mutual exclusion with the legacy "Waiting for prompts..." hint: the
-  // status drawer takes over the same informational slot while it is on
-  // screen (including its linger tail), and the hint returns once the
-  // drawer retracts.
+  // Mutual exclusion with the legacy "Waiting for prompts..." hint: hide it
+  // whenever the status drawer is on screen OR prompts have already
+  // loaded. Show it only when idle and the prompt list is still empty.
   const hint = document.querySelector<HTMLElement>('.navigator-hint');
   if (hint) {
-    hint.hidden = targetMode !== 'idle';
+    hint.hidden = promptCount > 0 || targetMode !== 'idle';
   }
 
   if (statusLingerTimer !== null) {
