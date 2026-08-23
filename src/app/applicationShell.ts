@@ -31,7 +31,6 @@ interface JumpControlsPosition {
 }
 
 const JUMP_CONTROLS_POSITION_STORAGE_KEY = 'chatTocJumpControlsPosition';
-const NAVIGATOR_EMPTY_HINT_TEXT = 'Waiting for prompts...';
 
 let viewMode: ViewMode = 'toc';
 let searchQuery = '';
@@ -119,7 +118,6 @@ async function createSidebar(): Promise<HTMLElement> {
             </svg>
           </button>
         </div>
-        <p class="navigator-hint">${NAVIGATOR_EMPTY_HINT_TEXT}</p>
         <div
           id="luna-toc-status"
           class="navigator-status"
@@ -229,9 +227,7 @@ function renderCurrentView(): void {
 
 function renderMyPrompts(): void {
   const list = document.getElementById('navigator-list');
-  const hint = document.querySelector<HTMLElement>('.navigator-hint');
   if (!list) return;
-  if (hint) hint.hidden = true;
 
   myPrompts.renderMyPrompts(list, searchQuery, () => {
     renderCurrentView();

@@ -784,16 +784,6 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   border-color: var(--ct-accent);
 }
 
-.navigator-hint {
-  box-sizing: border-box;
-  width: 100%;
-  margin: 8px 0 10px;
-  padding: 0 9px;
-  color: var(--ct-text-muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
 .navigator-status {
   box-sizing: border-box;
   width: 100%;
