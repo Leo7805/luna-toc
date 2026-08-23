@@ -109,7 +109,6 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
    * detection. Populated on startup and on every `chrome.storage` change.
    */
   const effectiveContractValues: Partial<Record<ChatGptContractId, string>> = {};
-  let effectiveUseLocalConfig = false;
   /**
    * Minimum number of times a given contract mismatch must be observed in a
    * session before it is forwarded to the content-script detector. One-off
@@ -135,14 +134,10 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
     const data = event.data as
       | {
           type?: string;
-          useLocalConfig?: unknown;
           contractValues?: Record<string, unknown>;
         }
       | null;
     if (!data || data.type !== CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE) return;
-    if (typeof data.useLocalConfig === 'boolean') {
-      effectiveUseLocalConfig = data.useLocalConfig;
-    }
     if (data.contractValues && typeof data.contractValues === 'object') {
       for (const [key, value] of Object.entries(data.contractValues)) {
         if (typeof value === 'string') {
@@ -322,6 +317,82 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
       part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     );
     return new RegExp('^' + parts.join('([^/]+)') + '/?$');
+  }
+
+  /**
+   * Probes ChatGPT's `/messages` endpoint with two different `num_turns`
+   * values and compares the returned message counts. If the counts are
+   * nearly equal the server is ignoring or capping the parameter, which
+   * silently breaks the page-hook's fetch-bumping strategy.
+   * @param {string} conversationId
+   * @param {Record<string, string> | null} authHeaders
+   * @returns {Promise<void>}
+   */
+  async function probeNumTurnsBehavior(
+    conversationId: string,
+    authHeaders: Record<string, string> | null
+  ): Promise<void> {
+    const base = `/backend-api/conversations/${conversationId}/messages`;
+    try {
+      const [r10, r100] = await Promise.all([
+        originalFetch(`${base}?num_turns=10&include_has_versions=true`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: authHeaders ?? undefined,
+        }),
+        originalFetch(`${base}?num_turns=100&include_has_versions=true`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: authHeaders ?? undefined,
+        }),
+      ]);
+      if (!r10.ok || !r100.ok) return;
+      const [d10, d100] = await Promise.all([r10.json(), r100.json()]);
+      const len10 = Array.isArray(d10?.messages) ? d10.messages.length : 0;
+      const len100 = Array.isArray(d100?.messages)
+        ? d100.messages.length
+        : 0;
+      if (len10 > 0 && len100 > 0 && len100 - len10 < 5) {
+        reportContractMismatch(
+          'api.params.num-turns',
+          `num_turns=10 -> ${len10} messages, num_turns=100 -> ${len100} messages (delta ${len100 - len10})`
+        );
+      }
+    } catch {
+      // Probe failures are non-fatal.
+    }
+  }
+
+  /**
+   * After the initial conversation load settles, checks that the DOM
+   * selectors relied on by navigation still match at least one node. A zero
+   * hit count means ChatGPT renamed or removed the marker attribute, which
+   * silently breaks prompt navigation.
+   */
+  function probeDomSelectors(): void {
+    setTimeout(() => {
+      try {
+        const userCount = document.querySelectorAll(
+          '[data-message-author-role="user"]'
+        ).length;
+        const idCount = document.querySelectorAll('[data-message-id]')
+          .length;
+        if (userCount === 0) {
+          reportContractMismatch(
+            'dom.selector.user-message',
+            'querySelectorAll returned 0 user message nodes'
+          );
+        }
+        if (idCount === 0) {
+          reportContractMismatch(
+            'dom.selector.message-id',
+            'querySelectorAll returned 0 message-id nodes'
+          );
+        }
+      } catch {
+        // Selector probe failures are non-fatal.
+      }
+    }, 3000);
   }
 
   /**
@@ -791,6 +862,8 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
 
         if (isInitialConversationLoad) {
           startBackfillIfNeeded(data, routeKey, authHeaders);
+          void probeNumTurnsBehavior(routeKey, authHeaders);
+          probeDomSelectors();
         }
       })
       .catch(() => {});
