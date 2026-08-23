@@ -145,6 +145,16 @@ let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
  * an empty band.
  */
 let lastJumpingText = '';
+/** Base text (no trailing dots) used while in `jumping` mode. */
+let jumpingBaseText = '';
+/** Index into `jumpingDotFrames`, advances every tick while jumping. */
+let jumpingDotIndex = 0;
+/** Interval handle for the animated-dot cycle while jumping. */
+let jumpingDotTimer: ReturnType<typeof setInterval> | null = null;
+/** Trailing-dot frames cycled while a jump is in flight. */
+const jumpingDotFrames = ['.', '..', '...'];
+/** Cadence of the jumping-dot animation in milliseconds. */
+const JUMPING_DOT_INTERVAL_MS = 400;
 
 /**
  * Updates the small status line that lives between the sidebar header and
@@ -177,7 +187,7 @@ export function setSidebarStatus(
 
   if (jump && jump.active) {
     targetMode = 'jumping';
-    text = `Jumping to prompt #${jump.targetIndex}... (${jump.remainingSteps} steps left)`;
+    text = `Jumping to prompt #${jump.targetIndex + 1}`;
     lastJumpingText = text;
   } else if (loading) {
     targetMode = 'loading';
@@ -203,8 +213,34 @@ export function setSidebarStatus(
   }
 
   currentStatusMode = targetMode;
+
+  if (targetMode === 'jumping') {
+    // The animated dot cycle owns textContent while in `jumping`. Keep the
+    // base text fresh so the next tick picks it up, and only write the DOM
+    // once when we enter the mode.
+    jumpingBaseText = text;
+    if (jumpingDotTimer === null) {
+      element.textContent = `${text}${jumpingDotFrames[0]}`;
+      element.classList.add('navigator-status-active');
+      jumpingDotIndex = 0;
+      jumpingDotTimer = window.setInterval(
+        advanceJumpingDotFrame,
+        JUMPING_DOT_INTERVAL_MS
+      );
+    }
+    if (statusLingerTimer !== null) {
+      clearTimeout(statusLingerTimer);
+      statusLingerTimer = null;
+    }
+    return;
+  }
+
   element.textContent = text;
   element.classList.toggle('navigator-status-active', targetMode !== 'idle');
+  if (jumpingDotTimer !== null) {
+    clearInterval(jumpingDotTimer);
+    jumpingDotTimer = null;
+  }
 
   if (statusLingerTimer !== null) {
     clearTimeout(statusLingerTimer);
@@ -218,6 +254,24 @@ export function setSidebarStatus(
       statusLingerTimer = null;
     }, STATUS_LINGER_MS);
   }
+}
+
+/**
+ * Advances the jumping-dot animation one frame. Self-cancels the interval
+ * if the status has left the `jumping` mode since the tick was scheduled.
+ */
+function advanceJumpingDotFrame(): void {
+  if (currentStatusMode !== 'jumping') {
+    if (jumpingDotTimer !== null) {
+      clearInterval(jumpingDotTimer);
+      jumpingDotTimer = null;
+    }
+    return;
+  }
+  const element = document.getElementById('luna-toc-status');
+  if (!element) return;
+  element.textContent = `${jumpingBaseText}${jumpingDotFrames[jumpingDotIndex % jumpingDotFrames.length]}`;
+  jumpingDotIndex++;
 }
 
 /**
