@@ -145,16 +145,6 @@ let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
  * an empty band.
  */
 let lastJumpingText = '';
-/** Base text (no trailing dots) used while in `jumping` mode. */
-let jumpingBaseText = '';
-/** Index into `jumpingDotFrames`, advances every tick while jumping. */
-let jumpingDotIndex = 0;
-/** Interval handle for the animated-dot cycle while jumping. */
-let jumpingDotTimer: ReturnType<typeof setInterval> | null = null;
-/** Trailing-dot frames cycled while a jump is in flight. */
-const jumpingDotFrames = ['.', '..', '...'];
-/** Cadence of the jumping-dot animation in milliseconds. */
-const JUMPING_DOT_INTERVAL_MS = 400;
 
 /**
  * Updates the small status line that lives between the sidebar header and
@@ -215,19 +205,15 @@ export function setSidebarStatus(
   currentStatusMode = targetMode;
 
   if (targetMode === 'jumping') {
-    // The animated dot cycle owns textContent while in `jumping`. Keep the
-    // base text fresh so the next tick picks it up, and only write the DOM
-    // once when we enter the mode.
-    jumpingBaseText = text;
-    if (jumpingDotTimer === null) {
-      element.textContent = `${text}${jumpingDotFrames[0]}`;
-      element.classList.add('navigator-status-active');
-      jumpingDotIndex = 0;
-      jumpingDotTimer = window.setInterval(
-        advanceJumpingDotFrame,
-        JUMPING_DOT_INTERVAL_MS
-      );
-    }
+    // The CSS `.jumping-dots .dot` keyframe animation owns the motion.
+    // Build the DOM once on entry; subsequent calls during the same jump
+    // hit the early-return above (textContent matches the prefix) and leave
+    // the dots structure intact.
+    element.replaceChildren(
+      document.createTextNode(text),
+      buildJumpingDotsElement()
+    );
+    element.classList.add('navigator-status-active');
     if (statusLingerTimer !== null) {
       clearTimeout(statusLingerTimer);
       statusLingerTimer = null;
@@ -244,10 +230,6 @@ export function setSidebarStatus(
   const hint = document.querySelector<HTMLElement>('.navigator-hint');
   if (hint) {
     hint.hidden = targetMode !== 'idle';
-  }
-  if (jumpingDotTimer !== null) {
-    clearInterval(jumpingDotTimer);
-    jumpingDotTimer = null;
   }
 
   if (statusLingerTimer !== null) {
@@ -267,21 +249,19 @@ export function setSidebarStatus(
 }
 
 /**
- * Advances the jumping-dot animation one frame. Self-cancels the interval
- * if the status has left the `jumping` mode since the tick was scheduled.
+ * Builds the three-dot span cluster that the CSS keyframe animation drives.
+ * Returned element: <span class="jumping-dots"><span class="dot"></span>...
  */
-function advanceJumpingDotFrame(): void {
-  if (currentStatusMode !== 'jumping') {
-    if (jumpingDotTimer !== null) {
-      clearInterval(jumpingDotTimer);
-      jumpingDotTimer = null;
-    }
-    return;
+function buildJumpingDotsElement(): HTMLSpanElement {
+  const container = document.createElement('span');
+  container.className = 'jumping-dots';
+  container.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 3; i += 1) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    container.appendChild(dot);
   }
-  const element = document.getElementById('luna-toc-status');
-  if (!element) return;
-  element.textContent = `${jumpingBaseText}${jumpingDotFrames[jumpingDotIndex % jumpingDotFrames.length]}`;
-  jumpingDotIndex++;
+  return container;
 }
 
 /**

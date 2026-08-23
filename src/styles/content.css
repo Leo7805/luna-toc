@@ -818,6 +818,49 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   padding: 4px 12px;
 }
 
+.navigator-status .jumping-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.navigator-status .jumping-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  transform: scale(0.85);
+  animation: jumping-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.navigator-status .jumping-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.navigator-status .jumping-dots .dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.navigator-status .jumping-dots .dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes jumping-dot-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
 /* My Prompts Styling */
 #toggle-view-mode-btn.mode-myprompts-active {
   color: var(--ct-accent-strong);
