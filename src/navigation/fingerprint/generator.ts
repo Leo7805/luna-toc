@@ -2,7 +2,7 @@
  * Generates compact text fingerprints for platform-independent AI responses.
  */
 import { APP_CONFIG } from '@/config/config';
-import type { NavigationTextMessage } from '@/features/navigation/navigationData';
+import type { NavigationTextMessage } from '@/navigation/navigationData';
 import { normalizeComparableText } from './comparableText';
 
 export interface FingerprintOptions {

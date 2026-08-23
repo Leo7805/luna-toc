@@ -6,13 +6,13 @@ import {
   upsertFingerprintRecord,
   type NavigationFingerprintIndex,
   type ResponseFingerprintRecord,
-} from './fingerprint/index';
+} from '../fingerprint/index';
 import {
   mergeSegmentIndexes,
   upsertResponseSegments,
   type NavigationSegmentIndex,
   type ResponseSegmentFingerprint,
-} from './fingerprint/segments';
+} from '../fingerprint/segments';
 
 export interface ConversationNavigationSnapshot<TPrompt> {
   prompts: TPrompt[];

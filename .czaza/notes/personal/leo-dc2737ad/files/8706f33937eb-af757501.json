@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:505120602f10628c7a9f71793f9e7e39b82a044a46d645d161fad764b31026bd",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T23:37:27.603Z",
+    "updatedAt": "2026-08-23T23:39:42.290Z"
+  },
+  "fileNote": {
+    "userNote": "负责提示词的“标记”功能，包括标记状态读写、会话级持久化，以及创建和更新标记按钮的 UI。(mark，类似收藏，不是高亮)",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -5,8 +5,8 @@ import {
   getInteriorRecoveryDirection,
   searchVirtualPrompt,
   type VirtualSearchObservation,
-} from '@/features/navigation/virtualSearchController';
-import { createNavigationAnchor } from '@/features/navigation/navigationAnchorStore';
+} from '@/navigation/jump/virtualSearchController';
+import { createNavigationAnchor } from '@/navigation/jump/navigationAnchorStore';
 
 function createLocatedObservation(
   promptIndex: number,

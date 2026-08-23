@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   planPromptMountScan,
   planRelativeSearch,
-} from '@/features/navigation/relativeSearchPlanner';
+} from '@/navigation/jump/relativeSearchPlanner';
 
 describe('relative search planner', () => {
   it('learns pixels per Prompt from consecutive live observations', () => {

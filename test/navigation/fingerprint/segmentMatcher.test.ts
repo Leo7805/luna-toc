@@ -1,12 +1,12 @@
 /** Tests matching visible viewport text to logical response segments. */
 import { describe, expect, it } from 'vitest';
-import { createSha256 } from '@/features/navigation/fingerprint/generator';
-import { normalizeComparableText } from '@/features/navigation/fingerprint/comparableText';
+import { createSha256 } from '@/navigation/fingerprint/generator';
+import { normalizeComparableText } from '@/navigation/fingerprint/comparableText';
 import {
   matchSegmentIndex,
   selectBestSegmentMatch,
-} from '@/features/navigation/fingerprint/segmentMatcher';
-import type { ResponseSegmentFingerprint } from '@/features/navigation/fingerprint/segments';
+} from '@/navigation/fingerprint/segmentMatcher';
+import type { ResponseSegmentFingerprint } from '@/navigation/fingerprint/segments';
 
 async function createSegment({
   responseId,

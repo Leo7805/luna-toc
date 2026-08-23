@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T23:48:23.045Z",
+    "updatedAt": "2026-08-23T23:48:23.045Z"
+  },
+  "fileNote": {
+    "userNote": "辅助功能",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

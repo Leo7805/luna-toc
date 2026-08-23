@@ -4,7 +4,7 @@ import {
   readNavigationSettings,
   subscribeNavigationSettings,
   writeNavigationSettings,
-} from '@/features/navigation/navigationSettings';
+} from '@/navigation/navigationSettings';
 
 const SETTINGS_KEY = 'chatToc:navigationSettings';
 let storedValue: unknown;

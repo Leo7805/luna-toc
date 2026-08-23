@@ -5,7 +5,7 @@ import { APP_CONFIG } from '@/config/config';
 import type {
   NavigationTextMessage,
   NavigationTurn,
-} from '@/features/navigation/navigationData';
+} from '@/navigation/navigationData';
 import { normalizeComparableText } from './comparableText';
 import { createSha256 } from './generator';
 

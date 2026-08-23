@@ -11,7 +11,7 @@ import {
   createNavigationTurns,
   type NavigationSourceMessage,
   type NavigationTurn,
-} from '@/features/navigation/navigationData';
+} from '@/navigation/navigationData';
 
 /**
  * Converts the active ChatGPT conversation branch into navigation turns.

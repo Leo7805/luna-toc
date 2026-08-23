@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-23T14:17:20.763Z",
+  "updatedAt": "2026-08-23T23:48:23.045Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -61,6 +61,58 @@
       "sourceHash": "sha256:859f5f56e155f3a0a6c03c51b36f0203070162259b21cd62b07868e5752ce5e8",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-08-23T13:40:12.172Z"
+    },
+    "src/options": {
+      "noteFile": "files/7e586b0adc63-90d2721d.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:21:41.486Z"
+    },
+    "src/page": {
+      "noteFile": "files/1b7d33f95ae1-c981d23b.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:26:55.115Z"
+    },
+    "src/popup": {
+      "noteFile": "files/c0a5d9bd44d3-0f028e02.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:30:31.678Z"
+    },
+    "src/features/navigation": {
+      "noteFile": "files/ea799c14d79e-3409d265.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:32:02.514Z"
+    },
+    "src/features/contractAlert": {
+      "noteFile": "files/3f199c150753-284862c8.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:32:45.357Z"
+    },
+    "src/features/conversationPrompts": {
+      "noteFile": "files/2c2f9633b9e9-76ee1daf.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:36:12.033Z"
+    },
+    "src/features/conversationPrompts/message.ts": {
+      "noteFile": "files/192f643cfcf4-d7675e62.json",
+      "sourceHash": "sha256:73f3f80d7933403281a205449e01a3591912c515ea46578a1957db49a7c4c1c1",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T23:37:10.477Z"
+    },
+    "src/features/conversationPrompts/promptMark.ts": {
+      "noteFile": "files/8706f33937eb-af757501.json",
+      "sourceHash": "sha256:505120602f10628c7a9f71793f9e7e39b82a044a46d645d161fad764b31026bd",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T23:37:27.603Z"
+    },
+    "src/features/myPrompts": {
+      "noteFile": "files/fab56adaca52-7931d92d.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:42:35.519Z"
+    },
+    "src/features": {
+      "noteFile": "files/12a2c1d30664-0b390e52.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:48:23.045Z"
     }
   }
 }

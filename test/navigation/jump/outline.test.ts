@@ -7,7 +7,7 @@ import {
   resetOutline,
   scheduleBuild,
   setPromptMessages,
-} from '@/features/navigation/outline';
+} from '@/navigation/jump/outline';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 beforeEach(() => {

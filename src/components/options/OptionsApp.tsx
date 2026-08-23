@@ -10,7 +10,7 @@ import {
   readNavigationSettings,
   subscribeNavigationSettings,
   writeNavigationSettings,
-} from '@/features/navigation/navigationSettings';
+} from '@/navigation/navigationSettings';
 
 interface NavigationChoice {
   value: ChatGptNavigationAlgorithm;

@@ -1,6 +1,6 @@
 /** Tests platform-independent prompt/response turn construction. */
 import { describe, expect, it } from 'vitest';
-import { createNavigationTurns } from '@/features/navigation/navigationData';
+import { createNavigationTurns } from '@/navigation/navigationData';
 
 describe('createNavigationTurns', () => {
   it('groups responses under the preceding prompt', () => {

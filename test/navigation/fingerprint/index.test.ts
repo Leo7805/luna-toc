@@ -8,8 +8,8 @@ import {
   upsertFingerprintRecord,
   type FingerprintIndexOptions,
   type ResponseFingerprintRecord,
-} from '@/features/navigation/fingerprint/index';
-import type { NavigationTurn } from '@/features/navigation/navigationData';
+} from '@/navigation/fingerprint/index';
+import type { NavigationTurn } from '@/navigation/navigationData';
 
 const options: FingerprintIndexOptions = {
   countPerAssistant: 3,

@@ -4,19 +4,19 @@
 import {
   createNavigationAnchor,
   type NavigationAnchor,
-} from '@/features/navigation/navigationAnchorStore';
-import type { NavigationFingerprintIndex } from '@/features/navigation/fingerprint/index';
-import type { NavigationSegmentIndex } from '@/features/navigation/fingerprint/segments';
+} from '@/navigation/jump/navigationAnchorStore';
+import type { NavigationFingerprintIndex } from '@/navigation/fingerprint/index';
+import type { NavigationSegmentIndex } from '@/navigation/fingerprint/segments';
 import {
   resolvePromptIndexesFromIds,
   resolveVisiblePromptPosition,
   type LocatedVisiblePromptPosition,
   type VisiblePromptPosition,
-} from '@/features/navigation/visiblePositionResolver';
+} from '@/navigation/jump/visiblePositionResolver';
 import type {
   VirtualScrollMetrics,
   VirtualSearchObservation,
-} from '@/features/navigation/virtualSearchController';
+} from '@/navigation/jump/virtualSearchController';
 import {
   getRenderedAssistantEntries,
   getVisibleAssistantViewportSamples,

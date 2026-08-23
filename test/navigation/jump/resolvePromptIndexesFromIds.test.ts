@@ -1,7 +1,7 @@
 /** Tests exact message-ID → prompt-index position resolution. */
 import { describe, expect, it } from 'vitest';
 
-import { resolvePromptIndexesFromIds } from '@/features/navigation/visiblePositionResolver';
+import { resolvePromptIndexesFromIds } from '@/navigation/jump/visiblePositionResolver';
 
 const prompts = [
   { id: 'prompt-a' },

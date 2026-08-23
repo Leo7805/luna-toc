@@ -10,7 +10,7 @@ import {
   isChatGptElementVisible,
   observeChatGptVirtualPosition,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
-import type { NavigationFingerprintIndex } from '@/features/navigation/fingerprint/index';
+import type { NavigationFingerprintIndex } from '@/navigation/fingerprint/index';
 
 afterEach(() => {
   document.body.innerHTML = '';

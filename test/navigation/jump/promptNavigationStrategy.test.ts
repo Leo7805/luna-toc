@@ -34,7 +34,7 @@ vi.mock('@/platforms/chatgpt/virtualSearchAdapter', () => ({
   observeChatGptVirtualPosition: mocks.observePosition,
 }));
 
-vi.mock('@/features/navigation/navigationAnchorStore', () => ({
+vi.mock('@/navigation/jump/navigationAnchorStore', () => ({
   createNavigationAnchorStore: () => ({
     findConfirmed: vi.fn(),
     getConfirmedAnchors: vi.fn().mockResolvedValue([]),
@@ -44,22 +44,22 @@ vi.mock('@/features/navigation/navigationAnchorStore', () => ({
   }),
 }));
 
-vi.mock('@/features/navigation/virtualSearchController', () => ({
+vi.mock('@/navigation/jump/virtualSearchController', () => ({
   searchVirtualPrompt: mocks.searchVirtualPrompt,
 }));
 
-vi.mock('@/features/navigation/follow', () => ({
+vi.mock('@/navigation/follow/follow', () => ({
   keepFollowing: vi.fn(),
 }));
 
-vi.mock('@/features/navigation/navigationSettings', () => ({
+vi.mock('@/navigation/navigationSettings', () => ({
   getChatGptNavigationAlgorithm: () => mocks.navigationAlgorithm,
 }));
 
 import {
   initializePromptNavigation,
   jumpToMessage,
-} from '@/features/navigation/promptNavigation';
+} from '@/navigation/jump/promptNavigation';
 
 beforeEach(() => {
   vi.useFakeTimers();

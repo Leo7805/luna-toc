@@ -7,7 +7,7 @@ import {
   estimateDerivedVisualRows,
   mergeSegmentIndexes,
   type DerivedSegmentOptions,
-} from '@/features/navigation/fingerprint/segments';
+} from '@/navigation/fingerprint/segments';
 
 const options: DerivedSegmentOptions = {
   probeLength: 8,

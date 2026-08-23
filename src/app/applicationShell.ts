@@ -18,7 +18,7 @@ import {
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
 import { APP_CONFIG } from '@/config/config';
-import { initializeNavigationSettings } from '@/features/navigation/navigationSettings';
+import { initializeNavigationSettings } from '@/navigation/navigationSettings';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import { navigatorController } from './navigatorController';
 

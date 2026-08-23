@@ -2,9 +2,9 @@
  * Collects stabilized ChatGPT Assistant DOM text as observed fingerprints.
  */
 import { APP_CONFIG } from '@/config/config';
-import { normalizeComparableText } from '@/features/navigation/fingerprint/comparableText';
-import { createResponseFingerprints } from '@/features/navigation/fingerprint/generator';
-import type { ResponseFingerprintRecord } from '@/features/navigation/fingerprint/index';
+import { normalizeComparableText } from '@/navigation/fingerprint/comparableText';
+import { createResponseFingerprints } from '@/navigation/fingerprint/generator';
+import type { ResponseFingerprintRecord } from '@/navigation/fingerprint/index';
 import { getRenderedAssistantTextBlocks } from './renderedTextAdapter';
 
 export interface RenderedFingerprintContext {

@@ -10,7 +10,7 @@ import {
 import type {
   NavigationTextMessage,
   NavigationTurn,
-} from '@/features/navigation/navigationData';
+} from '@/navigation/navigationData';
 
 export interface FingerprintIndexOptions extends FingerprintOptions {
   buildBatchSize: number;

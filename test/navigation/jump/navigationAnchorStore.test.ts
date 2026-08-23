@@ -6,7 +6,7 @@ import {
   type NavigationAnchorInput,
   type NavigationAnchorStorage,
   type PersistentNavigationAnchorCache,
-} from '@/features/navigation/navigationAnchorStore';
+} from '@/navigation/jump/navigationAnchorStore';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 

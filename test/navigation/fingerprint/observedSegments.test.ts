@@ -5,7 +5,7 @@ import {
   calculateObservedSegmentTargetOffsets,
   createObservedResponseSegments,
   extractRenderedTextWithinVerticalBounds,
-} from '@/features/navigation/fingerprint/segments';
+} from '@/navigation/fingerprint/segments';
 
 afterEach(() => {
   document.body.innerHTML = '';

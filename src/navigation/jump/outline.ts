@@ -3,8 +3,8 @@
  * headings. This file intentionally keeps outline parsing separate from the
  * main content script UI code.
  */
-import type { NavigatorMessage } from '../conversationPrompts/message';
-import { isPromptMarked as isMessageMarked } from '../conversationPrompts/promptMark';
+import type { NavigatorMessage } from '@/features/conversationPrompts/message';
+import { isPromptMarked as isMessageMarked } from '@/features/conversationPrompts/promptMark';
 import {
   cancelOutlineNavigation,
   jumpToOutlineEntry,

@@ -5,12 +5,12 @@ import {
   matchFingerprintIndex,
   selectBestPromptMatch,
   verifyFingerprintMatch,
-} from '@/features/navigation/fingerprint/matcher';
+} from '@/navigation/fingerprint/matcher';
 import {
   createResponseFingerprints,
   type FingerprintOptions,
-} from '@/features/navigation/fingerprint/generator';
-import type { ResponseFingerprintRecord } from '@/features/navigation/fingerprint/index';
+} from '@/navigation/fingerprint/generator';
+import type { ResponseFingerprintRecord } from '@/navigation/fingerprint/index';
 
 const options: FingerprintOptions = {
   countPerAssistant: 3,

@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T23:36:12.033Z",
+    "updatedAt": "2026-08-23T23:42:02.631Z"
+  },
+  "fileNote": {
+    "userNote": "用于集中管理 \"会话提示词\" 的数据处理、展示和标记逻辑。\n\n即，把\"会话提示词\"变成方便在 TOC (导航目录) 中显示的格式\n加上, TOC 中 prompt 的 mark 功能 (即打上黄标，方便识别)",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

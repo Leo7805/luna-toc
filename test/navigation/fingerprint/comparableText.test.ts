@@ -4,7 +4,7 @@ import {
   normalizeComparableText,
   normalizeWhitespace,
   stripMarkdownPayloads,
-} from '@/features/navigation/fingerprint/comparableText';
+} from '@/navigation/fingerprint/comparableText';
 
 describe('comparable text', () => {
   it('keeps Unicode letters and numbers while removing formatting symbols', () => {

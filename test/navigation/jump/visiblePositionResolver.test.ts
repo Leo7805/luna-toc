@@ -3,16 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveVisiblePromptPosition,
   type VisiblePromptPosition,
-} from '@/features/navigation/visiblePositionResolver';
+} from '@/navigation/jump/visiblePositionResolver';
 import {
   createResponseFingerprints,
   createSha256,
-} from '@/features/navigation/fingerprint/generator';
+} from '@/navigation/fingerprint/generator';
 import type {
   NavigationFingerprintIndex,
   ResponseFingerprintRecord,
-} from '@/features/navigation/fingerprint/index';
-import { createDerivedResponseSegments } from '@/features/navigation/fingerprint/segments';
+} from '@/navigation/fingerprint/index';
+import { createDerivedResponseSegments } from '@/navigation/fingerprint/segments';
 
 async function createRecord(
   responseId: string,

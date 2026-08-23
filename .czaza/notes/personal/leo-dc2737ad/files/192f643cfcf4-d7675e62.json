@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:73f3f80d7933403281a205449e01a3591912c515ea46578a1957db49a7c4c1c1",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T23:37:10.477Z",
+    "updatedAt": "2026-08-23T23:37:10.477Z"
+  },
+  "fileNote": {
+    "userNote": "定义 ChatGPT 消息 (Prompts) 的数据类型，并把原始消息转换成目录使用的简化提示词数据；同时处理文本、图片、文件附件，以及连续用户消息合并。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

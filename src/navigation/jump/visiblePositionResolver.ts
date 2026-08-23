@@ -5,13 +5,13 @@ import {
   matchFingerprintIndex,
   selectBestPromptMatch,
   type RenderedTextBlock,
-} from './fingerprint/matcher';
-import type { NavigationFingerprintIndex } from './fingerprint/index';
+} from '../fingerprint/matcher';
+import type { NavigationFingerprintIndex } from '../fingerprint/index';
 import {
   matchSegmentIndex,
   selectBestSegmentMatch,
   type NavigationSegmentIndex,
-} from './fingerprint/segmentMatcher';
+} from '../fingerprint/segmentMatcher';
 
 export interface VisiblePromptBlockMatch {
   blockId: string;

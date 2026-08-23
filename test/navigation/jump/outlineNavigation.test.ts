@@ -7,12 +7,12 @@ const promptNavigationMocks = vi.hoisted(() => ({
   lockPromptIndex: vi.fn(),
 }));
 
-vi.mock('@/features/navigation/promptNavigation', () => promptNavigationMocks);
+vi.mock('@/navigation/jump/promptNavigation', () => promptNavigationMocks);
 
 import {
   cancelOutlineNavigation,
   jumpToOutlineEntry,
-} from '@/features/navigation/outlineNavigation';
+} from '@/navigation/jump/outlineNavigation';
 
 beforeEach(() => {
   vi.useFakeTimers();

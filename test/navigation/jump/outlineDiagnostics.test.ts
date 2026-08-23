@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 /** Tests the opt-in Outline diagnostic logger. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { logOutlineDiagnostic } from '@/features/navigation/outlineDiagnostics';
+import { logOutlineDiagnostic } from '@/navigation/jump/outlineDiagnostics';
 
 afterEach(() => {
   localStorage.clear();

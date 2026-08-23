@@ -4,7 +4,7 @@ import {
   advanceVirtualSearchMachine,
   createVirtualSearchMachine,
   updatePromptMountFeedback,
-} from '@/features/navigation/virtualSearchMachine';
+} from '@/navigation/jump/virtualSearchMachine';
 
 describe('virtual search machine', () => {
   it('moves from initial estimation to response seeking', () => {

@@ -6,12 +6,12 @@ import {
   createNavigatorMessage,
   extractUserMessages,
 } from '../features/conversationPrompts/message';
-import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
-import { buildFingerprintIndex } from '@/features/navigation/fingerprint/index';
-import { buildDerivedSegmentIndex } from '@/features/navigation/fingerprint/segments';
+import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnapshotStore';
+import { buildFingerprintIndex } from '@/navigation/fingerprint/index';
+import { buildDerivedSegmentIndex } from '@/navigation/fingerprint/segments';
 import { createChatGptNavigationTurns } from '@/platforms/chatgpt/navigationAdapter';
 import { createRenderedFingerprintCollector } from '@/platforms/chatgpt/renderedFingerprintCollector';
-import type { NavigationTurn } from '@/features/navigation/navigationData';
+import type { NavigationTurn } from '@/navigation/navigationData';
 import type {
   ChatMessage,
   ConversationData,
@@ -26,13 +26,13 @@ import {
   isFollowing,
   keepFollowing,
   stopFollowing,
-} from '../features/navigation/follow';
+} from '../navigation/follow/follow';
 import {
   initializePromptNavigation,
   jumpToAbsoluteEdge as jumpToPageEdge,
   jumpToConversationEdge,
   jumpToMessage,
-} from '../features/navigation/promptNavigation';
+} from '../navigation/jump/promptNavigation';
 import {
   collapseAll,
   createPromptItem,
@@ -44,7 +44,7 @@ import {
   setSidebarStatus,
   syncActivePrompt,
   syncMarkState,
-} from '../features/navigation/outline';
+} from '../navigation/jump/outline';
 import {
   isElementTextTruncated,
   previewTooltip,

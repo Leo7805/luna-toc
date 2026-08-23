@@ -2,15 +2,15 @@
  * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
 import { APP_CONFIG } from '@/config/config';
-import { getChatGptNavigationAlgorithm } from './navigationSettings';
-import type { NavigationFingerprintIndex } from './fingerprint/index';
-import type { NavigationSegmentIndex } from './fingerprint/segments';
+import { getChatGptNavigationAlgorithm } from '../navigationSettings';
+import type { NavigationFingerprintIndex } from '../fingerprint/index';
+import type { NavigationSegmentIndex } from '../fingerprint/segments';
 import {
   createNavigationAnchorStore,
   type NavigationAnchorStore,
 } from './navigationAnchorStore';
 import { searchVirtualPrompt } from './virtualSearchController';
-import type { NavigatorMessage } from '../conversationPrompts/message';
+import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import {
   createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt,
@@ -26,7 +26,7 @@ import {
   logChatGptNavigationEvent,
   type ChatGptNavigationTestConfig,
 } from '@/platforms/chatgpt/navigationDiagnostics';
-import { keepFollowing } from './follow';
+import { keepFollowing } from '../follow/follow';
 
 interface VirtualSearchContext {
   conversationKey: string;

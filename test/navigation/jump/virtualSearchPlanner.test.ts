@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   planVirtualSearch,
   type VirtualSearchPlannerInput,
-} from '@/features/navigation/virtualSearchPlanner';
+} from '@/navigation/jump/virtualSearchPlanner';
 import {
   createNavigationAnchor,
   type NavigationAnchor,
-} from '@/features/navigation/navigationAnchorStore';
+} from '@/navigation/jump/navigationAnchorStore';
 
 function createAnchor(
   promptIndex: number,

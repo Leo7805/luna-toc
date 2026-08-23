@@ -5,8 +5,8 @@ import {
   createResponseFingerprints,
   createSha256,
   type FingerprintOptions,
-} from '@/features/navigation/fingerprint/generator';
-import { normalizeComparableText } from '@/features/navigation/fingerprint/comparableText';
+} from '@/navigation/fingerprint/generator';
+import { normalizeComparableText } from '@/navigation/fingerprint/comparableText';
 
 const options: FingerprintOptions = {
   countPerAssistant: 3,

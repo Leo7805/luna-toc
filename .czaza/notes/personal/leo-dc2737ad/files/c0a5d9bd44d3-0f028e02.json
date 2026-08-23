@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T23:30:31.678Z",
+    "updatedAt": "2026-08-23T23:30:31.678Z"
+  },
+  "fileNote": {
+    "userNote": "扩展弹出窗口 / 弹出页 (Extension Popup)",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

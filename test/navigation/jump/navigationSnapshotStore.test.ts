@@ -1,10 +1,10 @@
 /** Tests revision-safe tab-scoped conversation navigation snapshots. */
 import { describe, expect, it } from 'vitest';
-import { createNavigationSnapshotStore } from '@/features/navigation/navigationSnapshotStore';
+import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnapshotStore';
 import type {
   NavigationFingerprintIndex,
   ResponseFingerprintRecord,
-} from '@/features/navigation/fingerprint/index';
+} from '@/navigation/fingerprint/index';
 
 interface TestPrompt {
   id: string;
