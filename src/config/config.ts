@@ -43,6 +43,11 @@ export const APP_CONFIG = {
       defaultWidthPx: 300,
       minimumWidthPx: 240,
       maximumWidthPx: 520,
+      /**
+       * How long the sidebar status drawer stays visible after an operation
+       * completes (loading finished, jump resolved) before retracting.
+       */
+      statusLingerMs: 500,
     },
     stacking: {
       baseZIndex: 1_000,

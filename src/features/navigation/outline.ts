@@ -10,6 +10,7 @@ import {
   jumpToOutlineEntry,
 } from './outlineNavigation';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
+import { APP_CONFIG } from '@/config/config';
 
 interface OutlineEntry {
   level: number;
@@ -132,9 +133,10 @@ export function setPromptMessages(messages: NavigatorMessage[]): void {
 
 /**
  * How long the completed-status text lingers before retracting. Shared by
- * the loading-complete and jump-complete transitions.
+ * the loading-complete and jump-complete transitions. Sourced from
+ * `APP_CONFIG.ui.sidebar.statusLingerMs`.
  */
-const STATUS_LINGER_MS = 2000;
+const STATUS_LINGER_MS = APP_CONFIG.ui.sidebar.statusLingerMs;
 
 type SidebarStatusMode = 'idle' | 'loading' | 'jumping' | 'complete';
 let currentStatusMode: SidebarStatusMode = 'idle';
