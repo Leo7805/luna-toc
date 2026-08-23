@@ -237,6 +237,14 @@ export function setSidebarStatus(
 
   element.textContent = text;
   element.classList.toggle('navigator-status-active', targetMode !== 'idle');
+  // Mutual exclusion with the legacy "Waiting for prompts..." hint: the
+  // status drawer takes over the same informational slot while it is on
+  // screen (including its linger tail), and the hint returns once the
+  // drawer retracts.
+  const hint = document.querySelector<HTMLElement>('.navigator-hint');
+  if (hint) {
+    hint.hidden = targetMode !== 'idle';
+  }
   if (jumpingDotTimer !== null) {
     clearInterval(jumpingDotTimer);
     jumpingDotTimer = null;
@@ -251,6 +259,8 @@ export function setSidebarStatus(
       currentStatusMode = 'idle';
       element.textContent = '';
       element.classList.remove('navigator-status-active');
+      const lingerHint = document.querySelector<HTMLElement>('.navigator-hint');
+      if (lingerHint) lingerHint.hidden = false;
       statusLingerTimer = null;
     }, STATUS_LINGER_MS);
   }
