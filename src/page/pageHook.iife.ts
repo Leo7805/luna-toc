@@ -159,12 +159,20 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
         requestMeta.isConversationGet &&
         requestPath.includes('/backend-api/conversations/')
       ) {
-        const expectedTemplate = effectiveContractValues['api.conversation.path'];
+        // The bare conversation path and its `/messages` pagination
+        // sub-resource are two distinct contracts. Comparing a `/messages`
+        // GET against `api.conversation.path` produces a false-positive
+        // "API path updated" alert, so pick the correct template using
+        // the initial-load distinction already computed in getRequestMeta.
+        const contractId = requestMeta.isInitialConversationLoad
+          ? 'api.conversation.path'
+          : 'api.conversation.messages-path';
+        const expectedTemplate = effectiveContractValues[contractId];
         if (
           expectedTemplate &&
           !buildPathRegexFromTemplate(expectedTemplate).test(requestPath)
         ) {
-          reportContractMismatch('api.conversation.path', requestPath);
+          reportContractMismatch(contractId, requestPath);
         }
       }
     } catch {}
