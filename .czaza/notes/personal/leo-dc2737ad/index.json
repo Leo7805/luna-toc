@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-23T23:48:23.045Z",
+  "updatedAt": "2026-08-24T14:26:21.848Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -10,9 +10,9 @@
     },
     "src/page/pageHook.iife.ts": {
       "noteFile": "files/a8e5241e739a-faf1a811.json",
-      "sourceHash": "sha256:3ce586e94f8dbd3a18897aaea3115d00ace93db965fcae24e5687158c2a15a04",
+      "sourceHash": "sha256:36395f773f1b54284ee2a6900f0d4af614c53b420d2a388300a13e540a12ef38",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-23T14:17:20.763Z"
+      "updatedAt": "2026-08-24T14:26:21.848Z"
     },
     "src/platforms/chatgpt/conversationRequest.ts": {
       "noteFile": "files/39051b7d0eae-0f243eea.json",
@@ -113,6 +113,33 @@
       "noteFile": "files/12a2c1d30664-0b390e52.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-08-23T23:48:23.045Z"
+    },
+    "src/navigation": {
+      "noteFile": "files/c2d11c2834f0-78ba4ad8.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:58:51.298Z"
+    },
+    "src/navigation/follow": {
+      "noteFile": "files/b92a9df510bc-fdd0c560.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-24T00:05:44.260Z"
+    },
+    "src/navigation/jump": {
+      "noteFile": "files/92a587902234-e288bb15.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-24T00:07:00.749Z"
+    },
+    "src/navigation/navigationData.ts": {
+      "noteFile": "files/24e3bbd90fbf-88e37261.json",
+      "sourceHash": "sha256:c4478c2c39fe15f5c5bb6d3babba757eea74dc03b90cf7d83f1284b0743d8354",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-24T00:07:38.582Z"
+    },
+    "src/navigation/follow/follow.ts": {
+      "noteFile": "files/03be37a9f52b-7a2e2e63.json",
+      "sourceHash": "sha256:8a52c675126addf79d379b64416e19b61487686dbcaf3f4da7367828af234b23",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-24T02:24:54.225Z"
     }
   }
 }

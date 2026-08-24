@@ -1,78 +1,118 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-06T08:30:22.236Z",
+  "updatedAt": "2026-08-24T00:02:16.394Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
-    "src/reactHost/reactHost.tsx": {
-      "noteFile": "files/b3b5c9e5e87a-31919e51.json",
-      "sourceHash": "sha256:c51b01dbef3653001f817347fbefd9549d1ecebd8d7fcb6265b9262cd28a8410",
-      "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-30T12:02:55.507Z"
-    },
-    "src/components/popup/ThemeSettings.tsx": {
-      "noteFile": "files/0044ae0a939f-5e4d6d6c.json",
-      "sourceHash": "sha256:28fa52dee44095dfb061bb28f36208b80493d43e11844b9e096d78a998800bd0",
-      "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-27T05:02:33.086Z"
-    },
-    "src/components/my-prompts/PromptContextMenu.tsx": {
-      "noteFile": "files/bbb20e49c3d7-a7d4819d.json",
-      "sourceHash": "sha256:cb61cf832f88d30a77adf29a0c18e375c13ffa668807bd5078fe3cfa0a13ef81",
-      "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-28T04:00:30.431Z"
-    },
-    "src/components/ui/context-menu.tsx": {
-      "noteFile": "files/7f9ab2d12ec8-3b625c28.json",
-      "sourceHash": "sha256:447014a84fb34db3a1a225a2ce44cf21d52b69a2ccef66e4d5da816e5f0510b4",
-      "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-07-28T04:00:42.080Z"
-    },
-    "src/features/myPrompts/promptContextMenu.ts": {
-      "noteFile": "files/fa999d1fe3a2-79ed4b50.json",
-      "sourceHash": "sha256:34cf6732d6353f0e56a868395c4cf7a918014f22f4358c1eebbdbf86bb0b8c96",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-30T12:02:55.503Z"
-    },
-    "src/features/myPrompts/promptLibrary.ts": {
-      "noteFile": "files/e6c108acceb4-61545d18.json",
-      "sourceHash": "sha256:76dd9dcc81dfef2d377d1dc0d8c7fedcee7bbef5d638d1adf3d7ca31dc209a36",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-30T12:02:55.498Z"
-    },
-    "src/features/myPrompts/promptUsageStore.ts": {
-      "noteFile": "files/467078f42907-bcb3aae2.json",
-      "sourceHash": "sha256:74f9510033b353ab1d8ea7f4296bc7c9cf9d54aab8782f64721f314025da6086",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:01:12.034Z"
-    },
-    "src/features/myPrompts/myPrompts.ts": {
-      "noteFile": "files/e9a2006d6743-cb092e5a.json",
-      "sourceHash": "sha256:b6fcc9d3c25b3c118521fa1a8b36f9ce992b535ca5a789abd0f92cb4acbc8e6c",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-30T12:02:55.494Z"
-    },
-    "src/app/applicationShell.ts": {
-      "noteFile": "files/678c8485ed6c-d3fdf5bf.json",
-      "sourceHash": "sha256:1314739244afbd93338f3a06884deb0d23cd23e4200a21955aebc0844bf686b8",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-30T12:02:55.491Z"
-    },
-    "src/app/navigatorController.ts": {
-      "noteFile": "files/77fd2d9f139a-5ff29bd7.json",
-      "sourceHash": "sha256:2200cac48b97e14049ba2715d347b0e3cac124503a48e3ae0ec8dd14196e69c8",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-30T12:02:55.460Z"
-    },
-    "src/features/sidebarVisibility.ts": {
-      "noteFile": "files/8769c80e1c0f-057a5969.json",
-      "sourceHash": "sha256:bdeb02c7ceeef0e3fbc099352fddfda5d8d3c084bba944313cc1a41f1902fc76",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-07-28T04:02:26.442Z"
-    },
     "": {
-      "noteFile": "files/e3b0c44298fc-b2890c37.json",
+      "noteFile": "files/e3b0c44298fc-13491bdf.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "updatedAt": "2026-08-06T08:30:22.236Z"
+      "updatedAt": "2026-08-21T05:48:42.162Z"
+    },
+    "src/page/pageHook.iife.ts": {
+      "noteFile": "files/a8e5241e739a-faf1a811.json",
+      "sourceHash": "sha256:3ce586e94f8dbd3a18897aaea3115d00ace93db965fcae24e5687158c2a15a04",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T14:17:20.763Z"
+    },
+    "src/platforms/chatgpt/conversationRequest.ts": {
+      "noteFile": "files/39051b7d0eae-0f243eea.json",
+      "sourceHash": "sha256:4bb77da3e8602e69e3e46468dec85bc89678df61f926a10059124dcc67256b44",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.182Z"
+    },
+    "test/platforms/chatgpt/conversationRequest.test.ts": {
+      "noteFile": "files/d9c194d03e97-2d38b211.json",
+      "sourceHash": "sha256:b4110a5fed9404f262dc92d918090a63c690743e8b3a1848c8ff29d9d65c4930",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.178Z"
+    },
+    "src/platforms/chatgpt/chatGptFetchBumper.ts": {
+      "noteFile": "files/88011a1b8992-85fc9f6f.json",
+      "sourceHash": "sha256:092016cb6a4ba073594fd82d54d6a993ea94b8178965b4709837291f140db798",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T11:50:00.609Z"
+    },
+    "src/features/contractAlert/copy.ts": {
+      "noteFile": "files/e8c216330bdf-87ae0984.json",
+      "sourceHash": "sha256:7a3f8d7d9d0703e14d546716d282ed05339d35adaaf0430feb4c4107d7baee7a",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:02:27.667Z"
+    },
+    "src/features/contractAlert/ContractAlert.tsx": {
+      "noteFile": "files/3393e170cb07-d020dcce.json",
+      "sourceHash": "sha256:61cba423303457fdab2a9ab34fae382788e1d065c55a7ee2c9b5995441bd532f",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-08-23T13:04:33.037Z"
+    },
+    "src/components/ui/dialog.tsx": {
+      "noteFile": "files/c24ba5eb166e-ae27a9c4.json",
+      "sourceHash": "sha256:0ab45cc42b90717ddb8bf1dd02fb05644581b44be64df4bef28b45fff4a29879",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-08-23T13:12:03.589Z"
+    },
+    "src/features/contractAlert/detector.ts": {
+      "noteFile": "files/87680a5a86be-33f3b47e.json",
+      "sourceHash": "sha256:cbfc6a7ef308dcb6a5a5c2fb8863d80b15fc6dc84f3fb6e9f2a576077cdf5b82",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:13:57.114Z"
+    },
+    "src/features/contractAlert/pageHookBridge.ts": {
+      "noteFile": "files/cc2340967349-4fe20fe5.json",
+      "sourceHash": "sha256:859f5f56e155f3a0a6c03c51b36f0203070162259b21cd62b07868e5752ce5e8",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T13:40:12.172Z"
+    },
+    "src/options": {
+      "noteFile": "files/7e586b0adc63-90d2721d.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:21:41.486Z"
+    },
+    "src/page": {
+      "noteFile": "files/1b7d33f95ae1-c981d23b.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:26:55.115Z"
+    },
+    "src/popup": {
+      "noteFile": "files/c0a5d9bd44d3-0f028e02.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:30:31.678Z"
+    },
+    "src/features/contractAlert": {
+      "noteFile": "files/3f199c150753-284862c8.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:32:45.357Z"
+    },
+    "src/features/conversationPrompts": {
+      "noteFile": "files/2c2f9633b9e9-76ee1daf.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:36:12.033Z"
+    },
+    "src/features/conversationPrompts/message.ts": {
+      "noteFile": "files/192f643cfcf4-d7675e62.json",
+      "sourceHash": "sha256:73f3f80d7933403281a205449e01a3591912c515ea46578a1957db49a7c4c1c1",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T23:37:10.477Z"
+    },
+    "src/features/conversationPrompts/promptMark.ts": {
+      "noteFile": "files/8706f33937eb-af757501.json",
+      "sourceHash": "sha256:505120602f10628c7a9f71793f9e7e39b82a044a46d645d161fad764b31026bd",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-23T23:37:27.603Z"
+    },
+    "src/features/myPrompts": {
+      "noteFile": "files/fab56adaca52-7931d92d.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:42:35.519Z"
+    },
+    "src/features": {
+      "noteFile": "files/12a2c1d30664-0b390e52.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:48:23.045Z"
+    },
+    "src/navigation": {
+      "noteFile": "files/c2d11c2834f0-78ba4ad8.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:58:51.298Z"
     }
   }
 }

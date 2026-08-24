@@ -3,11 +3,11 @@
     "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "defaults": {
-    "createdAt": "2026-08-23T23:32:02.514Z",
-    "updatedAt": "2026-08-23T23:32:02.514Z"
+    "createdAt": "2026-08-24T00:05:44.260Z",
+    "updatedAt": "2026-08-24T00:05:44.260Z"
   },
   "fileNote": {
-    "userNote": "🔥 Prompt 导航逻辑",
+    "userNote": "ChatGPT 聊天区滚动时 sidebar 跟随高亮",
     "createdBy": "user"
   },
   "sectionNotes": {},

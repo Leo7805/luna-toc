@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-08-23T23:58:51.298Z",
+    "updatedAt": "2026-08-24T00:00:19.830Z"
+  },
+  "fileNote": {
+    "userNote": "负责实现聊天目录的数据管理、定位跳转和导航策略。\n\n该目录包含导航数据模型、导航设置、提示词跳转、虚拟列表定位、指纹匹配以及跟随滚动等功能，为扩展在 ChatGPT 长对话中准确查找和跳转提示词提供核心逻辑。\n\nsrc/navigation/\n├── navigationData.ts                  # 数据模型（NavigationTurn / NavigationTextMessage 等），shared\n├── navigationSettings.ts               # 设置持久化（localStorage 读写 + Chrome storage 订阅），shared\n├── fingerprint/                        # shared —— platform adapters + jump 都消费\n│   ├── comparableText.ts\n│   ├── generator.ts\n│   ├── index.ts\n│   ├── matcher.ts\n│   ├── segmentMatcher.ts\n│   └── segments.ts\n├── jump/\n│   ├── promptNavigation.ts             # jump 编排入口（jumpToPromptIndex / jumpWithIndependentVirtualNavigation）\n│   ├── outline.ts                      # sidebar 渲染 + 状态栏 + outline 构建\n│   ├── outlineNavigation.ts            # outline 节点跳转到 ChatGPT heading\n│   ├── outlineDiagnostics.ts           # jump 专用 debug 日志（只有 jump 调用，gate 在 shared 没必要）\n│   ├── navigationAnchorStore.ts         # confirmed / observed 两级锚点\n│   ├── navigationSnapshotStore.ts      # 跳转上下文快照（fingerprints + segments per conversation）\n│   ├── visiblePositionResolver.ts      # 虚拟列表当前位置 → prompt 索引\n│   ├── virtualSearchController.ts      # 主搜索循环\n│   ├── virtualSearchMachine.ts         # 阶段状态机（initial-estimate / seek-response / mount-prompt）\n│   ├── virtualSearchPlanner.ts         # 绝对位置规划\n│   └── relativeSearchPlanner.ts        # 相对移动规划\n└── follow/\n    └── follow.ts                       # scroll-follow 唯一文件\n",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

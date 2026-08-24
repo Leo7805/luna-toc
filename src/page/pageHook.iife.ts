@@ -63,6 +63,7 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
 
   const HOOK_FLAG = '__conversationNavigatorFetchHookInstalled';
   const MESSAGE_TYPE = 'CHATGPT_CONVERSATION_DATA';
+  const CONVERSATION_ENDED_MESSAGE_TYPE = 'CHATGPT_CONVERSATION_ENDED';
   const WIDTH_SPOOF_MESSAGE_TYPE = 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF';
   const SEND_MESSAGE_PATH = '/backend-api/f/conversation';
   const SPOOFED_VIEWPORT_WIDTH = 1400;
@@ -861,9 +862,28 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
         }
 
         if (isInitialConversationLoad) {
-          startBackfillIfNeeded(data, routeKey, authHeaders);
+          const backfillStarted = startBackfillIfNeeded(
+            data,
+            routeKey,
+            authHeaders
+          );
           void probeNumTurnsBehavior(routeKey, authHeaders);
           probeDomSelectors();
+          // If the initial response already represents the whole conversation
+          // and no backfill is currently in flight for this route, the
+          // backfill branch above won't fire the ENDED signal — do it here.
+          // (If backfill already started for this route, either via the
+          // branch above or by an earlier fetch, its `finally` will post
+          // ENDED when it terminates, so we must not preempt it.)
+          const pageInfo = (data as ConversationPayload | undefined)
+            ?.page_info;
+          if (
+            !backfillStarted &&
+            !backfillingConversationIds.has(routeKey) &&
+            !pageInfo?.has_previous_page
+          ) {
+            postConversationEnded(routeKey);
+          }
         }
       })
       .catch(() => {});
@@ -886,29 +906,58 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
   }
 
   /**
+   * Signals that the page hook has finished streaming every conversation
+   * page it intends to send (initial load plus any backfill). Emitted when:
+   *  - the initial response had no further history to backfill, or
+   *  - backfill terminated naturally at the page cap, or
+   *  - backfill exited because the next page reported no further history.
+   *
+   * The content script uses this to leave `loading` mode. The earlier
+   * `has_previous_page !== false` heuristic in the controller treated any
+   * missing/incomplete field as "still loading", which stranded the UI
+   * when the backend omitted `page_info` on the final response or when
+   * the backfill cap was reached before the true last page.
+   * @param {string} routeKey
+   */
+  function postConversationEnded(routeKey: string): void {
+    if (!routeKey) return;
+    window.postMessage(
+      {
+        type: CONVERSATION_ENDED_MESSAGE_TYPE,
+        routeKey,
+      },
+      '*'
+    );
+  }
+
+    /**
    * Starts a bounded backfill of older conversation pages when the initial
    * response indicates there is earlier history to load.
    * @param {unknown} data Parsed initial conversation payload.
    * @param {string} routeKey Conversation ID captured when the request was made.
+   * @returns {boolean} Whether backfill was actually started. Callers use the
+   *   `false` return to decide whether the ENDED signal should fire immediately
+   *   (no backfill means no later ENDED from `backfillPreviousPages`).
    */
   function startBackfillIfNeeded(
     data: unknown,
     routeKey: string,
     authHeaders: Record<string, string> | null
-  ): void {
+  ): boolean {
     const pageInfo = (data as ConversationPayload | undefined)?.page_info;
 
-    if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return;
-    if (!routeKey || backfillingConversationIds.has(routeKey)) return;
+    if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return false;
+    if (!routeKey || backfillingConversationIds.has(routeKey)) return false;
 
     backfillingConversationIds.add(routeKey);
-    void backfillPreviousPages(
+    backfillPreviousPages(
       routeKey,
       pageInfo.start_cursor,
       authHeaders
     ).finally(() => {
       backfillingConversationIds.delete(routeKey);
     });
+    return true;
   }
 
   /**
@@ -926,33 +975,41 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
   ): Promise<void> {
     let cursor = startCursor;
 
-    for (let page = 0; page < BACKFILL_MAX_PAGES; page++) {
-      if (!cursor) return;
+    try {
+      for (let page = 0; page < BACKFILL_MAX_PAGES; page += 1) {
+        if (!cursor) return;
 
-      let data: ConversationPayload;
+        let data: ConversationPayload;
 
-      try {
-        const response = await originalFetch(
-          buildBackfillUrl(conversationId, cursor),
-          {
-            method: 'GET',
-            credentials: 'include',
-            headers: authHeaders ?? undefined,
-          }
-        );
+        try {
+          const response = await originalFetch(
+            buildBackfillUrl(conversationId, cursor),
+            {
+              method: 'GET',
+              credentials: 'include',
+              headers: authHeaders ?? undefined,
+            }
+          );
 
-        if (!response.ok) return;
-        data = (await response.json()) as ConversationPayload;
-      } catch {
-        return;
+          if (!response.ok) return;
+          data = (await response.json()) as ConversationPayload;
+        } catch {
+          return;
+        }
+
+        postConversationPayload(data, conversationId);
+
+        const pageInfo = data?.page_info;
+        if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return;
+
+        cursor = pageInfo.start_cursor;
       }
-
-      postConversationPayload(data, conversationId);
-
-      const pageInfo = data?.page_info;
-      if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return;
-
-      cursor = pageInfo.start_cursor;
+    } finally {
+      // Whatever path terminates backfill (network error, no further history,
+      // or hitting `BACKFILL_MAX_PAGES` on a conversation longer than the
+      // cap), always tell the navigator this route is done streaming pages.
+      // The controller only flips out of `loading` once it sees this signal.
+      postConversationEnded(conversationId);
     }
   }
 

@@ -49,6 +49,7 @@ import {
   isElementTextTruncated,
   previewTooltip,
 } from '@/features/tooltip';
+import { APP_CONFIG } from '@/config/config';
 
 interface NavigatorControllerOptions {
   onPromptCountChanged?: (count: number) => void;
@@ -60,6 +61,20 @@ interface NavigatorControllerOptions {
 
 interface RenderOptions {
   refreshObservers?: boolean;
+  /**
+   * Caller-declared completion status for this render pass.
+   *   - `null`  (default): preserve `isLoadingPrompts` as-is — used by
+   *     callers that don't know whether more data is on the way
+   *     (e.g. the initial render at `attach()`).
+   *   - `true`: the data backing this render is final. Clear the
+   *     settle timer, flip the loading flag to false, and (if the
+   *     user hasn't already moved the cursor and isn't mid-scroll)
+   *     snap the TOC cursor + scroll position to the last prompt.
+   *   - `false`: more data is expected. Flip the loading flag to
+   *     true and arm the fallback settle timer so cached /
+   *     localStorage scenarios that go silent still resolve.
+   */
+  completed?: boolean | null;
 }
 
 interface ResetRouteOptions {
@@ -107,6 +122,62 @@ export const navigatorController = (() => {
   let activeNativeTocObserver: MutationObserver | null = null;
   /** True while prompts are still arriving (backfill / pagination in flight). */
   let isLoadingPrompts = true;
+  /**
+   * Tracks whether the auto-jump-to-last has fired for the current load
+   * cycle. Currently unused — `jumpToLastIfIdle`'s `activeNavigatorIndex
+   * !== null` gate plus `resetStateForCurrentRoute`'s index reset on
+   * route switch already gate re-firing correctly.
+   */
+  let autoJumpedForCurrentLoad = false;
+  /**
+   * Fallback timer for cases where neither `CHATGPT_CONVERSATION_DATA`,
+   * `CHATGPT_CONVERSATION_ENDED`, nor the DOM observer provides a
+   * "loaded" signal. ChatGPT can hydrate a conversation entirely from
+   * its own client-side cache (or test setups can mock one from
+   * `localStorage`), in which case no page-hook event ever fires and
+   * ChatGPT's rendered DOM may even lack `[data-message-author-role]`
+   * user-message elements. The DOM observer handles the common
+   * cache-rendered case, this timer handles everything else. Configured
+   * via `APP_CONFIG.ui.sidebar.loadingSettleMs`. Cancelled automatically
+   * whenever the loading flag drops, so it never fires after a normal
+   * load or after the user starts typing.
+   */
+  let loadingSettleTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Marks prompts loading as finished for the active conversation and re-renders
+   * the sidebar so the status band leaves `loading` mode. Replaces the prior
+   * `page_info.has_previous_page !== false` heuristic, which stranded the UI
+   * whenever the page hook omitted `page_info` on its final response or its
+   * backfill hit `BACKFILL_MAX_PAGES` before the true last page. Called when
+   * the page hook posts `CHATGPT_CONVERSATION_ENDED`, when the DOM observer
+   * detects settled user-message elements, and by the fallback settle timer.
+   */
+  function markLoadingComplete(): void {
+    if (!isLoadingPrompts) return;
+    isLoadingPrompts = false;
+    if (loadingSettleTimer !== null) {
+      clearTimeout(loadingSettleTimer);
+      loadingSettleTimer = null;
+    }
+    render({ completed: true });
+  }
+
+  /**
+   * (Re)arms the fallback settle timer. Safe to call repeatedly —
+   * previous timers are cleared first. The timer fires once and only
+   * acts if `isLoadingPrompts` is still true at that point, so a
+   * normal `CHATGPT_CONVERSATION_ENDED` (which clears loading earlier)
+   * makes this a no-op.
+   */
+  function startLoadingSettleTimer(): void {
+    if (loadingSettleTimer !== null) {
+      clearTimeout(loadingSettleTimer);
+    }
+    loadingSettleTimer = window.setTimeout(() => {
+      loadingSettleTimer = null;
+      if (isLoadingPrompts) markLoadingComplete();
+    }, APP_CONFIG.ui.sidebar.loadingSettleMs);
+  }
   /** Active jump navigation progress, or null when idle. */
   let jumpProgress: {
     active: boolean;
@@ -187,6 +258,7 @@ export const navigatorController = (() => {
     initActivePromptTracking();
     renderedFingerprintCollector.observe(document.body);
     isAttached = true;
+    startLoadingSettleTimer();
     render();
   }
 
@@ -252,8 +324,14 @@ export const navigatorController = (() => {
    * Builds the conversation TOC from normalized user messages.
    * @param {Object} [options]
    * @param {boolean} [options.refreshObservers=false]
+   * @param {boolean | null} [options.completed=null]  Caller-declared
+   *   completion status. `null` preserves `isLoadingPrompts`; `true`
+   *   declares the data final; `false` arms the fallback timer.
    */
-  function render({ refreshObservers = false }: RenderOptions = {}): void {
+  function render({
+    refreshObservers = false,
+    completed = null,
+  }: RenderOptions = {}): void {
     const list = document.getElementById('navigator-list');
     const hint = document.querySelector<HTMLElement>('.navigator-hint');
 
@@ -264,7 +342,6 @@ export const navigatorController = (() => {
     resetPromptItems();
     setPromptMessages(conversationMessages);
     reportPromptCount();
-    setSidebarStatus(getJumpProgress(), isLoadingPrompts, conversationMessages.length);
 
     const normalizedQuery = normalizeText(searchQuery).toLowerCase();
     const visibleMessages = conversationMessages
@@ -290,8 +367,85 @@ export const navigatorController = (() => {
       list.appendChild(item);
     });
 
+    // Translate the caller's `completed` flag into the loading flag +
+    // status band state. The status band is a stateless renderer: the
+    // caller picks the visible state.
+    if (completed === true) {
+      isLoadingPrompts = false;
+      if (loadingSettleTimer !== null) {
+        clearTimeout(loadingSettleTimer);
+        loadingSettleTimer = null;
+      }
+      autoJumpedForCurrentLoad = false;
+    } else if (completed === false) {
+      isLoadingPrompts = true;
+      autoJumpedForCurrentLoad = false;
+      startLoadingSettleTimer();
+    }
+    // null → leave isLoadingPrompts alone
+
+    setSidebarStatus({
+      state: pickStatusBandState(completed),
+      jump: getJumpProgress(),
+      promptCount: conversationMessages.length,
+    });
+
+    if (completed === true) {
+      jumpToLastIfIdle();
+    }
+
     if (refreshObservers && isAttached) {
       observeVisibleUserMessages();
+    }
+  }
+
+  /**
+   * Chooses the visible state for the status band based on the caller's
+   * completion flag and the current prompt count.
+   * @param {boolean | null} completed
+   * @returns {import('../navigation/jump/outline').SidebarStatusState}
+   */
+  function pickStatusBandState(
+    completed: boolean | null
+  ): import('../navigation/jump/outline').SidebarStatusState {
+    const jump = getJumpProgress();
+    if (jump && jump.active) return 'jumping';
+    if (completed === true) {
+      return conversationMessages.length === 0 ? 'empty' : 'complete';
+    }
+    if (completed === false) return 'loading';
+    // null: preserve previous band state via the caller's intent.
+    return isLoadingPrompts
+      ? 'loading'
+      : conversationMessages.length === 0
+        ? 'idle'
+        : 'idle';
+  }
+
+  /**
+   * Snaps the TOC cursor to the last prompt and scrolls the sidebar so
+   * the row sits flush at the bottom. Called exactly once when loading
+   * completes (gated above). Skipped when the user is mid-scroll or
+   * has already moved the active cursor.
+   */
+  function jumpToLastIfIdle(): void {
+    if (isFollowing()) return;
+    if (conversationMessages.length === 0) return;
+    const lastIndex = conversationMessages.length - 1;
+    // The earlier `activeNavigatorIndex !== null` guard has been
+    // removed. It bailed in exactly the case it was meant to enable:
+    // when ChatGPT's own auto-scroll-to-bottom on load fires our
+    // `follow.ts` settle first, it sets the cursor to the last prompt
+    // before our `completed: true` render runs, so the guard skipped
+    // the scroll-into-view even though `innerHTML = ''` had just
+    // reset the sidebar's scrollTop to 0. The remaining `isFollowing`
+    // gate is sufficient: while the user is mid-scroll they want to
+    // see what `follow.ts` shows them; after load settles we are free
+    // to anchor the cursor + scroll position to the last prompt.
+    forceActiveNavigatorItem(lastIndex);
+    const lastItem = navigatorItems[lastIndex];
+    if (lastItem) {
+      lastItem.scrollIntoView({ block: 'end' });
     }
   }
 
@@ -772,6 +926,18 @@ export const navigatorController = (() => {
     navigatorItems = [];
     searchQuery = '';
     previewTooltip.hide();
+    // `isLoadingPrompts` is intentionally NOT reset here. It used to be
+    // set to `true` on every call, but that misfires for the
+    // "new-chat auto-rename" transition (ChatGPT assigning a permanent
+    // `/c/...` URL to a freshly opened empty chat): from the user's
+    // perspective they are still in the same chat — the URL just got
+    // upgraded from a placeholder. Resetting `isLoadingPrompts` to `true`
+    // there re-parked the sidebar at "Loading... (1 so far)" right after
+    // the user typed their first prompt, because the page hook never
+    // fires `CHATGPT_CONVERSATION_DATA` or `CHATGPT_CONVERSATION_ENDED`
+    // for a fresh chat, so there was no signal that would clear it
+    // again. The caller (`syncRouteState`) now owns the reset and only
+    // applies it for genuine conversation switches.
     onRouteChanged();
     render({ refreshObservers: true });
   }
@@ -817,6 +983,16 @@ export const navigatorController = (() => {
     } else {
       renderedFingerprintCollector.setContext(null);
     }
+    // Reset the loading flag for genuine conversation switches (e.g. user
+    // navigates from chat A to chat B). Skip it for the new-chat
+    // auto-rename — that is not a navigation from the user's perspective,
+    // and resetting there re-parked the sidebar at "Loading... (1 so
+    // far)" right after the user typed their first prompt because no
+    // ENDED signal ever fires for a fresh chat.
+    if (!isNewChatRouteTransition) {
+      isLoadingPrompts = true;
+      startLoadingSettleTimer();
+    }
     resetStateForCurrentRoute({
       nextMessages: cachedMessages,
       preserveMessages: shouldPreserveMessages,
@@ -852,9 +1028,16 @@ export const navigatorController = (() => {
     );
     conversationMessages = extractUserMessages(mergedData);
     cacheConversationNavigationData(conversationKey, mergedData);
-    isLoadingPrompts =
-      (data?.page_info as { has_previous_page?: boolean } | undefined)
-        ?.has_previous_page !== false;
+    // `isLoadingPrompts` is intentionally NOT updated here. It used to be
+    // (re)derived from `data.page_info.has_previous_page`, but that turns
+    // every subsequent conversation GET — including the ones ChatGPT's
+    // frontend fires after the user types a message to fold the assistant
+    // reply into the cached payload — into a fresh loading state. With the
+    // page hook's `CHATGPT_CONVERSATION_ENDED` signal in place, the load
+    // lifecycle is now driven by signals, not by data-shape inference:
+    //   - true: initial value, and reset by `resetStateForCurrentRoute`
+    //   - false: `CHATGPT_CONVERSATION_ENDED` listener, and the
+    //            `NEW_USER_MESSAGE` handler after a user-typed prompt.
     render({ refreshObservers: true });
   }
 
@@ -916,6 +1099,15 @@ export const navigatorController = (() => {
         handleConversationData(event.data.payload);
       }
 
+      if (event.data?.type === 'CHATGPT_CONVERSATION_ENDED') {
+        // Only honor an ENDED signal aimed at the conversation we are
+        // actually rendering. A late signal aimed at a previously visited
+        // route must not flip state for the new one.
+        const routeKey = event.data.routeKey;
+        if (!routeKey || routeKey !== getCurrentConversationKey()) return;
+        markLoadingComplete();
+      }
+
       if (event.data?.type === 'CHATGPT_NEW_USER_MESSAGE') {
         const routeKey = event.data.routeKey;
         const isCurrentRoute =
@@ -936,8 +1128,27 @@ export const navigatorController = (() => {
 
         if (didAppend) {
           onPromptAdded();
-          render({ refreshObservers: true });
         }
+        // The user just interacted with the chat, so the "initial page
+        // load / backfill" loading band is no longer the relevant status.
+        // Without this flip, sending the first prompt of an empty chat
+        // parks the sidebar at "Loading... (1 so far)" forever: empty
+        // chats don't trigger a conversation GET, so the page hook's
+        // `CHATGPT_CONVERSATION_ENDED` signal never fires.
+        //
+        // We have to do this regardless of `didAppend`: ChatGPT's frontend
+        // sometimes prefetches the conversation data (firing
+        // `CHATGPT_CONVERSATION_DATA` with the user message included)
+        // before the SSE `input_message` event lands, which makes
+        // `appendNavigatorMessage` return false on a duplicate ID. In that
+        // ordering, the message was already added to `conversationMessages`
+        // by `handleConversationData`, but the controller's render still
+        // sees `loading=true && count>0`, parking the band on
+        // "Loading... (1 so far)" until something else fires. Calling
+        // `markLoadingComplete` here covers both orderings. It is itself
+        // a no-op when `isLoadingPrompts` is already false.
+        if (isLoadingPrompts) markLoadingComplete();
+        render({ refreshObservers: true });
       }
     });
   }

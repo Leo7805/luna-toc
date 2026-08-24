@@ -1,0 +1,334 @@
+{
+  "source": {
+    "sourceHash": "sha256:c4478c2c39fe15f5c5bb6d3babba757eea74dc03b90cf7d83f1284b0743d8354",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-24T01:44:14.359Z",
+    "updatedAt": "2026-08-24T01:44:14.359Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "定义导航功能使用的对话消息类型，并提供将平台消息分组为对话回合的辅助函数。",
+      "detail": "该文件位于 src/navigation，为导航功能提供与平台无关的数据结构。它定义了基础文本消息 NavigationTextMessage、带来源类型的 NavigationSourceMessage 以及回合结构 NavigationTurn，并导出 createNavigationTurns 和 createNavigationTextMessage 两个函数，用于将扁平的源消息转换为按 prompt 分组的回合列表，同时清洗消息文本。这些类型和函数统一了导航模块对对话数据的处理方式。"
+    },
+    "userNote": "数据模型（NavigationTurn / NavigationTextMessage 等），shared",
+    "createdBy": "user",
+    "createdAt": "2026-08-24T00:07:38.582Z"
+  },
+  "sectionNotes": {
+    "section:1:section:1-17": {
+      "title": "导航消息类型定义",
+      "kind": "types",
+      "range": {
+        "startLine": 1,
+        "endLine": 17
+      },
+      "anchorHash": "sha256:a603b07b54a22492526c53003a00fd0bd73958b9ba055e5d94503e8c13089090",
+      "aiExplanation": {
+        "summary": "定义三个核心接口：基础消息、来源消息和回合结构。",
+        "detail": "包含 NavigationTextMessage（id + text）、NavigationSourceMessage（继承基础接口并添加 kind 字段区分 prompt/response）和 NavigationTurn（包含 prompt 及其响应列表）。这些类型是导航对话处理的基础数据模型。"
+      }
+    },
+    "section:2:createnavigationturns:19-53": {
+      "title": "createNavigationTurns：将消息流分组为回合",
+      "kind": "function",
+      "range": {
+        "startLine": 19,
+        "endLine": 53
+      },
+      "anchorHash": "sha256:c22420a36afd48624de6af97dba70ec68ca5e3a185026fccb9b1cc5178fccb15",
+      "aiExplanation": {
+        "summary": "将扁平的源消息数组按 prompt 分组为 NavigationTurn 列表。",
+        "detail": "遍历 messages，遇到 prompt 时创建新回合并记录索引，遇到 response 时追加到当前回合；标准化消息为空时跳过。最终返回按 prompt 分组的回合数组，供导航逻辑使用。"
+      }
+    },
+    "section:3:createnavigationtextmessage:55-69": {
+      "title": "createNavigationTextMessage：创建标准化导航消息",
+      "kind": "function",
+      "range": {
+        "startLine": 55,
+        "endLine": 69
+      },
+      "anchorHash": "sha256:cc50104ab11a6abf8f9c0d0669998c5e3d03da45d8c79fc4b1eb89a842da013b",
+      "aiExplanation": {
+        "summary": "清洗并验证单个消息，返回非空文本的标准化消息或 null。",
+        "detail": "trim 消息文本，若为空返回 null；否则返回保留原始 id、使用 trim 后文本的新对象。此函数被 createNavigationTurns 调用，用于过滤无意义消息。"
+      }
+    }
+  },
+  "lineNotes": {
+    "line:4": {
+      "line": 4,
+      "anchorText": "export interface NavigationTextMessage {",
+      "aiExplanation": {
+        "summary": "导出基础导航文本消息接口。",
+        "detail": "该接口是导航对话的最小消息单元，包含 id 和 text 字段，其他消息类型继承它。"
+      }
+    },
+    "line:5": {
+      "line": 5,
+      "anchorText": "  id: string;",
+      "aiExplanation": {
+        "summary": "声明消息的唯一标识字段。",
+        "detail": "id 用于关联原始消息和标准化消息，在导航匹配过程中通常保持不变。"
+      }
+    },
+    "line:6": {
+      "line": 6,
+      "anchorText": "  text: string;",
+      "aiExplanation": {
+        "summary": "声明消息的文本内容字段。",
+        "detail": "text 是消息的实际内容，在创建标准化消息时会被 trim 处理。"
+      }
+    },
+    "line:9": {
+      "line": 9,
+      "anchorText": "export interface NavigationSourceMessage extends NavigationTextMessage {",
+      "aiExplanation": {
+        "summary": "定义带来源类型的导航消息接口。",
+        "detail": "该接口继承 NavigationTextMessage，并增加 kind 字段，用于区分 prompt 和 response。"
+      }
+    },
+    "line:10": {
+      "line": 10,
+      "anchorText": "  kind: 'prompt' | 'response';",
+      "aiExplanation": {
+        "summary": "声明消息类型为 prompt 或 response。",
+        "detail": "kind 用于决定消息在回合构建中的归属：prompt 开始新回合，response 归入当前回合。"
+      }
+    },
+    "line:13": {
+      "line": 13,
+      "anchorText": "export interface NavigationTurn {",
+      "aiExplanation": {
+        "summary": "定义导航对话回合的接口。",
+        "detail": "一个回合包含一个 prompt 消息和多个 response 消息，promptIndex 表示该回合在总体数组中的索引。"
+      }
+    },
+    "line:14": {
+      "line": 14,
+      "anchorText": "  promptIndex: number;",
+      "aiExplanation": {
+        "summary": "声明 prompt 在回合数组中的索引。",
+        "detail": "promptIndex 记录该回合在 createNavigationTurns 返回数组中的位置，用于识别回合顺序。"
+      }
+    },
+    "line:15": {
+      "line": 15,
+      "anchorText": "  prompt: NavigationTextMessage;",
+      "aiExplanation": {
+        "summary": "声明回合的 prompt 消息。",
+        "detail": "prompt 是经过标准化处理后的 NavigationTextMessage。"
+      }
+    },
+    "line:16": {
+      "line": 16,
+      "anchorText": "  responses: NavigationTextMessage[];",
+      "aiExplanation": {
+        "summary": "声明与 prompt 关联的响应消息数组。",
+        "detail": "responses 收集该 prompt 之后的所有 response 消息，直到下一个 prompt 出现。"
+      }
+    },
+    "line:28": {
+      "line": 28,
+      "anchorText": "export function createNavigationTurns(",
+      "aiExplanation": {
+        "summary": "导出创建导航回合的函数。",
+        "detail": "该函数接受 NavigationSourceMessage 数组，返回 NavigationTurn 数组。"
+      }
+    },
+    "line:29": {
+      "line": 29,
+      "anchorText": "  messages: NavigationSourceMessage[]",
+      "aiExplanation": {
+        "summary": "声明函数参数为源消息数组。",
+        "detail": "参数 messages 是输来源消息列表，每个消息带 kind 区分 prompt/response。"
+      }
+    },
+    "line:30": {
+      "line": 30,
+      "anchorText": "): NavigationTurn[] {",
+      "aiExplanation": {
+        "summary": "声明函数返回 NavigationTurn 数组。",
+        "detail": "返回值是对输入消息按 prompt 分组后的回合列表。"
+      }
+    },
+    "line:31": {
+      "line": 31,
+      "anchorText": "  const turns: NavigationTurn[] = [];",
+      "aiExplanation": {
+        "summary": "初始化空数组存储生成的回合。",
+        "detail": "turns 用于累积返回结果，在遍历过程中逐步添加新回合。"
+      }
+    },
+    "line:32": {
+      "line": 32,
+      "anchorText": "  let currentTurn: NavigationTurn | null = null;",
+      "aiExplanation": {
+        "summary": "声明一个可空的当前回合变量。",
+        "detail": "currentTurn 用于暂存正在构建的回合，在遇到新 prompt 时更新。"
+      }
+    },
+    "line:34": {
+      "line": 34,
+      "anchorText": "  messages.forEach((message) => {",
+      "aiExplanation": {
+        "summary": "遍历输入消息数组。",
+        "detail": "对每条 source 消息进行迭代处理，依据其类型决定是开启新回合还是追加响应。"
+      }
+    },
+    "line:35": {
+      "line": 35,
+      "anchorText": "    const normalizedMessage = createNavigationTextMessage(message);",
+      "aiExplanation": {
+        "summary": "调用 createNavigationTextMessage 清洗消息。",
+        "detail": "将当前消息转换为标准化消息；若文本为空可能返回 null。"
+      }
+    },
+    "line:37": {
+      "line": 37,
+      "anchorText": "    if (!normalizedMessage) return;",
+      "aiExplanation": {
+        "summary": "若标准化消息为空则跳过当前消息。",
+        "detail": "当文本 trim 后为空时，normalizedMessage 为 null，直接返回跳过，不参与回合构建。"
+      }
+    },
+    "line:39": {
+      "line": 39,
+      "anchorText": "    if (message.kind === 'prompt') {",
+      "aiExplanation": {
+        "summary": "检查消息是否为 prompt 类型。",
+        "detail": "根据 kind 字段决定是否开启新回合。"
+      }
+    },
+    "line:40": {
+      "line": 40,
+      "anchorText": "      currentTurn = {",
+      "aiExplanation": {
+        "summary": "开始构造新回合对象。",
+        "detail": "当遇到 prompt 时，创建新的 NavigationTurn 实例。"
+      }
+    },
+    "line:41": {
+      "line": 41,
+      "anchorText": "        promptIndex: turns.length,",
+      "aiExplanation": {
+        "summary": "将 promptIndex 设为当前回合数组长度。",
+        "detail": "因为新回合会 push 到 turns，所以其索引即为当前 turns.length。"
+      }
+    },
+    "line:42": {
+      "line": 42,
+      "anchorText": "        prompt: normalizedMessage,",
+      "aiExplanation": {
+        "summary": "将标准化后的 prompt 消息赋值给当前回合。",
+        "detail": "该 prompt 即为当前消息。"
+      }
+    },
+    "line:43": {
+      "line": 43,
+      "anchorText": "        responses: [],",
+      "aiExplanation": {
+        "summary": "初始化响应数组为空。",
+        "detail": "新回合刚开始时还没有响应，后续 response 会追加至此。"
+      }
+    },
+    "line:45": {
+      "line": 45,
+      "anchorText": "      turns.push(currentTurn);",
+      "aiExplanation": {
+        "summary": "将新回合加入结果数组。",
+        "detail": "currentTurn 被插入 turns 末尾，完成一次新回合的添加。"
+      }
+    },
+    "line:46": {
+      "line": 46,
+      "anchorText": "      return;",
+      "aiExplanation": {
+        "summary": "处理完 prompt 后跳出本次循环。",
+        "detail": "由于 prompt 已处理，不需要继续追加响应，直接返回 forEach 回调。"
+      }
+    },
+    "line:49": {
+      "line": 49,
+      "anchorText": "    currentTurn?.responses.push(normalizedMessage);",
+      "aiExplanation": {
+        "summary": "将响应消息追加到当前回合。",
+        "detail": "如果 currentTurn 存在，则将消息推入其 responses 数组；若为 null（如首个消息为 response），则静默跳过。"
+      }
+    },
+    "line:52": {
+      "line": 52,
+      "anchorText": "  return turns;",
+      "aiExplanation": {
+        "summary": "返回构建好的回合数组。",
+        "detail": "循环结束后，turns 包含所有通过 prompt 分组的回合。"
+      }
+    },
+    "line:58": {
+      "line": 58,
+      "anchorText": "export function createNavigationTextMessage(",
+      "aiExplanation": {
+        "summary": "导出创建标准化文本消息的函数。",
+        "detail": "该函数用于清洗和验证消息，返回 null 表示无效。"
+      }
+    },
+    "line:59": {
+      "line": 59,
+      "anchorText": "  message: NavigationTextMessage",
+      "aiExplanation": {
+        "summary": "声明参数为一条导航文本消息。",
+        "detail": "参数 message 包含原始 id 和 text。"
+      }
+    },
+    "line:60": {
+      "line": 60,
+      "anchorText": "): NavigationTextMessage | null {",
+      "aiExplanation": {
+        "summary": "声明返回类型为 NavigationTextMessage 或 null。",
+        "detail": "返回标准化后的消息，若文本为空则返回 null。"
+      }
+    },
+    "line:61": {
+      "line": 61,
+      "anchorText": "  const text = message.text.trim();",
+      "aiExplanation": {
+        "summary": "提取消息文本并去除首尾空格。",
+        "detail": "trim 后的文本用于判断消息是否有效。"
+      }
+    },
+    "line:63": {
+      "line": 63,
+      "anchorText": "  if (!text) return null;",
+      "aiExplanation": {
+        "summary": "若 trim 后为空则返回 null。",
+        "detail": "这确保导航匹配仅使用非空文本消息。"
+      }
+    },
+    "line:65": {
+      "line": 65,
+      "anchorText": "  return {",
+      "aiExplanation": {
+        "summary": "构造并返回标准化消息对象。",
+        "detail": "返回包含原始 id 和 trim 后文本的新对象。"
+      }
+    },
+    "line:66": {
+      "line": 66,
+      "anchorText": "    id: message.id,",
+      "aiExplanation": {
+        "summary": "保留原始消息 ID。",
+        "detail": "id 字段原样传递，用于关联原始消息。"
+      }
+    },
+    "line:67": {
+      "line": 67,
+      "anchorText": "    text,",
+      "aiExplanation": {
+        "summary": "设置标准化后的文本。",
+        "detail": "使用 trim 后的文本作为消息内容。"
+      }
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "source": {
+    "sourceHash": "sha256:8a52c675126addf79d379b64416e19b61487686dbcaf3f4da7367828af234b23",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-24T02:24:54.225Z",
+    "updatedAt": "2026-08-24T02:24:54.225Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "控制LunaTOC侧边栏列表在活跃的ChatGPT提示符变化时是否允许自动跟随滚动。",
+      "detail": "该模块是导航控制器的辅助模块，负责判断活跃提示符的更新是否同时移动侧边栏滚动位置。通过时间窗口机制控制跟随行为，在用户直接浏览目录时取消自动跟随，避免干扰用户主动导航。包含滚动事件过滤、跟随时间窗口管理、活跃索引重试读取等核心逻辑。"
+    }
+  },
+  "sectionNotes": {
+    "section:1:section:1-17": {
+      "title": "接口与常量定义",
+      "kind": "配置",
+      "range": {
+        "startLine": 1,
+        "endLine": 17
+      },
+      "anchorHash": "sha256:f198fc9f26b79d569b77217fada6573e598cd96a27a996691814c45e55d32f73",
+      "aiExplanation": {
+        "summary": "定义FollowOptions接口和滚动控制相关的常量配置。",
+        "detail": "FollowOptions接口包含列表选择器、忽略滚动选择器、获取原生活跃索引和设置活跃索引的回调函数。常量定义了滚动稳定延迟(300ms)、活跃索引重试间隔(300ms)、最大重试次数(6次)、跳转后跟随持续时间(1800ms)。"
+      }
+    },
+    "section:2:section:19-24": {
+      "title": "模块状态变量",
+      "kind": "状态",
+      "range": {
+        "startLine": 19,
+        "endLine": 24
+      },
+      "anchorHash": "sha256:f3e6c7e8ba5c8ab11bcf058e996843ea86adaa246bbef3f62cd165be9e323b2e",
+      "aiExplanation": {
+        "summary": "声明跟踪跟随模式和定时器的模块级状态变量。",
+        "detail": "followUntil记录跟随模式到期时间戳，activeSettleTimer是活跃索引稳定定时器，nativeActiveIndexBeforeChatScroll记录聊天滚动前的原生活跃索引，getNativeActiveIndex和setActiveIndex存储外部传入的回调函数，ignoredScrollSelector存储忽略的选择器。"
+      }
+    },
+    "section:3:initializefollow:26-53": {
+      "title": "initializeFollow初始化函数",
+      "kind": "初始化",
+      "range": {
+        "startLine": 26,
+        "endLine": 53
+      },
+      "anchorHash": "sha256:20cf5725cf93a83c4dcaefeb27204512e7c3a6a7db22ea577118520a8a3b872f",
+      "aiExplanation": {
+        "summary": "初始化跟随功能，注册聊天滚动事件监听和目录浏览追踪。",
+        "detail": "接受FollowOptions配置参数，设置回调函数和选择器。为document注册捕获阶段的无源滚动监听器，调用isIgnoredScrollEvent过滤TOC内部滚动，handleChatScroll处理有效的聊天滚动事件。使用capture和passive选项优化事件处理性能。"
+      }
+    },
+    "section:4:section:55-80": {
+      "title": "跟随状态控制函数",
+      "kind": "行为控制",
+      "range": {
+        "startLine": 55,
+        "endLine": 80
+      },
+      "anchorHash": "sha256:57a2691b6886d686f7a450fba8828d9f939b038105783ddd5fdf3313f82dcf15",
+      "aiExplanation": {
+        "summary": "提供isFollowing、keepFollowing、stopFollowing三个公共函数控制跟随模式。",
+        "detail": "isFollowing通过比较当前时间戳与followUntil判断是否处于跟随状态。keepFollowing将跟随到期时间延长到指定时长与当前时间的较大值。stopFollowing立即取消跟随模式，清空定时器并重置原生索引记录。用户直接浏览目录时调用此函数取消自动跟随。"
+      }
+    },
+    "section:5:section:82-109": {
+      "title": "导航浏览追踪与滚动事件过滤",
+      "kind": "事件处理",
+      "range": {
+        "startLine": 82,
+        "endLine": 109
+      },
+      "anchorHash": "sha256:49f9a94cac866c1fa3ff102f47c424fa5db3d79e31d64e921c4bede29e147695",
+      "aiExplanation": {
+        "summary": "检测用户对目录列表的直接交互并过滤TOC内部滚动事件。",
+        "detail": "initNavigatorBrowseTracking为列表元素注册wheel、pointerdown、touchstart、keydown事件监听，用户任何交互都触发stopFollowing取消自动跟随。isIgnoredScrollEvent判断滚动事件目标元素是否在ignoredScrollSelector范围内，用于排除目录自身的滚动事件，只响应页面级别的滚动。"
+      }
+    },
+    "section:6:section:111-169": {
+      "title": "活跃索引稳定逻辑",
+      "kind": "状态同步",
+      "range": {
+        "startLine": 111,
+        "endLine": 169
+      },
+      "anchorHash": "sha256:1fc10653dd97b20af15ec7db96ad2c0a90f5a3d39e88e5b27d7fadeeffa8f0cb",
+      "aiExplanation": {
+        "summary": "处理聊天滚动后的活跃提示符索引与侧边栏的同步稳定过程。",
+        "detail": "handleChatScroll在跟随模式未激活时记录当前原生索引，调用keepFollowing和scheduleActiveSettle开启跟随窗口。scheduleActiveSettle通过定时器防抖等待滚动停止。settleActiveFromNative重试读取原生活跃索引直到ChatGPT报告变化或尝试次数耗尽，期间持续延长跟随窗口。最后finishActiveSettle关闭跟随窗口完成整个稳定周期。"
+      }
+    }
+  },
+  "lineNotes": {}
+}

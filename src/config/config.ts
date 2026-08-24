@@ -48,6 +48,15 @@ export const APP_CONFIG = {
        * completes (loading finished, jump resolved) before retracting.
        */
       statusLingerMs: 500,
+      /**
+       * How long to wait, with no `CHATGPT_CONVERSATION_DATA` and no
+       * `CHATGPT_CONVERSATION_ENDED` event, before declaring the load
+       * complete anyway. Catches chats ChatGPT hydrates from its own
+       * client-side cache (no network fetch, no page-hook events) and
+       * similarly hard-to-reach cases — the sidebar would otherwise
+       * park at "Loading..." forever on those routes.
+       */
+      loadingSettleMs: 1000,
     },
     stacking: {
       baseZIndex: 1_000,

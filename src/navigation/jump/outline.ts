@@ -138,8 +138,13 @@ export function setPromptMessages(messages: NavigatorMessage[]): void {
  */
 const STATUS_LINGER_MS = APP_CONFIG.ui.sidebar.statusLingerMs;
 
-type SidebarStatusMode = 'idle' | 'loading' | 'jumping' | 'complete';
-let currentStatusMode: SidebarStatusMode = 'idle';
+export type SidebarStatusState =
+  | 'idle'
+  | 'loading'
+  | 'jumping'
+  | 'complete'
+  | 'empty';
+let currentStatusMode: SidebarStatusState = 'idle';
 let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
 /**
  * Last text rendered while in `jumping` mode. Reused as the lingering
@@ -149,68 +154,99 @@ let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastJumpingText = '';
 
 /**
+ * Formats a prompt count with the correct singular/plural form for the
+ * sidebar status band. Always produces "0 prompts" / "1 prompt" /
+ * "N prompts".
+ * @param {number} count
+ * @returns {string}
+ */
+function pluralizePrompts(count: number): string {
+  return count === 1 ? '1 prompt' : `${count} prompts`;
+}
+
+/**
  * Updates the small status line that lives between the sidebar header and
- * the prompt list. Owns the appear / linger / retract lifecycle:
+ * the prompt list. Owns five mutually exclusive states:
  *
- *   - `jumping` / `loading`: shown immediately.
- *   - `complete` (just-finished loading or just-finished jump): shown, then
- *     retracted after `STATUS_LINGER_MS`.
- *   - `idle` (no operation in flight, no linger pending): hidden, no
- *     reserved space.
+ *   - `jumping`: a jump is in progress; band shows the destination
+ *     with the animated dots and lives until the jump ends.
+ *   - `loading`: prompts are still arriving (initial page load or
+ *     backfill). Shown immediately as "Loading…". Not gated on count —
+ *     loading the *first* prompt of an empty chat also falls here, so
+ *     the user never sees a "No prompts yet" → "Loading…" flicker.
+ *   - `complete`: a load (or jump) just finished. Shows the count
+ *     briefly, then retracts to `idle` after `STATUS_LINGER_MS`.
+ *   - `empty`: definitively empty chat (loading done, zero prompts).
+ *     Shows "No prompts" *persistently* — no linger timer, no retract,
+ *     because the empty state is the stable visual until the user
+ *     starts typing.
+ *   - `idle`: nothing to convey. Hidden, no reserved space.
  *
  * Safe to call on every render — the helper short-circuits when neither
- * the mode nor the rendered text changes, and it never resets the linger
- * timer once it is running.
+ * the mode nor the rendered text changes.
  *
- * @param {object | null} jump Current jump progress, or null when idle.
- * @param {boolean} loading True while prompts are still arriving.
- * @param {number} promptCount Total prompts accumulated so far.
+ * @param {Object} options
+ * @param {SidebarStatusState} options.state  The visible state to
+ *   render. Caller chooses; this function does not infer.
+ * @param {Object | null} [options.jump]  Current jump progress, used
+ *   for `jumping` text. Ignored for other states.
+ * @param {number} [options.promptCount=0]  Total prompts accumulated
+ *   so far. Used for `loading` (suffix) and `complete` (count).
  */
-export function setSidebarStatus(
-  jump: { active: boolean; targetIndex: number; remainingSteps: number } | null,
-  loading: boolean,
-  promptCount: number
-): void {
+export function setSidebarStatus(options: {
+  state: SidebarStatusState;
+  jump?: { active: boolean; targetIndex: number; remainingSteps: number } | null;
+  promptCount?: number;
+}): void {
+  const { state, jump, promptCount = 0 } = options;
   const element = document.getElementById('luna-toc-status');
   if (!element) return;
 
-  let targetMode: SidebarStatusMode;
   let text: string;
 
-  if (jump && jump.active) {
-    targetMode = 'jumping';
-    text = `Jumping to prompt #${jump.targetIndex + 1}`;
-    lastJumpingText = text;
-  } else if (loading) {
-    targetMode = 'loading';
-    text = `Loading... (${promptCount} so far)`;
-  } else if (currentStatusMode === 'loading') {
-    targetMode = 'complete';
-    text = `${promptCount} prompts`;
-  } else if (currentStatusMode === 'jumping') {
-    targetMode = 'complete';
-    text = lastJumpingText;
-  } else if (currentStatusMode === 'complete') {
-    // The linger timer is in flight; keep the band visible and do not
-    // reset the timer.
-    targetMode = 'complete';
-    text = `${promptCount} prompts`;
-  } else {
-    targetMode = 'idle';
-    text = '';
+  switch (state) {
+    case 'jumping':
+      text = jump
+        ? `Jumping to prompt #${jump.targetIndex + 1}`
+        : 'Jumping';
+      lastJumpingText = text;
+      break;
+    case 'loading':
+      // Bare "Loading…" covers the `promptCount === 0` case (e.g. an
+      // empty chat whose page hook never posted DATA). Once at least
+      // one prompt has landed, appending "(N so far)" gives backfill
+      // progress for long conversations.
+      text = promptCount > 0 ? `Loading... (${promptCount} so far)` : 'Loading…';
+      break;
+    case 'empty':
+      // Definitively empty chat: persistent, no linger timer.
+      text = 'No prompts';
+      break;
+    case 'complete':
+      // Linger on the last jump text when transitioning out of a
+      // jump so the user sees the destination they were scrolled to,
+      // not a count that may have shifted by the time the band retracts.
+      text =
+        currentStatusMode === 'jumping'
+          ? lastJumpingText
+          : pluralizePrompts(promptCount);
+      break;
+    case 'idle':
+    default:
+      text = '';
   }
 
-  if (targetMode === currentStatusMode && element.textContent === text) {
+  if (state === currentStatusMode && element.textContent === text) {
     return;
   }
 
-  currentStatusMode = targetMode;
+  currentStatusMode = state;
 
-  if (targetMode === 'jumping') {
+  if (state === 'jumping') {
     // The CSS `.jumping-dots .dot` keyframe animation owns the motion.
-    // Build the DOM once on entry; subsequent calls during the same jump
-    // hit the early-return above (textContent matches the prefix) and leave
-    // the dots structure intact.
+    // Build the DOM once on entry; subsequent calls during the same
+    // jump hit the early-return above (textContent matches the prefix)
+    // and leave the dots structure intact.
     element.replaceChildren(
       document.createTextNode(text),
       buildJumpingDotsElement()
@@ -224,13 +260,13 @@ export function setSidebarStatus(
   }
 
   element.textContent = text;
-  element.classList.toggle('navigator-status-active', targetMode !== 'idle');
+  element.classList.toggle('navigator-status-active', state !== 'idle');
 
   if (statusLingerTimer !== null) {
     clearTimeout(statusLingerTimer);
     statusLingerTimer = null;
   }
-  if (targetMode === 'complete') {
+  if (state === 'complete') {
     statusLingerTimer = window.setTimeout(() => {
       currentStatusMode = 'idle';
       element.textContent = '';
