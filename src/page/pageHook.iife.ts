@@ -329,10 +329,14 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
   }
 
   /**
-   * Probes ChatGPT's `/messages` endpoint with two different `num_turns`
-   * values and compares the returned message counts. If the counts are
-   * nearly equal the server is ignoring or capping the parameter, which
-   * silently breaks the page-hook's fetch-bumping strategy.
+   * Probes the conversation messages endpoint with two different `num_turns`
+   * values to detect the one failure mode that actually affects the plugin:
+   * the fetch path returning zero messages (auth, route, etc.). Whether the
+   * server honors `num_turns` is irrelevant — the plugin has its own backfill
+   * strategy and works whether or not ChatGPT paginates. The earlier
+   * delta-based heuristic produced false positives for short conversations
+   * and for conversations whose turn-count semantics differ from their
+   * message-count.
    * @param {string} conversationId
    * @param {Record<string, string> | null} authHeaders
    * @returns {Promise<void>}
@@ -361,10 +365,10 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
       const len100 = Array.isArray(d100?.messages)
         ? d100.messages.length
         : 0;
-      if (len10 > 0 && len100 > 0 && len100 - len10 < 5) {
+      if (len10 === 0 && len100 === 0) {
         reportContractMismatch(
           'api.params.num-turns',
-          `num_turns=10 -> ${len10} messages, num_turns=100 -> ${len100} messages (delta ${len100 - len10})`
+          'num_turns=10 and num_turns=100 both returned 0 messages'
         );
       }
     } catch {
@@ -373,35 +377,77 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
   }
 
   /**
-   * After the initial conversation load settles, checks that the DOM
-   * selectors relied on by navigation still match at least one node. A zero
-   * hit count means ChatGPT renamed or removed the marker attribute, which
-   * silently breaks prompt navigation.
+   * After the initial conversation load settles, observes the document for
+   * DOM mutations and re-checks the navigation selectors on each change.
+   * Resolves as soon as both selectors return at least one hit. Falls back
+   * to the original single-shot report after 30 s so a genuinely broken
+   * contract still surfaces a developer-facing alert.
+   *
+   * The previous implementation ran a single `setTimeout(3000)` query,
+   * which could fire before ChatGPT finished hydrating the conversation
+   * DOM and produced false-positive `LUNA_CONTRACT_MISMATCH` alerts.
+   * Observing mutations removes the timing guess: the probe resolves as
+   * soon as the host page actually mounts the expected elements.
    */
   function probeDomSelectors(): void {
-    setTimeout(() => {
-      try {
-        const userCount = document.querySelectorAll(
-          '[data-message-author-role="user"]'
-        ).length;
-        const idCount = document.querySelectorAll('[data-message-id]')
+    const userContractId: ChatGptContractId = 'dom.selector.user-message';
+    const idContractId: ChatGptContractId = 'dom.selector.message-id';
+    const DEBOUNCE_MS = 200;
+    const FALLBACK_TIMEOUT_MS = 30_000;
+
+    const resolveUserSelector = (): string =>
+      effectiveContractValues[userContractId] ??
+      getActiveContractValue(userContractId, false);
+    const resolveIdSelector = (): string =>
+      effectiveContractValues[idContractId] ??
+      getActiveContractValue(idContractId, false);
+
+    let resolved = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+      const observer = new MutationObserver((): void => {
+        if (resolved) return;
+        if (debounceTimer !== null) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout((): void => {
+          debounceTimer = null;
+          if (resolved) return;
+          const userCount = document.querySelectorAll(resolveUserSelector())
+            .length;
+          const idCount = document.querySelectorAll(resolveIdSelector())
+            .length;
+          if (userCount > 0 && idCount > 0) {
+            resolved = true;
+            observer.disconnect();
+          }
+        }, DEBOUNCE_MS);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      setTimeout((): void => {
+        if (resolved) return;
+        observer.disconnect();
+        if (debounceTimer !== null) clearTimeout(debounceTimer);
+
+        const userCount = document.querySelectorAll(resolveUserSelector())
           .length;
+        const idCount = document.querySelectorAll(resolveIdSelector()).length;
         if (userCount === 0) {
           reportContractMismatch(
-            'dom.selector.user-message',
+            userContractId,
             'querySelectorAll returned 0 user message nodes'
           );
         }
         if (idCount === 0) {
           reportContractMismatch(
-            'dom.selector.message-id',
+            idContractId,
             'querySelectorAll returned 0 message-id nodes'
           );
         }
-      } catch {
-        // Selector probe failures are non-fatal.
-      }
-    }, 3000);
+      }, FALLBACK_TIMEOUT_MS);
+    } catch {
+      // Probe failures are non-fatal.
+    }
   }
 
   /**
@@ -875,7 +921,16 @@ import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE, CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } f
             routeKey,
             authHeaders
           );
-          void probeNumTurnsBehavior(routeKey, authHeaders);
+          // Skip the probe when the conversation is empty — a brand-new
+          // chat has 0 messages by definition, and the probe would see 0
+          // messages from its own fetches and falsely alert on "no
+          // content". For any non-empty conversation the probe runs
+          // unconditionally: it only alerts when both num_turns requests
+          // return 0 messages, the only failure mode that actually
+          // matters.
+          if (Array.isArray(messages) && messages.length > 0) {
+            void probeNumTurnsBehavior(routeKey, authHeaders);
+          }
           probeDomSelectors();
           // If the initial response already represents the whole conversation
           // and no backfill is currently in flight for this route, the
