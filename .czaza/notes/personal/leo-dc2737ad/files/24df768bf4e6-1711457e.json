@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:adb695b66c34e3cad5a53ca7f55fe71b831c36fc1a3ecc3079435bf2e1f15e28",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T03:50:54.611Z",
+    "updatedAt": "2026-08-26T04:23:47.168Z"
+  },
+  "fileNote": {
+    "userNote": "契约漂移检测与上报\n\ncontractAlerts 负责监控 ChatGPT\n  的接口契约与页面结构是否发生变化，并在稳定错配时通过\n  LUNA_CONTRACT_MISMATCH 消息通知 content script 的开发者告警面板。\n\n  监控的契约分四类：\n\n  1. 初始会话 URL 路径（api.conversation.path）—— 在 window.fetch\n  包装里用 checkConversationPathAgainstContract 比对\n  /backend-api/conversations/{id} 是否匹配开发者配置的模板。\n  2. 分页 /messages \n  子路径（api.conversation.messages-path）——同一处检查，对应 cursor\n  分页回填请求。\n  3. 响应 JSON 字段（response.messages-field）—— postConversationData\n  解析响应后发现顶层没有 messages 数组就上报。\n  4. num_turns 参数生效性 + DOM 选择器存活（api.params.num-turns /\n  dom.selector.user-message / dom.selector.message-id）——\n  probeNumTurnsBehavior 用10 与 100\n  各请求一次比对消息数差；probeDomSelectors 在初始加载 3 秒后\n  querySelectorAll 关键属性，确认 ChatGPT 没改名/删属性。\n\n  每类错配有独立计数器，连续 ≥2 次才真正发出 LUNA_CONTRACT_MISMATCH（CONT\n  RACT_MISMATCH_REPORT_THRESHOLD），过滤单次噪音。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:534126b8c8916d4053ecb51224e3db04dfd62d1c6d32bb3ed407f217c1f7492d",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:28:59.428Z",
+    "updatedAt": "2026-08-26T04:28:59.428Z"
+  },
+  "fileNote": {
+    "userNote": "fetch 参数工具与共享类型。\n\n提供 fetch 参数解析、路由 key 提取、header\n  收集等通用工具，被 conversationCapture /\n  conversationBackfill / 入口共同依赖；不持有状态。\n\n  导出4 个函数 + 4 个类型：\n\n  1. getFetchMethod(input, init) —— 从 init.method 或\n  Request.method 取得有效 HTTP method，大写返回；fallback\n  为 GET。\n  2. getCurrentConversationKey() —— 从 location.pathname\n  匹配 /c/([^/]+)提取会话 ID；未命中时返回\n  new-chat:{pathname}，让所有未挂载到会话的请求共享同一桶。\n  3. getRequestHeaders(input, init) —— 合并 Request.headers\n  与 init.headers（兼容 Headers / 数组 /\n  字典三种形态），小写化 key 后过滤掉\n  FORBIDDEN_REQUEST_HEADERS 集合里的 18 个浏览器控制头与\n  proxy-* / sec-* 前缀，剩下作为 backfill 重放请求的认证\n  header。\n  4. collectHeaderEntries(target, source) ——\n  getRequestHeaders 的辅助，把任意 HeadersInit 形态按 key\n  小写写入 target。\n\n  FetchArgs / RequestMeta / ConversationPageInfo /\n  ConversationPayload\n  是与之配套的类型，FORBIDDEN_REQUEST_HEADERS\n  是不可变模块常量。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

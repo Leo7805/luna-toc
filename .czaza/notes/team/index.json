@@ -1,18 +1,12 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-24T00:02:16.394Z",
+  "updatedAt": "2026-08-26T04:36:06.648Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
       "noteFile": "files/e3b0c44298fc-13491bdf.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-08-21T05:48:42.162Z"
-    },
-    "src/page/pageHook.iife.ts": {
-      "noteFile": "files/a8e5241e739a-faf1a811.json",
-      "sourceHash": "sha256:3ce586e94f8dbd3a18897aaea3115d00ace93db965fcae24e5687158c2a15a04",
-      "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-23T14:17:20.763Z"
     },
     "src/platforms/chatgpt/conversationRequest.ts": {
       "noteFile": "files/39051b7d0eae-0f243eea.json",
@@ -77,6 +71,11 @@
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-08-23T23:30:31.678Z"
     },
+    "src/features/navigation": {
+      "noteFile": "files/ea799c14d79e-3409d265.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-23T23:32:02.514Z"
+    },
     "src/features/contractAlert": {
       "noteFile": "files/3f199c150753-284862c8.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -113,6 +112,93 @@
       "noteFile": "files/c2d11c2834f0-78ba4ad8.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-08-23T23:58:51.298Z"
+    },
+    "src/navigation/follow": {
+      "noteFile": "files/b92a9df510bc-fdd0c560.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-24T00:05:44.260Z"
+    },
+    "src/navigation/jump": {
+      "noteFile": "files/92a587902234-e288bb15.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-24T00:07:00.749Z"
+    },
+    "src/navigation/navigationData.ts": {
+      "noteFile": "files/24e3bbd90fbf-88e37261.json",
+      "sourceHash": "sha256:c4478c2c39fe15f5c5bb6d3babba757eea74dc03b90cf7d83f1284b0743d8354",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-24T00:07:38.582Z"
+    },
+    "src/navigation/follow/follow.ts": {
+      "noteFile": "files/03be37a9f52b-7a2e2e63.json",
+      "sourceHash": "sha256:8a52c675126addf79d379b64416e19b61487686dbcaf3f4da7367828af234b23",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-24T02:24:54.225Z"
+    },
+    "src/pageHook": {
+      "noteFile": "files/b850dcf8821e-9b980051.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-26T03:28:36.369Z"
+    },
+    "src/pageHook/contractAlerts.ts": {
+      "noteFile": "files/24df768bf4e6-1711457e.json",
+      "sourceHash": "sha256:adb695b66c34e3cad5a53ca7f55fe71b831c36fc1a3ecc3079435bf2e1f15e28",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T03:50:54.611Z"
+    },
+    "src/pageHook/conversationBackfill.ts": {
+      "noteFile": "files/b13d4274cc90-d669acf9.json",
+      "sourceHash": "sha256:67c069d32d14fe368ce6292074e5504cf489c5be8e6d146c8b3fa01e7c7085b6",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:12:40.257Z"
+    },
+    "src/pageHook/conversationCapture.ts": {
+      "noteFile": "files/5f5c9b73dd8f-e5b4538d.json",
+      "sourceHash": "sha256:3ef4c4b611df2fbbd362c6a3fa07d9b375522fed2054def833d7886b0c8ffc26",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:27:20.563Z"
+    },
+    "src/pageHook/conversationStream.ts": {
+      "noteFile": "files/2a35224b3cff-987d5188.json",
+      "sourceHash": "sha256:4b32ca15c86664060b13e8bf412d81faa3bcf658aaccd438ef6f520ccc8953ee",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:28:19.820Z"
+    },
+    "src/pageHook/fetchHelpers.ts": {
+      "noteFile": "files/ba0f21b9c02c-810d9975.json",
+      "sourceHash": "sha256:534126b8c8916d4053ecb51224e3db04dfd62d1c6d32bb3ed407f217c1f7492d",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:28:59.428Z"
+    },
+    "src/pageHook/historyHook.ts": {
+      "noteFile": "files/b76d2d29f2e7-bf5aa7a6.json",
+      "sourceHash": "sha256:4850f4ef8be694cc9fb238514b43903b446da1494c919da6336b0578c4957f06",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:29:33.564Z"
+    },
+    "src/pageHook/matchMediaNotifier.ts": {
+      "noteFile": "files/84144e70883b-2209f151.json",
+      "sourceHash": "sha256:31a76c63b6916f7743582ca2d6459e81c97c8b22fa02d6b7f35ae9b2ec9efdb3",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:30:27.298Z"
+    },
+    "src/pageHook/matchMediaSpoof.ts": {
+      "noteFile": "files/9c41c4852f31-1e4bc8f2.json",
+      "sourceHash": "sha256:12d89b189d4749f94ec858393d69e7e03bc651cfa6328c237539d80dfe07115b",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:31:05.004Z"
+    },
+    "src/pageHook/pageHook.iife.ts": {
+      "noteFile": "files/0d8a28307f46-d6d135e2.json",
+      "sourceHash": "sha256:9a178ff156b89fada610aaa4f863b7ad68618dc454ab096edc58848e4c54b255",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:31:44.454Z"
+    },
+    "src/pageHook/titleObserver.ts": {
+      "noteFile": "files/22b4e62b2bdb-cc590694.json",
+      "sourceHash": "sha256:c5f6ae517e415ab8f8d611b607e9ffde303123cd4372f4a3a9080e29cd79d1e8",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T04:32:17.559Z"
     }
   }
 }

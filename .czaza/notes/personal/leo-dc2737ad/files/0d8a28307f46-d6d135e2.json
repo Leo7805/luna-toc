@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:9a178ff156b89fada610aaa4f863b7ad68618dc454ab096edc58848e4c54b255",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:31:44.454Z",
+    "updatedAt": "2026-08-26T04:31:44.454Z"
+  },
+  "fileNote": {
+    "userNote": "整个 page hook 的入口与编排壳。\n\n 整个 page hook 的入口与编排壳，被 manifest.json:35\n  直接引用；IIFE 形态，负责幂等门、子模块安装、契约同步消息\n  桥接、window.fetch 包装。\n\n工作分四个阶段：\n\n  1. 幂等门 —— HOOK_FLAG = \n  '__conversationNavigatorFetchHookInstalled' 挂在 window\n  上防止重复安装；命中则直接 return。\n  2. 子模块安装 —— 捕获 originalFetch = \n  window.fetch.bind(window) 后并行调用\n  installConversationCapture / installConversationBackfill\n  / installContractAlerts（三者共享同一份\n  originalFetch引用），再加 installMatchMediaSpoof /\n  installHistoryHook / installTitleObserver。\n  3. 契约同步桥 —— window.addEventListener('message', ...)\n  监听 CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE，把 content\n  script 推过来的 contractValues 写入\n  setEffectiveContractValues。\n  4. window.fetch 包装 —— 每次调用先\n  inspectFetchRequest(args)分类；对 isConversationGet\n  且路径命中 /backend-api/conversations/ 的请求，先用\n  checkConversationPathAgainstContract(id, path)\n  比对，不匹配时 reportContractMismatch；isSendMessage 时\n  extractOutgoingMessage 立即捕获；通过\n  maybeBumpChatGptFetchNumTurns 提升 num_turns；最后按\n  isConversationGet / isSendMessage 分别走\n  postConversationData（含 getRequestHeaders\n  收集的认证头）与 inspectStream 处理响应。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

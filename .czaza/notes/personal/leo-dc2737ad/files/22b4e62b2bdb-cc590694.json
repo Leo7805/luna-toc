@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:c5f6ae517e415ab8f8d611b607e9ffde303123cd4372f4a3a9080e29cd79d1e8",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:32:17.559Z",
+    "updatedAt": "2026-08-26T04:32:17.559Z"
+  },
+  "fileNote": {
+    "userNote": "监听 document.title 变化。\n\n负责监听 document.title 变化，在 ChatGPT\n  直接修改标题（例如用户重命名会话）时通过\n  CHATGPT_TITLE_CHANGED 通知 content script 更新侧栏标题。\n\n  工作分三步：\n\n  1. tryObserve() —— document.querySelector('title') 查找\n  <title> 元素，未命中时 setTimeout(tryObserve, 50)\n  重试，应对 document_start 时 <head> 还没插入 <title>\n  的边缘情况；命中后建立闭包 post() 与 MutationObserver。\n  2. post() —— 读取 document.title，与 lastSent 比对避免重\n  复发送；首次调用立即发一次当前值，保证硬刷新后无需等\n  mutation 也能拿到最新标题；用 window.postMessage +\n  window.location.origin 作为 target origin。\n  3. MutationObserver 配置 —— observer.observe(titleEl, \n  {childList: true, characterData: true, subtree: true})\n  覆盖 <title> 元素被替换或文本节点被改写两种情形；外层\n  try/catch 隔离 Observer 设置失败，避免阻塞 page hook\n  启动。\n\n  TITLE_CHANGED_MESSAGE_TYPE 与 RETRY_INTERVAL_MS\n  是模块内私有常量；installTitleObserver 是入口工厂。\n\n  要不要继续把入口（pageHook.iife.ts）的\"五点\"再细化一下？\n  目前它涵盖了四阶段，但 installConversationCapture /\n  installConversationBackfill / installContractAlerts\n  这三个工厂接收 originalFetch 的语义没说清楚。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:3ef4c4b611df2fbbd362c6a3fa07d9b375522fed2054def833d7886b0c8ffc26",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:27:20.563Z",
+    "updatedAt": "2026-08-26T04:27:20.563Z"
+  },
+  "fileNote": {
+    "userNote": "薄壳编排器，连接其他 conversation 子模块。\n\n  负责在 window.fetch 包装里分类请求，并把对话 GET\n  响应的载荷转发给 content script；本身不持有数据状态，仅作\n  为入口与子模块之间的薄壳。\n\n  工作分两个对外 API：\n\n  1. inspectFetchRequest(args) —— 把 fetch 的 RequestInfo |\n  URL / RequestInit 解析成\n  RequestMeta，区分初始加载（getConversationIdFromApiPath\n  命中）、分页（getConversationMessagesIdFromApiPath\n  命中）、send-message POST（路径等于\n  /backend-api/f/conversation）三类，返回 routeKey\n  给后续流程。\n  2. postConversationData(response, routeKey, \n  isInitialLoad, authHeaders) —— 克隆响应后\n  response.json()：先 postConversationPayload 转发、再用\n  reportContractMismatch('response.messages-field', ...)\n  校验顶层 messages 字段；若是初始加载，依次调用\n  startBackfillIfNeeded、按消息数决定是否触发\n  probeNumTurnsBehavior、触发 probeDomSelectors，并根据\n  isBackfilling(routeKey) 和 has_previous_page\n  决定是否需要补发 postConversationEnded。\n\n  重新导出 extractOutgoingMessage / inspectStream（来自\n  conversationStream）和 getRequestHeaders（来自\n  fetchHelpers），让入口只需 import from \n  './conversationCapture'；installConversationCapture\n  是空工厂占位。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

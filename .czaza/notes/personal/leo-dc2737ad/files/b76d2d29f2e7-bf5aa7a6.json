@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:4850f4ef8be694cc9fb238514b43903b446da1494c919da6336b0578c4957f06",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:29:33.564Z",
+    "updatedAt": "2026-08-26T04:29:33.564Z"
+  },
+  "fileNote": {
+    "userNote": "劫持 HTML5 History API，瞬时通知 SPA 路由变化。\n\n负责劫持 window.history.pushState 与\n  window.history.replaceState，在 SPA 路由变更的瞬间通过\n  CHATGPT_ROUTE_CHANGED 通知 content script，避免轮询\n  location.pathname 的开销与延迟。\n\n  只有两个函数：\n\n  1. installHistoryHook() —— 入口；分别检查\n  originalPushState / originalReplaceState\n  是否为函数，若存在则替换为 apply(this, args) +\n  notifyRouteChanged() 的包装；保留原方法 this 绑定。\n  2. notifyRouteChanged() —— 通过 window.postMessage({type:\n  'CHATGPT_ROUTE_CHANGED'}, '*') 通知 content\n  script；浏览器 back/forward 触发的 'popstate' 由 content\n  script 那边监听，不在本文件职责内。\n\n  CHATGPT_ROUTE_CHANGED\n  作为模块内私有常量，避免拼写漂移",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

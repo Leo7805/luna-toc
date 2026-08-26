@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:31a76c63b6916f7743582ca2d6459e81c97c8b22fa02d6b7f35ae9b2ec9efdb3",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:30:27.298Z",
+    "updatedAt": "2026-08-26T04:30:27.298Z"
+  },
+  "fileNote": {
+    "userNote": "合成 MediaQueryList change 事件并派发。\n\n负责合成 MediaQueryList 的 change 事件并向所有被劫持的\n  Proxy派发，让侧栏显隐切换时 ChatGPT\n  的响应式布局代码能感知到宽度结果变化。\n\n  导出 4 个函数 + 2 个类型：\n\n  1. createMediaQueryChangeEvent(mediaQueryList) ——\n  优先构造真 Event('change') 并用 Object.defineProperties\n  注入只读的 media / matches / target /\n  currentTarget；浏览器拒绝时 fallback\n  到普通对象字面量，避免破坏检查 Event API 的调用方。\n  2. callMediaQueryListener(listener, mediaQueryList, \n  event) —— 同时支持函数 listener 与\n  EventListenerObject（带 handleEvent 方法的对象），用\n  listener.call(mediaQueryList, event) 让 this 指向\n  mediaQueryList，与原生 MediaQueryList 行为一致。\n  3. notifySpoofedMediaQueryListeners(entries) —— 遍历\n  Iterable<SpoofedMediaQueryEntry>，为每个 entry\n  创建合成事件并向 entry.listeners 与 entry.onchange\n  派发；listener 调用用 try/catch\n  隔离单个失败，避免影响其他 listener。\n  4. isMediaQueryListener(listener) —— 类型守卫，函数或带\n  handleEvent 方法的对象视为合法 listener。\n\n  MediaQueryListener 与 SpoofedMediaQueryEntry 是配套类型，\n  因这里是事件投递语义的权威定义点而放在本文件，由\n  matchMediaSpoof 通过 import type 使用。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

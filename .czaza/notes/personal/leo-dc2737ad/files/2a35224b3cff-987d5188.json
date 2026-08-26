@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:4b32ca15c86664060b13e8bf412d81faa3bcf658aaccd438ef6f520ccc8953ee",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:28:19.820Z",
+    "updatedAt": "2026-08-26T04:28:19.820Z"
+  },
+  "fileNote": {
+    "userNote": "SSE 流读取与出站 POST body 解析。\n\n负责读取 send-message POST 的出站 body 与\n  SSE响应流，把用户刚发出的 prompt 立即转给 content\n  script，让侧栏在拿到完整 conversation data\n  之前就能识别新条目。\n\n  工作分两条捕获路径：\n\n  1. extractOutgoingMessage(args, routeKey) —— 解析\n  init.body 里的 JSON，取 messages 中 author.role === \n  'user' 的第一条，立刻 postMessage\n  CHATGPT_NEW_USER_MESSAGE，无需等服务端响应。\n  2. inspectStream(response, routeKey) —— 用\n  response.clone().body.getReader()拿到 SSE 流，TextDecoder\n  按块解码，按 \\n 切行（最后一行保留到下次\n  chunk补齐），通过 processStreamLine 解析 data:  前缀的\n  JSON；命中 type === 'input_message' 时再发一次\n  CHATGPT_NEW_USER_MESSAGE。进入时清空 streamBuffer\n  防止上一流残留污染。\n\n  streamBuffer 与 NEW_USER_MESSAGE_TYPE\n  是模块内私有常量；OutgoingMessage / OutgoingRequestBody\n  类型仅在本文件使用，因此不导出。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

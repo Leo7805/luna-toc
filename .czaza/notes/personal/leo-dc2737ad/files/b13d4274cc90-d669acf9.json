@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:67c069d32d14fe368ce6292074e5504cf489c5be8e6d146c8b3fa01e7c7085b6",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:12:40.257Z",
+    "updatedAt": "2026-08-26T04:26:05.730Z"
+  },
+  "fileNote": {
+    "userNote": "分页回填老会话历史\n\n负责按 cursor翻页拉取 ChatGPT 会话更早的历史页，直到拉完\n  或触达上限，确保侧栏能拿到完整的 prompt\n  列表；并在所有退出路径上通过 CHATGPT_CONVERSATION_ENDED\n  通知 content script 离开 loading 状态。\n\n  工作分四个部分：\n\n  1. startBackfillIfNeeded(data, routeKey, authHeaders) ——\n  当初始响应 page_info.has_previous_page === true 且\n  start_cursor 存在时启动回填；用\n  backfillingConversationIds Set\n  去重防止同一会话并发回填，返回布尔给上层决定是否需要补发\n  ENDED。\n  2. backfillPreviousPages(conversationId, startCursor, \n  authHeaders) —— 按 cursor 循环翻页，循环上限\n  BACKFILL_MAX_PAGES（来自 APP_CONFIG），每页用\n  originalFetch GET 后 postMessage 出去；遇到 response.ok \n  === false、JSON 解析失败或 page_info 中断则退出。\n  3. buildBackfillUrl(conversationId, beforeCursor) —— 构造\n  /backend-api/conversations/{id}/messages?before=...&incl\n  ude_has_versions=true&num_turns=100，其中\n  BACKFILL_NUM_TURNS = 100 保证单页能装下典型会话。\n  4. 退出兜底 —— finally 块无条件\n  postConversationEnded(conversationId)；导出\n  isBackfilling(routeKey) 给\n  conversationCapture.postConversationData 判断是否要补发\n  ENDED。\n\n  postConversationPayload 与 postConversationEnded\n  作为内部辅助导出，前者也供初始响应调用。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

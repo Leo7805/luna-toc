@@ -1150,6 +1150,15 @@ export const navigatorController = (() => {
         if (isLoadingPrompts) markLoadingComplete();
         render({ refreshObservers: true });
       }
+
+      if (event.data?.type === 'CHATGPT_TITLE_CHANGED') {
+        // ChatGPT mutated `document.title` directly (e.g. user renamed
+        // the conversation in the host sidebar). No conversation fetch
+        // fires for a rename, so none of the triggers above catch it.
+        // Re-run the sidebar title derivation through the existing
+        // `onTitleChanged` callback wired by applicationShell.
+        onTitleChanged();
+      }
     });
   }
 

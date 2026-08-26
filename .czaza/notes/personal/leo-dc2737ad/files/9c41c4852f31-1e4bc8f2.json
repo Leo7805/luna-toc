@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:12d89b189d4749f94ec858393d69e7e03bc651cfa6328c237539d80dfe07115b",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-26T04:31:05.004Z",
+    "updatedAt": "2026-08-26T04:31:05.004Z"
+  },
+  "fileNote": {
+    "userNote": "用 Proxy 替换 window.matchMedia 的 width 查询。\n\n负责在 Main World 拦截 window.matchMedia，把 width\n  类查询结果强制改为1400px，让 ChatGPT\n  在窄屏分屏布局下仍保留内置的 prompt navigator\n  按钮；同时跟踪 listener / onchange 以便切换 spoof 时合成\n  change 事件。\n\n  工作分三层：\n\n  1. installWideViewportMatchMediaSpoof() —— 替换\n  window.matchMedia：保留原始 matchMedia.bind(window)\n  调用，对非 width 类查询直接透传原 MediaQueryList；width\n  类查询返回 createSpoofedMediaQueryList 构造的 Proxy。\n  2. createSpoofedMediaQueryList(mediaQueryList, query) ——\n  用 Proxy 拦截 matches（返回\n  getSpoofedMediaQueryMatch(query) 的强制结果，关闭时返回\n  null 表示沿用原值）、onchange（用 entry.onchange\n  跟踪）、addEventListener / removeEventListener / 旧\n  addListener / removeListener（经\n  wrapMediaQueryListenerMethod 转发并跟踪）；其余属性用\n  Reflect.get 后 bind(target) 透传，保留原生方法行为。\n  3. listenForWidthSpoofToggle() —— 监听\n  CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF 消息，翻转\n  wideViewportSpoofEnabled，调\n  notifySpoofedMediaQueryListeners(spoofedMediaQueryLists)\n  派发合成事件，再 dispatchEvent(new Event('resize')) 触发\n  ChatGPT 重排。\n\n  辅助函数：isWidthMediaQuery /\n  getWidthMediaQueryRules（正则提取 min/max-width）、getSpo\n  ofedMediaQueryMatch（按规则集合计算 spoofed\n  结果）、setTrackedMediaQueryListener /\n  syncTrackedMediaQueryEntry（维护 spoofedMediaQueryLists\n  Set，仅保留有 listener 的\n  entry）、isMediaQueryListenerMethod /\n  getBoundNativeValue（透传辅助）。",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
