@@ -1,10 +1,11 @@
 {
   "source": {
-    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "sourceHash": "sha256:cbf8b6a5fe03fca5e815aaf1011c26c5b68ce0ec53101885f6d5d36fc9508d9b",
+    "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-08-28T03:59:35.965Z",
-    "updatedAt": "2026-08-28T03:59:35.965Z"
+    "updatedAt": "2026-08-31T13:28:55.516Z"
   },
   "fileNote": {
     "userNote": "拖拽与位置持久化模块",

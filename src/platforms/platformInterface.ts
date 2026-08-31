@@ -249,7 +249,7 @@ export type PlatformVirtualScrollMetrics = VirtualScrollMetrics;
 
 /**
  * Generic message envelope seen by `getJumpTargetElement`. Concrete shape
- * is defined by `NavigatorMessage` in `src/app/navigatorController.ts`; the
+ * is defined by `NavigatorMessage` in `src/navigation/navigatorController.ts`; the
  * adapter only needs `id` for now.
  */
 export interface NavigatorMessage {

@@ -11,10 +11,10 @@ const RIGHT_POSITION_MARGIN = 0;
 const POSITION_STORAGE_KEY = 'chatTocToggleButtonPosition';
 
 /**
- * Creates the floating toggle button.
+ * Creates the floating sidebar visibility toggle button.
  * @returns {HTMLButtonElement}
  */
-export function createToggleButton(): HTMLButtonElement {
+export function createSidebarToggleButton(): HTMLButtonElement {
   const toggleBtn = document.createElement('button');
 
   toggleBtn.id = 'luna-toc-toggle-btn';

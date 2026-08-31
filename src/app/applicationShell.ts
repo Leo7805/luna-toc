@@ -1,11 +1,12 @@
 /**
- * Builds the LunaTOC sidebar shell and coordinates application-level features.
+ * Boots the LunaTOC content-script features. The sidebar DOM, controller
+ * state, and feature wiring are owned by sibling modules; this file is the
+ * orchestrator that wires them together.
  */
-import { myPrompts } from '../features/myPrompts/myPrompts';
-import type { NavigatorMessage } from '../features/conversationPrompts/message';
-import { initializeSidebarVisibility } from '../features/sidebarVisibility';
-import { createToggleButton } from '../features/toggleButton';
-import { buttonTooltip, previewTooltip } from '../features/tooltip';
+import { myPrompts } from '@/features/myPrompts/myPrompts';
+import { initializeSidebarVisibility } from '@/features/sidebarVisibility';
+import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
+import { buttonTooltip, previewTooltip } from '@/features/tooltip';
 import {
   getChatGPTTheme,
   observeChatGPTTheme,
@@ -17,21 +18,11 @@ import {
   type ResolvedTheme,
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
-import { getActivePlatform } from '@/platforms';
 import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/navigation/navigationSettings';
-import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
-import { navigatorController } from './navigatorController';
-import { initJumpControlsPositioning } from '@/features/jumpControls/jumpControls';
-
-type ConversationEdge = 'top' | 'bottom';
-type ViewMode = 'toc' | 'myPrompts';
-
-let viewMode: ViewMode = 'toc';
-let searchQuery = '';
-let myPromptsRefreshQueued = false;
-let tocPromptCount = 0;
-let myPromptsCount = 0;
+import { navigatorController } from '@/navigation/navigatorController';
+import { sidebarController } from '@/features/sidebar/sidebarController';
+import { initFloatingPanel } from '@/features/sidebar/FloatingPanel';
 
 /**
  * Resolves when document.body exists during document_start execution.
@@ -53,7 +44,9 @@ function waitForBody(): Promise<HTMLElement> {
 }
 
 /**
- * Creates the sidebar DOM and registers application-level controls.
+ * Creates the sidebar DOM and appends it to document.body. The initial
+ * title is left empty; `sidebarController.init()` fills it synchronously
+ * via `setNavigatorTitle()`.
  * @returns {Promise<HTMLElement>}
  */
 async function createSidebar(): Promise<HTMLElement> {
@@ -95,11 +88,9 @@ async function createSidebar(): Promise<HTMLElement> {
             id="navigator-title"
             type="button"
             aria-label="Reset TOC view"
-            data-tooltip="${escapeHtml(getConversationTitle())}"
+            data-tooltip=""
             data-tooltip-overflow-only="true"
-          >
-            ${escapeHtml(getConversationTitle())}
-          </button>
+          ></button>
           <button
             class="navigator-icon-btn navigator-header-icon-btn"
             id="search-toggle-btn"
@@ -148,249 +139,7 @@ async function createSidebar(): Promise<HTMLElement> {
     `;
 
   document.body.appendChild(sidebar);
-  bindSidebarControls();
   return sidebar;
-}
-
-/**
- * Registers controls that switch views or delegate navigation behavior.
- */
-function bindSidebarControls(): void {
-  const searchInput = getRequiredElement<HTMLInputElement>('navigator-search');
-
-  getRequiredElement<HTMLButtonElement>('search-toggle-btn').addEventListener(
-    'click',
-    () => {
-      const isHidden = window.getComputedStyle(searchInput).display === 'none';
-      searchInput.style.display = isHidden ? 'block' : 'none';
-
-      if (isHidden) {
-        searchInput.focus();
-        return;
-      }
-
-      clearSearch();
-      renderCurrentView();
-    }
-  );
-  getRequiredElement<HTMLButtonElement>('navigator-title').addEventListener(
-    'click',
-    handleTitleClick
-  );
-  getRequiredElement<HTMLButtonElement>('jump-chat-top-btn').addEventListener(
-    'click',
-    () => handleJumpControlClick('top')
-  );
-  getRequiredElement<HTMLButtonElement>('jump-chat-top-btn').addEventListener(
-    'dblclick',
-    () => handleJumpControlDoubleClick('top')
-  );
-  getRequiredElement<HTMLButtonElement>(
-    'jump-chat-bottom-btn'
-  ).addEventListener('click', () => handleJumpControlClick('bottom'));
-  getRequiredElement<HTMLButtonElement>(
-    'jump-chat-bottom-btn'
-  ).addEventListener('dblclick', () => handleJumpControlDoubleClick('bottom'));
-  getRequiredElement<HTMLButtonElement>(
-    'toggle-view-mode-btn'
-  ).addEventListener('click', toggleViewMode);
-  searchInput.addEventListener('input', (event) => {
-    searchQuery = (event.currentTarget as HTMLInputElement).value;
-    renderCurrentView();
-  });
-}
-
-function clearSearch(syncController = true): void {
-  searchQuery = '';
-  const searchInput = document.getElementById(
-    'navigator-search'
-  ) as HTMLInputElement | null;
-  if (searchInput) searchInput.value = '';
-  if (syncController) navigatorController.setSearchQuery('');
-}
-
-function renderCurrentView(): void {
-  updateSearchAvailability();
-
-  if (viewMode === 'myPrompts') {
-    renderMyPrompts();
-    return;
-  }
-
-  navigatorController.setSearchQuery(searchQuery);
-}
-
-function renderMyPrompts(): void {
-  const list = document.getElementById('navigator-list');
-  if (!list) return;
-
-  myPrompts.renderMyPrompts(list, searchQuery, () => {
-    renderCurrentView();
-  });
-}
-
-function handleTitleClick(): void {
-  if (viewMode === 'myPrompts') {
-    scrollNavigatorListToEdge('top', 'smooth');
-    return;
-  }
-
-  clearSearch(false);
-  navigatorController.resetView();
-}
-
-function handleJumpControlClick(edge: ConversationEdge): void {
-  if (viewMode === 'myPrompts') {
-    scrollNavigatorListToEdge(edge, 'smooth');
-    return;
-  }
-  navigatorController.jumpToEdge(edge);
-}
-
-function handleJumpControlDoubleClick(edge: ConversationEdge): void {
-  if (viewMode === 'myPrompts') {
-    scrollNavigatorListToEdge(edge, 'auto');
-    return;
-  }
-  navigatorController.jumpToAbsoluteEdge(edge);
-}
-
-function scrollNavigatorListToEdge(
-  edge: ConversationEdge,
-  behavior: ScrollBehavior = 'smooth'
-): void {
-  const list = document.getElementById('navigator-list');
-  if (!list) return;
-  list.scrollTo({
-    top: edge === 'top' ? 0 : list.scrollHeight,
-    behavior,
-  });
-}
-
-/**
- * Opens the saved-prompt dialog for a conversation TOC item.
- * @param {Object} message
- */
-function handleSavePrompt(message: NavigatorMessage): void {
-  myPrompts.showDialog(
-    {
-      content: message.text,
-      title: message.text.slice(0, 30),
-    },
-    () => {
-      if (viewMode !== 'myPrompts') {
-        toggleViewMode();
-      } else {
-        renderCurrentView();
-      }
-    }
-  );
-}
-
-function toggleViewMode(): void {
-  setViewMode(viewMode === 'toc' ? 'myPrompts' : 'toc');
-}
-
-/**
- * Switches the sidebar view and synchronizes its controls with the rendered panel.
- */
-function setViewMode(nextViewMode: ViewMode): void {
-  const button = document.getElementById(
-    'toggle-view-mode-btn'
-  ) as HTMLButtonElement | null;
-  if (!button) return;
-
-  previewTooltip.hide();
-  viewMode = nextViewMode;
-  const isMyPrompts = viewMode === 'myPrompts';
-
-  button.classList.toggle('mode-myprompts-active', isMyPrompts);
-  button.setAttribute(
-    'aria-label',
-    isMyPrompts ? 'Switch to Table of Contents' : 'Switch to My Prompts'
-  );
-  button.title = isMyPrompts
-    ? 'Switch to Table of Contents'
-    : 'Switch to My Prompts';
-
-  if (!isMyPrompts) {
-    const toolbar = document.getElementById('myprompts-toolbar-container');
-    if (toolbar) toolbar.innerHTML = '';
-    const list = document.getElementById('navigator-list');
-    if (list) list.oncontextmenu = null;
-    promptContextMenuController.close();
-  }
-
-  clearSearch();
-  setNavigatorTitle();
-  renderCurrentView();
-}
-
-function getConversationTitle(): string {
-  const match = location.pathname.match(/\/c\/([^/]+)/);
-  const conversationId = match?.[1];
-
-  if (conversationId) {
-    const conversationLink = document.querySelector<HTMLElement>(
-      `a[href*="/c/${conversationId}"]`
-    );
-    const sidebarTitle = conversationLink?.innerText?.trim();
-    if (sidebarTitle) return sidebarTitle;
-  }
-
-  return (
-    document.title
-      .replace(/\s*[-–]\s*ChatGPT$/i, '')
-      .replace(/^ChatGPT\s*[-–]\s*/i, '')
-      .trim() || 'ChatTOC'
-  );
-}
-
-function setNavigatorTitle(): void {
-  const title = document.getElementById('navigator-title');
-  if (!title) return;
-  const titleText =
-    viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
-
-  title.textContent = titleText;
-  title.dataset.tooltip = titleText;
-}
-
-function updateSearchAvailability(): void {
-  const searchButton =
-    document.getElementById('search-toggle-btn') as HTMLButtonElement | null;
-  const searchInput =
-    document.getElementById('navigator-search') as HTMLInputElement | null;
-  if (!searchButton || !searchInput) return;
-
-  const hasSearchableItems =
-    viewMode === 'myPrompts' ? myPromptsCount > 0 : tocPromptCount > 0;
-  searchButton.disabled = !hasSearchableItems;
-  searchButton.setAttribute('aria-disabled', String(!hasSearchableItems));
-
-  if (hasSearchableItems) return;
-
-  const shouldResetTocQuery = viewMode === 'toc' && searchQuery.length > 0;
-  searchQuery = '';
-  searchInput.value = '';
-  searchInput.style.display = 'none';
-
-  if (shouldResetTocQuery) {
-    queueMicrotask(() => navigatorController.setSearchQuery(''));
-  }
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (char) => {
-    const entities: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return entities[char];
-  });
 }
 
 function initSidebarResize(sidebar: HTMLElement): void {
@@ -476,25 +225,21 @@ export async function initializeApplication(): Promise<void> {
   await initializeNavigationSettings();
   initTheme();
   navigatorController.init({
-    onPromptCountChanged(count) {
-      tocPromptCount = count;
-      updateSearchAvailability();
+    onPromptCountChanged: sidebarController.setPromptCount,
+    onPromptAdded: () => sidebarController.setViewMode('toc'),
+    onRouteChanged: () => {
+      sidebarController.clearSearch();
+      sidebarController.setNavigatorTitle();
     },
-    onPromptAdded() {
-      setViewMode('toc');
-    },
-    onRouteChanged() {
-      clearSearch();
-      setNavigatorTitle();
-    },
-    onSavePrompt: handleSavePrompt,
-    onTitleChanged: setNavigatorTitle,
+    onSavePrompt: sidebarController.handleSavePrompt,
+    onTitleChanged: sidebarController.setNavigatorTitle,
   });
   const sidebar = await createSidebar();
+  sidebarController.init();
   initSidebarResize(sidebar);
-  initJumpControlsPositioning();
+  initFloatingPanel();
 
-  const toggleButton = createToggleButton();
+  const toggleButton = createSidebarToggleButton();
   initializeSidebarVisibility(sidebar, toggleButton);
   previewTooltip.init({ anchorSelector: '#navigator-list' });
   buttonTooltip.init();
@@ -502,25 +247,10 @@ export async function initializeApplication(): Promise<void> {
   navigatorController.attach();
 
   myPrompts.onPromptsChanged((prompts) => {
-    myPromptsCount = prompts.length;
-    updateSearchAvailability();
-    if (viewMode !== 'myPrompts' || myPromptsRefreshQueued) return;
-    myPromptsRefreshQueued = true;
-    queueMicrotask(() => {
-      myPromptsRefreshQueued = false;
-      if (viewMode === 'myPrompts') renderCurrentView();
-    });
+    sidebarController.setMyPromptsCount(prompts.length);
+    sidebarController.refreshMyPromptsIfActive();
   });
   void myPrompts.getMyPrompts().then((prompts) => {
-    myPromptsCount = prompts.length;
-    updateSearchAvailability();
+    sidebarController.setMyPromptsCount(prompts.length);
   });
-}
-
-function getRequiredElement<T extends HTMLElement>(id: string): T {
-  const element = document.getElementById(id);
-  if (!(element instanceof HTMLElement)) {
-    throw new Error(`Required application element not found: #${id}`);
-  }
-  return element as T;
 }

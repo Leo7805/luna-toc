@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-28T04:00:39.377Z",
+  "updatedAt": "2026-08-31T13:29:07.214Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -219,9 +219,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/678c8485ed6c-69709b70.json",
-      "sourceHash": "sha256:cc3cae7470fe5266ab5cf6b2b0db7577f93d6dd7649de2dba8ccf49dfcd9eeba",
+      "sourceHash": "sha256:6b04ce52980153c1371379989b7c31fe97546f46851b8782fe31d371601e4cc4",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-28T03:59:04.152Z"
+      "updatedAt": "2026-08-31T13:27:43.815Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-7873eb25.json",
@@ -245,6 +245,18 @@
       "sourceHash": "sha256:9025dfcd12824b990702c6be8a8852eb503d588c3753a386dc07db2c8989d684",
       "programmingLanguage": "typescript",
       "updatedAt": "2026-08-28T04:00:39.377Z"
+    },
+    "src/navigation/navigatorController.ts": {
+      "noteFile": "files/9c5b112e28e7-fd937abe.json",
+      "sourceHash": "sha256:7b0bafbec72d07913390807764406dc0aa9feb0d5c9d23d5246f0318000b9712",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-31T13:28:24.372Z"
+    },
+    "src/features/SidebarToggleButton.ts": {
+      "noteFile": "files/904acb994f1b-0f683464.json",
+      "sourceHash": "sha256:cbf8b6a5fe03fca5e815aaf1011c26c5b68ce0ec53101885f6d5d36fc9508d9b",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-31T13:29:07.214Z"
     }
   }
 }

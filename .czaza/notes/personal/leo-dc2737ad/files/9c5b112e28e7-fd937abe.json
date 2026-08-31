@@ -6,7 +6,7 @@
   },
   "defaults": {
     "createdAt": "2026-08-27T03:54:08.793Z",
-    "updatedAt": "2026-08-27T03:54:08.793Z"
+    "updatedAt": "2026-08-31T13:28:24.372Z"
   },
   "fileNote": {
     "userNote": "Owns the conversation data, renders the TOC list, tracks the active prompt, and dispatches jump/search/route-change behavior for the sidebar.",
