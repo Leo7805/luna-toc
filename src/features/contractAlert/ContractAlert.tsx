@@ -18,9 +18,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  loadChatGptRuntimeConfig,
+  loadPlatformRuntimeConfig,
+  platformRuntimeConfigKey,
   type ChatGptRuntimeConfig,
 } from '@/config/config';
+import { getActivePlatform } from '@/platforms';
 import { getReactPortalContainer } from '@/reactHost/reactHost';
 import {
   COMPATIBILITY_ALERT_BODY,
@@ -50,9 +52,12 @@ export function ContractAlert(): React.ReactElement | null {
   const [records, setRecords] = useState<MismatchRecord[]>([]);
   const [runtime, setRuntime] = useState<ChatGptRuntimeConfig | null>(null);
 
+  const platformId = getActivePlatform().id;
+  const runtimeConfigKey = platformRuntimeConfigKey(platformId);
+
   useEffect(() => {
     let cancelled = false;
-    void loadChatGptRuntimeConfig().then((cfg) => {
+    void loadPlatformRuntimeConfig(platformId).then((cfg) => {
       if (!cancelled) setRuntime(cfg);
     });
 
@@ -61,8 +66,8 @@ export function ContractAlert(): React.ReactElement | null {
       areaName: chrome.storage.AreaName
     ): void => {
       if (areaName !== 'local') return;
-      if (!('chatGptRuntimeConfig' in changes)) return;
-      void loadChatGptRuntimeConfig().then((cfg) => {
+      if (!(runtimeConfigKey in changes)) return;
+      void loadPlatformRuntimeConfig(platformId).then((cfg) => {
         if (!cancelled) setRuntime(cfg);
       });
     };
@@ -73,7 +78,7 @@ export function ContractAlert(): React.ReactElement | null {
       cancelled = true;
       chrome.storage.onChanged.removeListener(handleStorageChange);
     };
-  }, []);
+  }, [platformId, runtimeConfigKey]);
 
   useEffect(() => {
     return subscribeMismatches((next) => {

@@ -1,9 +1,11 @@
 /**
  * Owns ChatTOC sidebar visibility, pinning, and auto-hide behavior.
  */
+import { getActivePlatform } from '@/platforms';
+
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
-const WIDTH_SPOOF_MESSAGE_TYPE = 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF';
+const WIDTH_SPOOF_MESSAGE_TYPE = getActivePlatform().pageHook.messages.setWidthSpoof;
 const AUTO_HIDE_DELAY_MS = 300;
 
 let sidebar: HTMLElement | null = null;

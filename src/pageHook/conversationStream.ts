@@ -29,7 +29,11 @@ let streamBuffer = '';
  * Attempts to parse the outgoing POST request body to immediately capture
  * the user's prompt before the server responds.
  */
-export function extractOutgoingMessage(args: FetchArgs, routeKey: string): void {
+export function extractOutgoingMessage(
+  args: FetchArgs,
+  routeKey: string,
+  messageType: string = NEW_USER_MESSAGE_TYPE
+): void {
   try {
     const init = args[1] || {};
     if (typeof init.body === 'string') {
@@ -40,7 +44,7 @@ export function extractOutgoingMessage(args: FetchArgs, routeKey: string): void 
       if (userMessage) {
         window.postMessage(
           {
-            type: NEW_USER_MESSAGE_TYPE,
+            type: messageType,
             routeKey,
             payload: {
               id: userMessage.id,
@@ -64,7 +68,8 @@ export function extractOutgoingMessage(args: FetchArgs, routeKey: string): void 
  */
 export async function inspectStream(
   response: Response,
-  routeKey: string
+  routeKey: string,
+  messageType: string = NEW_USER_MESSAGE_TYPE
 ): Promise<void> {
   const reader = response.clone().body?.getReader();
 
@@ -78,7 +83,7 @@ export async function inspectStream(
 
     if (done) {
       if (streamBuffer.trim()) {
-        processStreamLine(streamBuffer, routeKey);
+        processStreamLine(streamBuffer, routeKey, messageType);
         streamBuffer = '';
       }
 
@@ -89,7 +94,7 @@ export async function inspectStream(
       stream: true,
     });
 
-    processBufferedStream(routeKey);
+    processBufferedStream(routeKey, messageType);
   }
 }
 
@@ -97,14 +102,14 @@ export async function inspectStream(
  * Splits the accumulated SSE buffer into complete lines while keeping the
  * trailing partial line for the next stream chunk.
  */
-function processBufferedStream(routeKey: string): void {
+function processBufferedStream(routeKey: string, messageType: string): void {
   const lines = streamBuffer.split('\n');
 
   // The last line may be incomplete.
   streamBuffer = lines.pop() || '';
 
   for (const line of lines) {
-    processStreamLine(line, routeKey);
+    processStreamLine(line, routeKey, messageType);
   }
 }
 
@@ -112,7 +117,11 @@ function processBufferedStream(routeKey: string): void {
  * Parses one SSE data line and forwards ChatGPT input_message events to the
  * content script.
  */
-function processStreamLine(line: string, routeKey: string): void {
+function processStreamLine(
+  line: string,
+  routeKey: string,
+  messageType: string
+): void {
   if (!line.startsWith('data: ')) {
     return;
   }
@@ -131,7 +140,7 @@ function processStreamLine(line: string, routeKey: string): void {
 
       window.postMessage(
         {
-          type: NEW_USER_MESSAGE_TYPE,
+          type: messageType,
           routeKey,
           payload: {
             id: message.id,

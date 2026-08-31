@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-26T04:32:17.559Z",
+  "updatedAt": "2026-08-28T04:00:39.377Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -40,9 +40,9 @@
     },
     "src/features/contractAlert/ContractAlert.tsx": {
       "noteFile": "files/3393e170cb07-d020dcce.json",
-      "sourceHash": "sha256:61cba423303457fdab2a9ab34fae382788e1d065c55a7ee2c9b5995441bd532f",
+      "sourceHash": "sha256:20966bd0ce4ad69535dcf6888b7f093af08cd5c85cbb1856336ffe180e9b94db",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-08-23T13:04:33.037Z"
+      "updatedAt": "2026-08-26T06:36:28.514Z"
     },
     "src/components/ui/dialog.tsx": {
       "noteFile": "files/c24ba5eb166e-ae27a9c4.json",
@@ -58,9 +58,9 @@
     },
     "src/features/contractAlert/pageHookBridge.ts": {
       "noteFile": "files/cc2340967349-4fe20fe5.json",
-      "sourceHash": "sha256:859f5f56e155f3a0a6c03c51b36f0203070162259b21cd62b07868e5752ce5e8",
+      "sourceHash": "sha256:1249930081f8b28cb0d7894fee173336da30e80e1e26eb0d8d2c8d40690ee901",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-23T13:40:12.172Z"
+      "updatedAt": "2026-08-26T06:36:28.509Z"
     },
     "src/options": {
       "noteFile": "files/7e586b0adc63-90d2721d.json",
@@ -154,21 +154,21 @@
     },
     "src/pageHook/conversationBackfill.ts": {
       "noteFile": "files/b13d4274cc90-d669acf9.json",
-      "sourceHash": "sha256:67c069d32d14fe368ce6292074e5504cf489c5be8e6d146c8b3fa01e7c7085b6",
+      "sourceHash": "sha256:e166fad025d85746d5be5b58b7215f063e44edc5adf00170e7d11ff8896b7f24",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-26T04:12:40.257Z"
+      "updatedAt": "2026-08-26T06:36:28.504Z"
     },
     "src/pageHook/conversationCapture.ts": {
       "noteFile": "files/5f5c9b73dd8f-e5b4538d.json",
-      "sourceHash": "sha256:3ef4c4b611df2fbbd362c6a3fa07d9b375522fed2054def833d7886b0c8ffc26",
+      "sourceHash": "sha256:afb99f429fb2cdb1cecad1ce2ee03a39ecac32bfb0cea21a6240e092afea97b0",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-26T04:27:20.563Z"
+      "updatedAt": "2026-08-26T06:36:28.500Z"
     },
     "src/pageHook/conversationStream.ts": {
       "noteFile": "files/2a35224b3cff-987d5188.json",
-      "sourceHash": "sha256:4b32ca15c86664060b13e8bf412d81faa3bcf658aaccd438ef6f520ccc8953ee",
+      "sourceHash": "sha256:ce886fe02b67d8060a06fba43fc1c0961abb214852bb3c102b487fe292760eca",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-26T04:28:19.820Z"
+      "updatedAt": "2026-08-26T06:36:28.495Z"
     },
     "src/pageHook/fetchHelpers.ts": {
       "noteFile": "files/ba0f21b9c02c-810d9975.json",
@@ -178,9 +178,9 @@
     },
     "src/pageHook/historyHook.ts": {
       "noteFile": "files/b76d2d29f2e7-bf5aa7a6.json",
-      "sourceHash": "sha256:4850f4ef8be694cc9fb238514b43903b446da1494c919da6336b0578c4957f06",
+      "sourceHash": "sha256:0f018620bc668794461b4b84820623631bc69e0ee24c02f9615757a0b7c2b1d7",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-26T04:29:33.564Z"
+      "updatedAt": "2026-08-26T06:36:28.491Z"
     },
     "src/pageHook/matchMediaNotifier.ts": {
       "noteFile": "files/84144e70883b-2209f151.json",
@@ -196,15 +196,55 @@
     },
     "src/pageHook/pageHook.iife.ts": {
       "noteFile": "files/0d8a28307f46-d6d135e2.json",
-      "sourceHash": "sha256:9a178ff156b89fada610aaa4f863b7ad68618dc454ab096edc58848e4c54b255",
+      "sourceHash": "sha256:d93e956a43b38cadc363a1687ee1cde10191dd3c3fa85f040a860b98490c725e",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-26T04:31:44.454Z"
+      "updatedAt": "2026-08-26T06:36:28.487Z"
     },
     "src/pageHook/titleObserver.ts": {
       "noteFile": "files/22b4e62b2bdb-cc590694.json",
-      "sourceHash": "sha256:c5f6ae517e415ab8f8d611b607e9ffde303123cd4372f4a3a9080e29cd79d1e8",
+      "sourceHash": "sha256:18997f029144cf2ffd5f41ec94e3e801a021f76a6288ef7ee897456aaf9b51c5",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-26T04:32:17.559Z"
+      "updatedAt": "2026-08-26T06:36:28.483Z"
+    },
+    "src/platforms/chatgpt/pageHook/matchMediaSpoof.ts": {
+      "noteFile": "files/14b515380033-c8fc4350.json",
+      "sourceHash": "sha256:c8e8197335c0a99833d316bf0640323abb66ff96a0c95d604b92359666b96da8",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-26T06:39:21.680Z"
+    },
+    "src/app": {
+      "noteFile": "files/f2cd6bd7313b-c60e1367.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-27T03:52:58.493Z"
+    },
+    "src/app/applicationShell.ts": {
+      "noteFile": "files/678c8485ed6c-69709b70.json",
+      "sourceHash": "sha256:cc3cae7470fe5266ab5cf6b2b0db7577f93d6dd7649de2dba8ccf49dfcd9eeba",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-28T03:59:04.152Z"
+    },
+    "src/app/navigatorController.ts": {
+      "noteFile": "files/77fd2d9f139a-7873eb25.json",
+      "sourceHash": "sha256:7b0bafbec72d07913390807764406dc0aa9feb0d5c9d23d5246f0318000b9712",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-27T03:54:08.793Z"
+    },
+    "src/content.ts": {
+      "noteFile": "files/b769f60434f9-133c340e.json",
+      "sourceHash": "sha256:080f71036251b2cb78cae4cdba6528f6d4c5a4af1ef3dc3b6c4f984baf87154c",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-27T03:57:02.111Z"
+    },
+    "src/features/jumpControls": {
+      "noteFile": "files/19f9fd53e96c-c71b136f.json",
+      "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "updatedAt": "2026-08-28T03:59:35.965Z"
+    },
+    "src/features/jumpControls/jumpControls.ts": {
+      "noteFile": "files/f181bada1449-2644f327.json",
+      "sourceHash": "sha256:9025dfcd12824b990702c6be8a8852eb503d588c3753a386dc07db2c8989d684",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-08-28T04:00:39.377Z"
     }
   }
 }

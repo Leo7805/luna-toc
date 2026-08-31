@@ -23,15 +23,33 @@ const mocks = vi.hoisted(() => ({
   observePosition: vi.fn(),
   recordConfirmed: vi.fn(),
   searchVirtualPrompt: vi.fn(),
+  // Diagnostics stubs — promptNavigation reads these from `platform.diagnostics.*`.
+  createJumpId: vi.fn(() => 'jump-id-stub'),
+  getTestConfig: vi.fn(() => null),
+  logEvent: vi.fn(),
+  // getPromptMountDiagnostic is referenced through `platform.navigation.*` —
+  // it's never called in these tests, so a vi.fn() suffices for the lazy wrapper.
+  getPromptMountDiagnostic: vi.fn(),
 }));
 
-vi.mock('@/platforms/chatgpt/virtualSearchAdapter', () => ({
-  createChatGptElementNavigationAnchor: mocks.createAnchor,
-  findRenderedChatGptPrompt: mocks.findPrompt,
-  getChatGptScrollContainer: mocks.getContainer,
-  getChatGptScrollMetrics: mocks.getMetrics,
-  isChatGptElementVisible: mocks.isPromptVisible,
-  observeChatGptVirtualPosition: mocks.observePosition,
+vi.mock('@/platforms', () => ({
+  getActivePlatform: () => ({
+    id: 'chatgpt',
+    navigation: {
+      getScrollContainer: mocks.getContainer,
+      findRenderedPrompt: mocks.findPrompt,
+      isElementVisible: mocks.isPromptVisible,
+      getScrollMetrics: mocks.getMetrics,
+      createElementNavigationAnchor: mocks.createAnchor,
+      observeVirtualPosition: mocks.observePosition,
+      getPromptMountDiagnostic: mocks.getPromptMountDiagnostic,
+    },
+    diagnostics: {
+      createJumpId: mocks.createJumpId,
+      getTestConfig: mocks.getTestConfig,
+      logEvent: mocks.logEvent,
+    },
+  }),
 }));
 
 vi.mock('@/navigation/jump/navigationAnchorStore', () => ({

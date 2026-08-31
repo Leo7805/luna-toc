@@ -458,3 +458,89 @@ absent when the new derived index completes.
   attempt-based growth.
 * Existing prompt extraction and navigation behavior remain unchanged until
   the generic model is connected in a later step.
+
+---
+
+## ADR 11: Platform Abstraction Interface
+
+**Date:** 2026-08-25
+
+### Context
+
+ADR 10 normalized the *navigation data layer* (turn shape, fingerprint shape,
+prompt navigation surface) so it no longer hard-codes ChatGPT. But the page-hook
+(IIFE in MAIN world), the content-script controller, the chatgpt runtime
+config, theme detection, and the postMessage channel strings were all still
+ChatGPT-specific. Adding Microsoft Copilot, Google Gemini, or Anthropic Claude
+web-chat meant editing the same handful of files again and risking name
+collisions on the postMessage channels.
+
+The interface and discovery surface for "which AI page is this?" therefore
+needs to be a first-class concept with one canonical entry point.
+
+### Decision
+
+Introduce a `Platform` interface in
+[`src/platforms/platformInterface.ts`](../src/platforms/platformInterface.ts)
+as the hard contract every host adapter must implement. Resolve the active
+platform exactly once at startup with
+[`getActivePlatform(host = window.location.host)`](../src/platforms/index.ts);
+that function is the only host-detection site in the codebase. The page-hook
+entry and the content-script controller read all per-platform behavior through
+`platform.pageHook.*`, `platform.navigation.*`, `platform.contentCapture.*`,
+`platform.diagnostics.*`, `platform.config.*`, and `platform.messages.*`.
+
+Each host owns its own namespace of postMessage channel strings (e.g.
+`CHATGPT_CONVERSATION_DATA`, `COPILOT_CONVERSATION_DATA`) so two adapters can
+never collide.
+
+The ChatGPT adapter under [`src/platforms/chatgpt/`](../src/platforms/chatgpt/)
+*wraps* the existing modules rather than rewriting them — behavior is
+unchanged. A Copilot placeholder lives under
+[`src/platforms/copilot/`](../src/platforms/copilot/) where every method
+throws `Error('Copilot platform not yet implemented')`, so any accidental
+branch into the Copilot path fails with a recognizable, identifiable error
+instead of `undefined.foo`. `APP_CONFIG` becomes a
+`Record<PlatformId, PlatformConfigBlock>` so navigationAlgorithm,
+promptTopOffsetPx, settleAttempts, backfillMaxPages, interceptFetchNumTurns,
+contract slots, and selectors are per-platform.
+
+Runtime overrides migrate from `chatGptRuntimeConfig` to
+`luna:chatgpt:runtimeConfig`. The legacy key is read once on first load and
+forwarded to the new key, then deleted. The legacy key is preserved for one
+release.
+
+Out of scope for this PR:
+
+- Actually implementing Copilot / Gemini / Claude adapters. Only the placeholder exists.
+- Renaming ChatGPT internal symbols (e.g. `getConversationIdFromApiPath`).
+  ChatGPT is the wrapped adapter; renaming it would expand the diff and risk
+  existing tests.
+- MyPrompts composer textarea selector abstraction. Still hardcoded
+  `#prompt-textarea`.
+- Native TOC button selectors. Still hardcoded in
+  `chatgpt/nativePromptNavigation.ts`.
+- Auto-generating `manifest.json` matches from `Platform.matches`. The
+  manifest is hand-synced for now; a follow-up lets `vite.config.ts` merge
+  `platform.matches` into the build output.
+
+### Consequences
+
+- Adding a new platform is a single `src/platforms/<host>/index.ts` that
+  exports a `Platform` record and a one-line `PLATFORMS` push in
+  `src/platforms/index.ts`. No edits to `pageHook.iife.ts`,
+  `navigatorController.ts`, or `applicationShell.ts`.
+- The postMessage channel namespace is no longer a single set of strings; each
+  platform owns its own and consumers ask `platform.messages.*` instead of
+  importing a constant.
+- `promptNavigation.ts` had 11 chatgpt-specific imports reduced to one
+  `getActivePlatform()` call. The wrappers in that file are deliberately
+  lazy (`function platform() { return getActivePlatform(); }`) so that vitest
+  in a non-chatgpt host can import the module without throwing at load.
+- `APP_CONFIG` selectors live in `platform.config.selectors.*`, removing
+  scattered string literals like
+  `'[data-message-author-role="user"]'` from `navigatorController.ts` and
+  friends.
+- `Manifest.json` now lists `https://copilot.microsoft.com/*` in both MAIN
+  and ISOLATED match arrays so the placeholder can be smoke-tested; expect
+  `Error('Copilot platform not yet implemented')` if Copilot code paths run.

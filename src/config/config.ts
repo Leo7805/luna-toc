@@ -230,10 +230,123 @@ export function getActiveContractValue(
 /** `chrome.storage.local` key for runtime overrides of ChatGPT config flags. */
 export const CHATGPT_RUNTIME_CONFIG_STORAGE_KEY = 'chatGptRuntimeConfig';
 
+/** Legacy alias kept for one release so existing dev storage migrates safely. */
+export const LEGACY_CHATGPT_RUNTIME_CONFIG_STORAGE_KEY = 'chatGptRuntimeConfig';
+
+/** `chrome.storage.local` key for runtime overrides, generic across platforms. */
+export function platformRuntimeConfigKey(platformId: string): string {
+  return `luna:${platformId}:runtimeConfig`;
+}
+
 /** Runtime overrides for ChatGPT config flags, loaded from `chrome.storage.local`. */
 export interface ChatGptRuntimeConfig {
   useLocalConfig: boolean;
   showCompatibilityAlert: boolean;
+}
+
+/**
+ * Generic, per-platform runtime-config loader. Falls back to the committed
+ * `APP_CONFIG.platforms[platformId]` defaults when the storage entry is
+ * missing or malformed. Migrates the legacy `chatGptRuntimeConfig` storage
+ * key on first read (preserved for one release).
+ *
+ * @param {string} platformId
+ * @param {Pick<chrome.storage.StorageArea, 'get'>} [storage]
+ * @returns {Promise<ChatGptRuntimeConfig>}
+ */
+export async function loadPlatformRuntimeConfig(
+  platformId: string,
+  storage: Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'> = chrome.storage.local
+): Promise<ChatGptRuntimeConfig> {
+  const block = (
+    APP_CONFIG as { platforms: Record<string, { useLocalConfig: boolean; showCompatibilityAlert: boolean }> }
+  ).platforms[platformId];
+  const defaults: ChatGptRuntimeConfig = {
+    useLocalConfig: block?.useLocalConfig ?? false,
+    showCompatibilityAlert: block?.showCompatibilityAlert ?? false,
+  };
+
+  const newKey = platformRuntimeConfigKey(platformId);
+  try {
+    const raw = await storage.get([newKey, LEGACY_CHATGPT_RUNTIME_CONFIG_STORAGE_KEY]);
+    const newEntry = raw?.[newKey] as unknown;
+    if (newEntry && typeof newEntry === 'object') {
+      const overrides = newEntry as Record<string, unknown>;
+      return {
+        useLocalConfig:
+          typeof overrides.useLocalConfig === 'boolean'
+            ? overrides.useLocalConfig
+            : defaults.useLocalConfig,
+        showCompatibilityAlert:
+          typeof overrides.showCompatibilityAlert === 'boolean'
+            ? overrides.showCompatibilityAlert
+            : defaults.showCompatibilityAlert,
+      };
+    }
+
+    // Legacy key path — read once and migrate forward to the new key.
+    const legacy = raw?.[LEGACY_CHATGPT_RUNTIME_CONFIG_STORAGE_KEY] as unknown;
+    if (platformId === 'chatgpt' && legacy && typeof legacy === 'object') {
+      const overrides = legacy as Record<string, unknown>;
+      const migrated: ChatGptRuntimeConfig = {
+        useLocalConfig:
+          typeof overrides.useLocalConfig === 'boolean'
+            ? overrides.useLocalConfig
+            : defaults.useLocalConfig,
+        showCompatibilityAlert:
+          typeof overrides.showCompatibilityAlert === 'boolean'
+            ? overrides.showCompatibilityAlert
+            : defaults.showCompatibilityAlert,
+      };
+      try {
+        await storage.set({ [newKey]: migrated });
+        await storage.remove(LEGACY_CHATGPT_RUNTIME_CONFIG_STORAGE_KEY);
+      } catch {
+        // Storage migration failures are non-fatal — return the migrated
+        // value anyway so callers can proceed.
+      }
+      return migrated;
+    }
+
+    return defaults;
+  } catch {
+    return defaults;
+  }
+}
+
+/**
+ * Writes the runtime override layer for any platform's config flags. Mirrors
+ * `loadPlatformRuntimeConfig`; uses the new `luna:<id>:runtimeConfig` storage
+ * key (no longer the legacy `chatGptRuntimeConfig`).
+ *
+ * @param {string} platformId
+ * @param {Partial<ChatGptRuntimeConfig>} overrides
+ * @param {Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>} [storage]
+ * @returns {Promise<void>}
+ */
+export async function savePlatformRuntimeConfig(
+  platformId: string,
+  overrides: Partial<ChatGptRuntimeConfig>,
+  storage: Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'> = chrome
+    .storage.local
+): Promise<void> {
+  const current = await loadPlatformRuntimeConfig(platformId, storage);
+  const next: ChatGptRuntimeConfig = {
+    useLocalConfig:
+      overrides.useLocalConfig !== undefined
+        ? overrides.useLocalConfig
+        : current.useLocalConfig,
+    showCompatibilityAlert:
+      overrides.showCompatibilityAlert !== undefined
+        ? overrides.showCompatibilityAlert
+        : current.showCompatibilityAlert,
+  };
+
+  try {
+    await storage.set({ [platformRuntimeConfigKey(platformId)]: next });
+  } catch {
+    // Storage failures are non-fatal: defaults already cover the fallback path.
+  }
 }
 
 /**

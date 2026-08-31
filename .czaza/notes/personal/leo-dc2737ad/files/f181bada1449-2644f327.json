@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:9025dfcd12824b990702c6be8a8852eb503d588c3753a386dc07db2c8989d684",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-28T04:00:39.377Z",
+    "updatedAt": "2026-08-28T04:00:39.377Z"
+  },
+  "fileNote": {
+    "userNote": "拖拽与位置持久化模块\n\ninitJumpControlsPositioning() — 模块入口;绑定 pointer 拖拽、resize 重夹、sessionStorage 恢复\n\n私有:saveJumpControlsPosition / restoreJumpControlsPosition / keepJumpControlsInViewport / setJumpControlsPosition / storageGet / storageSet / clampJumpControlsTop / getJumpControlsTopRatio / getSavedJumpControlsTop",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

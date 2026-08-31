@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:080f71036251b2cb78cae4cdba6528f6d4c5a4af1ef3dc3b6c4f984baf87154c",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-27T03:57:02.111Z",
+    "updatedAt": "2026-08-27T03:57:02.111Z"
+  },
+  "fileNote": {
+    "userNote": "Chrome Extension 的独立执行环境 (isolated world)，负责扩展业务逻辑：\n\n`content.ts` → `applicationShell` → `navigatorController` → 业务模块",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

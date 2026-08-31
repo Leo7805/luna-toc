@@ -9,8 +9,7 @@ import {
 import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnapshotStore';
 import { buildFingerprintIndex } from '@/navigation/fingerprint/index';
 import { buildDerivedSegmentIndex } from '@/navigation/fingerprint/segments';
-import { createChatGptNavigationTurns } from '@/platforms/chatgpt/navigationAdapter';
-import { createRenderedFingerprintCollector } from '@/platforms/chatgpt/renderedFingerprintCollector';
+import { getActivePlatform } from '@/platforms';
 import type { NavigationTurn } from '@/navigation/navigationData';
 import type {
   ChatMessage,
@@ -98,7 +97,7 @@ export const navigatorController = (() => {
     ).join(',');
   const navigationSnapshotStore =
     createNavigationSnapshotStore<NavigatorMessage>();
-  const renderedFingerprintCollector = createRenderedFingerprintCollector({
+  const renderedFingerprintCollector = getActivePlatform().contentCapture.createRenderedFingerprintCollector({
     onFingerprintRecord: (context, record) => {
       navigationSnapshotStore.upsertFingerprintRecord(
         context.conversationKey,
@@ -830,7 +829,7 @@ export const navigatorController = (() => {
       conversationKey,
       conversationMessages
     );
-    const turns = createChatGptNavigationTurns(data);
+    const turns = getActivePlatform().contentCapture.createNavigationTurns(data);
     syncRenderedFingerprintContext(conversationKey, revision, turns);
 
     void buildFingerprintIndex(turns, 'derived')
@@ -1005,7 +1004,7 @@ export const navigatorController = (() => {
     window.addEventListener('popstate', syncRouteState);
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
-      if (event.data?.type === 'CHATGPT_ROUTE_CHANGED') syncRouteState();
+      if (event.data?.type === getActivePlatform().pageHook.messages.routeChanged) syncRouteState();
     });
   }
 
@@ -1092,14 +1091,14 @@ export const navigatorController = (() => {
       if (event.source !== window) return;
       syncRouteState();
 
-      if (event.data?.type === 'CHATGPT_CONVERSATION_DATA') {
+      if (event.data?.type === getActivePlatform().pageHook.messages.conversationData) {
         const routeKey = event.data.routeKey;
         if (routeKey && routeKey !== getCurrentConversationKey()) return;
         clearPendingNewChat();
         handleConversationData(event.data.payload);
       }
 
-      if (event.data?.type === 'CHATGPT_CONVERSATION_ENDED') {
+      if (event.data?.type === getActivePlatform().pageHook.messages.conversationEnded) {
         // Only honor an ENDED signal aimed at the conversation we are
         // actually rendering. A late signal aimed at a previously visited
         // route must not flip state for the new one.
@@ -1108,7 +1107,7 @@ export const navigatorController = (() => {
         markLoadingComplete();
       }
 
-      if (event.data?.type === 'CHATGPT_NEW_USER_MESSAGE') {
+      if (event.data?.type === getActivePlatform().pageHook.messages.newUserMessage) {
         const routeKey = event.data.routeKey;
         const isCurrentRoute =
           !routeKey || routeKey === getCurrentConversationKey();
@@ -1151,7 +1150,7 @@ export const navigatorController = (() => {
         render({ refreshObservers: true });
       }
 
-      if (event.data?.type === 'CHATGPT_TITLE_CHANGED') {
+      if (event.data?.type === getActivePlatform().pageHook.messages.titleChanged) {
         // ChatGPT mutated `document.title` directly (e.g. user renamed
         // the conversation in the host sidebar). No conversation fetch
         // fires for a rename, so none of the triggers above catch it.

@@ -101,13 +101,20 @@ graph TD
     chatgpt -.->|Fetch API / History API| hook
 ```
 
+### Platform Abstraction
+
+- Every host LunaTOC supports is described by a `Platform` record exported from [`src/platforms/platformInterface.ts`](../src/platforms/platformInterface.ts). Each record carries its own `pageHook`, `navigation`, `routing`, `contentCapture`, `diagnostics`, `config`, `messages`, `runtimeConfigKey`, and optional `theme`.
+- [`getActivePlatform()`](../src/platforms/index.ts) is the only host-detection call in the codebase. It runs once at startup, walks the `PLATFORMS` registry, and returns the adapter whose `matches` accept `window.location.host`. Any module that needs platform-specific behavior calls `getActivePlatform()` and consumes `platform.*` fields rather than importing from `src/platforms/<host>/`.
+- ChatGPT lives under [`src/platforms/chatgpt/`](../src/platforms/chatgpt/); it wraps the existing modules instead of rewriting them so behavior is unchanged. A [`src/platforms/copilot/`](../src/platforms/copilot/) placeholder exists where every method throws `Error('Copilot platform not yet implemented')` — see [ADR 11](DECISIONS.md#adr-11-platform-abstraction-interface).
+- `APP_CONFIG` exposes a `Record<PlatformId, PlatformConfigBlock>`; `navigationAlgorithm`, `promptTopOffsetPx`, `settleAttempts`, `backfillMaxPages`, `interceptFetchNumTurns`, contract slots, and DOM selectors are all per-platform.
+
 ### Main World (`pageHook.iife.ts`)
 
-- **Purpose**: Declared as a `MAIN` world IIFE content script and injected by Chrome at `document_start`. It intercepts ChatGPT's own native API calls and events.
+- **Purpose**: Declared as a `MAIN` world IIFE content script and injected by Chrome at `document_start`. It resolves the active platform via `getActivePlatform()` and dispatches every hook concern through the platform adapter, intercepting the host's own native API calls and events.
 - **Responsibilities**:
-  1. **Fetch Hooking**: Overrides `window.fetch` to intercept chat history payloads (`/backend-api/conversation/*`) and SSE streamed responses (`/backend-api/f/conversation`), posting raw message data back to the Isolated World.
-  2. **History Hooking**: Overrides `history.pushState` and `history.replaceState` to notify the content script of SPA route transitions.
-  3. **Media Query Spoofing**: Proxies `window.matchMedia` and responsive listeners to fake a wide viewport (e.g. `1400px`), forcing ChatGPT's React app to keep its native navigation buttons mounted even when the user resizes or splits their screen.
+  1. **Fetch Hooking**: Overrides `window.fetch` to delegate request inspection and bumping to `platform.contentCapture.inspectFetchRequest` and `platform.pageHook.fetch.maybeBumpFetch`. The platform adapter decides which request shapes matter and how to read the conversation ID from the path.
+  2. **History Hooking**: Overrides `history.pushState` and `history.replaceState` to notify the content script of SPA route transitions using `platform.messages.routeChanged`.
+  3. **Media Query Spoofing**: Calls `platform.pageHook.installMatchMediaSpoof()` and `installMatchMediaToggleListener()` — for ChatGPT this proxies `window.matchMedia` and responsive listeners to fake a wide viewport (e.g. `1400px`), forcing the host's React app to keep its native navigation buttons mounted even when the user resizes or splits their screen. Other hosts may throw or no-op here until implemented.
 
 ### Isolated World (Content Scripts)
 
@@ -247,9 +254,13 @@ text.
 
 ## 2. Communication Protocol
 
-Data flows from the page's Hook script to the content script using window messages:
+Data flows from the page's Hook script to the content script using window messages. Channel names are platform-namespaced — every adapter exposes its own set through `Platform.messages`, so two adapters can never collide. ChatGPT currently publishes:
 
 - `CHATGPT_CONVERSATION_DATA`: Sends the full JSON conversation tree on page load or full conversation update.
 - `CHATGPT_NEW_USER_MESSAGE`: Streams newly submitted user prompts in real-time.
 - `CHATGPT_ROUTE_CHANGED`: Dispatched instantly when a routing URL transition takes place.
 - `CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF`: Sent from the content script to toggle media query spoofing on/off when the sidebar visibility state toggles.
+- `LUNA_CHATGPT_CONFIG_UPDATE`: Sent from the content script to publish effective contract values back to the page-hook so detection can compare observed requests against the developer's active expectations.
+- `LUNA_CONTRACT_MISMATCH`: Sent from the page-hook to the content script when an observed contract slot no longer matches the expected value.
+
+Adding a new platform means publishing a parallel `COPILOT_*` (or `CLAUDE_*`, etc.) set through its own `messages` record.

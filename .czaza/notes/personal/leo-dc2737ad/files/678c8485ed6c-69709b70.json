@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:cc3cae7470fe5266ab5cf6b2b0db7577f93d6dd7649de2dba8ccf49dfcd9eeba",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-27T03:53:42.669Z",
+    "updatedAt": "2026-08-27T03:53:42.669Z"
+  },
+  "fileNote": {
+    "userNote": "Builds the sidebar DOM, wires up the pin/title/search/jump/view-toggle controls, and initializes the theme and feature subsystems.",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

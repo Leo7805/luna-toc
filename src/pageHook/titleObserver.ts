@@ -1,32 +1,37 @@
 /**
  * Watches `document.title` for mutations and forwards every change to the
- * content-script world so the sidebar's title can stay in sync with ChatGPT's
- * conversation title. ChatGPT mutates `document.title` directly when the user
- * renames a conversation; no conversation-data request fires for a rename,
- * so the existing route / conversation-data triggers cannot catch it.
+ * content-script world so the sidebar's title can stay in sync with the
+ * host's conversation title. The host mutates `document.title` directly
+ * when the user renames a conversation; no conversation-data request
+ * fires for a rename, so the existing route / conversation-data triggers
+ * cannot catch it.
+ *
+ * The title-changed message type is provided by the caller so the same
+ * observer can serve any platform.
  *
  * The observer is set up at MAIN-world `document_start`. The `<title>`
  * element is in `<head>` and is normally present immediately, but a tiny
  * retry loop guards against the edge case where the host replaces the
- * element rather than mutating its text node. The initial title is read and
- * posted once at observer setup so a hard refresh surfaces the latest value
- * without waiting for a mutation.
+ * element rather than mutating its text node. The initial title is read
+ * and posted once at observer setup so a hard refresh surfaces the latest
+ * value without waiting for a mutation.
  */
-const TITLE_CHANGED_MESSAGE_TYPE = 'CHATGPT_TITLE_CHANGED';
 const RETRY_INTERVAL_MS = 50;
+
+type TitleChangedMessageType = string;
 
 /**
  * Starts observing `<title>` mutations and posts the initial value once.
  * Safe to call once at page-hook startup.
  */
-export function installTitleObserver(): void {
-  tryObserve();
+export function installTitleObserver(messageType: TitleChangedMessageType): void {
+  tryObserve(messageType);
 }
 
-function tryObserve(): void {
+function tryObserve(messageType: TitleChangedMessageType): void {
   const titleEl = document.querySelector('title');
   if (!titleEl) {
-    setTimeout(tryObserve, RETRY_INTERVAL_MS);
+    setTimeout(() => tryObserve(messageType), RETRY_INTERVAL_MS);
     return;
   }
   try {
@@ -37,7 +42,7 @@ function tryObserve(): void {
       lastSent = current;
       try {
         window.postMessage(
-          { type: TITLE_CHANGED_MESSAGE_TYPE, title: current },
+          { type: messageType, title: current },
           window.location.origin
         );
       } catch {

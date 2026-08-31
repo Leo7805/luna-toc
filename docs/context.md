@@ -16,14 +16,15 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 - `src/content.ts` is the minimal Isolated World entry.
 - `src/app/applicationShell.ts` creates and coordinates the sidebar application.
 - `src/components/sidebar` contains the incremental React sidebar shell.
-- ChatGPT-specific behavior lives under `src/platforms/chatgpt`.
+- ChatGPT-specific behavior lives under `src/platforms/chatgpt`; a Copilot placeholder lives under `src/platforms/copilot`. Both implement the `Platform` interface in `src/platforms/platformInterface.ts`, and the active adapter is resolved once at startup via `getActivePlatform(host = window.location.host)`.
 - Generic prompt navigation and fingerprint logic lives under `src/features/navigation`.
 - ChatGPT navigation supports `legacy-native` and experimental `independent-virtual` strategies; the default remains `legacy-native`.
 - React UI is being adopted incrementally while legacy imperative modules continue to use stable sidebar slots.
 
 ## Current Working Direction
 
-- Continue separating platform-independent sidebar and navigation behavior from ChatGPT-specific adapters before adding support for consumer Microsoft Copilot, Gemini, or Claude.
+- Platform abstraction for Copilot / Gemini / Claude is now in place (see [ADR 11](DECISIONS.md#adr-11-platform-abstraction-interface)). ChatGPT adapter wraps the existing modules unchanged; Copilot is a placeholder that throws on every method.
+- Implement actual Copilot support: replace each `throw` in `src/platforms/copilot/*.ts` with concrete fetch-bumping, route detection, navigation, theme detection, etc. Subsequent Gemini and Claude adapters follow the same shape.
 - Prefer completing small, reviewable React migrations instead of rewriting the entire sidebar at once.
 - Treat the independent virtual navigation algorithm as experimental; avoid further isolated patches without reviewing the complete search flow.
 - Keep z-index ownership centralized and allow host-page fullscreen media overlays to temporarily hide LunaTOC surfaces.

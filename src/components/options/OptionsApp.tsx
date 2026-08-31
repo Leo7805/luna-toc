@@ -1,8 +1,8 @@
 /** Renders LunaTOC's full-page extension settings. */
 import { useEffect, useState } from 'react';
 import {
-  loadChatGptRuntimeConfig,
-  saveChatGptRuntimeConfig,
+  loadPlatformRuntimeConfig,
+  savePlatformRuntimeConfig,
   type ChatGptRuntimeConfig,
   type ChatGptNavigationAlgorithm,
 } from '@/config/config';
@@ -51,7 +51,7 @@ export function OptionsApp(): React.JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
-    void loadChatGptRuntimeConfig().then((cfg) => {
+    void loadPlatformRuntimeConfig('chatgpt').then((cfg) => {
       if (!cancelled) setRuntimeConfig(cfg);
     });
 
@@ -60,8 +60,8 @@ export function OptionsApp(): React.JSX.Element {
       areaName: chrome.storage.AreaName
     ): void => {
       if (areaName !== 'local') return;
-      if (!('chatGptRuntimeConfig' in changes)) return;
-      void loadChatGptRuntimeConfig().then((cfg) => {
+      if (!('luna:chatgpt:runtimeConfig' in changes)) return;
+      void loadPlatformRuntimeConfig('chatgpt').then((cfg) => {
         if (!cancelled) setRuntimeConfig(cfg);
       });
     };
@@ -87,7 +87,7 @@ export function OptionsApp(): React.JSX.Element {
         ? { ...prev, showCompatibilityAlert: next }
         : { useLocalConfig: false, showCompatibilityAlert: next }
     );
-    void saveChatGptRuntimeConfig({ showCompatibilityAlert: next });
+    void savePlatformRuntimeConfig('chatgpt', { showCompatibilityAlert: next });
   };
 
   return (

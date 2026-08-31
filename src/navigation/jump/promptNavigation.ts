@@ -11,22 +11,67 @@ import {
 } from './navigationAnchorStore';
 import { searchVirtualPrompt } from './virtualSearchController';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
+import { keepFollowing } from '../follow/follow';
+import { getActivePlatform } from '@/platforms';
 import {
-  createChatGptElementNavigationAnchor,
-  findRenderedChatGptPrompt,
-  getChatGptPromptMountDiagnostic,
-  getChatGptScrollContainer,
-  getChatGptScrollMetrics,
-  isChatGptElementVisible,
-  observeChatGptVirtualPosition,
+  createChatGptElementNavigationAnchor as _createChatGptElementNavigationAnchor,
+  findRenderedChatGptPrompt as _findRenderedChatGptPrompt,
+  getChatGptPromptMountDiagnostic as _getChatGptPromptMountDiagnostic,
+  getChatGptScrollContainer as _getChatGptScrollContainer,
+  getChatGptScrollMetrics as _getChatGptScrollMetrics,
+  isChatGptElementVisible as _isChatGptElementVisible,
+  observeChatGptVirtualPosition as _observeChatGptVirtualPosition,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
 import {
-  createChatGptNavigationJumpId,
-  getChatGptNavigationTestConfig,
-  logChatGptNavigationEvent,
-  type ChatGptNavigationTestConfig,
+  createChatGptNavigationJumpId as _createChatGptNavigationJumpId,
+  getChatGptNavigationTestConfig as _getChatGptNavigationTestConfig,
+  logChatGptNavigationEvent as _logChatGptNavigationEvent,
 } from '@/platforms/chatgpt/navigationDiagnostics';
-import { keepFollowing } from '../follow/follow';
+import type { ChatGptNavigationTestConfig } from '@/platforms/chatgpt/navigationDiagnostics';
+
+function platform() {
+  return getActivePlatform();
+}
+
+const createChatGptElementNavigationAnchor = (opts: Parameters<typeof _createChatGptElementNavigationAnchor>[0]) =>
+  platform().navigation.createElementNavigationAnchor(opts);
+const findRenderedChatGptPrompt = (promptId: string, root?: ParentNode) =>
+  platform().navigation.findRenderedPrompt(promptId, root);
+const getChatGptPromptMountDiagnostic = (
+  opts: Parameters<typeof _getChatGptPromptMountDiagnostic>[0]
+) => platform().navigation.getPromptMountDiagnostic(opts) as unknown as ReturnType<typeof _getChatGptPromptMountDiagnostic>;
+const getChatGptScrollContainer = (root?: ParentNode) =>
+  platform().navigation.getScrollContainer(root);
+const getChatGptScrollMetrics = (container: HTMLElement) =>
+  platform().navigation.getScrollMetrics(container) ?? {
+    scrollTop: 0,
+    scrollHeight: 0,
+    viewportHeight: 0,
+    viewportWidth: 0,
+  };
+const isChatGptElementVisible = (element: HTMLElement, container: HTMLElement) =>
+  platform().navigation.isElementVisible(element, container);
+const observeChatGptVirtualPosition = (opts: Parameters<typeof _observeChatGptVirtualPosition>[0]) =>
+  platform().navigation.observeVirtualPosition(opts) as ReturnType<typeof _observeChatGptVirtualPosition>;
+const createChatGptNavigationJumpId = () => platform().diagnostics.createJumpId();
+const getChatGptNavigationTestConfig = (): ChatGptNavigationTestConfig => {
+  const raw = platform().diagnostics.getTestConfig() ?? {};
+  return {
+    settleWaitMs: raw.settleWaitMs ?? 0,
+    settleAttempts: raw.settleAttempts ?? 0,
+    maxSearchAttempts: raw.maxSearchAttempts ?? 0,
+    maxUnproductiveSearchAttempts: raw.maxUnproductiveSearchAttempts ?? 0,
+    maxSearchDurationMs: raw.maxSearchDurationMs ?? 0,
+    useConfirmedAnchors: raw.useConfirmedAnchors ?? false,
+    useObservedAnchors: raw.useObservedAnchors ?? false,
+  };
+};
+const logChatGptNavigationEvent = (
+  jumpId: string,
+  eventName: string,
+  details?: Record<string, unknown>,
+  storage?: Storage
+) => platform().diagnostics.logEvent(jumpId, eventName, details, storage);
 
 interface VirtualSearchContext {
   conversationKey: string;
@@ -320,7 +365,7 @@ function jumpWithIndependentVirtualNavigation(
       context.conversationKey,
       container,
       jumpId,
-      testConfig
+      testConfig as unknown as ChatGptNavigationTestConfig
     );
     return;
   }

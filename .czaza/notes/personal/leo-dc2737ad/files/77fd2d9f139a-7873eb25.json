@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:7b0bafbec72d07913390807764406dc0aa9feb0d5c9d23d5246f0318000b9712",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescript"
+  },
+  "defaults": {
+    "createdAt": "2026-08-27T03:54:08.793Z",
+    "updatedAt": "2026-08-27T03:54:08.793Z"
+  },
+  "fileNote": {
+    "userNote": "Owns the conversation data, renders the TOC list, tracks the active prompt, and dispatches jump/search/route-change behavior for the sidebar.",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

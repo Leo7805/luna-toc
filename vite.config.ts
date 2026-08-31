@@ -10,6 +10,11 @@ const manifest = JSON.parse(
   fs.readFileSync(new URL('./manifest.json', import.meta.url), 'utf8')
 );
 
+// NOTE: When new platforms are added, sync `manifest.json`
+// `content_scripts[].matches` arrays by hand for now. Future work: import
+// `PLATFORMS` from `@/platforms` and merge `platform.matches` into both
+// MAIN-world and ISOLATED-world match arrays at build time. See ADR 11.
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest }), cleanEntryFileNames()],
   resolve: {

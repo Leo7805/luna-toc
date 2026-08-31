@@ -2,7 +2,9 @@
  * Thin orchestrator that wires together the conversation-capture sub-modules.
  *
  * - `inspectFetchRequest` classifies a `window.fetch` call so the entry can
- *   dispatch the right follow-up actions.
+ *   dispatch the right follow-up actions. Delegates to the active platform's
+ *   `contentCapture.inspectFetchRequest` so the page-hook stays
+ *   platform-agnostic.
  * - `postConversationData` consumes a conversation GET response, forwards
  *   the parsed payload, and triggers backfill / contract probes.
  * - `extractOutgoingMessage`, `inspectStream`, and `getRequestHeaders` are
@@ -13,11 +15,8 @@
  * the other `install*` factories. Sub-modules that need `originalFetch` get
  * it directly via their own factories.
  */
-import {
-  getConversationIdFromApiPath,
-  getConversationMessagesIdFromApiPath,
-} from '@/platforms/chatgpt/conversationRequest';
-import { getFetchUrl } from '@/platforms/chatgpt/chatGptFetchBumper';
+import { getActivePlatform, type Platform } from '@/platforms';
+import type { ContentRequestMeta } from '@/platforms/platformInterface';
 import {
   probeNumTurnsBehavior,
   probeDomSelectors,
@@ -30,20 +29,10 @@ import {
   startBackfillIfNeeded,
 } from './conversationBackfill';
 import { extractOutgoingMessage, inspectStream } from './conversationStream';
-import type {
-  ConversationPayload,
-  FetchArgs,
-  RequestMeta,
-} from './fetchHelpers';
-import {
-  getCurrentConversationKey,
-  getFetchMethod,
-  getRequestHeaders,
-} from './fetchHelpers';
+import type { ConversationPayload, FetchArgs } from './fetchHelpers';
+import { getRequestHeaders } from './fetchHelpers';
 
 export { extractOutgoingMessage, getRequestHeaders, inspectStream };
-
-const SEND_MESSAGE_PATH = '/backend-api/f/conversation';
 
 /**
  * Reserved for future module warmup. Currently a no-op so the entry keeps a
@@ -60,43 +49,19 @@ export function installConversationCapture(_opts: {
 /**
  * Classifies a `window.fetch` call site so the entry can dispatch the right
  * follow-up actions. Returns `null` when the request does not look like a
- * ChatGPT conversation endpoint we care about.
+ * platform conversation endpoint we care about. Delegates to the platform
+ * adapter so the page-hook stays platform-agnostic.
  */
-export function inspectFetchRequest(args: FetchArgs): RequestMeta | null {
-  try {
-    const input = args[0];
-    const init = args[1] || {};
-    const url = getFetchUrl(input);
-
-    if (!url) {
-      return null;
-    }
-
-    const method = getFetchMethod(input, init);
-    const pathname = new URL(url, window.location.origin).pathname;
-    const conversationId = getConversationIdFromApiPath(pathname);
-    const messagesConversationId =
-      getConversationMessagesIdFromApiPath(pathname);
-    const effectiveConversationId = conversationId ?? messagesConversationId;
-    const isConversationGet =
-      method === 'GET' && effectiveConversationId !== null;
-
-    return {
-      isConversationGet,
-      isInitialConversationLoad: conversationId !== null,
-      isSendMessage: method === 'POST' && pathname === SEND_MESSAGE_PATH,
-      routeKey: isConversationGet
-        ? effectiveConversationId
-        : getCurrentConversationKey(),
-    };
-  } catch {
-    return null;
-  }
+export function inspectFetchRequest(
+  args: FetchArgs,
+  platform: Platform = getActivePlatform()
+): ContentRequestMeta | null {
+  return platform.contentCapture.inspectFetchRequest(args, '');
 }
 
 /**
- * Clones ChatGPT's conversation GET response and sends the parsed payload to
- * the content script without consuming the page's original response body.
+ * Clones the host's conversation GET response and sends the parsed payload
+ * to the content script without consuming the page's original response body.
  */
 export function postConversationData(
   response: Response,
@@ -104,11 +69,12 @@ export function postConversationData(
   isInitialConversationLoad: boolean,
   authHeaders: Record<string, string> | null
 ): void {
+  const platform = getActivePlatform();
   response
     .clone()
     .json()
     .then((data) => {
-      postConversationPayload(data, routeKey);
+      postConversationPayload(data, routeKey, platform);
 
       const messages = (data as { messages?: unknown } | null)?.messages;
       if (!Array.isArray(messages)) {
@@ -147,7 +113,7 @@ export function postConversationData(
           !isBackfilling(routeKey) &&
           !pageInfo?.has_previous_page
         ) {
-          postConversationEnded(routeKey);
+          postConversationEnded(routeKey, platform);
         }
       }
     })
