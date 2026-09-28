@@ -258,8 +258,10 @@ async function loadUntilMountedViaViewport(
 
 /**
  * One round of the to-top-style settle: re-assert `scrollTop` toward
- * the target direction, wait briefly for ChatGPT's async backfill,
- * collect any new mounts into the queue, then re-check the queue.
+ * the target direction, then poll the ChatGPT mount window every
+ * 50 ms for fresh entries until either the target shows up in the
+ * `MountQueue`, the navigation version is bumped (the user picked
+ * another prompt), or the `settleMs` budget expires.
  *
  * Returns the target element if the settle produced a hit, or null
  * to let the outer loop decide whether to take another step. A null
@@ -279,6 +281,12 @@ async function settleOnce(
   myNavVersion: number,
   settleMs: number
 ): Promise<HTMLElement | null> {
+  function logSettlePoll(details: Record<string, unknown>): void {
+    if (isJumpVizDebugEnabled()) {
+      console.log('[LunaTOC settle-poll]', details);
+    }
+  }
+
   // Re-assert the step from the current scrollTop so we don't keep
   // pushing further past where the previous attempt landed.
   const maxScrollTop = container.scrollHeight - container.clientHeight;
@@ -290,16 +298,41 @@ async function settleOnce(
     : Math.max(0, Math.min(maxScrollTop, nextScrollTop));
   container.scrollTop = clampedScrollTop;
 
-  await new Promise<void>(function (resolve) {
-    setTimeout(resolve, settleMs);
-  });
+  // Poll the mount window every 50 ms instead of sleeping the whole
+  // settleMs up front. The previous design unconditionally slept 1.5 s
+  // per cross-step, which made jumps across a long conversation take
+  // 8+ iterations × 1.5 s ≈ 12 s even when ChatGPT's in-memory layer
+  // already had the target prompt and just needed the DOM to flip.
+  // 50 ms is short enough that the worst-case added latency is one
+  // poll interval, and long enough that we don't burn CPU on the
+  // settle path.
+  const SETTLE_POLL_MS = 50;
+  const start = Date.now();
+  while (Date.now() - start < settleMs) {
+    if (myNavVersion !== navigationJumpVersion) return null;
+    await new Promise<void>(function (resolve) {
+      setTimeout(resolve, SETTLE_POLL_MS);
+    });
+
+    // Pull whatever ChatGPT mounted during the wait into the queue
+    // before re-scanning it for the target. `detectNewMounts` also
+    // refreshes the element reference on existing entries, so a
+    // re-mount by ChatGPT during virtual render doesn't leave us
+    // holding a stale node.
+    const newEntries = detectNewMounts(mountQueue, prompts, root);
+    for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
+    if (newEntries.length > 0) {
+      logSettlePoll({
+        elapsedMs: Date.now() - start,
+        newCount: newEntries.length,
+      });
+    }
+
+    const hit = findTargetInQueue(mountQueue, targetId, targetIndex);
+    if (hit) return hit;
+  }
   if (myNavVersion !== navigationJumpVersion) return null;
-
-  // Pull whatever ChatGPT mounted during the wait into the queue.
-  const newEntries = detectNewMounts(mountQueue, prompts, root);
-  for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
-
-  return findTargetInQueue(mountQueue, targetId, targetIndex);
+  return null;
 }
 
 /**
