@@ -606,22 +606,52 @@ export const navigatorController = (() => {
       .forEach((element) => activePromptObserver?.observe(element));
   }
 
+  /**
+   * Returns a fingerprint of the currently-mounted user messages. The follow
+   * MutationObserver uses it to skip re-observing when the mount set is
+   * unchanged — sidebar re-renders are also `childList` mutations under
+   * `document.body`, but they don't touch search-unit elements.
+   */
+  function getMountedPromptSignature(): string {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-chatgpt-search-unit-key$=":user"]'
+      )
+    )
+      .map(
+        (element) =>
+          element.getAttribute('data-chatgpt-search-unit-key') ||
+          element.getAttribute('data-chatgpt-search-message-ids') ||
+          ''
+      )
+      .join('|');
+  }
+
   function initActivePromptTracking(): void {
     activePromptMutationObserver?.disconnect();
+    let lastMountSignature = getMountedPromptSignature();
+
+    const reobserveIfMountedChanged = (): void => {
+      const signature = getMountedPromptSignature();
+      if (signature === lastMountSignature) return;
+      lastMountSignature = signature;
+      observeVisibleUserMessages();
+    };
+
     activePromptMutationObserver = new MutationObserver(() => {
       if (activePromptMutationTimer !== null)
         clearTimeout(activePromptMutationTimer);
-      activePromptMutationTimer = setTimeout(observeVisibleUserMessages, 200);
+      activePromptMutationTimer = setTimeout(reobserveIfMountedChanged, 200);
     });
-    // Watch the ChatGPT chat container, not document.body. The sidebar is
-    // a child of body; observing body triggers on every sidebar class
-    // toggle, which in turn re-observes, looping every 200 ms.
-    const navigation = getActivePlatform().navigation;
-    const chatContainer =
-      navigation.getThreadScrollContainer?.() ??
-      navigation.getScrollContainer() ??
-      document.body;
-    activePromptMutationObserver.observe(chatContainer, {
+    // Watch document.body, not the chat container. Scoping to
+    // `.thread-scroll-container` missed mount events on the new DOM: the
+    // older prompts that mount as the user scrolls up were never
+    // re-observed, so follow tracking only worked for the initial bottom
+    // batch. The jump loader already proved document.body childList
+    // mutations carry mount events (`loadUntilMountedViaViewport`). The
+    // signature guard keeps the sidebar's own re-renders from re-observing
+    // in a loop.
+    activePromptMutationObserver.observe(document.body, {
       childList: true,
       subtree: true,
     });
