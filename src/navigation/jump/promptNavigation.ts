@@ -622,7 +622,34 @@ function usesIndependentVirtualNavigation(): boolean {
 }
 
 /**
+ * Tracks the active edge-jump retry loop so a second click cancels the
+ * previous loop instead of stacking on top of it.
+ */
+let activeEdgeJumpVersion = 0;
+const EDGE_JUMP_HARD_CAP = 30;
+const EDGE_JUMP_SETTLE_MS = 1500;
+const EDGE_JUMP_HEIGHT_GROWTH_EPSILON = 50;
+/** How close to the visible top of the scroll container the first prompt
+ * must be before the loop considers the "found first prompt" condition met.
+ * ChatGPT often mounts the very first prompt well before the user is
+ * actually scrolled to it, so we require it to be in the visible band.
+ */
+const EDGE_JUMP_FIRST_PROMPT_VISIBLE_BAND_PX = 200;
+
+/**
  * Scroll the ChatGPT chat feed to the absolute top or bottom.
+ *
+ * Each click re-asserts `scrollTop = -currentMaxScrollTop` against the
+ * *current* scrollHeight and waits briefly for ChatGPT's lazy mount to
+ * extend the window. Repeating is what actually moves the page toward
+ * prompt 1 — a single write gets clamped by ChatGPT's mount window,
+ * and that clamp only widens after each retry.
+ *
+ * The loop exits when the first prompt is both mounted in the DOM and
+ * visible at the top of the scroll container. If the user clicks any
+ * TOC row in the meantime, the navigation-version bump cancels this
+ * loop on the next tick.
+ *
  * @param {'top' | 'bottom'} edge
  * @param {'smooth' | 'auto'} [behavior='auto']
  */
@@ -631,6 +658,11 @@ export function jumpToAbsoluteEdge(
   behavior: ScrollBehavior = 'auto'
 ): void {
   keepFollowing();
+  // A new absolute-edge jump supersedes any in-flight independent virtual
+  // jump; otherwise the highlight from a previous TOC click would linger
+  // even after the user explicitly chose to leave that prompt behind.
+  cancelActiveNavigationSearch();
+  clearJumpProgress();
 
   // Straight to the real thread scroll container via the platform adapter.
   const container =
@@ -640,44 +672,144 @@ export function jumpToAbsoluteEdge(
 
   const isReverse =
     window.getComputedStyle(container).flexDirection === 'column-reverse';
-  const maxScrollTop = container.scrollHeight - container.clientHeight;
-  const targetTop = edge === 'top'
-    ? (isReverse ? -maxScrollTop : 0)
-    : (isReverse ? 0 : maxScrollTop);
+  const jumpVersion = ++activeEdgeJumpVersion;
+  // Snapshot the navigation version so a click on any TOC row cancels
+  // this edge loop alongside whatever virtual-jump it triggered.
+  const navVersionAtStart = navigationJumpVersion;
 
-  container.scrollTop = targetTop;
+  // For the top edge, look up the first prompt's id so the loop can stop
+  // as soon as that prompt is actually visible. The bottom edge has no
+  // equivalent anchor — it's bounded by the newest prompt, which is
+  // already on screen before the loop starts.
+  const firstPromptId =
+    edge === 'top'
+      ? getVirtualSearchContext().prompts[0]?.id ?? null
+      : null;
 
-  // Wait for ChatGPT's lazy backfill to actually finish before re-asserting.
-  // ChatGPT fetches older conversation pages on demand; while it is fetching
-  // the page, scrollHeight grows with every newly mounted turn. Once it
-  // stops growing for several consecutive polls (i.e. the last fetch
-  // returned the final page, or there was nothing more to load), we know
-  // the new scrollTop has had its full effect — re-apply the target and
-  // exit. The hard timeout is only a safety net for the case where the
-  // fetch never resolves.
-  void (async () => {
-    const startHeight = container.scrollHeight;
-    let stableChecks = 0;
-    const REQUIRED_STABLE = 3;
-    const MAX_MS = 15000;
-    const start = Date.now();
-    while (Date.now() - start < MAX_MS) {
-      await new Promise<void>(function (resolve) {
-        setTimeout(resolve, 500);
-      });
-      if (container.scrollHeight > startHeight + 50) {
-        // a new page just landed; reset the stability counter
-        stableChecks = 0;
-      } else {
-        stableChecks += 1;
-        if (stableChecks >= REQUIRED_STABLE) {
-          // scrollHeight has settled; re-assert the target so the page
-          // settles on the requested edge instead of being snapped back by
-          // the last asynchronous anchor recompute.
-          container.scrollTop = targetTop;
-          return;
-        }
-      }
+  void retryEdgeUntilSettled(
+    container,
+    edge,
+    isReverse,
+    jumpVersion,
+    navVersionAtStart,
+    firstPromptId
+  );
+}
+
+/**
+ * Iteratively re-asserts the edge scroll position while ChatGPT's mount
+ * window keeps growing. Exits when the first prompt reaches the visible
+ * top band, when the user clicks any other TOC row (which bumps
+ * `navigationJumpVersion`), when another to-top click cancels this one
+ * (`activeEdgeJumpVersion`), or once `EDGE_JUMP_HARD_CAP` retries have
+ * been exhausted.
+ */
+async function retryEdgeUntilSettled(
+  container: HTMLElement,
+  edge: 'top' | 'bottom',
+  isReverse: boolean,
+  jumpVersion: number,
+  navVersionAtStart: number,
+  firstPromptId: string | null
+): Promise<void> {
+  const logEdgeSettle = (details: Record<string, unknown>): void => {
+    if (isJumpVizDebugEnabled()) {
+      console.log('[LunaTOC edge-settle]', details);
     }
-  })();
+  };
+
+  for (let attempt = 0; attempt < EDGE_JUMP_HARD_CAP; attempt++) {
+    if (
+      jumpVersion !== activeEdgeJumpVersion ||
+      navVersionAtStart !== navigationJumpVersion
+    ) {
+      logEdgeSettle({ attempt, phase: 'cancelled' });
+      return;
+    }
+
+    const beforeHeight = container.scrollHeight;
+    const beforeScrollTop = container.scrollTop;
+    const maxScrollTop = beforeHeight - container.clientHeight;
+    const targetTop = edge === 'top'
+      ? (isReverse ? -maxScrollTop : 0)
+      : (isReverse ? 0 : maxScrollTop);
+
+    container.scrollTop = targetTop;
+    logEdgeSettle({
+      attempt,
+      edge,
+      isReverse,
+      maxScrollTop,
+      targetTop,
+      beforeScrollTop,
+      beforeHeight,
+    });
+
+    await new Promise<void>(function (resolve) {
+      setTimeout(resolve, EDGE_JUMP_SETTLE_MS);
+    });
+    if (
+      jumpVersion !== activeEdgeJumpVersion ||
+      navVersionAtStart !== navigationJumpVersion
+    ) {
+      logEdgeSettle({ attempt, phase: 'cancelled-after-sleep' });
+      return;
+    }
+
+    // Convergence signal 1: the first prompt is mounted and visible
+    // inside the top band of the scroll container. ChatGPT mounts DOM
+    // nodes well before it actually scrolls the user to them, so we
+    // also require the prompt's visible-top offset to be inside the
+    // top band — otherwise the loop would short-circuit at attempt 0
+    // while the user is still looking at the middle of the conversation.
+    // On convergence, paint the chat-side highlight so the user sees
+    // the prompt LunaTOC just landed them on.
+    const firstPromptInView = firstPromptId
+      ? findFirstPromptInTopBand(container, firstPromptId)
+      : null;
+    if (firstPromptInView) {
+      highlightMatchedElement(firstPromptInView);
+      logEdgeSettle({ attempt, phase: 'first-prompt-visible' });
+      return;
+    }
+
+    const afterHeight = container.scrollHeight;
+    const grown = afterHeight > beforeHeight + EDGE_JUMP_HEIGHT_GROWTH_EPSILON;
+    logEdgeSettle({
+      attempt,
+      phase: 'settled',
+      afterScrollTop: container.scrollTop,
+      afterHeight,
+      grown,
+    });
+    // Convergence signal 2: scrollHeight stopped growing, meaning
+    // ChatGPT's mount window has stabilised at whatever boundary it
+    // is willing to expose. The next to-top click can re-trigger this
+    // loop if the user wants to try again after manual scrolling.
+    if (!grown) return;
+  }
+  logEdgeSettle({ phase: 'hard-cap-reached' });
+}
+
+/**
+ * Returns the first-prompt element when it is mounted in the DOM and
+ * its visible top sits inside the top band of the scroll container.
+ * This is the user-facing "you're at the very start of the conversation"
+ * check, distinct from `findRenderedChatGptPrompt`, which would also
+ * succeed when the prompt is mounted far below the visible area.
+ */
+function findFirstPromptInTopBand(
+  container: HTMLElement,
+  firstPromptId: string
+): HTMLElement | null {
+  const firstPrompt = findRenderedChatGptPrompt(firstPromptId);
+  if (!firstPrompt) return null;
+
+  const promptRect = firstPrompt.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const visibleTop = promptRect.top - containerRect.top;
+  if (visibleTop >= 0 && visibleTop <= EDGE_JUMP_FIRST_PROMPT_VISIBLE_BAND_PX) {
+    return firstPrompt;
+  }
+  return null;
 }
