@@ -96,6 +96,79 @@ function logMountedPromptViz(label: string): void {
   dump(hidden, 'mounted but not in viewport');
 }
 
+/**
+ * Clamps a candidate `scrollTop` to the physical scroll range. In
+ * standard flex the range is `[0, maxScrollTop]`; in column-reverse
+ * the historical code path clamped to `[-maxScrollTop, 0]` because
+ * older ChatGPT builds used negative scrollTop values. Both branches
+ * are kept here so any future regression to the negative range still
+ * works — column-reverse is detected from `getComputedStyle`.
+ */
+function clampScrollTo(
+  container: HTMLElement,
+  next: number,
+  isReverse: boolean
+): number {
+  const maxScrollTop = Math.max(
+    0,
+    container.scrollHeight - container.clientHeight
+  );
+  return isReverse
+    ? Math.max(-maxScrollTop, Math.min(0, next))
+    : Math.max(0, Math.min(maxScrollTop, next));
+}
+
+/**
+ * One-shot MutationObserver wait: resolves `true` once the DOM has
+ * changed within `timeoutMs`, `false` on timeout. Debounced so
+ * per-node callbacks fired by React during a batch mount coalesce
+ * into one effective "mount complete" signal. If `myNavVersion` no
+ * longer matches `navigationJumpVersion` (the user clicked another
+ * prompt mid-flight), resolves `'cancelled'`.
+ *
+ * Shared by `waitForMount` and `settleOnce` — both want the same
+ * "did the DOM change in response to my scrollTop write" signal.
+ */
+function waitForDomChange(
+  root: ParentNode,
+  myNavVersion: number,
+  timeoutMs: number,
+  debounceMs: number = 10
+): Promise<boolean | 'cancelled'> {
+  return new Promise<boolean | 'cancelled'>(function (resolve) {
+    let settled = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function finish(result: boolean | 'cancelled'): void {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      resolve(result);
+    }
+
+    const observer = new MutationObserver(function () {
+      if (myNavVersion !== navigationJumpVersion) {
+        finish('cancelled');
+        return;
+      }
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        if (myNavVersion !== navigationJumpVersion) {
+          finish('cancelled');
+          return;
+        }
+        finish(true);
+      }, debounceMs);
+    });
+    observer.observe(root, { childList: true, subtree: true });
+
+    setTimeout(function () {
+      finish(false);
+    }, timeoutMs);
+  });
+}
+
 
 /**
  * Step 2: actively load the target prompt when it is not currently
@@ -121,15 +194,11 @@ async function loadUntilMountedViaViewport(
   jumpId: string
 ): Promise<HTMLElement | null> {
   // Step-size bounds for the distance-plus-overshoot heuristic below.
-  // The minimum keeps very-close jumps from being a single-pixel nudge
-  // that ChatGPT may ignore. The maximum is intentionally generous:
-  // the overshoot is meant to push ChatGPT into its "load more
+  // The overshoot is meant to push ChatGPT into its "load more
   // memory" mode, where it bulk-mounts many prompts in one burst
   // instead of the 3–6 prompts per discrete scrollTop write we get
   // when asking for the immediate vicinity. The next iteration can
   // always step back if the overshoot overshoots the target entirely.
-  const LOAD_STEP_VIEWPORTS_MIN = 0.5;
-  const LOAD_STEP_VIEWPORTS_MAX = 5;
   // Threshold below which we skip the overshoot and step precisely.
   // For very short jumps the overshoot pushes scrollTop so far past
   // the target that ChatGPT clamps the response and we end up taking
@@ -204,7 +273,6 @@ async function loadUntilMountedViaViewport(
       break;
     }
     const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
-    const maxScrollTop = container.scrollHeight - container.clientHeight;
     // Cross the remaining distance plus an overshoot so ChatGPT's
     // virtual mount sees a scrollTop value *past* the target. In our
     // to-top testing that pattern triggered ChatGPT into "load more
@@ -239,13 +307,7 @@ async function loadUntilMountedViaViewport(
     const step = direction * stepViewports * window.innerHeight;
     const beforeScrollTop = container.scrollTop;
     const nextScrollTop = beforeScrollTop + step;
-    // Clamp to the physical edge so we never write a scrollTop that
-    // the browser would silently round to the same clamped value.
-    // In column-reverse the bottom lives at scrollTop = 0 and the
-    // top at -maxScrollTop; in a normal flow it's the opposite.
-    const clampedScrollTop = isReverse
-      ? Math.max(-maxScrollTop, Math.min(0, nextScrollTop))
-      : Math.max(0, Math.min(maxScrollTop, nextScrollTop));
+    const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
     container.scrollTop = clampedScrollTop;
     logLoadStep({
       attempt,
@@ -356,50 +418,31 @@ async function settleOnce(
   // into a single no-op by the browser.
   const MAX_BATCH_SIZE = 5;
   const BATCH_INTERVAL_MS = 10;
-  const maxScrollTop = container.scrollHeight - container.clientHeight;
   const step = direction * window.innerHeight;
   for (let i = 0; i < MAX_BATCH_SIZE; i++) {
     const next = container.scrollTop + step;
-    const clampedScrollTop = isReverse
-      ? Math.max(-maxScrollTop, Math.min(0, next))
-      : Math.max(0, Math.min(maxScrollTop, next));
-    container.scrollTop = clampedScrollTop;
+    container.scrollTop = clampScrollTo(container, next, isReverse);
     await new Promise<void>(function (resolve) {
       setTimeout(resolve, BATCH_INTERVAL_MS);
     });
   }
 
-  // Watch for the batch's mount response via MutationObserver.
-  // Debounced so the per-node callbacks React fires during a batch
-  // mount coalesce into one effective "mount complete" signal.
+  // Watch for the batch's mount response via MutationObserver. Shared
+  // with `waitForMount` — both want the same "did the DOM change in
+  // response to my scrollTop write" signal.
   const OBSERVER_DEBOUNCE_MS = 10;
   const OBSERVER_TIMEOUT_MS = Math.max(settleMs, 100);
-  const changed = await new Promise<boolean>(function (resolve) {
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const observer = new MutationObserver(function () {
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(function () {
-        observer.disconnect();
-        if (debounceTimer !== null) clearTimeout(debounceTimer);
-        debounceTimer = null;
-        resolve(true);
-      }, OBSERVER_DEBOUNCE_MS);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(function () {
-      observer.disconnect();
-      if (debounceTimer !== null) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
-      resolve(false);
-    }, OBSERVER_TIMEOUT_MS);
-  });
-  if (myNavVersion !== navigationJumpVersion) return null;
+  const changed = await waitForDomChange(
+    document.body,
+    myNavVersion,
+    OBSERVER_TIMEOUT_MS,
+    OBSERVER_DEBOUNCE_MS
+  );
+  if (changed === 'cancelled') return null;
 
   logSettlePoll({
     phase: 'observer-returned',
-    changed,
+    changed: changed === true,
     elapsedMs: OBSERVER_TIMEOUT_MS,
   });
 
@@ -448,48 +491,30 @@ async function waitForMount(
     return findTargetInQueue(mountQueue, targetId, targetIndex);
   }
 
+  // Cheap synchronous re-scan first — many of ChatGPT's in-memory
+  // mounts land before the next paint, so this catches the easy hits
+  // without paying the observer latency.
   const immediateHit = checkAfterMount();
   if (immediateHit) return immediateHit;
 
-  return new Promise<HTMLElement | null | 'cancelled'>(function (resolve) {
-    let settled = false;
-
-    function finish(result: HTMLElement | null | 'cancelled'): void {
-      if (settled) return;
-      settled = true;
-      observer.disconnect();
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      resolve(result);
-    }
-
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const observer = new MutationObserver(function () {
-      if (myNavVersion !== navigationJumpVersion) {
-        finish('cancelled');
-        return;
-      }
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(function () {
-        if (myNavVersion !== navigationJumpVersion) {
-          finish('cancelled');
-          return;
-        }
-        const hit = checkAfterMount();
-        if (hit) {
-          finish(hit);
-        }
-      }, OBSERVER_DEBOUNCE_MS);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    setTimeout(function () {
-      finish(checkAfterMount());
-    }, timeoutMs);
-  });
+  // Wait for the next DOM change and re-scan; loop because one
+  // observer signal can carry multiple mounts and ChatGPT may keep
+  // mounting additional batches as it processes the scrollTop write.
+  while (true) {
+    const result = await waitForDomChange(
+      root,
+      myNavVersion,
+      timeoutMs,
+      OBSERVER_DEBOUNCE_MS
+    );
+    if (result === 'cancelled') return 'cancelled';
+    const hit = checkAfterMount();
+    if (hit) return hit;
+    if (result === false) return null;
+  }
 }
 
 /**
- /**
  * Returns 1 if the target sits "below" the closest mounted prompt in
  * sidebar-index terms (so we should scroll toward newer turns), and -1
  * if it sits "above" (so we should scroll toward older turns). Accepts
