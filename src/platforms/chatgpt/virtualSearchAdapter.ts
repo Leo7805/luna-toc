@@ -22,7 +22,12 @@ import {
   getVisibleAssistantViewportSamples,
 } from './renderedTextAdapter';
 
-const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
+// The new ChatGPT DOM no longer carries `data-message-author-role`; the
+// per-prompt user-message container is now tagged with
+// `data-user-message-bubble="true"`. Switch the selector so
+// `getVisibleUserMessages` and `findRenderedChatGptPrompt` resolve under
+// the new DOM.
+const USER_MESSAGE_SELECTOR = '[data-user-message-bubble="true"]';
 const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
 
 export interface ChatGptVirtualPositionOptions {

@@ -425,7 +425,14 @@ function jumpWithIndependentVirtualNavigation(
       return Boolean(target && isChatGptElementVisible(target, container));
     },
     scrollTo: (scrollTop) => {
-      container.scrollTo({ top: scrollTop, behavior: 'auto' });
+      // ChatGPT's thread-scroll-container now uses `flex-direction:
+      // column-reverse`, so the native scrollTop must be the negation of
+      // LunaTOC's positive-space value. Without this flip, jumps to older
+      // prompts silently no-op (a positive value clamps to 0 in a column-
+      // reverse container whose valid range is [-(max), 0]).
+      const isReverse =
+        window.getComputedStyle(container).flexDirection === 'column-reverse';
+      container.scrollTop = isReverse ? -scrollTop : scrollTop;
     },
     waitForRender: () =>
       new Promise((resolve) => {

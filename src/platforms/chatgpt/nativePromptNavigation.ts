@@ -40,7 +40,7 @@ export function getNativePromptIndex(button: HTMLButtonElement): number {
 export function observeVisibleUserMessages(
   callback: (id: string) => void
 ): () => void {
-  const userMessageSelector = '[data-message-author-role="user"]';
+  const userMessageSelector = '[data-user-message-bubble="true"]';
   const observer = new IntersectionObserver(
     (entries) => {
       const topEntry = entries
@@ -65,7 +65,7 @@ export function observeVisibleUserMessages(
  * the rendered ChatGPT user-message element matching `message.id`.
  */
 export function getJumpTargetElement(message: NavigatorMessage): HTMLElement | null {
-  const userMessageSelector = '[data-message-author-role="user"]';
+  const userMessageSelector = '[data-user-message-bubble="true"]';
   const candidates = Array.from(
     document.querySelectorAll<HTMLElement>(userMessageSelector)
   );
