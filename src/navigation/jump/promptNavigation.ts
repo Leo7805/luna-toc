@@ -120,13 +120,24 @@ async function loadUntilMountedViaViewport(
   container: HTMLElement,
   jumpId: string
 ): Promise<HTMLElement | null> {
-  // Step-size bounds for the half-distance heuristic below. The
-  // minimum keeps very-close jumps from being a single-pixel nudge
-  // that ChatGPT may ignore; the maximum caps how far a single write
-  // can overshoot the target so a "we missed by 16 prompts" miss is
-  // recovered within one extra iteration rather than several.
+  // Step-size bounds for the distance-plus-overshoot heuristic below.
+  // The minimum keeps very-close jumps from being a single-pixel nudge
+  // that ChatGPT may ignore. The maximum is intentionally generous:
+  // the overshoot is meant to push ChatGPT into its "load more
+  // memory" mode, where it bulk-mounts many prompts in one burst
+  // instead of the 3–6 prompts per discrete scrollTop write we get
+  // when asking for the immediate vicinity. The next iteration can
+  // always step back if the overshoot overshoots the target entirely.
   const LOAD_STEP_VIEWPORTS_MIN = 0.5;
-  const LOAD_STEP_VIEWPORTS_MAX = 4;
+  const LOAD_STEP_VIEWPORTS_MAX = 5;
+  // Fraction of the remaining distance that we cross past the target.
+  // Tested at 0.3 against a 213-prompt conversation: that ratio was
+  // enough to push ChatGPT into bulk-mount mode in 1–2 attempts.
+  const LOAD_STEP_OVERSHOOT_FRACTION = 0.3;
+  // Minimum number of prompts we deliberately overshoot by, so that
+  // even a "you are right next to the target" step still tells ChatGPT
+  // "the user wants more" and triggers a memory-wide mount.
+  const LOAD_STEP_OVERSHOOT_MIN_PROMPTS = 5;
   // Rough estimate of how many prompts fit into a single viewport.
   // 200 px is what the previous log-based testing showed on this
   // workspace; we deliberately round down so a step never overshoots
@@ -183,22 +194,28 @@ async function loadUntilMountedViaViewport(
     }
     const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
     const maxScrollTop = container.scrollHeight - container.clientHeight;
-    // Use a half-distance heuristic instead of a fixed viewport stride.
-    // ChatGPT responds to each scrollTop write with a discrete burst of
-    // ~3–6 mounts, so a fixed 1-viewport step walks a 60-prompt gap in
-    // ~20 iterations even though the targets are already sitting in
-    // ChatGPT's in-memory layer. Asking ChatGPT for half the remaining
-    // distance per step makes it spend those bursts on a meaningfully
-    // larger slice of the conversation; the cap at
-    // LOAD_STEP_VIEWPORTS_MAX keeps one overshoot from skipping the
-    // target by too much.
+    // Cross the remaining distance plus an overshoot so ChatGPT's
+    // virtual mount sees a scrollTop value *past* the target. In our
+    // to-top testing that pattern triggered ChatGPT into "load more
+    // memory" mode and bulk-mounted ~150 prompts in a single burst,
+    // instead of the 3–6 prompts it mounts when asked for the
+    // immediate vicinity. The final `scrollIntoView` in
+    // `finishIndependentVirtualJump` brings the target back into
+    // view, so the user never sees the overshoot. If the overshoot
+    // overshoots the target entirely, the next iteration just steps
+    // back the other way (hard cap = 30 absorbs any pathological case).
     const nearestMountedIdx = nearestMountedTo(targetIndex, sidebarIndices);
     const distancePrompts = Math.abs(targetIndex - nearestMountedIdx);
+    const overshootPrompts = Math.max(
+      LOAD_STEP_OVERSHOOT_MIN_PROMPTS,
+      distancePrompts * LOAD_STEP_OVERSHOOT_FRACTION
+    );
+    const stepPrompts = distancePrompts + overshootPrompts;
     const stepViewports = Math.min(
       LOAD_STEP_VIEWPORTS_MAX,
       Math.max(
         LOAD_STEP_VIEWPORTS_MIN,
-        distancePrompts / PROMPTS_PER_VIEWPORT_ESTIMATE / 2
+        stepPrompts / PROMPTS_PER_VIEWPORT_ESTIMATE
       )
     );
     const step = direction * stepViewports * window.innerHeight;
