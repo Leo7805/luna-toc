@@ -130,6 +130,12 @@ async function loadUntilMountedViaViewport(
   // always step back if the overshoot overshoots the target entirely.
   const LOAD_STEP_VIEWPORTS_MIN = 0.5;
   const LOAD_STEP_VIEWPORTS_MAX = 5;
+  // Threshold below which we skip the overshoot and step precisely.
+  // For very short jumps the overshoot pushes scrollTop so far past
+  // the target that ChatGPT clamps the response and we end up taking
+  // several attempts to actually land on the target; precise steps
+  // converge in the same time the bulk-mount overshoot saves.
+  const LOAD_STEP_NO_OVERSHOOT_DISTANCE = 30;
   // Fraction of the remaining distance that we cross past the target.
   // Tested at 0.3 against a 213-prompt conversation: that ratio was
   // enough to push ChatGPT into bulk-mount mode in 1–2 attempts.
@@ -206,10 +212,13 @@ async function loadUntilMountedViaViewport(
     // back the other way (hard cap = 30 absorbs any pathological case).
     const nearestMountedIdx = nearestMountedTo(targetIndex, sidebarIndices);
     const distancePrompts = Math.abs(targetIndex - nearestMountedIdx);
-    const overshootPrompts = Math.max(
-      LOAD_STEP_OVERSHOOT_MIN_PROMPTS,
-      distancePrompts * LOAD_STEP_OVERSHOOT_FRACTION
-    );
+    const overshootPrompts =
+      distancePrompts <= LOAD_STEP_NO_OVERSHOOT_DISTANCE
+        ? 0
+        : Math.max(
+            LOAD_STEP_OVERSHOOT_MIN_PROMPTS,
+            distancePrompts * LOAD_STEP_OVERSHOOT_FRACTION
+          );
     const stepPrompts = distancePrompts + overshootPrompts;
     const stepViewports = Math.min(
       LOAD_STEP_VIEWPORTS_MAX,
