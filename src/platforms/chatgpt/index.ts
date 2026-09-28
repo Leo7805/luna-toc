@@ -144,7 +144,10 @@ export const chatGptPlatform: Platform = {
     getConversationLinkSelector,
   },
   myPrompts: {
-    composerTextareaSelector: '#prompt-textarea',
+    // ChatGPT's 2026 composer rewrite replaced the old
+    // `<textarea id="prompt-textarea">` with a contenteditable ProseMirror
+    // div. The autocomplete consumer reads this selector at runtime.
+    composerTextareaSelector: '.ProseMirror[contenteditable="true"]',
   },
   config: {
     navigationAlgorithm: APP_CONFIG.platforms.chatgpt.navigationAlgorithm,

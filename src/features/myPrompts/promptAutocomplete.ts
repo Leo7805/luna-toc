@@ -2,6 +2,7 @@
  * Manages My Prompts matching, autocomplete UI, keyboard navigation, and text
  * insertion in the ChatGPT composer.
  */
+import { getActivePlatform } from '@/platforms';
 import type { SavedPrompt } from './promptStore';
 import { promptAutocompleteViewController } from './promptAutocompleteView';
 import type { PromptUsageMap } from './promptUsageStore';
@@ -59,10 +60,16 @@ export function initAutocomplete(): void {
     }
 
     const target = event.target;
-    if (target instanceof HTMLElement && target.id === 'prompt-textarea') {
-      currentTextarea = target;
-      handleTextareaInput(target);
-    }
+    if (!(target instanceof Element)) return;
+    // The ChatGPT composer was rewritten in 2026 from a
+    // `<textarea id="prompt-textarea">` to a contenteditable ProseMirror
+    // div, so match by the platform-provided selector instead of an id.
+    const composer = target.closest(
+      getActivePlatform().myPrompts.composerTextareaSelector
+    );
+    if (!(composer instanceof HTMLElement)) return;
+    currentTextarea = composer;
+    handleTextareaInput(composer);
   });
 
   document.addEventListener('keydown', handleTextareaKeydown, true);
@@ -72,7 +79,10 @@ export function initAutocomplete(): void {
       promptAutocompleteViewController.getSnapshot() &&
       event.target instanceof Node &&
       !isAutocompleteMenuEvent(event) &&
-      event.target !== currentTextarea
+      // For a contenteditable composer, clicks land on child paragraphs
+      // rather than the editor itself, so test with `contains` instead of
+      // a strict reference equality.
+      !(currentTextarea && currentTextarea.contains(event.target))
     ) {
       closeAutocompleteMenu();
     }
@@ -84,7 +94,9 @@ export function initAutocomplete(): void {
  * @param {string} text
  */
 export function insertIntoChatGPTInput(text: string): void {
-  const textarea = document.querySelector<PromptComposer>('#prompt-textarea');
+  const textarea = document.querySelector<PromptComposer>(
+    getActivePlatform().myPrompts.composerTextareaSelector
+  );
   if (!textarea) return;
 
   isProgrammaticInsert = true;
