@@ -206,6 +206,12 @@ export interface PlatformVirtualPositionOptions {
  */
 export interface PlatformNavigationAdapter {
   getScrollContainer(root?: ParentNode): HTMLElement | null;
+  /**
+   * Resolves the container whose `scrollTop` maps to the chat feed's absolute
+   * top/bottom (used by the jump-to-edge controls). Distinct from
+   * `getScrollContainer`, which may resolve to an inner overflow wrapper.
+   */
+  getThreadScrollContainer?(root?: ParentNode): HTMLElement | null;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
   isElementVisible(element: HTMLElement, scrollContainer: HTMLElement): boolean;
   getScrollMetrics(container: HTMLElement): PlatformVirtualScrollMetrics;

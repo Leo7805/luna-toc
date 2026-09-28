@@ -1,0 +1,21 @@
+{
+  "source": {
+    "sourceHash": "sha256:24083c06740ab284417f0ef6f437354718e41d7fa662f4f44c3d13d615789653"
+  },
+  "defaults": {
+    "createdAt": "2026-09-28T10:52:43.413Z",
+    "updatedAt": "2026-09-28T10:52:43.413Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "统一创建并处理侧栏的跳到顶部和跳到底部控件。",
+      "detail": "- `createJumpToEdgeControls` 创建两个按钮、保持它们与视图切换按钮的顺序，并绑定单击和双击行为。\n- `scrollNavigatorListToEdge` 在 My Prompts 视图中把侧栏列表滚到指定边缘。",
+      "aiNotes": [
+        "调用前必须已经存在 `.navigator-jump-controls` 容器。",
+        "TOC 视图委托给 `navigatorController` 滚动聊天；My Prompts 视图只滚动侧栏列表。"
+      ]
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

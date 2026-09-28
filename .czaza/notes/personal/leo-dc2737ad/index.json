@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-09-28T10:04:51.975Z",
+  "updatedAt": "2026-09-28T10:52:43.417Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -273,6 +273,16 @@
       "noteFile": "files/f8e53ac40bb0-066e40d0.json",
       "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "updatedAt": "2026-09-28T10:04:51.975Z"
+    },
+    "src/features/sidebar/jumpToEdgeControls.ts": {
+      "noteFile": "files/522e6038c2f6-8beb1366.json",
+      "sourceHash": "sha256:24083c06740ab284417f0ef6f437354718e41d7fa662f4f44c3d13d615789653",
+      "updatedAt": "2026-09-28T10:52:43.413Z"
+    },
+    "src/platforms/chatgpt/virtualSearchAdapter.ts": {
+      "noteFile": "files/2f6f8b44f5de-27a8830c.json",
+      "sourceHash": "sha256:0183746c1b8b5448bacec6073a0ea7daad301f9161b97f6668a49652e47945c1",
+      "updatedAt": "2026-09-28T10:52:43.417Z"
     }
   }
 }

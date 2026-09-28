@@ -36,6 +36,7 @@ import {
   getChatGptPromptMountDiagnostic,
   getChatGptScrollContainer,
   getChatGptScrollMetrics,
+  getChatGptThreadScrollContainer,
   isChatGptElementVisible,
   observeChatGptVirtualPosition,
 } from './virtualSearchAdapter';
@@ -122,6 +123,7 @@ export const chatGptPlatform: Platform = {
   },
   navigation: {
     getScrollContainer: getChatGptScrollContainer,
+    getThreadScrollContainer: getChatGptThreadScrollContainer,
     findRenderedPrompt: findRenderedChatGptPrompt,
     isElementVisible: isChatGptElementVisible,
     getScrollMetrics: getChatGptScrollMetrics,

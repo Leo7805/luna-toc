@@ -70,6 +70,7 @@ export const copilotPlatform: Platform = {
   },
   navigation: {
     getScrollContainer: getCopilotScrollContainer,
+    getThreadScrollContainer: getCopilotScrollContainer,
     findRenderedPrompt: findCopilotRenderedPrompt,
     isElementVisible: isCopilotElementVisible,
     getScrollMetrics: getCopilotScrollMetrics,

@@ -2,6 +2,7 @@
  * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
 import { getChatGptNavigationAlgorithm } from '../navigationSettings';
+import { APP_CONFIG } from '@/config/config';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
@@ -523,14 +524,22 @@ function finishIndependentVirtualJump(
   const targetAttempts = 8;
   keepFollowing(1800);
 
-  // Highlight the target as soon as it scrolls into view.
-  const highlightTarget = function (): boolean {
-    if (!target.isConnected) return false;
-    highlightMatchedElement(target);
+  // Scroll the target to the top of the chat viewport (with the
+  // configured top padding so it doesn't sit flush against the edge),
+  // then highlight it. scrollIntoView with block:'start' drives the
+  // column-reverse thread-scroll-container correctly — a bare highlight
+  // (without this scroll) is what made clicks look like a no-op.
+  const scrollTargetIntoView = function (el: HTMLElement): boolean {
+    if (!el.isConnected) return false;
+    const previousScrollMarginTop = el.style.scrollMarginTop;
+    el.style.scrollMarginTop = `${APP_CONFIG.platforms.chatgpt.promptTopOffsetPx}px`;
+    el.scrollIntoView({ behavior: 'auto', block: 'start' });
+    el.style.scrollMarginTop = previousScrollMarginTop;
+    highlightMatchedElement(el);
     return true;
   };
 
-  if (highlightTarget()) {
+  if (scrollTargetIntoView(target)) {
     logChatGptNavigationEvent(
       createChatGptNavigationJumpId(),
       'JUMP_FINISHED',
@@ -545,7 +554,7 @@ function finishIndependentVirtualJump(
     if (jumpVersion !== navigationJumpVersion) return;
     const latest = findRenderedChatGptPrompt(message.id);
     if (latest && latest.isConnected) {
-      highlightMatchedElement(latest);
+      scrollTargetIntoView(latest);
       logChatGptNavigationEvent(
         createChatGptNavigationJumpId(),
         'JUMP_FINISHED',
@@ -623,12 +632,10 @@ export function jumpToAbsoluteEdge(
 ): void {
   keepFollowing();
 
-  // Straight to the real scroll container, matching what the console
-  // probe does — do not route through getChatGptScrollContainer, which
-  // can resolve to an inner overflow-y wrapper instead of the thread.
-  const container = document.querySelector<HTMLElement>(
-    '.thread-scroll-container'
-  );
+  // Straight to the real thread scroll container via the platform adapter.
+  const container =
+    platform().navigation.getThreadScrollContainer?.() ??
+    platform().navigation.getScrollContainer();
   if (!container) return;
 
   const isReverse =

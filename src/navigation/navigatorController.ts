@@ -616,8 +616,10 @@ export const navigatorController = (() => {
     // Watch the ChatGPT chat container, not document.body. The sidebar is
     // a child of body; observing body triggers on every sidebar class
     // toggle, which in turn re-observes, looping every 200 ms.
+    const navigation = getActivePlatform().navigation;
     const chatContainer =
-      document.querySelector<HTMLElement>('.thread-scroll-container') ||
+      navigation.getThreadScrollContainer?.() ??
+      navigation.getScrollContainer() ??
       document.body;
     activePromptMutationObserver.observe(chatContainer, {
       childList: true,

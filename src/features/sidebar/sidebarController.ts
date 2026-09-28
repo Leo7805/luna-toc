@@ -8,9 +8,9 @@ import { navigatorController } from '@/navigation/navigatorController';
 import { myPrompts } from '@/features/myPrompts/myPrompts';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import { previewTooltip } from '@/features/tooltip';
+import { scrollNavigatorListToEdge } from '@/features/sidebar/jumpToEdgeControls';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
-type ConversationEdge = 'top' | 'bottom';
 type ViewMode = 'toc' | 'myPrompts';
 
 export const sidebarController = (() => {
@@ -159,34 +159,6 @@ export const sidebarController = (() => {
     navigatorController.resetView();
   }
 
-  function handleJumpControlClick(edge: ConversationEdge): void {
-    if (viewMode === 'myPrompts') {
-      scrollNavigatorListToEdge(edge, 'smooth');
-      return;
-    }
-    navigatorController.jumpToEdge(edge);
-  }
-
-  function handleJumpControlDoubleClick(edge: ConversationEdge): void {
-    if (viewMode === 'myPrompts') {
-      scrollNavigatorListToEdge(edge, 'auto');
-      return;
-    }
-    navigatorController.jumpToAbsoluteEdge(edge);
-  }
-
-  function scrollNavigatorListToEdge(
-    edge: ConversationEdge,
-    behavior: ScrollBehavior = 'smooth'
-  ): void {
-    const list = document.getElementById('navigator-list');
-    if (!list) return;
-    list.scrollTo({
-      top: edge === 'top' ? 0 : list.scrollHeight,
-      behavior,
-    });
-  }
-
   /**
    * Registers controls that switch views or delegate navigation behavior.
    */
@@ -213,20 +185,6 @@ export const sidebarController = (() => {
       'click',
       handleTitleClick
     );
-    getRequiredElement<HTMLButtonElement>('jump-chat-top-btn').addEventListener(
-      'click',
-      () => handleJumpControlClick('top')
-    );
-    getRequiredElement<HTMLButtonElement>('jump-chat-top-btn').addEventListener(
-      'dblclick',
-      () => handleJumpControlDoubleClick('top')
-    );
-    getRequiredElement<HTMLButtonElement>(
-      'jump-chat-bottom-btn'
-    ).addEventListener('click', () => handleJumpControlClick('bottom'));
-    getRequiredElement<HTMLButtonElement>(
-      'jump-chat-bottom-btn'
-    ).addEventListener('dblclick', () => handleJumpControlDoubleClick('bottom'));
     getRequiredElement<HTMLButtonElement>(
       'toggle-view-mode-btn'
     ).addEventListener('click', toggleViewMode);
@@ -297,6 +255,7 @@ export const sidebarController = (() => {
     setMyPromptsCount,
     refreshMyPromptsIfActive,
     handleSavePrompt,
+    isMyPromptsView: () => viewMode === 'myPrompts',
     setNavigatorTitle,
   };
 })();

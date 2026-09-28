@@ -1,0 +1,28 @@
+{
+  "source": {
+    "sourceHash": "sha256:0183746c1b8b5448bacec6073a0ea7daad301f9161b97f6668a49652e47945c1"
+  },
+  "defaults": {
+    "createdAt": "2026-09-28T10:52:43.417Z",
+    "updatedAt": "2026-09-28T10:52:43.417Z"
+  },
+  "sectionNotes": {
+    "section:1:getchatgptthreadscrollcontainer:102-114": {
+      "title": "getChatGptThreadScrollContainer",
+      "kind": "function",
+      "range": {
+        "startLine": 102,
+        "endLine": 114
+      },
+      "anchorHash": "sha256:9ba9f09aab56003696be5777ea1e056ad5eb64d339d9883b129f038ee7fcbeea",
+      "aiExplanation": {
+        "summary": "解析 ChatGPT 中代表整个会话线程绝对滚动范围的容器。",
+        "detail": "它只返回 `.thread-scroll-container`，避免通用 `getChatGptScrollContainer` 选中内部 overflow wrapper 后导致顶部/底部边界计算错误。",
+        "aiNotes": [
+          "该选择器属于 ChatGPT 平台细节，核心导航代码应通过平台 adapter 调用它。"
+        ]
+      }
+    }
+  },
+  "lineNotes": {}
+}

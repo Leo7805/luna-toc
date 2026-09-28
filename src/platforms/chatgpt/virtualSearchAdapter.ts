@@ -100,6 +100,20 @@ export function getChatGptScrollContainer(
 }
 
 /**
+ * Finds the container whose `scrollTop` maps to the chat feed's absolute
+ * top/bottom. On ChatGPT this is the `.thread-scroll-container` thread
+ * element, not an inner overflow wrapper.
+ *
+ * @example
+ * const container = getChatGptThreadScrollContainer(document);
+ */
+export function getChatGptThreadScrollContainer(
+  root: ParentNode = document
+): HTMLElement | null {
+  return root.querySelector<HTMLElement>('.thread-scroll-container');
+}
+
+/**
  * Finds a currently mounted ChatGPT user message by its stable message ID.
  *
  * @example

@@ -23,6 +23,7 @@ import { initializeNavigationSettings } from '@/navigation/navigationSettings';
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
 import { initFloatingPanel } from '@/features/sidebar/FloatingPanel';
+import { createJumpToEdgeControls } from '@/features/sidebar/jumpToEdgeControls';
 
 /**
  * Resolves when document.body exists during document_start execution.
@@ -119,19 +120,9 @@ async function createSidebar(): Promise<HTMLElement> {
         <div id="myprompts-toolbar-container"></div>
       </div>
       <div class="navigator-jump-controls">
-        <button class="navigator-icon-btn" id="jump-chat-top-btn" type="button" aria-label="Jump to top">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M6 5h12M12 19V9M7 14l5-5 5 5" />
-          </svg>
-        </button>
         <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
-          </svg>
-        </button>
-        <button class="navigator-icon-btn" id="jump-chat-bottom-btn" type="button" aria-label="Jump to bottom">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M6 19h12M12 5v10M7 10l5 5 5-5" />
           </svg>
         </button>
       </div>
@@ -237,6 +228,7 @@ export async function initializeApplication(): Promise<void> {
   const sidebar = await createSidebar();
   sidebarController.init();
   initSidebarResize(sidebar);
+  createJumpToEdgeControls(() => sidebarController.isMyPromptsView());
   initFloatingPanel();
 
   const toggleButton = createSidebarToggleButton();
