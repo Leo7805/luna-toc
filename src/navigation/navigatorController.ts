@@ -642,26 +642,18 @@ export const navigatorController = (() => {
   }
 
   function findConversationIndexByElement(element: HTMLElement): number {
-    const visibleUserMessages = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-message-author-role="user"]'
-      )
-    );
-
-    if (visibleUserMessages.length === conversationMessages.length) {
-      return visibleUserMessages.indexOf(element);
-    }
-
-    const domText = normalizeText(element.innerText);
-    for (let index = conversationMessages.length - 1; index >= 0; index--) {
-      const message = conversationMessages[index];
-      if (!message.canMatchByText) continue;
-
-      const messageText = normalizeText(message.text);
-      if (domText === messageText || domText.includes(messageText))
-        return index;
-    }
-    return -1;
+    // The new ChatGPT DOM exposes the stable message id on every user
+    // message container as `data-chatgpt-search-message-ids` (regardless of
+    // whether the prompt is text-only, an image, or any other content).
+    // Match by id so picture-only prompts and prompts with identical text
+    // resolve to the correct sidebar row.
+    const id =
+      element.getAttribute('data-chatgpt-search-message-ids') ||
+      element
+        .closest<HTMLElement>('[data-chatgpt-search-message-ids]')
+        ?.getAttribute('data-chatgpt-search-message-ids');
+    if (!id) return -1;
+    return conversationMessages.findIndex((message) => message.id === id);
   }
 
   function getNativePromptButtons(): HTMLButtonElement[] {
@@ -737,7 +729,7 @@ export const navigatorController = (() => {
     );
 
     document
-      .querySelectorAll<HTMLElement>('[data-message-author-role="user"]')
+      .querySelectorAll<HTMLElement>('[data-chatgpt-search-unit-key$=":user"]')
       .forEach((element) => activePromptObserver?.observe(element));
   }
 

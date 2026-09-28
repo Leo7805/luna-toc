@@ -22,13 +22,15 @@ import {
   getVisibleAssistantViewportSamples,
 } from './renderedTextAdapter';
 
-// The new ChatGPT DOM no longer carries `data-message-author-role`; the
-// per-prompt user-message container is now tagged with
-// `data-user-message-bubble="true"`. Switch the selector so
-// `getVisibleUserMessages` and `findRenderedChatGptPrompt` resolve under
-// the new DOM.
-const USER_MESSAGE_SELECTOR = '[data-user-message-bubble="true"]';
-const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
+// The new ChatGPT DOM renames the old per-prompt markers:
+//   old: [data-message-author-role="user"]        →  new: [data-chatgpt-search-unit-key$=":user"]
+//   old: [data-message-author-role="assistant"]   →  new: [data-chatgpt-search-unit-key$=":assistant"]
+// The stable message id is now exposed as the `data-chatgpt-search-message-ids`
+// attribute on the same element.
+const USER_MESSAGE_SELECTOR =
+  '[data-chatgpt-search-unit-key$=":user"]';
+const ASSISTANT_MESSAGE_SELECTOR =
+  '[data-chatgpt-search-unit-key$=":assistant"]';
 
 export interface ChatGptVirtualPositionOptions {
   conversationKey: string;
@@ -201,7 +203,7 @@ export function getChatGptPromptMountDiagnostic({
         )
       ),
     targetIdNodes: idNodes
-      .filter((element) => element.dataset.messageId === promptId)
+      .filter((element) => getChatGptMessageId(element) === promptId)
       .map((element) =>
         createMountNodeDiagnostic(
           element,
@@ -417,8 +419,10 @@ export function createChatGptElementNavigationAnchor({
  */
 function getChatGptMessageId(element: HTMLElement): string | null {
   return (
-    element.dataset.messageId ||
-    element.closest<HTMLElement>('[data-message-id]')?.dataset.messageId ||
+    element.getAttribute('data-chatgpt-search-message-ids') ||
+    element
+      .closest<HTMLElement>('[data-chatgpt-search-message-ids]')
+      ?.getAttribute('data-chatgpt-search-message-ids') ||
     null
   );
 }

@@ -40,14 +40,16 @@ export function getNativePromptIndex(button: HTMLButtonElement): number {
 export function observeVisibleUserMessages(
   callback: (id: string) => void
 ): () => void {
-  const userMessageSelector = '[data-user-message-bubble="true"]';
+  const userMessageSelector =
+  '[data-chatgpt-search-unit-key$=":user"]';
   const observer = new IntersectionObserver(
     (entries) => {
       const topEntry = entries
         .filter((entry) => entry.isIntersecting)
         .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (!topEntry || !(topEntry.target instanceof HTMLElement)) return;
-      const id = topEntry.target.dataset.messageId || null;
+      const id =
+        topEntry.target.getAttribute('data-chatgpt-search-message-ids') || null;
       if (id) callback(id);
     },
     { threshold: [0.1, 0.25, 0.5, 0.75, 1] }
@@ -65,17 +67,22 @@ export function observeVisibleUserMessages(
  * the rendered ChatGPT user-message element matching `message.id`.
  */
 export function getJumpTargetElement(message: NavigatorMessage): HTMLElement | null {
-  const userMessageSelector = '[data-user-message-bubble="true"]';
+  const userMessageSelector =
+    '[data-chatgpt-search-unit-key$=":user"]';
   const candidates = Array.from(
     document.querySelectorAll<HTMLElement>(userMessageSelector)
   );
 
   for (const element of candidates) {
-    if (element.dataset.messageId === message.id) return element;
+    if (
+      element.getAttribute('data-chatgpt-search-message-ids') === message.id
+    ) {
+      return element;
+    }
   }
 
-  // Fall back to the current route key's element when dataset.messageId is
-  // missing (legacy mounts pre-dating the message-id attribute).
+  // Fall back to the current route key's element when the message-id
+  // attribute is missing (legacy mounts pre-dating the new ChatGPT DOM).
   const currentId = getCurrentRouteKey();
   if (currentId && currentId === message.id) {
     return candidates[0] || null;
