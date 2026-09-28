@@ -4,6 +4,19 @@
 import { APP_CONFIG } from '@/config/config';
 
 export const NAVIGATION_DEBUG_STORAGE_KEY = 'chatTocDebugJump';
+/**
+ * Per-subsystem debug toggle for the click-to-jump visibility dump.
+ *
+ * Independent of `NAVIGATION_DEBUG_STORAGE_KEY`: turning this on causes
+ * `promptNavigation.ts` to print the list of currently-mounted and
+ * currently-visible user messages to the console on every jump click,
+ * so a developer can see what LunaTOC has access to without manual
+ * DevTools spelunking. Default off.
+ *
+ * Set with `localStorage.setItem('chatTocDebugJumpViz', '1')`. Reload
+ * the page to apply.
+ */
+export const JUMP_VIZ_DEBUG_STORAGE_KEY = 'chatTocDebugJumpViz';
 export const NAVIGATION_TEST_CONFIG_STORAGE_KEY =
   'chatTocNavigationTestConfig';
 
@@ -88,6 +101,21 @@ export function getChatGptNavigationTestConfig(
 export function createChatGptNavigationJumpId(): string {
   jumpSequence += 1;
   return `jump-${Date.now()}-${jumpSequence}`;
+}
+
+/**
+ * Returns whether the click-to-jump visibility dump is enabled. Reads
+ * `localStorage` synchronously so the hot path can decide without
+ * awaiting chrome.storage; defaults to false when storage is unavailable.
+ */
+export function isJumpVizDebugEnabled(
+  storage: Pick<Storage, 'getItem'> = localStorage
+): boolean {
+  try {
+    return storage.getItem(JUMP_VIZ_DEBUG_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 /**

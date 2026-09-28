@@ -83,18 +83,6 @@ interface ResetRouteOptions {
 
 export const navigatorController = (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
-  const NATIVE_PROMPT_BUTTON_SELECTORS = [
-    'button[aria-label^="Prompt "]',
-    'button[aria-label^="prompt "]',
-    'button[aria-description^="Prompt "]',
-    'button[aria-description^="prompt "]',
-  ];
-  const NATIVE_PROMPT_BUTTON_SELECTOR =
-    NATIVE_PROMPT_BUTTON_SELECTORS.join(',');
-  const ACTIVE_NATIVE_PROMPT_BUTTON_SELECTOR =
-    NATIVE_PROMPT_BUTTON_SELECTORS.map(
-      (selector) => `${selector}[data-toc-active]`
-    ).join(',');
   const navigationSnapshotStore =
     createNavigationSnapshotStore<NavigatorMessage>();
   const renderedFingerprintCollector = getActivePlatform().contentCapture.createRenderedFingerprintCollector({
@@ -118,16 +106,17 @@ export const navigatorController = (() => {
   let activePromptObserver: IntersectionObserver | null = null;
   let activePromptMutationObserver: MutationObserver | null = null;
   let activePromptMutationTimer: ReturnType<typeof setTimeout> | null = null;
-  let activeNativeTocObserver: MutationObserver | null = null;
   /** True while prompts are still arriving (backfill / pagination in flight). */
   let isLoadingPrompts = true;
+  /** Number of fallback settle-timer re-arms while waiting for the ENDED signal. */
+  let loadingSettleRetries = 0;
+  const MAX_LOADING_SETTLE_RETRIES = 20;
   /**
    * Tracks whether the auto-jump-to-last has fired for the current load
    * cycle. Currently unused — `jumpToLastIfIdle`'s `activeNavigatorIndex
    * !== null` gate plus `resetStateForCurrentRoute`'s index reset on
    * route switch already gate re-firing correctly.
    */
-  let autoJumpedForCurrentLoad = false;
   /**
    * Fallback timer for cases where neither `CHATGPT_CONVERSATION_DATA`,
    * `CHATGPT_CONVERSATION_ENDED`, nor the DOM observer provides a
@@ -174,7 +163,19 @@ export const navigatorController = (() => {
     }
     loadingSettleTimer = window.setTimeout(() => {
       loadingSettleTimer = null;
-      if (isLoadingPrompts) markLoadingComplete();
+      if (!isLoadingPrompts) return;
+      // The authoritative end-of-load signal is CHATGPT_CONVERSATION_ENDED
+      // (which fires after the initial page AND any backfill pages have
+      // streamed). This timer is only a fallback for signal-less routes.
+      // Keep re-arming until either that signal lands (which clears this
+      // timer via markLoadingComplete) or we exhaust the retry budget and
+      // declare completion ourselves.
+      loadingSettleRetries += 1;
+      if (loadingSettleRetries <= MAX_LOADING_SETTLE_RETRIES) {
+        startLoadingSettleTimer();
+        return;
+      }
+      markLoadingComplete();
     }, APP_CONFIG.ui.sidebar.loadingSettleMs);
   }
   /** Active jump navigation progress, or null when idle. */
@@ -183,7 +184,6 @@ export const navigatorController = (() => {
     targetIndex: number;
     remainingSteps: number;
   } | null = null;
-  let activeNativeTocTimer: ReturnType<typeof setTimeout> | null = null;
   let lockedNavigatorIndex: number | null = null;
   let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
   let isInitialized = false;
@@ -229,15 +229,10 @@ export const navigatorController = (() => {
       listSelector: '#navigator-list',
       ignoredScrollSelector:
         '#luna-toc-sidebar, #luna-toc-preview-tooltip, #luna-toc-button-tooltip',
-      getNativeActiveIndex: findActiveNativePromptIndex,
       setActiveIndex: setActiveNavigatorItem,
     });
 
     initializePromptNavigation({
-      getNativePromptButtons,
-      normalizeText,
-      findConversationIndexByElement,
-      getConversationMessageCount: () => conversationMessages.length,
       getVirtualSearchContext: () => {
         const conversationKey = getCurrentConversationKey();
         const snapshot = navigationSnapshotStore.getSnapshot(conversationKey);
@@ -249,9 +244,11 @@ export const navigatorController = (() => {
           segmentIndex: snapshot?.segmentIndex || [],
         };
       },
-      lockActiveIndex: lockActiveNavigatorItem,
       setJumpProgress,
       clearJumpProgress,
+      notifyJumpFailed: () => {
+        setSidebarStatus({ state: 'failed', promptCount: conversationMessages.length });
+      },
     });
 
     initActivePromptTracking();
@@ -300,15 +297,10 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToEdge(edge: 'top' | 'bottom'): void {
-    const index = edge === 'top' ? 0 : conversationMessages.length - 1;
-    const message = conversationMessages[index];
-
-    if (message) {
-      jumpToMessage(message, index);
-      return;
-    }
-
-    jumpToConversationEdge(edge);
+    // The top/bottom controls mean "scroll the chat to its absolute edge",
+    // not "jump to the first/last prompt". Route straight to the absolute
+    // edge jump so a single click does not enter the prompt-jump path.
+    jumpToPageEdge(edge, 'auto');
   }
 
   /**
@@ -375,10 +367,8 @@ export const navigatorController = (() => {
         clearTimeout(loadingSettleTimer);
         loadingSettleTimer = null;
       }
-      autoJumpedForCurrentLoad = false;
     } else if (completed === false) {
       isLoadingPrompts = true;
-      autoJumpedForCurrentLoad = false;
       startLoadingSettleTimer();
     }
     // null → leave isLoadingPrompts alone
@@ -604,17 +594,6 @@ export const navigatorController = (() => {
     forceActiveNavigatorItem(index);
   }
 
-  function lockActiveNavigatorItem(index: number, duration = 1800): void {
-    if (lockedNavigatorTimer !== null) clearTimeout(lockedNavigatorTimer);
-    keepFollowing(duration);
-    lockedNavigatorIndex = index;
-    forceActiveNavigatorItem(index);
-    lockedNavigatorTimer = setTimeout(() => {
-      lockedNavigatorIndex = null;
-      lockedNavigatorTimer = null;
-    }, duration);
-  }
-
   function scrollNavigatorItemIntoView(item: HTMLElement): void {
     const scrollContainer = document.getElementById('navigator-list');
     if (!scrollContainer || !isFollowing()) return;
@@ -656,62 +635,6 @@ export const navigatorController = (() => {
     return conversationMessages.findIndex((message) => message.id === id);
   }
 
-  function getNativePromptButtons(): HTMLButtonElement[] {
-    const buttons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>(
-        NATIVE_PROMPT_BUTTON_SELECTOR
-      )
-    ).filter(isUsableNativePromptButton);
-    const indexedButtons: HTMLButtonElement[] = [];
-
-    buttons.forEach((button) => {
-      const index = getNativePromptIndexFromButton(button);
-      if (index === -1 || indexedButtons[index]) return;
-      indexedButtons[index] = button;
-    });
-    return indexedButtons.length > 0 ? indexedButtons : buttons;
-  }
-
-  function isUsableNativePromptButton(button: HTMLButtonElement): boolean {
-    if (!button.isConnected || button.disabled) return false;
-    if (button.closest('[aria-hidden="true"], [inert]')) return false;
-    if (button.getClientRects().length === 0) return false;
-
-    const style = window.getComputedStyle(button);
-    return (
-      style.display !== 'none' &&
-      style.visibility !== 'hidden' &&
-      style.pointerEvents !== 'none'
-    );
-  }
-
-  function getNativePromptIndexFromButton(button: HTMLButtonElement): number {
-    const label =
-      button.getAttribute('aria-label') ||
-      button.getAttribute('aria-description') ||
-      '';
-    const match = label.match(/^prompt\s+(\d+)$/i);
-    return match ? Number(match[1]) - 1 : -1;
-  }
-
-  function findActiveNativePromptIndex(): number {
-    const activeButton = document.querySelector<HTMLButtonElement>(
-      ACTIVE_NATIVE_PROMPT_BUTTON_SELECTOR
-    );
-    if (!activeButton) return -1;
-
-    const labelIndex = getNativePromptIndexFromButton(activeButton);
-    if (labelIndex !== -1) return labelIndex;
-    return getNativePromptButtons().indexOf(activeButton);
-  }
-
-  function syncActiveNavigatorItemFromNativeToc(): boolean {
-    const index = findActiveNativePromptIndex();
-    if (index === -1) return false;
-    setActiveNavigatorItem(index);
-    return true;
-  }
-
   function observeVisibleUserMessages(): void {
     activePromptObserver?.disconnect();
     activePromptObserver = new IntersectionObserver(
@@ -720,7 +643,7 @@ export const navigatorController = (() => {
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
-        if (!topEntry || syncActiveNavigatorItemFromNativeToc()) return;
+        if (!topEntry) return;
         if (!(topEntry.target instanceof HTMLElement)) return;
         const index = findConversationIndexByElement(topEntry.target);
         if (index !== -1) setActiveNavigatorItem(index);
@@ -733,24 +656,6 @@ export const navigatorController = (() => {
       .forEach((element) => activePromptObserver?.observe(element));
   }
 
-  function initNativeTocActiveTracking(): void {
-    activeNativeTocObserver?.disconnect();
-    activeNativeTocObserver = new MutationObserver(() => {
-      if (activeNativeTocTimer !== null) clearTimeout(activeNativeTocTimer);
-      activeNativeTocTimer = setTimeout(
-        syncActiveNavigatorItemFromNativeToc,
-        100
-      );
-    });
-    activeNativeTocObserver.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['data-toc-active'],
-      childList: true,
-      subtree: true,
-    });
-    syncActiveNavigatorItemFromNativeToc();
-  }
-
   function initActivePromptTracking(): void {
     activePromptMutationObserver?.disconnect();
     activePromptMutationObserver = new MutationObserver(() => {
@@ -758,12 +663,17 @@ export const navigatorController = (() => {
         clearTimeout(activePromptMutationTimer);
       activePromptMutationTimer = setTimeout(observeVisibleUserMessages, 200);
     });
-    activePromptMutationObserver.observe(document.body, {
+    // Watch the ChatGPT chat container, not document.body. The sidebar is
+    // a child of body; observing body triggers on every sidebar class
+    // toggle, which in turn re-observes, looping every 200 ms.
+    const chatContainer =
+      document.querySelector<HTMLElement>('.thread-scroll-container') ||
+      document.body;
+    activePromptMutationObserver.observe(chatContainer, {
       childList: true,
       subtree: true,
     });
     observeVisibleUserMessages();
-    initNativeTocActiveTracking();
   }
 
   function isNewChatRouteKey(routeKey: string): boolean {

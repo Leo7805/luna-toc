@@ -143,7 +143,8 @@ export type SidebarStatusState =
   | 'loading'
   | 'jumping'
   | 'complete'
-  | 'empty';
+  | 'empty'
+  | 'failed';
 let currentStatusMode: SidebarStatusState = 'idle';
 let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
 /**
@@ -222,6 +223,11 @@ export function setSidebarStatus(options: {
       // Definitively empty chat: persistent, no linger timer.
       text = 'No prompts';
       break;
+    case 'failed':
+      // A jump could not resolve its target (e.g. the prompt is too far
+      // to mount). Show briefly, then retract like `complete`.
+      text = 'Jump failed';
+      break;
     case 'complete':
       // Linger on the last jump text when transitioning out of a
       // jump so the user sees the destination they were scrolled to,
@@ -266,7 +272,7 @@ export function setSidebarStatus(options: {
     clearTimeout(statusLingerTimer);
     statusLingerTimer = null;
   }
-  if (state === 'complete') {
+  if (state === 'complete' || state === 'failed') {
     statusLingerTimer = window.setTimeout(() => {
       currentStatusMode = 'idle';
       element.textContent = '';

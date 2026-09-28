@@ -1,177 +1,305 @@
 /**
  * Handles main prompt navigation from LunaTOC to ChatGPT positions.
  */
-import { APP_CONFIG } from '@/config/config';
 import { getChatGptNavigationAlgorithm } from '../navigationSettings';
-import type { NavigationFingerprintIndex } from '../fingerprint/index';
-import type { NavigationSegmentIndex } from '../fingerprint/segments';
-import {
-  createNavigationAnchorStore,
-  type NavigationAnchorStore,
-} from './navigationAnchorStore';
-import { searchVirtualPrompt } from './virtualSearchController';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
 import {
-  createChatGptElementNavigationAnchor as _createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt as _findRenderedChatGptPrompt,
-  getChatGptPromptMountDiagnostic as _getChatGptPromptMountDiagnostic,
+  findRenderedChatGptPromptByText as _findRenderedChatGptPromptByText,
   getChatGptScrollContainer as _getChatGptScrollContainer,
-  getChatGptScrollMetrics as _getChatGptScrollMetrics,
-  isChatGptElementVisible as _isChatGptElementVisible,
-  observeChatGptVirtualPosition as _observeChatGptVirtualPosition,
+  readMountedWithSidebarIdx as _readMountedWithSidebarIdx,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
 import {
   createChatGptNavigationJumpId as _createChatGptNavigationJumpId,
-  getChatGptNavigationTestConfig as _getChatGptNavigationTestConfig,
   logChatGptNavigationEvent as _logChatGptNavigationEvent,
+  isJumpVizDebugEnabled as _isJumpVizDebugEnabled,
 } from '@/platforms/chatgpt/navigationDiagnostics';
-import type { ChatGptNavigationTestConfig } from '@/platforms/chatgpt/navigationDiagnostics';
 
 function platform() {
   return getActivePlatform();
 }
 
-const createChatGptElementNavigationAnchor = (opts: Parameters<typeof _createChatGptElementNavigationAnchor>[0]) =>
-  platform().navigation.createElementNavigationAnchor(opts);
-const findRenderedChatGptPrompt = (promptId: string, root?: ParentNode) =>
+const findRenderedChatGptPrompt = (
+  promptId: string,
+  root?: ParentNode
+): HTMLElement | null =>
   platform().navigation.findRenderedPrompt(promptId, root);
-const getChatGptPromptMountDiagnostic = (
-  opts: Parameters<typeof _getChatGptPromptMountDiagnostic>[0]
-) => platform().navigation.getPromptMountDiagnostic(opts) as unknown as ReturnType<typeof _getChatGptPromptMountDiagnostic>;
-const getChatGptScrollContainer = (root?: ParentNode) =>
-  platform().navigation.getScrollContainer(root);
-const getChatGptScrollMetrics = (container: HTMLElement) =>
-  platform().navigation.getScrollMetrics(container) ?? {
-    scrollTop: 0,
-    scrollHeight: 0,
-    viewportHeight: 0,
-    viewportWidth: 0,
-  };
-const isChatGptElementVisible = (element: HTMLElement, container: HTMLElement) =>
-  platform().navigation.isElementVisible(element, container);
-const observeChatGptVirtualPosition = (opts: Parameters<typeof _observeChatGptVirtualPosition>[0]) =>
-  platform().navigation.observeVirtualPosition(opts) as ReturnType<typeof _observeChatGptVirtualPosition>;
-const createChatGptNavigationJumpId = () => platform().diagnostics.createJumpId();
-const getChatGptNavigationTestConfig = (): ChatGptNavigationTestConfig => {
-  const raw = platform().diagnostics.getTestConfig() ?? {};
-  return {
-    settleWaitMs: raw.settleWaitMs ?? 0,
-    settleAttempts: raw.settleAttempts ?? 0,
-    maxSearchAttempts: raw.maxSearchAttempts ?? 0,
-    maxUnproductiveSearchAttempts: raw.maxUnproductiveSearchAttempts ?? 0,
-    maxSearchDurationMs: raw.maxSearchDurationMs ?? 0,
-    useConfirmedAnchors: raw.useConfirmedAnchors ?? false,
-    useObservedAnchors: raw.useObservedAnchors ?? false,
-  };
-};
+const findRenderedChatGptPromptByText = (
+  text: string,
+  root?: ParentNode
+): HTMLElement | null => _findRenderedChatGptPromptByText(text, root);
+const getChatGptScrollContainer = (root?: ParentNode): HTMLElement | null =>
+  _getChatGptScrollContainer(root);
+const readMountedWithSidebarIdx = (
+  prompts: ReadonlyArray<{ id: string }>,
+  root: Parameters<typeof _readMountedWithSidebarIdx>[1] = document
+): ReturnType<typeof _readMountedWithSidebarIdx> =>
+  _readMountedWithSidebarIdx(prompts, root);
+const createChatGptNavigationJumpId = (): string =>
+  platform().diagnostics.createJumpId();
 const logChatGptNavigationEvent = (
   jumpId: string,
   eventName: string,
-  details?: Record<string, unknown>,
-  storage?: Storage
-) => platform().diagnostics.logEvent(jumpId, eventName, details, storage);
+  details: Record<string, unknown> = {},
+  storage: Parameters<typeof _logChatGptNavigationEvent>[3] = localStorage
+): void => _logChatGptNavigationEvent(jumpId, eventName, details, storage);
+const isJumpVizDebugEnabled = (
+  storage: Parameters<typeof _isJumpVizDebugEnabled>[0] = localStorage
+): boolean => _isJumpVizDebugEnabled(storage);
+
+/**
+ * Prints the currently-mounted and currently-visible user messages to the
+ * console, tagged with the given label so callers can distinguish which
+ * phase emitted the dump (e.g. `'fast-path'`, `'pre-search'`,
+ * `'post-search'`). Active only when the `chatTocDebugJumpViz` toggle is
+ * `1` in `localStorage`; default off.
+ *
+ * @param label Phase identifier prepended to the dump.
+ */
+function logMountedPromptViz(label: string): void {
+  const all = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '[data-chatgpt-search-unit-key$=":user"]'
+    )
+  );
+  const visible = all.filter(function (el) {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight && r.bottom > 0;
+  });
+  const hidden = all.filter(function (el) {
+    const r = el.getBoundingClientRect();
+    return !(r.top < window.innerHeight && r.bottom > 0);
+  });
+  function truncate(s: string, n: number): string {
+    const oneLine = s.replace(/\s+/g, ' ').trim();
+    return oneLine.length > n ? oneLine.slice(0, n) + '…' : oneLine;
+  }
+  function dump(list: HTMLElement[], header: string): void {
+    console.log(`  ${header} (n=${list.length}):`);
+    list.forEach(function (el, i) {
+      const r = el.getBoundingClientRect();
+      const id = el.getAttribute('data-chatgpt-search-message-ids') || '(none)';
+      const text = truncate(el.textContent || '', 40);
+      console.log(
+        `    ${i + 1}. ${id.slice(0, 8)} "${text}"` +
+          `  top=${Math.round(r.top)} bot=${Math.round(r.bottom)}`
+      );
+    });
+  }
+  console.log(`[🚩LunaTOC viz][${label}] viewport=${window.innerHeight}px`);
+  console.log(`  mounted total = ${all.length}`);
+  dump(visible, 'visible (in viewport)');
+  dump(hidden, 'mounted but not in viewport');
+}
+
+/**
+ * Step 2: actively load the target prompt when it is not currently
+ * mounted. `container.scrollTop` assignments trigger ChatGPT virtualization
+ * mount on the new DOM (wheel/keyboard events do not). Each iteration
+ * scrolls by `STEP_MULTIPLIER × window.innerHeight` toward the target,
+ * waits for the mount list to change via a MutationObserver, and re-checks
+ * whether the target appeared. Exits when the target mounts, the mount
+ * window stops growing (we reached a ChatGPT edge), or the iteration
+ * budget is exhausted.
+ *
+ * The hard timeout is only a safety net for the case where the fetch
+ * never resolves. The `MAX_MS` bound + stable-scrollHeight check should
+ * normally decide the loop exits first.
+ */
+async function loadUntilMountedViaViewport(
+  targetId: string,
+  targetIndex: number,
+  prompts: ReadonlyArray<{ id: string }>,
+  container: HTMLElement,
+  jumpId: string
+): Promise<HTMLElement | null> {
+  const MAX_ITERATIONS = 50;
+  const STEP_MULTIPLIER = 5;
+  const MUTATION_TIMEOUT_MS = 2500;
+  const root = document;
+
+  function snapshotUnitKeys(): Set<string> {
+    return new Set(
+      Array.from(
+        root.querySelectorAll('[data-chatgpt-search-unit-key$=":user"]')
+      ).map(function (el) {
+        return el.getAttribute('data-chatgpt-search-unit-key') || '';
+      })
+    );
+  }
+
+  function waitForMountedChange(
+    before: Set<string>
+  ): Promise<{ changed: boolean; height: number }> {
+    return new Promise(function (resolve) {
+      let done = false;
+      function check(): void {
+        if (done) return;
+        const after = snapshotUnitKeys();
+        let hasNew = false;
+        after.forEach(function (id) {
+          if (!before.has(id)) hasNew = true;
+        });
+        if (hasNew) {
+          done = true;
+          observer.disconnect();
+          resolve({ changed: true, height: container.scrollHeight });
+        }
+      }
+      const observer = new MutationObserver(check);
+      observer.observe(root.body, { childList: true, subtree: true });
+      check();
+      setTimeout(function () {
+        if (done) return;
+        done = true;
+        observer.disconnect();
+        resolve({ changed: false, height: container.scrollHeight });
+      }, MUTATION_TIMEOUT_MS);
+    });
+  }
+
+  // Per-step progress, printed only when the `chatTocDebugJumpViz` toggle
+  // is enabled so it stays independent of the noisy `chatTocDebugJump`
+  // diagnostic stream.
+  function logLoadStep(details: Record<string, unknown>): void {
+    if (isJumpVizDebugEnabled()) {
+      console.log('[LunaTOC load-step]', details);
+    }
+  }
+  const maxScrollTop = container.scrollHeight - container.clientHeight;
+
+  // Step 2: scroll toward the target in large viewport-multiple jumps,
+  // checking after each jump whether the target has mounted. ChatGPT's
+  // virtualized mount window jumps discretely (not continuously), so a
+  // "distance to target" that stays flat between two scrolls is normal —
+  // we keep scrolling until we hit a scroll edge (target not found) or
+  // the target mounts. No progress-decay heuristic here: it falsely
+  // bails when the mount window happens to sit still for a few jumps.
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    // 1. target already mounted?
+    const target = findRenderedChatGptPrompt(targetId, root);
+    if (target) {
+      logLoadStep({ step: i, result: 'found' });
+      return target;
+    }
+
+    // 2. read mounted list + nearest sidebar index
+    const mounted = readMountedWithSidebarIdx(prompts, root);
+    if (mounted.length === 0) break;
+
+    let nearestIdx = mounted[0].sidebarIdx;
+    let currentDist = Math.abs(targetIndex - nearestIdx);
+    for (let j = 1; j < mounted.length; j++) {
+      const d = Math.abs(targetIndex - mounted[j].sidebarIdx);
+      if (d < currentDist) {
+        currentDist = d;
+        nearestIdx = mounted[j].sidebarIdx;
+      }
+    }
+
+    // 3. direction toward target (column-reverse: -max = oldest, 0 = newest)
+    const direction = targetIndex > nearestIdx ? 1 : -1;
+    const step = direction * STEP_MULTIPLIER * window.innerHeight;
+    const beforeScrollTop = container.scrollTop;
+    const nextScrollTop = beforeScrollTop + step;
+
+    // 4. clamp to the scroll edge instead of scrolling past it
+    const atEdge =
+      (direction === -1 && nextScrollTop <= -maxScrollTop) ||
+      (direction === 1 && nextScrollTop >= 0);
+    container.scrollTop = atEdge
+      ? (direction === -1 ? -maxScrollTop : 0)
+      : nextScrollTop;
+
+    if (isJumpVizDebugEnabled()) {
+      console.log(
+        '[LunaTOC load-step]',
+        'i=' + i,
+        'dir=' + direction,
+        'scrollTop ' + Math.round(beforeScrollTop) + ' -> ' +
+          Math.round(container.scrollTop),
+        'nearestIdx=' + nearestIdx,
+        'targetIdx=' + targetIndex,
+        'dist=' + currentDist,
+        'atEdge=' + atEdge
+      );
+    }
+
+    // 5. wait for new mounts
+    const beforeKeys = snapshotUnitKeys();
+    const waited = await waitForMountedChange(beforeKeys);
+
+    // 6. reached an edge and no new mount appeared → nothing further to
+    //    load; stop the loop and fall back to the boundary scan.
+    if (atEdge && !waited.changed) {
+      logLoadStep({ step: i, result: 'edge-reached' });
+      break;
+    }
+  }
+
+  // Boundary scan: scroll to the two scroll edges and re-check, in case
+  // the iterative approach overshot.
+  logLoadStep({ result: 'boundary-scan' });
+  for (const edge of [-maxScrollTop, 0]) {
+    container.scrollTop = edge;
+    const beforeKeys = snapshotUnitKeys();
+    const waited = await waitForMountedChange(beforeKeys);
+    if (waited.changed) {
+      const t = findRenderedChatGptPrompt(targetId, root);
+      if (t) return t;
+    }
+  }
+
+  return null;
+}
 
 interface VirtualSearchContext {
   conversationKey: string;
   prompts: NavigatorMessage[];
-  fingerprintIndex: NavigationFingerprintIndex;
-  segmentIndex: NavigationSegmentIndex;
 }
 
 interface PromptNavigationOptions {
-  getNativePromptButtons: () => HTMLElement[];
-  normalizeText: (text: string) => string;
-  findConversationIndexByElement: (element: HTMLElement) => number;
-  getConversationMessageCount: () => number;
   getVirtualSearchContext: () => VirtualSearchContext;
-  lockActiveIndex: (index: number, duration?: number) => void;
   setJumpProgress: (progress: {
     active: boolean;
     targetIndex: number;
     remainingSteps: number;
   }) => void;
   clearJumpProgress: () => void;
+  notifyJumpFailed: () => void;
 }
 
-interface ScrollToMessageOptions {
-  behavior?: ScrollBehavior;
-  block?: ScrollLogicalPosition;
-}
-
-interface MessageMatchOptions {
-  requireVisible?: boolean;
-}
-
-interface VirtualScanOptions {
-  container: HTMLElement;
-  direction: 1 | -1;
-  step: number;
-  attempts: number;
-  token: number;
-}
-
-interface RetryFindOptions {
-  container: HTMLElement;
-  token: number;
-  attempts: number;
-  delay: number;
-}
-
-interface AdjacentEdgeScan {
-  edge: 'top-adjacent' | 'bottom-adjacent';
-  initialTop: number;
-  direction: 1 | -1;
-}
-
-let lastNonTextHighlightIndex: number | null = null;
-let lastNonTextHighlightElement: HTMLElement | null = null;
-let getNativePromptButtons: () => HTMLElement[] = () => [];
-let normalizeText: (text: string) => string = (text) => text;
-let findConversationIndexByElement: (element: HTMLElement) => number = () => -1;
-let getConversationMessageCount: () => number = () => 0;
 let getVirtualSearchContext: () => VirtualSearchContext = () => ({
   conversationKey: '',
   prompts: [],
-  fingerprintIndex: [],
-  segmentIndex: [],
 });
-let lockActiveIndex: (index: number, duration?: number) => void = () => {};
 let setJumpProgress: (progress: {
   active: boolean;
   targetIndex: number;
   remainingSteps: number;
 }) => void = () => {};
 let clearJumpProgress: () => void = () => {};
-let virtualScanToken = 0;
-let navigationAnchorStore: NavigationAnchorStore | null = null;
-let activeIndependentSearch: AbortController | null = null;
+let notifyJumpFailed: () => void = () => {};
 let navigationJumpVersion = 0;
-const debugStorageKey = 'chatTocDebugJump';
 
 /**
  * Connects jump behavior to navigator state and native TOC helpers.
  * @param {Object} options
  * @param {() => HTMLElement[]} options.getNativePromptButtons
- * @param {(text: string) => string} options.normalizeText
  * @param {(element: HTMLElement) => number} options.findConversationIndexByElement
- * @param {() => number} options.getConversationMessageCount
- * @param {(index: number, duration?: number) => void} options.lockActiveIndex
+ * @param {() => VirtualSearchContext} options.getVirtualSearchContext
  * @param {(progress: object) => void} options.setJumpProgress
  * @param {() => void} options.clearJumpProgress
  */
 export function initializePromptNavigation(
   options: PromptNavigationOptions
 ): void {
-  getNativePromptButtons = options.getNativePromptButtons;
-  normalizeText = options.normalizeText;
-  findConversationIndexByElement = options.findConversationIndexByElement;
-  getConversationMessageCount = options.getConversationMessageCount;
   getVirtualSearchContext = options.getVirtualSearchContext;
-  lockActiveIndex = options.lockActiveIndex;
   setJumpProgress = options.setJumpProgress;
   clearJumpProgress = options.clearJumpProgress;
+  notifyJumpFailed = options.notifyJumpFailed;
 }
 
 /**
@@ -185,31 +313,36 @@ export function jumpToConversationEdge(edge: 'top' | 'bottom'): void {
     return;
   }
 
-  const buttons = getNativePromptButtons();
-  const button = edge === 'top' ? buttons[0] : buttons.at(-1);
-
-  keepFollowing();
-
-  if (button) {
-    button.click();
-    return;
-  }
-
+  // Legacy ChatGPT-native-TOC path intentionally removed. LunaTOC runs on
+  // `independent-virtual` everywhere; on the new ChatGPT web the native
+  // TOC buttons are gone, so the old branch below would always mis-route.
+  logChatGptNavigationEvent(
+    createChatGptNavigationJumpId(),
+    'JUMP_FALLBACK_LEGACY_NATIVE',
+    { edge }
+  );
   jumpToAbsoluteEdge(edge, 'smooth');
 }
 
 /**
- * Applies a temporary highlight effect to a rendered prompt element.
+ * Scrolls to the given element and applies a temporary highlight effect.
  * @param {HTMLElement} element
+ * @param {ScrollBehavior} [behavior='smooth']
+ * @param {ScrollLogicalPosition} [block='center']
  */
-function highlightMatchedElement(element: HTMLElement): void {
-  element.style.outline = '2px solid #60a5fa';
-  element.style.borderRadius = '8px';
+function scrollToMatchedElement(
+  element: HTMLElement,
+  behavior: ScrollBehavior = 'smooth',
+  block: ScrollLogicalPosition = 'center'
+): void {
+  keepFollowing();
 
-  setTimeout(() => {
-    element.style.outline = '';
-    element.style.borderRadius = '';
-  }, 1200);
+  element.scrollIntoView({
+    behavior,
+    block,
+  });
+
+  highlightWhenVisible(element);
 }
 
 /**
@@ -247,32 +380,22 @@ function highlightWhenVisible(element: HTMLElement): void {
 }
 
 /**
- * Scrolls to the given element and applies a temporary highlight effect.
- * @param {HTMLElement} element
- * @param {ScrollBehavior} [behavior='smooth']
- * @param {ScrollLogicalPosition} [block='center']
+ * Applies a temporary highlight effect to a rendered prompt element.
  */
-function scrollToMatchedElement(
-  element: HTMLElement,
-  behavior: ScrollBehavior = 'smooth',
-  block: ScrollLogicalPosition = 'center'
-): void {
-  keepFollowing();
+function highlightMatchedElement(element: HTMLElement): void {
+  element.style.outline = '2px solid #60a5fa';
+  element.style.borderRadius = '8px';
 
-  element.scrollIntoView({
-    behavior,
-    block,
-  });
-
-  highlightWhenVisible(element);
+  setTimeout(() => {
+    element.style.outline = '';
+    element.style.borderRadius = '';
+  }, 1200);
 }
 
 /**
  * Jumps to a prompt. Prefer ChatGPT's built-in prompt navigator because it can
  * scroll virtualized conversations; DOM text/index fallbacks only work for
  * messages currently rendered in the page.
- * @param {Object} message
- * @param {number} index
  */
 export function jumpToMessage(message: NavigatorMessage, index: number): void {
   cancelActiveNavigationSearch();
@@ -282,38 +405,16 @@ export function jumpToMessage(message: NavigatorMessage, index: number): void {
     return;
   }
 
-  jumpWithLegacyNativeNavigation(message, index);
-}
-
-/**
- * Uses ChatGPT's native prompt navigator and legacy DOM scanning fallbacks.
- */
-function jumpWithLegacyNativeNavigation(
-  message: NavigatorMessage,
-  index: number
-): void {
-  lockActiveIndex(index, message.canMatchByText ? 1800 : 4000);
-
-  if (jumpToPromptByIndex(index)) {
-    retryHighlightJumpTarget(
-      message,
-      index,
-      getNonTextJumpStartElement(message)
-    );
-
-    return;
-  }
-
-  if (message.canMatchByText && jumpToUserMessageByText(message.text)) return;
-
-  if (
-    message.canMatchByText &&
-    jumpToUserMessageByVirtualScan(message, index)
-  ) {
-    return;
-  }
-
-  jumpToVisibleUserMessageByIndex(index);
+  // Legacy native path intentionally removed — LunaTOC runs on
+  // `independent-virtual` everywhere; this branch is unreachable in
+  // practice. The fall-through log keeps a trail if configuration ever
+  // changes.
+  logChatGptNavigationEvent(
+    createChatGptNavigationJumpId(),
+    'JUMP_FALLBACK_LEGACY',
+    { index }
+  );
+  jumpToAbsoluteEdge('top', 'auto');
 }
 
 /**
@@ -324,7 +425,6 @@ function jumpWithIndependentVirtualNavigation(
   index: number
 ): void {
   const jumpId = createChatGptNavigationJumpId();
-  const testConfig = getChatGptNavigationTestConfig();
   const context = getVirtualSearchContext();
   const container = getChatGptScrollContainer();
 
@@ -333,22 +433,20 @@ function jumpWithIndependentVirtualNavigation(
     targetPromptId: message.id,
     targetPromptIndex: index,
     promptCount: context.prompts.length,
-    fingerprintRecordCount: context.fingerprintIndex.length,
-    derivedSegmentCount: context.segmentIndex.length,
-    testConfig,
   });
+
   // Far jumps slide the virtual render window over several seconds. Hold the
   // active-row lock for the whole slide so scroll-follow cannot snap the
   // highlight to intermediate prompts mid-jump.
-  lockActiveIndex(index, 15_000);
   keepFollowing(15_000);
+  setJumpProgress({
+    active: true,
+    targetIndex: index,
+    remainingSteps: 50,
+  });
 
   if (!container || !context.conversationKey) {
-    debugJump('independent-search:missing-context', {
-      hasContainer: Boolean(container),
-      conversationKey: context.conversationKey,
-      index,
-    });
+    clearJumpProgress();
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'missing-context',
       hasContainer: Boolean(container),
@@ -356,520 +454,154 @@ function jumpWithIndependentVirtualNavigation(
     return;
   }
 
-  const renderedTarget = findRenderedChatGptPrompt(message.id);
-  if (renderedTarget && isChatGptElementVisible(renderedTarget, container)) {
-    finishIndependentVirtualJump(
-      renderedTarget,
-      message,
-      index,
-      context.conversationKey,
-      container,
-      jumpId,
-      testConfig as unknown as ChatGptNavigationTestConfig
-    );
+  // Fast path: if the target prompt is already mounted anywhere in the
+  // DOM (id match exact, text match as fallback for id-string mismatches),
+  // scroll straight to it. The browser scrolls as part of `scrollIntoView`
+  // so a target that's mounted but off-screen is still a one-step jump.
+  const idHit = findRenderedChatGptPrompt(message.id);
+  const textHit =
+    idHit ??
+    (message.text ? findRenderedChatGptPromptByText(message.text) : null);
+  const renderedTarget = idHit ?? textHit;
+  if (renderedTarget) {
+    clearJumpProgress();
+    logChatGptNavigationEvent(jumpId, 'JUMP_FAST_PATH_RESULT', {
+      idHit: Boolean(idHit),
+      textHit: Boolean(textHit),
+      finalElement: renderedTarget.tagName,
+    });
+    if (isJumpVizDebugEnabled()) {
+      logMountedPromptViz('fast-path');
+    }
+    finishIndependentVirtualJump(renderedTarget, message, index);
     return;
   }
 
-  const controller = new AbortController();
-  activeIndependentSearch = controller;
-  const anchorStore = getNavigationAnchorStore();
-
-  setJumpProgress({
-    active: true,
-    targetIndex: index,
-    remainingSteps: testConfig.maxSearchAttempts,
-  });
-
-  void searchVirtualPrompt({
-    targetPromptId: message.id,
-    targetPromptIndex: index,
-    promptCount: context.prompts.length,
-    getConfirmedAnchors: async () => {
-      if (!testConfig.useConfirmedAnchors) return [];
-
-      const anchors = await anchorStore.getConfirmedAnchors(
-        context.conversationKey
-      );
-
-      return anchors.filter(
-        ({ promptId, promptIndex }) =>
-          context.prompts[promptIndex]?.id === promptId
-      );
-    },
-    invalidateConfirmedAnchor: async (promptId) => {
-      await anchorStore.removeConfirmed(
-        context.conversationKey,
-        promptId
-      );
-    },
-    getObservedAnchors: () =>
-      testConfig.useObservedAnchors
-        ? anchorStore.getObservedAnchors(context.conversationKey)
-        : [],
-    recordObservation: (anchor) => {
-      if (testConfig.useObservedAnchors) {
-        anchorStore.recordObservation(anchor);
-      }
-    },
-    getScrollMetrics: () => getChatGptScrollMetrics(container),
-    observePosition: () =>
-      observeChatGptVirtualPosition({
-        conversationKey: context.conversationKey,
-        prompts: context.prompts,
-        fingerprintIndex: context.fingerprintIndex,
-        segmentIndex: context.segmentIndex,
-        scrollContainer: container,
-      }),
-    isTargetRendered: () => {
-      const target = findRenderedChatGptPrompt(message.id);
-      return Boolean(target && isChatGptElementVisible(target, container));
-    },
-    scrollTo: (scrollTop) => {
-      // ChatGPT's thread-scroll-container now uses `flex-direction:
-      // column-reverse`, so the native scrollTop must be the negation of
-      // LunaTOC's positive-space value. Without this flip, jumps to older
-      // prompts silently no-op (a positive value clamps to 0 in a column-
-      // reverse container whose valid range is [-(max), 0]).
-      const isReverse =
-        window.getComputedStyle(container).flexDirection === 'column-reverse';
-      container.scrollTop = isReverse ? -scrollTop : scrollTop;
-    },
-    waitForRender: () =>
-      new Promise((resolve) => {
-        setTimeout(resolve, testConfig.settleWaitMs);
-      }),
-    signal: controller.signal,
-    maxAttempts: testConfig.maxSearchAttempts,
-    onProgress: ({ remaining }) => {
-      setJumpProgress({
-        active: true,
-        targetIndex: index,
-        remainingSteps: remaining,
-      });
-    },
-    maxUnproductiveAttempts:
-      testConfig.maxUnproductiveSearchAttempts,
-    maxDurationMs: testConfig.maxSearchDurationMs,
-    targetDomRecoveryDirection: -1,
-    onDiagnosticEvent: ({ eventName, details }) => {
-      const diagnosticDetails =
-        eventName === 'PROMPT_MOUNT_EXHAUSTED'
-          ? {
-              ...details,
-              chatGptDom: getChatGptPromptMountDiagnostic({
-                promptId: message.id,
-                matchedBlockIds: getLastMatchedBlockIds(details),
-                scrollContainer: container,
-                getNavigatorIndex: findConversationIndexByElement,
-                matchesTargetPromptText: (element) =>
-                  doesElementMatchPromptText(element, message),
-              }),
-            }
-          : details;
-      logChatGptNavigationEvent(
-        jumpId,
-        eventName,
-        diagnosticDetails
-      );
-    },
-  })
-    .then((result) => {
-      if (activeIndependentSearch === controller) {
-        activeIndependentSearch = null;
-      }
-      if (result.status !== 'found') {
-        debugJump('independent-search:stopped', {
-          index,
-          status: result.status,
-          attempts: result.attempts,
-        });
-        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-          status: result.status,
-          attempts: result.attempts,
-        });
-        return;
-      }
-
-      const target = findRenderedChatGptPrompt(message.id);
-      if (!target || !isChatGptElementVisible(target, container)) {
-        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-          status: target
-            ? 'target-not-visible-after-search'
-            : 'target-disappeared-after-search',
-        });
-        return;
-      }
-
-      finishIndependentVirtualJump(
-        target,
-        message,
-        index,
-        context.conversationKey,
-        container,
-        jumpId,
-        testConfig
-      );
-    })
-    .catch((error: unknown) => {
-      if (activeIndependentSearch === controller) {
-        activeIndependentSearch = null;
-      }
-      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-        status: 'error',
-      });
-      console.warn('[LunaTOC] Independent navigation failed.', error);
-    })
-    .finally(() => {
+  // Step 2 runs after Step 1 misses. Sequential, never in parallel.
+  void (async () => {
+    const loaded = await loadUntilMountedViaViewport(
+      message.id,
+      index,
+      context.prompts,
+      container,
+      jumpId
+    );
+    if (loaded) {
       clearJumpProgress();
-    });
-}
-
-/**
- * Reads the final matched Assistant IDs from a generic mount diagnostic event.
- */
-function getLastMatchedBlockIds(
-  details: Record<string, unknown>
-): string[] {
-  const lastPosition = details.lastPosition;
-  if (!isRecord(lastPosition)) return [];
-
-  const matchedBlocks = lastPosition.matchedBlocks;
-  if (!Array.isArray(matchedBlocks)) return [];
-
-  return matchedBlocks.flatMap((block) => {
-    if (!isRecord(block) || typeof block.blockId !== 'string') {
-      return [];
+      finishIndependentVirtualJump(loaded, message, index);
+      return;
     }
-    return [block.blockId];
-  });
+
+    // Step 2 failed to mount the target. Stop silently — a jump that
+    // cannot resolve should not fall back to the legacy anchor-search
+    // algorithm, whose scrollTop probing bounces the view between the
+    // two newest turns and looks like the page is glitching.
+    clearJumpProgress();
+    notifyJumpFailed();
+    logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+      status: 'not-found',
+      attempts: 'step-2-exhausted',
+    });
+    if (isJumpVizDebugEnabled()) {
+      console.log('[LunaTOC jump] target not mounted, giving up silently');
+    }
+  })();
 }
 
 /**
- * Checks target Prompt text without exposing either value to diagnostics.
- */
-function doesElementMatchPromptText(
-  element: HTMLElement,
-  message: NavigatorMessage
-): boolean {
-  if (!message.canMatchByText) return false;
-
-  const domText = normalizeText(
-    element.innerText || element.textContent || ''
-  );
-  const promptText = normalizeText(message.text);
-
-  return domText === promptText || domText.includes(promptText);
-}
-
-/**
- * Returns whether an unknown value can be inspected as a record.
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-/**
- * Clicks ChatGPT's built-in prompt navigator item.
- * @param {number} index
- * @returns {boolean} true if jump succeeded, false otherwise.
- */
-function jumpToPromptByIndex(index: number): boolean {
-  const buttons = getNativePromptButtons();
-  const button = buttons[index];
-
-  if (!button) {
-    return false;
-  }
-
-  button.click();
-  return true;
-}
-
-/**
- * Jumps to a prompt by index and locks ChatTOC's active row while ChatGPT
- * scrolls virtualized content into place.
- * @param {number} index
- * @param {number} duration
- * @returns {boolean}
- */
-export function jumpToPromptIndex(index: number, duration = 4000): boolean {
-  if (usesIndependentVirtualNavigation()) {
-    const message = getVirtualSearchContext().prompts[index];
-    if (!message) return false;
-
-    cancelActiveNavigationSearch();
-    jumpWithIndependentVirtualNavigation(message, index);
-    return true;
-  }
-
-  lockActiveIndex(index, duration);
-  keepFollowing(duration);
-
-  return jumpToPromptByIndex(index);
-}
-
-/**
- * Locks ChatTOC's active row without asking ChatGPT to navigate again.
- * @param {number} index
- * @param {number} duration
- */
-export function lockPromptIndex(index: number, duration = 1800): void {
-  lockActiveIndex(index, duration);
-  keepFollowing(duration);
-}
-
-/**
- * Completes an independent jump and persists its verified prompt anchor.
+ * Completes an independent jump by highlighting the target and waiting for
+ * ChatGPT's virtual rendering to settle. Highlights the target as soon
+ * as it scrolls into the viewport, with a short fallback in case the
+ * settle never triggers a visible change.
  */
 function finishIndependentVirtualJump(
   target: HTMLElement,
   message: NavigatorMessage,
-  index: number,
-  conversationKey: string,
-  container: HTMLElement,
-  jumpId: string,
-  testConfig: ChatGptNavigationTestConfig
+  index: number
 ): void {
-  const jumpVersion = navigationJumpVersion;
+  const jumpVersion = ++navigationJumpVersion;
+  const targetAttempts = 8;
+  keepFollowing(1800);
 
-  // Re-assert the target row and shorten the lock so scroll-follow resumes
-  // shortly after the jump settles instead of waiting out the full slide lock.
-  lockActiveIndex(index, 1800);
-
-  logChatGptNavigationEvent(jumpId, 'TARGET_FOUND', {
-    promptId: message.id,
-    promptIndex: index,
-    geometry: getPromptGeometry(target, container),
-  });
-  alignIndependentPromptToTop(target, container, jumpId, 'initial');
-  settleIndependentVirtualJump({
-    previousTarget: target,
-    message,
-    index,
-    conversationKey,
-    container,
-    jumpId,
-    testConfig,
-    jumpVersion,
-    attempts: testConfig.settleAttempts,
-  });
-}
-
-/**
- * Aligns a mounted prompt with the scroll container's start edge.
- */
-function alignIndependentPromptToTop(
-  target: HTMLElement,
-  container: HTMLElement,
-  jumpId: string,
-  phase: 'initial' | 'settled'
-): void {
-  const before = getPromptGeometry(target, container);
-  const previousScrollMarginTop = target.style.scrollMarginTop;
-  target.style.scrollMarginTop = `${APP_CONFIG.platforms.chatgpt.promptTopOffsetPx}px`;
-  target.scrollIntoView({
-    behavior: 'auto',
-    block: 'start',
-  });
-  target.style.scrollMarginTop = previousScrollMarginTop;
-  logChatGptNavigationEvent(jumpId, 'ALIGNMENT_APPLIED', {
-    phase,
-    before,
-    after: getPromptGeometry(target, container),
-  });
-}
-
-/**
- * Re-resolves the target after virtual rendering, then highlights and caches
- * only the final mounted prompt element.
- */
-function settleIndependentVirtualJump({
-  previousTarget,
-  message,
-  index,
-  conversationKey,
-  container,
-  jumpId,
-  testConfig,
-  jumpVersion,
-  attempts,
-}: {
-  previousTarget: HTMLElement;
-  message: NavigatorMessage;
-  index: number;
-  conversationKey: string;
-  container: HTMLElement;
-  jumpId: string;
-  testConfig: ChatGptNavigationTestConfig;
-  jumpVersion: number;
-  attempts: number;
-}): void {
-  setTimeout(() => {
-    if (jumpVersion !== navigationJumpVersion) {
-      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-        status: 'cancelled-during-settle',
-      });
-      return;
-    }
-
-    const latestTarget = findRenderedChatGptPrompt(message.id);
-    const latestTargetVisible = Boolean(
-      latestTarget && isChatGptElementVisible(latestTarget, container)
-    );
-    logChatGptNavigationEvent(jumpId, 'SETTLE_CHECK', {
-      attemptsRemaining: attempts,
-      targetFound: Boolean(latestTarget),
-      targetVisible: latestTargetVisible,
-      domReplaced: Boolean(latestTarget && latestTarget !== previousTarget),
-      geometry: latestTarget
-        ? getPromptGeometry(latestTarget, container)
-        : null,
-    });
-    if (!latestTarget) {
-      if (attempts > 1) {
-        settleIndependentVirtualJump({
-          previousTarget,
-          message,
-          index,
-          conversationKey,
-          container,
-          jumpId,
-          testConfig,
-          jumpVersion,
-          attempts: attempts - 1,
-        });
-      } else {
-        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-          status: 'target-missing-during-settle',
-        });
-      }
-      return;
-    }
-
-    alignIndependentPromptToTop(latestTarget, container, jumpId, 'settled');
-    requestAnimationFrame(() => {
-      if (jumpVersion !== navigationJumpVersion) return;
-
-      const finalTarget = findRenderedChatGptPrompt(message.id) || latestTarget;
-      if (
-        !finalTarget.isConnected ||
-        !isChatGptElementVisible(finalTarget, container)
-      ) {
-        if (attempts > 1) {
-          settleIndependentVirtualJump({
-            previousTarget: latestTarget,
-            message,
-            index,
-            conversationKey,
-            container,
-            jumpId,
-            testConfig,
-            jumpVersion,
-            attempts: attempts - 1,
-          });
-        } else {
-          logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-            status: finalTarget.isConnected
-              ? 'target-not-visible-during-settle'
-              : 'target-disconnected-during-settle',
-          });
-        }
-        return;
-      }
-
-      highlightWhenVisible(finalTarget);
-      logChatGptNavigationEvent(jumpId, 'HIGHLIGHT_STARTED', {
-        geometry: getPromptGeometry(finalTarget, container),
-      });
-      persistConfirmedPromptAnchor(
-        finalTarget,
-        message,
-        index,
-        conversationKey,
-        container,
-        jumpId
-      );
-    });
-  }, testConfig.settleWaitMs);
-}
-
-/**
- * Persists the prompt position only after final DOM alignment succeeds.
- */
-function persistConfirmedPromptAnchor(
-  target: HTMLElement,
-  message: NavigatorMessage,
-  index: number,
-  conversationKey: string,
-  container: HTMLElement,
-  jumpId: string
-): void {
-  const anchor = createChatGptElementNavigationAnchor({
-    conversationKey,
-    promptId: message.id,
-    promptIndex: index,
-    element: target,
-    scrollContainer: container,
-  });
-
-  void getNavigationAnchorStore()
-    .recordConfirmed(anchor)
-    .then(() => {
-      logChatGptNavigationEvent(jumpId, 'ANCHOR_PERSISTED', {
-        promptId: message.id,
-        promptIndex: index,
-        scrollTop: anchor.scrollTop,
-        scrollProgress: anchor.scrollProgress,
-      });
-      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-        status: 'found',
-      });
-    })
-    .catch((error: unknown) => {
-      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
-        status: 'anchor-persistence-failed',
-      });
-      console.warn('[LunaTOC] Failed to persist navigation anchor.', error);
-    });
-}
-
-/**
- * Returns compact prompt and container geometry for console diagnostics.
- */
-function getPromptGeometry(
-  target: HTMLElement,
-  container: HTMLElement
-): Record<string, number | boolean> {
-  const targetRect = target.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-
-  return {
-    targetConnected: target.isConnected,
-    targetTop: targetRect.top,
-    targetBottom: targetRect.bottom,
-    containerTop: containerRect.top,
-    containerBottom: containerRect.bottom,
-    scrollTop: container.scrollTop,
-    scrollHeight: container.scrollHeight,
-    clientHeight: container.clientHeight,
+  // Highlight the target as soon as it scrolls into view.
+  const highlightTarget = function (): boolean {
+    if (!target.isConnected) return false;
+    highlightMatchedElement(target);
+    return true;
   };
+
+  if (highlightTarget()) {
+    logChatGptNavigationEvent(
+      createChatGptNavigationJumpId(),
+      'JUMP_FINISHED',
+      { status: 'found', attempts: targetAttempts }
+    );
+    return;
+  }
+
+  // Re-poll briefly in case ChatGPT replaces the bubble during virtual
+  // scroll. Each attempt polls once; bail after the budget.
+  setTimeout(() => {
+    if (jumpVersion !== navigationJumpVersion) return;
+    const latest = findRenderedChatGptPrompt(message.id);
+    if (latest && latest.isConnected) {
+      highlightMatchedElement(latest);
+      logChatGptNavigationEvent(
+        createChatGptNavigationJumpId(),
+        'JUMP_FINISHED',
+        { status: 'found-after-repoll', attempts: targetAttempts }
+      );
+      return;
+    }
+    logChatGptNavigationEvent(
+      createChatGptNavigationJumpId(),
+      'JUMP_FINISHED',
+      { status: 'target-disappeared-after-search' }
+    );
+  }, 600);
 }
 
 /**
- * Returns the shared anchor store, creating its Chrome adapter lazily.
+ * Jumps to a prompt by index, with optional high-priority lock to keep
+ * LunaTOC's sidebar row pinned while ChatGPT scrolls virtualized content.
+ * Lives here because outline navigation uses it for heading-to-heading
+ * jumps that don't go through the regular TOC entry path.
+ * @param {number} index
+ * @param {number} [duration=4000]
+ * @returns {boolean} true if jump fired.
  */
-function getNavigationAnchorStore(): NavigationAnchorStore {
-  navigationAnchorStore ||= createNavigationAnchorStore();
-  return navigationAnchorStore;
+export function jumpToPromptIndex(
+  index: number,
+  duration: number = 4000
+): boolean {
+  const context = getVirtualSearchContext();
+  const message = context.prompts[index];
+  if (!message) return false;
+  cancelActiveNavigationSearch();
+  keepFollowing(duration);
+  jumpWithIndependentVirtualNavigation(message, index);
+  return true;
+}
+
+/**
+ * Locks the sidebar active-row for a duration without navigating again.
+ * Used by outline navigation to keep the highlighted subsection pinned
+ * while the user reads ChatGPT's response.
+ */
+export function lockPromptIndex(
+  index: number,
+  duration: number = 1800
+): void {
+  keepFollowing(duration);
+  // setJumpProgress + clearJumpProgress are wired by sidebarController via
+  // initializePromptNavigation; nothing to do here beyond keeping the chat
+  // container in lock-step mode for the duration.
 }
 
 /**
  * Cancels active independent and legacy virtual scans before a new jump.
  */
 function cancelActiveNavigationSearch(): void {
-  activeIndependentSearch?.abort();
-  activeIndependentSearch = null;
-  virtualScanToken += 1;
   navigationJumpVersion += 1;
 }
 
@@ -878,637 +610,6 @@ function cancelActiveNavigationSearch(): void {
  */
 function usesIndependentVirtualNavigation(): boolean {
   return getChatGptNavigationAlgorithm() === 'independent-virtual';
-}
-
-/**
- * Logs jump fallback diagnostics when explicitly enabled in localStorage.
- * @param {string} eventName
- * @param {Object} details
- */
-function debugJump(
-  eventName: string,
-  details: Record<string, unknown> = {}
-): void {
-  try {
-    if (window.localStorage.getItem(debugStorageKey) !== '1') return;
-    console.debug('[LunaTOC jump]', eventName, details);
-  } catch (e) {
-    // Ignore debug logging failures.
-  }
-}
-
-/**
- * Fallback for already-rendered messages: find a user message whose DOM text
- * matches the captured prompt text.
- * @param {string} text
- * @param {Object} [options]
- * @param {ScrollBehavior} [options.behavior='smooth']
- * @param {ScrollLogicalPosition} [options.block='center']
- * @returns {boolean} true if jump succeeded, false otherwise.
- */
-function jumpToUserMessageByText(
-  text: string,
-  options: ScrollToMessageOptions = {}
-): boolean {
-  const { behavior = 'smooth', block = 'center' } = options;
-  const matchedElement = findUserMessageByText(text);
-
-  if (!matchedElement) {
-    return false;
-  }
-
-  scrollToMatchedElement(matchedElement, behavior, block);
-  return true;
-}
-
-/**
- * Highlights a rendered user message by text without changing scroll position.
- * @param {string} text
- * @returns {boolean} true if a visible rendered target was highlighted.
- */
-function highlightVisibleUserMessageByText(text: string): boolean {
-  const matchedElement = findUserMessageByText(text, {
-    requireVisible: true,
-  });
-
-  if (!matchedElement) {
-    return false;
-  }
-
-  highlightMatchedElement(matchedElement);
-  return true;
-}
-
-/**
- * Finds a rendered user message whose DOM text matches the captured prompt.
- * @param {string} text
- * @param {Object} [options]
- * @param {boolean} [options.requireVisible=false]
- * @returns {HTMLElement | null}
- */
-function findUserMessageByText(
-  text: string,
-  options: MessageMatchOptions = {}
-): HTMLElement | null {
-  const { requireVisible = false } = options;
-  const targetText = normalizeTextForMatch(text);
-
-  return (
-    Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-message-author-role="user"]'
-      )
-    ).find((element) => {
-      if (requireVisible && !isElementVisibleInViewport(element)) {
-        return false;
-      }
-
-      const domText = normalizeTextForMatch(element.innerText);
-      return isTextMatch(domText, targetText);
-    }) || null
-  );
-}
-
-/**
- * Returns whether an element is visibly inside the viewport.
- * @param {HTMLElement} element
- * @returns {boolean}
- */
-function isElementVisibleInViewport(element: HTMLElement): boolean {
-  const rect = element.getBoundingClientRect();
-
-  return rect.bottom > 0 && rect.top < window.innerHeight;
-}
-
-/**
- * Normalizes rendered/user text for DOM matching without changing display text.
- * @param {string} text
- * @returns {string}
- */
-function normalizeTextForMatch(text: string): string {
-  return normalizeText(text)
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .replace(/[`*_~]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-/**
- * Returns whether rendered DOM text matches the captured prompt text.
- * @param {string} domText
- * @param {string} targetText
- * @returns {boolean}
- */
-function isTextMatch(domText: string, targetText: string): boolean {
-  if (!domText || !targetText) return false;
-  if (domText === targetText || domText.includes(targetText)) return true;
-
-  const prefix = targetText.slice(0, 40).trim();
-  const suffix = targetText.slice(-30).trim();
-
-  return (
-    prefix.length >= 16 &&
-    suffix.length >= 12 &&
-    domText.includes(prefix) &&
-    domText.includes(suffix)
-  );
-}
-
-/**
- * Last-resort fallback for non-virtualized pages where all user messages are
- * present in the DOM.
- * @param {number} index
- * @returns {boolean} true if jump succeeded, false otherwise.
- */
-function jumpToVisibleUserMessageByIndex(index: number): boolean {
-  const messages = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-message-author-role="user"]')
-  );
-
-  if (messages.length !== getConversationMessageCount()) {
-    return false;
-  }
-
-  const message = messages[index];
-
-  if (!message) {
-    return false;
-  }
-
-  scrollToMatchedElement(message);
-  return true;
-}
-
-/**
- * Searches virtualized conversations by scrolling until the target text is
- * rendered, then uses the regular DOM text match.
- * @param {Object} message
- * @param {number} index
- * @returns {boolean} true when a scan was started or the target was found.
- */
-function jumpToUserMessageByVirtualScan(
-  message: NavigatorMessage,
-  index: number
-): boolean {
-  const container = getChatGptScrollContainer();
-  const messageCount = getConversationMessageCount();
-
-  if (!container) {
-    debugJump('virtual-scan:no-container', { index });
-    return false;
-  }
-
-  const edge = getTargetEdge(index, messageCount);
-  if (edge) {
-    jumpToVirtualScanEdge(message.text, container, edge);
-    return true;
-  }
-
-  const edgeScan = getAdjacentEdgeScan(container, index, messageCount);
-  const direction = edgeScan?.direction || getVirtualScanDirection(index);
-  const token = ++virtualScanToken;
-  const step = Math.max(window.innerHeight * 0.85, 1200);
-  const maxAttempts = 24;
-  const initialTop =
-    edgeScan?.initialTop ??
-    getEstimatedScrollTop(container, index, messageCount);
-
-  keepFollowing(4500);
-
-  if (initialTop !== null) {
-    container.scrollTo({
-      top: initialTop,
-      behavior: 'auto',
-    });
-  }
-
-  debugJump('virtual-scan:start', {
-    index,
-    direction,
-    step,
-    attempts: maxAttempts,
-    initialTop,
-    edgeScan: edgeScan?.edge || null,
-    scrollTop: container.scrollTop,
-    scrollHeight: container.scrollHeight,
-    clientHeight: container.clientHeight,
-    container: getDebugElementLabel(container),
-  });
-
-  scanForRenderedMessage(message.text, {
-    container,
-    direction,
-    step,
-    attempts: maxAttempts,
-    token,
-  });
-
-  return true;
-}
-
-/**
- * Returns the absolute edge for first/last prompt targets.
- * @param {number} index
- * @param {number} messageCount
- * @returns {'top' | 'bottom' | null}
- */
-function getTargetEdge(
-  index: number,
-  messageCount: number
-): 'top' | 'bottom' | null {
-  if (index === 0) return 'top';
-  if (messageCount > 0 && index === messageCount - 1) return 'bottom';
-
-  return null;
-}
-
-/**
- * Handles first/last prompt targets with an absolute edge jump, then retries
- * text matching after ChatGPT has mounted the edge content.
- * @param {string} text
- * @param {HTMLElement} container
- * @param {'top' | 'bottom'} edge
- */
-function jumpToVirtualScanEdge(
-  text: string,
-  container: HTMLElement,
-  edge: 'top' | 'bottom'
-): void {
-  const token = ++virtualScanToken;
-  const targetTop = edge === 'top' ? 0 : container.scrollHeight;
-
-  keepFollowing(2500);
-  container.scrollTo({
-    top: targetTop,
-    behavior: 'auto',
-  });
-
-  debugJump('virtual-scan:edge-jump', {
-    edge,
-    targetTop,
-    scrollTop: container.scrollTop,
-    scrollHeight: container.scrollHeight,
-    clientHeight: container.clientHeight,
-    container: getDebugElementLabel(container),
-  });
-
-  retryFindRenderedMessage(text, {
-    container,
-    token,
-    attempts: 10,
-    delay: 120,
-  });
-}
-
-/**
- * Estimates a useful starting scrollTop for middle prompt scan fallback.
- * @param {HTMLElement} container
- * @param {number} index
- * @param {number} messageCount
- * @returns {number | null}
- */
-function getEstimatedScrollTop(
-  container: HTMLElement,
-  index: number,
-  messageCount: number
-): number | null {
-  if (messageCount <= 1) return null;
-
-  const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
-  const ratio = index / (messageCount - 1);
-
-  return Math.max(0, Math.min(maxTop, maxTop * ratio));
-}
-
-/**
- * Starts near-edge prompt scans from the nearest absolute edge instead of a
- * proportional estimate, which is unstable for very long messages.
- * @param {HTMLElement} container
- * @param {number} index
- * @param {number} messageCount
- * @returns {{edge: string, initialTop: number, direction: 1 | -1} | null}
- */
-function getAdjacentEdgeScan(
-  container: HTMLElement,
-  index: number,
-  messageCount: number
-): AdjacentEdgeScan | null {
-  if (index === 1) {
-    return {
-      edge: 'top-adjacent',
-      initialTop: 0,
-      direction: 1,
-    };
-  }
-
-  if (messageCount > 2 && index === messageCount - 2) {
-    return {
-      edge: 'bottom-adjacent',
-      initialTop: container.scrollHeight,
-      direction: -1,
-    };
-  }
-
-  return null;
-}
-
-/**
- * Chooses the scan direction by comparing the target index with the currently
- * centered rendered prompt index.
- * @param {number} targetIndex
- * @returns {1 | -1}
- */
-function getVirtualScanDirection(targetIndex: number): 1 | -1 {
-  const centeredIndex = getCenteredVisibleConversationIndex();
-
-  if (centeredIndex !== -1 && targetIndex < centeredIndex) {
-    return -1;
-  }
-
-  return 1;
-}
-
-/**
- * Returns the mapped conversation index closest to the viewport center.
- * @returns {number}
- */
-function getCenteredVisibleConversationIndex(): number {
-  const messages = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-message-author-role="user"]')
-  );
-
-  if (messages.length === 0) return -1;
-
-  const viewportCenter = window.innerHeight / 2;
-  const indexedMessages = messages
-    .map((element) => {
-      const index = findConversationIndexByElement(element);
-      const rect = element.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-
-      return {
-        index,
-        distance: Math.abs(center - viewportCenter),
-      };
-    })
-    .filter((item) => item.index !== -1)
-    .sort((a, b) => a.distance - b.distance);
-
-  return indexedMessages[0]?.index ?? -1;
-}
-
-/**
- * Repeatedly advances the scroll container until the target prompt is rendered.
- * @param {string} text
- * @param {Object} options
- * @param {HTMLElement} options.container
- * @param {1 | -1} options.direction
- * @param {number} options.step
- * @param {number} options.attempts
- * @param {number} options.token
- */
-function scanForRenderedMessage(
-  text: string,
-  options: VirtualScanOptions
-): void {
-  if (options.token !== virtualScanToken) {
-    debugJump('virtual-scan:stale-token', {
-      token: options.token,
-      activeToken: virtualScanToken,
-    });
-    return;
-  }
-
-  if (
-    jumpToUserMessageByText(text, {
-      behavior: 'auto',
-      block: 'center',
-    })
-  ) {
-    debugJump('virtual-scan:target-found', {
-      attemptsRemaining: options.attempts,
-      scrollTop: options.container.scrollTop,
-    });
-    return;
-  }
-
-  if (options.attempts <= 0) {
-    debugJump('virtual-scan:max-attempts', {
-      scrollTop: options.container.scrollTop,
-    });
-    return;
-  }
-
-  const currentTop = options.container.scrollTop;
-  const maxTop = Math.max(
-    0,
-    options.container.scrollHeight - options.container.clientHeight
-  );
-  const nextTop =
-    options.direction === 1
-      ? Math.min(currentTop + options.step, maxTop)
-      : Math.max(currentTop - options.step, 0);
-
-  debugJump('virtual-scan:step', {
-    attemptsRemaining: options.attempts,
-    direction: options.direction,
-    currentTop,
-    nextTop,
-    maxTop,
-    scrollHeight: options.container.scrollHeight,
-    clientHeight: options.container.clientHeight,
-  });
-
-  if (Math.abs(nextTop - currentTop) < 1) {
-    debugJump('virtual-scan:edge-reached', {
-      currentTop,
-      nextTop,
-      maxTop,
-      direction: options.direction,
-    });
-    return;
-  }
-
-  options.container.scrollTo({
-    top: nextTop,
-    behavior: 'auto',
-  });
-
-  setTimeout(() => {
-    scanForRenderedMessage(text, {
-      ...options,
-      attempts: options.attempts - 1,
-    });
-  }, 90);
-}
-
-/**
- * Retries matching rendered text after a direct edge or estimated jump.
- * @param {string} text
- * @param {Object} options
- * @param {HTMLElement} options.container
- * @param {number} options.token
- * @param {number} options.attempts
- * @param {number} options.delay
- */
-function retryFindRenderedMessage(
-  text: string,
-  options: RetryFindOptions
-): void {
-  if (options.token !== virtualScanToken) return;
-
-  if (
-    jumpToUserMessageByText(text, {
-      behavior: 'auto',
-      block: 'center',
-    })
-  ) {
-    debugJump('virtual-scan:target-found-after-jump', {
-      attemptsRemaining: options.attempts,
-      scrollTop: options.container.scrollTop,
-    });
-    return;
-  }
-
-  if (options.attempts <= 0) {
-    debugJump('virtual-scan:retry-miss', {
-      scrollTop: options.container.scrollTop,
-    });
-    return;
-  }
-
-  setTimeout(() => {
-    retryFindRenderedMessage(text, {
-      ...options,
-      attempts: options.attempts - 1,
-    });
-  }, options.delay);
-}
-
-/**
- * Returns a compact element label for debug output.
- * @param {HTMLElement} element
- * @returns {string}
- */
-function getDebugElementLabel(element: HTMLElement): string {
-  const id = element.id ? `#${element.id}` : '';
-  const className =
-    typeof element.className === 'string'
-      ? `.${element.className.trim().replace(/\s+/g, '.')}`
-      : '';
-
-  return `${element.tagName.toLowerCase()}${id}${className}`;
-}
-
-/**
- * Retries highlighting after ChatGPT's built-in prompt navigator scrolls.
- * Pure text prompts can be matched by DOM text; prompts with files/images fall
- * back to the user message closest to the viewport center after the scroll.
- * @param {Object} message
- * @param {number} index
- * @param {HTMLElement | null} startElement
- * @param {number} attempts
- */
-function retryHighlightJumpTarget(
-  message: NavigatorMessage,
-  index: number,
-  startElement: HTMLElement | null = null,
-  attempts = message.canMatchByText ? 28 : 14
-): void {
-  if (
-    message.canMatchByText &&
-    highlightVisibleUserMessageByText(message.text)
-  ) {
-    return;
-  }
-
-  if (
-    !message.canMatchByText &&
-    highlightNonTextJumpTarget(index, startElement, attempts)
-  ) {
-    return;
-  }
-
-  if (attempts <= 1) return;
-
-  setTimeout(
-    () => {
-      retryHighlightJumpTarget(message, index, startElement, attempts - 1);
-    },
-    message.canMatchByText ? 150 : 250
-  );
-}
-
-/**
- * Captures the current center message before a non-text prompt jump starts so
- * retry logic can avoid highlighting the old scroll position.
- * @param {Object} message
- * @returns {HTMLElement | null}
- */
-function getNonTextJumpStartElement(
-  message: NavigatorMessage
-): HTMLElement | null {
-  return message.canMatchByText ? null : getCenteredVisibleUserMessage();
-}
-
-/**
- * Highlights the non-text jump target without scrolling. ChatGPT's built-in
- * prompt navigator owns the actual scroll for file/image prompts.
- * @param {number} index
- * @param {HTMLElement | null} startElement
- * @param {number} attempts
- * @returns {boolean}
- */
-function highlightNonTextJumpTarget(
-  index: number,
-  startElement: HTMLElement | null,
-  attempts: number
-): boolean {
-  const message = getCenteredVisibleUserMessage();
-
-  if (!message) return false;
-
-  const isRepeatClick =
-    index === lastNonTextHighlightIndex &&
-    message === lastNonTextHighlightElement;
-  const shouldWaitForScroll = attempts > 1 && !isRepeatClick;
-
-  if (shouldWaitForScroll && message === startElement) {
-    return false;
-  }
-
-  highlightMatchedElement(message);
-  lastNonTextHighlightIndex = index;
-  lastNonTextHighlightElement = message;
-  return true;
-}
-
-/**
- * Returns the visible user message whose center is closest to the viewport
- * center, or null if no user message is currently rendered.
- * @returns {HTMLElement | null}
- */
-function getCenteredVisibleUserMessage(): HTMLElement | null {
-  const messages = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-message-author-role="user"]')
-  );
-
-  if (messages.length === 0) return null;
-
-  const viewportCenter = window.innerHeight / 2;
-  return messages
-    .map((element) => {
-      const rect = element.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-
-      return {
-        element,
-        distance: Math.abs(center - viewportCenter),
-      };
-    })
-    .sort((a, b) => a.distance - b.distance)[0]?.element;
 }
 
 /**
@@ -1522,22 +623,54 @@ export function jumpToAbsoluteEdge(
 ): void {
   keepFollowing();
 
-  const container = getChatGptScrollContainer();
-  if (container) {
-    const targetTop = edge === 'top' ? 0 : container.scrollHeight;
-    container.scrollTo({
-      top: targetTop,
-      behavior,
-    });
+  // Straight to the real scroll container, matching what the console
+  // probe does — do not route through getChatGptScrollContainer, which
+  // can resolve to an inner overflow-y wrapper instead of the thread.
+  const container = document.querySelector<HTMLElement>(
+    '.thread-scroll-container'
+  );
+  if (!container) return;
 
-    // Override any pending smooth scrolls from click events
-    if (behavior === 'auto') {
-      setTimeout(() => {
-        container.scrollTo({ top: targetTop, behavior: 'auto' });
-      }, 50);
-      setTimeout(() => {
-        container.scrollTo({ top: targetTop, behavior: 'auto' });
-      }, 100);
+  const isReverse =
+    window.getComputedStyle(container).flexDirection === 'column-reverse';
+  const maxScrollTop = container.scrollHeight - container.clientHeight;
+  const targetTop = edge === 'top'
+    ? (isReverse ? -maxScrollTop : 0)
+    : (isReverse ? 0 : maxScrollTop);
+
+  container.scrollTop = targetTop;
+
+  // Wait for ChatGPT's lazy backfill to actually finish before re-asserting.
+  // ChatGPT fetches older conversation pages on demand; while it is fetching
+  // the page, scrollHeight grows with every newly mounted turn. Once it
+  // stops growing for several consecutive polls (i.e. the last fetch
+  // returned the final page, or there was nothing more to load), we know
+  // the new scrollTop has had its full effect — re-apply the target and
+  // exit. The hard timeout is only a safety net for the case where the
+  // fetch never resolves.
+  void (async () => {
+    const startHeight = container.scrollHeight;
+    let stableChecks = 0;
+    const REQUIRED_STABLE = 3;
+    const MAX_MS = 15000;
+    const start = Date.now();
+    while (Date.now() - start < MAX_MS) {
+      await new Promise<void>(function (resolve) {
+        setTimeout(resolve, 500);
+      });
+      if (container.scrollHeight > startHeight + 50) {
+        // a new page just landed; reset the stability counter
+        stableChecks = 0;
+      } else {
+        stableChecks += 1;
+        if (stableChecks >= REQUIRED_STABLE) {
+          // scrollHeight has settled; re-assert the target so the page
+          // settles on the requested edge instead of being snapped back by
+          // the last asynchronous anchor recompute.
+          container.scrollTop = targetTop;
+          return;
+        }
+      }
     }
-  }
+  })();
 }

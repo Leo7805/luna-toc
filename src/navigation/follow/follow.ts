@@ -8,18 +8,12 @@
 interface FollowOptions {
   listSelector: string;
   ignoredScrollSelector: string;
-  getNativeActiveIndex: () => number;
   setActiveIndex: (index: number) => void;
 }
 const SCROLL_SETTLE_DELAY_MS = 300;
-const ACTIVE_SETTLE_RETRY_MS = 300;
-const ACTIVE_SETTLE_ATTEMPTS = 6;
 const FOLLOW_AFTER_JUMP_MS = 1800;
 
 let followUntil = 0;
-let activeSettleTimer: ReturnType<typeof setTimeout> | null = null;
-let nativeActiveIndexBeforeChatScroll = -1;
-let getNativeActiveIndex: () => number = () => -1;
 let setActiveIndex: (index: number) => void = () => {};
 let ignoredScrollSelector = '';
 
@@ -28,11 +22,9 @@ let ignoredScrollSelector = '';
  * @param {Object} options
  * @param {string} options.listSelector
  * @param {string} options.ignoredScrollSelector
- * @param {() => number} options.getNativeActiveIndex
  * @param {(index: number) => void} options.setActiveIndex
  */
 export function initializeFollow(options: FollowOptions): void {
-  getNativeActiveIndex = options.getNativeActiveIndex;
   setActiveIndex = options.setActiveIndex;
   ignoredScrollSelector = options.ignoredScrollSelector;
 
@@ -74,9 +66,6 @@ export function keepFollowing(duration = FOLLOW_AFTER_JUMP_MS): void {
  */
 export function stopFollowing(): void {
   followUntil = 0;
-  nativeActiveIndexBeforeChatScroll = -1;
-  if (activeSettleTimer !== null) clearTimeout(activeSettleTimer);
-  activeSettleTimer = null;
 }
 
 /**
@@ -109,61 +98,9 @@ function isIgnoredScrollEvent(event: Event): boolean {
 }
 
 /**
- * Opens a short follow window and schedules native active settling after
- * chat/page scrolling becomes idle.
+ * Opens a short follow window that lets the navigator controller update the
+ * sidebar active row while the chat container is still scrolling.
  */
 function handleChatScroll(): void {
-  if (!isFollowing()) {
-    nativeActiveIndexBeforeChatScroll = getNativeActiveIndex();
-  }
-
   keepFollowing(SCROLL_SETTLE_DELAY_MS);
-  scheduleActiveSettle();
-}
-
-/**
- * Debounces native active settling until scrolling has paused briefly.
- */
-function scheduleActiveSettle(): void {
-  if (activeSettleTimer !== null) clearTimeout(activeSettleTimer);
-
-  activeSettleTimer = setTimeout(() => {
-    settleActiveFromNative(ACTIVE_SETTLE_ATTEMPTS);
-  }, SCROLL_SETTLE_DELAY_MS);
-}
-
-/**
- * Retries native active reads until ChatGPT reports a changed active prompt
- * or the attempt budget is exhausted.
- * @param {number} attempts
- */
-function settleActiveFromNative(attempts: number): void {
-  keepFollowing(ACTIVE_SETTLE_RETRY_MS);
-
-  const nativeIndex = getNativeActiveIndex();
-  const hasNativeActive = nativeIndex !== -1;
-  const nativeActiveChanged =
-    hasNativeActive && nativeIndex !== nativeActiveIndexBeforeChatScroll;
-
-  if (hasNativeActive) {
-    setActiveIndex(nativeIndex);
-  }
-
-  if (nativeActiveChanged || attempts <= 1) {
-    finishActiveSettle();
-    return;
-  }
-
-  activeSettleTimer = setTimeout(() => {
-    settleActiveFromNative(attempts - 1);
-  }, ACTIVE_SETTLE_RETRY_MS);
-}
-
-/**
- * Ends the settle cycle and closes the sidebar follow window.
- */
-function finishActiveSettle(): void {
-  followUntil = 0;
-  nativeActiveIndexBeforeChatScroll = -1;
-  activeSettleTimer = null;
 }
