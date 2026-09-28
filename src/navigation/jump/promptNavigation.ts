@@ -273,38 +273,18 @@ async function loadUntilMountedViaViewport(
       break;
     }
     const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
-    // Cross the remaining distance plus an overshoot so ChatGPT's
-    // virtual mount sees a scrollTop value *past* the target. In our
-    // to-top testing that pattern triggered ChatGPT into "load more
-    // memory" mode and bulk-mounted ~150 prompts in a single burst,
-    // instead of the 3–6 prompts it mounts when asked for the
-    // immediate vicinity. The final `scrollIntoView` in
-    // `finishIndependentVirtualJump` brings the target back into
-    // view, so the user never sees the overshoot. If the overshoot
-    // overshoots the target entirely, the next iteration just steps
-    // back the other way (hard cap = 30 absorbs any pathological case).
-    const nearestMountedIdx = nearestMountedTo(targetIndex, sidebarIndices);
-    const distancePrompts = Math.abs(targetIndex - nearestMountedIdx);
-    const overshootPrompts =
-      distancePrompts <= LOAD_STEP_NO_OVERSHOOT_DISTANCE
-        ? 0
-        : Math.max(
-            LOAD_STEP_OVERSHOOT_MIN_PROMPTS,
-            distancePrompts * LOAD_STEP_OVERSHOOT_FRACTION
-          );
-    const stepPrompts =
-      distancePrompts > LOAD_STEP_NO_OVERSHOOT_DISTANCE
-        ? // Far mode: keep the aggressive "distance plus overshoot" step
-          // that triggers ChatGPT's bulk-mount response on long jumps.
-          distancePrompts + overshootPrompts
-        : // Near mode: half-distance shrinker, clamped to ≤ one mount
-          // window so the step never crosses the bulk-mount boundary.
-          Math.min(
-            MOUNT_WINDOW_PROMPTS,
-            Math.max(1, Math.floor(distancePrompts / 2))
-          );
-    const stepViewports = stepPrompts / PROMPTS_PER_VIEWPORT_ESTIMATE;
-    const step = direction * stepViewports * window.innerHeight;
+    // One viewport per step, no overshoot. Each step writes scrollTop,
+    // then we synchronously re-scan the queue and, if the target
+    // hasn't mounted yet, wait for the next MutationObserver tick. The
+    // chat content is large enough that the whole conversation is
+    // never in the DOM at once, so we walk one viewport at a time and
+    // let each scrollTop write trigger ChatGPT's normal incremental
+    // backfill. Far-mode overshoot + bulk-mount triggers were the
+    // source of the long-conversation drift bug (queue stale entries
+    // dragging direction away from the target); the gentler walk
+    // trades a few extra iterations for a direction signal that's
+    // actually trustworthy on every attempt.
+    const step = direction * window.innerHeight;
     const beforeScrollTop = container.scrollTop;
     const nextScrollTop = beforeScrollTop + step;
     const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
