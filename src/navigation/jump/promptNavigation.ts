@@ -149,6 +149,11 @@ async function loadUntilMountedViaViewport(
   // workspace; we deliberately round down so a step never overshoots
   // a real mount window.
   const PROMPTS_PER_VIEWPORT_ESTIMATE = 4;
+  // Empirical width of the mount window that ChatGPT's column-reverse
+  // renderer produces per scrollTop write. A near-mode step larger
+  // than this window crosses the target without producing any mount
+  // that contains it.
+  const MOUNT_WINDOW_PROMPTS = 4;
   const LOAD_HARD_CAP = 30;
   const LOAD_SETTLE_MS = 1500;
   const root = document;
@@ -219,14 +224,18 @@ async function loadUntilMountedViaViewport(
             LOAD_STEP_OVERSHOOT_MIN_PROMPTS,
             distancePrompts * LOAD_STEP_OVERSHOOT_FRACTION
           );
-    const stepPrompts = distancePrompts + overshootPrompts;
-    const stepViewports = Math.min(
-      LOAD_STEP_VIEWPORTS_MAX,
-      Math.max(
-        LOAD_STEP_VIEWPORTS_MIN,
-        stepPrompts / PROMPTS_PER_VIEWPORT_ESTIMATE
-      )
-    );
+    const stepPrompts =
+      distancePrompts > LOAD_STEP_NO_OVERSHOOT_DISTANCE
+        ? // Far mode: keep the aggressive "distance plus overshoot" step
+          // that triggers ChatGPT's bulk-mount response on long jumps.
+          distancePrompts + overshootPrompts
+        : // Near mode: half-distance shrinker, clamped to ≤ one mount
+          // window so the step never crosses the bulk-mount boundary.
+          Math.min(
+            MOUNT_WINDOW_PROMPTS,
+            Math.max(1, Math.floor(distancePrompts / 2))
+          );
+    const stepViewports = stepPrompts / PROMPTS_PER_VIEWPORT_ESTIMATE;
     const step = direction * stepViewports * window.innerHeight;
     const beforeScrollTop = container.scrollTop;
     const nextScrollTop = beforeScrollTop + step;
@@ -238,53 +247,45 @@ async function loadUntilMountedViaViewport(
       ? Math.max(-maxScrollTop, Math.min(0, nextScrollTop))
       : Math.max(0, Math.min(maxScrollTop, nextScrollTop));
     container.scrollTop = clampedScrollTop;
+    logLoadStep({
+      attempt,
+      phase: 'step',
+      direction,
+      beforeScrollTop,
+      afterScrollTop: clampedScrollTop,
+      deltaScrollTop: clampedScrollTop - beforeScrollTop,
+    });
 
-    // Immediate re-scan: ChatGPT mounts Layer 2 (in-memory) prompts
-    // synchronously in response to `scrollTop` writes in many cases,
-    // so we don't sleep before checking again. If the target is here,
-    // it's an instant hit — no "wasted" settle time.
-    const afterScrollHit = findTargetInQueue(
+    // Wait for ChatGPT's React commit + browser layout to finish the
+    // mount triggered by the scrollTop write, then check the queue.
+    const MOUNT_WAIT_TIMEOUT_MS = 500;
+    const waitResult = await waitForMount(
       mountQueue,
+      prompts,
+      root,
       targetId,
-      targetIndex
+      targetIndex,
+      myNavVersion,
+      MOUNT_WAIT_TIMEOUT_MS
     );
-    if (afterScrollHit) {
-      logLoadStep({ attempt, result: 'found-after-scroll', direction });
-      return afterScrollHit;
+    if (waitResult === 'cancelled') {
+      logLoadStep({ attempt, result: 'cancelled-after-wait' });
+      return null;
     }
-
-    // Absorb any prompts ChatGPT did mount, even if the target wasn't
-    // among them. They become the next direction-anchor for the
-    // following iteration without a wait.
-    const newEntries = detectNewMounts(mountQueue, prompts, root);
-    if (newEntries.length > 0) {
-      for (const entry of newEntries) {
-        mountQueue.set(entry.unitKey, entry);
-      }
-      logLoadStep({ attempt, result: 'absorbed', count: newEntries.length });
-
-      // Re-check with the freshly extended queue.
-      const postAbsorbHit = findTargetInQueue(
-        mountQueue,
-        targetId,
-        targetIndex
-      );
-      if (postAbsorbHit) {
-        logLoadStep({
-          attempt,
-          result: 'found-after-absorb',
-          direction,
-        });
-        return postAbsorbHit;
-      }
-      // No wait — the next step will keep pushing.
-      continue;
+    if (waitResult) {
+      logLoadStep({
+        attempt,
+        result: 'found-after-wait',
+        direction,
+      });
+      return waitResult;
     }
-
-    // No new mounts. Either ChatGPT has clamped us (Layer 3 fetch
-    // pending) or the mount window slid without picking up anything
-    // new. Either way we need ChatGPT to actually settle, so fall
-    // through to the to-top-style single-shot settle.
+    // No hit within the wait. Either ChatGPT has clamped us at the
+    // edge (Layer 3 fetch pending) or the mount window slid without
+    // picking up anything new. Either way we need ChatGPT to
+    // actually settle, so fall through to the to-top-style settle
+    // that sends a batch of scrollTop writes plus a longer observer
+    // wait.
     const settled = await settleOnce(
       container,
       mountQueue,
@@ -414,6 +415,81 @@ async function settleOnce(
 }
 
 /**
+ * One round of "wait for ChatGPT to actually finish mounting after a
+ * `scrollTop` change, then check if the target is in the queue".
+ *
+ * `scrollTop = N` triggers ChatGPT's virtual mount asynchronously
+ * through React commit + browser layout, so an immediate
+ * `querySelectorAll` reads the DOM *before* ChatGPT has inserted the
+ * new bubble. The target ends up one slot outside the bulk-mount
+ * range, the loop walks past it on the next attempt with a tiny step,
+ * and the run stalls.
+ *
+ * `waitForMount` listens for the MutationObserver that fires when
+ * ChatGPT's React commit lands, debounced so the per-node callbacks
+ * coalesce into one effective "mount complete" signal. Returns the
+ * target element if it landed inside the wait, `null` on timeout, or
+ * `'cancelled'` if the user clicked another prompt mid-flight.
+ */
+async function waitForMount(
+  mountQueue: MountQueue,
+  prompts: ReadonlyArray<{ id: string }>,
+  root: ParentNode,
+  targetId: string,
+  targetIndex: number,
+  myNavVersion: number,
+  timeoutMs: number
+): Promise<HTMLElement | null | 'cancelled'> {
+  const OBSERVER_DEBOUNCE_MS = 10;
+
+  function checkAfterMount(): HTMLElement | null {
+    const newEntries = detectNewMounts(mountQueue, prompts, root);
+    for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
+    return findTargetInQueue(mountQueue, targetId, targetIndex);
+  }
+
+  const immediateHit = checkAfterMount();
+  if (immediateHit) return immediateHit;
+
+  return new Promise<HTMLElement | null | 'cancelled'>(function (resolve) {
+    let settled = false;
+
+    function finish(result: HTMLElement | null | 'cancelled'): void {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      resolve(result);
+    }
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new MutationObserver(function () {
+      if (myNavVersion !== navigationJumpVersion) {
+        finish('cancelled');
+        return;
+      }
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        if (myNavVersion !== navigationJumpVersion) {
+          finish('cancelled');
+          return;
+        }
+        const hit = checkAfterMount();
+        if (hit) {
+          finish(hit);
+        }
+      }, OBSERVER_DEBOUNCE_MS);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(function () {
+      finish(checkAfterMount());
+    }, timeoutMs);
+  });
+}
+
+/**
+ /**
  * Returns 1 if the target sits "below" the closest mounted prompt in
  * sidebar-index terms (so we should scroll toward newer turns), and -1
  * if it sits "above" (so we should scroll toward older turns). Accepts
