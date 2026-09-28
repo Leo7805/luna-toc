@@ -312,17 +312,22 @@ async function loadUntilMountedViaViewport(
 }
 
 /**
- * One round of the to-top-style settle: re-assert `scrollTop` toward
- * the target direction, then poll the ChatGPT mount window every
- * 50 ms for fresh entries until either the target shows up in the
- * `MountQueue`, the navigation version is bumped (the user picked
- * another prompt), or the `settleMs` budget expires.
+ * One round of the to-top-style settle: send a small batch of
+ * `scrollTop` writes spaced 10 ms apart, then wait for ChatGPT's
+ * MutationObserver to report that the DOM has changed (debounced to
+ * 10 ms to coalesce the per-node callbacks React fires during a
+ * batch mount). Returns the target element if it landed inside the
+ * batch, otherwise null so the outer loop can decide whether to
+ * take another step.
  *
- * Returns the target element if the settle produced a hit, or null
- * to let the outer loop decide whether to take another step. A null
- * return does NOT mean "give up" — the outer loop still has budget
- * for further attempts, and another step + settle may push us into
- * a different ChatGPT mount window.
+ * The previous design polled the DOM every 50 ms while writing a
+ * single `scrollTop` per attempt, which left the per-mount latency
+ * on the poll interval floor. Sending a batch of `scrollTop` writes
+ * mimics what a manual flick does — multiple scroll events in the
+ * same JS turn — and lets ChatGPT coalesce them into one bulk mount
+ * response. The MutationObserver fires the moment React commits the
+ * new nodes, so we don't have to wait out a 50 ms poll after the
+ * mount has already landed.
  */
 async function settleOnce(
   container: HTMLElement,
@@ -342,52 +347,70 @@ async function settleOnce(
     }
   }
 
-  // Re-assert the step from the current scrollTop so we don't keep
-  // pushing further past where the previous attempt landed.
+  // Send the same direction step a handful of times in a tight loop.
+  // Each write moves one viewport toward the target; together they
+  // mimic a continuous flick. 10 ms between writes is short enough
+  // to land before ChatGPT has finished processing the previous one
+  // (so it sees a batch) and long enough to avoid being collapsed
+  // into a single no-op by the browser.
+  const MAX_BATCH_SIZE = 5;
+  const BATCH_INTERVAL_MS = 10;
   const maxScrollTop = container.scrollHeight - container.clientHeight;
   const step = direction * window.innerHeight;
-  const beforeScrollTop = container.scrollTop;
-  const nextScrollTop = beforeScrollTop + step;
-  const clampedScrollTop = isReverse
-    ? Math.max(-maxScrollTop, Math.min(0, nextScrollTop))
-    : Math.max(0, Math.min(maxScrollTop, nextScrollTop));
-  container.scrollTop = clampedScrollTop;
-
-  // Poll the mount window every 50 ms instead of sleeping the whole
-  // settleMs up front. The previous design unconditionally slept 1.5 s
-  // per cross-step, which made jumps across a long conversation take
-  // 8+ iterations × 1.5 s ≈ 12 s even when ChatGPT's in-memory layer
-  // already had the target prompt and just needed the DOM to flip.
-  // 50 ms is short enough that the worst-case added latency is one
-  // poll interval, and long enough that we don't burn CPU on the
-  // settle path.
-  const SETTLE_POLL_MS = 50;
-  const start = Date.now();
-  while (Date.now() - start < settleMs) {
-    if (myNavVersion !== navigationJumpVersion) return null;
+  for (let i = 0; i < MAX_BATCH_SIZE; i++) {
+    const next = container.scrollTop + step;
+    const clampedScrollTop = isReverse
+      ? Math.max(-maxScrollTop, Math.min(0, next))
+      : Math.max(0, Math.min(maxScrollTop, next));
+    container.scrollTop = clampedScrollTop;
     await new Promise<void>(function (resolve) {
-      setTimeout(resolve, SETTLE_POLL_MS);
+      setTimeout(resolve, BATCH_INTERVAL_MS);
     });
-
-    // Pull whatever ChatGPT mounted during the wait into the queue
-    // before re-scanning it for the target. `detectNewMounts` also
-    // refreshes the element reference on existing entries, so a
-    // re-mount by ChatGPT during virtual render doesn't leave us
-    // holding a stale node.
-    const newEntries = detectNewMounts(mountQueue, prompts, root);
-    for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
-    if (newEntries.length > 0) {
-      logSettlePoll({
-        elapsedMs: Date.now() - start,
-        newCount: newEntries.length,
-      });
-    }
-
-    const hit = findTargetInQueue(mountQueue, targetId, targetIndex);
-    if (hit) return hit;
   }
+
+  // Watch for the batch's mount response via MutationObserver.
+  // Debounced so the per-node callbacks React fires during a batch
+  // mount coalesce into one effective "mount complete" signal.
+  const OBSERVER_DEBOUNCE_MS = 10;
+  const OBSERVER_TIMEOUT_MS = Math.max(settleMs, 100);
+  const changed = await new Promise<boolean>(function (resolve) {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new MutationObserver(function () {
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        observer.disconnect();
+        if (debounceTimer !== null) clearTimeout(debounceTimer);
+        debounceTimer = null;
+        resolve(true);
+      }, OBSERVER_DEBOUNCE_MS);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(function () {
+      observer.disconnect();
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      resolve(false);
+    }, OBSERVER_TIMEOUT_MS);
+  });
   if (myNavVersion !== navigationJumpVersion) return null;
-  return null;
+
+  logSettlePoll({
+    phase: 'observer-returned',
+    changed,
+    elapsedMs: OBSERVER_TIMEOUT_MS,
+  });
+
+  // Pull whatever ChatGPT mounted during the wait into the queue
+  // before re-scanning it for the target. `detectNewMounts` also
+  // refreshes the element reference on existing entries, so a
+  // re-mount by ChatGPT during virtual render doesn't leave us
+  // holding a stale node.
+  const newEntries = detectNewMounts(mountQueue, prompts, root);
+  for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
+
+  return findTargetInQueue(mountQueue, targetId, targetIndex);
 }
 
 /**
