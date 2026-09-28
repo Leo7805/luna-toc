@@ -120,8 +120,19 @@ async function loadUntilMountedViaViewport(
   container: HTMLElement,
   jumpId: string
 ): Promise<HTMLElement | null> {
+  // Step-size bounds for the half-distance heuristic below. The
+  // minimum keeps very-close jumps from being a single-pixel nudge
+  // that ChatGPT may ignore; the maximum caps how far a single write
+  // can overshoot the target so a "we missed by 16 prompts" miss is
+  // recovered within one extra iteration rather than several.
+  const LOAD_STEP_VIEWPORTS_MIN = 0.5;
+  const LOAD_STEP_VIEWPORTS_MAX = 4;
+  // Rough estimate of how many prompts fit into a single viewport.
+  // 200 px is what the previous log-based testing showed on this
+  // workspace; we deliberately round down so a step never overshoots
+  // a real mount window.
+  const PROMPTS_PER_VIEWPORT_ESTIMATE = 4;
   const LOAD_HARD_CAP = 30;
-  const LOAD_STEP_VIEWPORTS = 1;
   const LOAD_SETTLE_MS = 1500;
   const root = document;
 
@@ -172,7 +183,25 @@ async function loadUntilMountedViaViewport(
     }
     const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
     const maxScrollTop = container.scrollHeight - container.clientHeight;
-    const step = direction * LOAD_STEP_VIEWPORTS * window.innerHeight;
+    // Use a half-distance heuristic instead of a fixed viewport stride.
+    // ChatGPT responds to each scrollTop write with a discrete burst of
+    // ~3–6 mounts, so a fixed 1-viewport step walks a 60-prompt gap in
+    // ~20 iterations even though the targets are already sitting in
+    // ChatGPT's in-memory layer. Asking ChatGPT for half the remaining
+    // distance per step makes it spend those bursts on a meaningfully
+    // larger slice of the conversation; the cap at
+    // LOAD_STEP_VIEWPORTS_MAX keeps one overshoot from skipping the
+    // target by too much.
+    const nearestMountedIdx = nearestMountedTo(targetIndex, sidebarIndices);
+    const distancePrompts = Math.abs(targetIndex - nearestMountedIdx);
+    const stepViewports = Math.min(
+      LOAD_STEP_VIEWPORTS_MAX,
+      Math.max(
+        LOAD_STEP_VIEWPORTS_MIN,
+        distancePrompts / PROMPTS_PER_VIEWPORT_ESTIMATE / 2
+      )
+    );
+    const step = direction * stepViewports * window.innerHeight;
     const beforeScrollTop = container.scrollTop;
     const nextScrollTop = beforeScrollTop + step;
     // Clamp to the physical edge so we never write a scrollTop that
@@ -356,6 +385,28 @@ function computeDirectionTowardTarget(
     }
   }
   return targetIndex > nearestIdx ? 1 : -1;
+}
+
+/**
+ * Returns the sidebar index of the mounted prompt closest to
+ * `targetIndex`. The caller uses it to compute "how far is the
+ * target from the closest mounted prompt" before sizing the next
+ * `scrollTop` step.
+ */
+function nearestMountedTo(
+  targetIndex: number,
+  sidebarIndices: ReadonlyArray<number>
+): number {
+  let nearestIdx = sidebarIndices[0];
+  let currentDist = Math.abs(targetIndex - nearestIdx);
+  for (let j = 1; j < sidebarIndices.length; j++) {
+    const d = Math.abs(targetIndex - sidebarIndices[j]);
+    if (d < currentDist) {
+      currentDist = d;
+      nearestIdx = sidebarIndices[j];
+    }
+  }
+  return nearestIdx;
 }
 
 interface VirtualSearchContext {
