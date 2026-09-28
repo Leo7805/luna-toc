@@ -10,13 +10,19 @@ import {
   findRenderedChatGptPrompt as _findRenderedChatGptPrompt,
   findRenderedChatGptPromptByText as _findRenderedChatGptPromptByText,
   getChatGptScrollContainer as _getChatGptScrollContainer,
-  readMountedWithSidebarIdx as _readMountedWithSidebarIdx,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
 import {
   createChatGptNavigationJumpId as _createChatGptNavigationJumpId,
   logChatGptNavigationEvent as _logChatGptNavigationEvent,
   isJumpVizDebugEnabled as _isJumpVizDebugEnabled,
 } from '@/platforms/chatgpt/navigationDiagnostics';
+import {
+  detectNewMounts,
+  findTargetInQueue,
+  queueSidebarIndices,
+  seedMountQueue,
+  type MountQueue,
+} from './mountQueue';
 
 function platform() {
   return getActivePlatform();
@@ -33,11 +39,6 @@ const findRenderedChatGptPromptByText = (
 ): HTMLElement | null => _findRenderedChatGptPromptByText(text, root);
 const getChatGptScrollContainer = (root?: ParentNode): HTMLElement | null =>
   _getChatGptScrollContainer(root);
-const readMountedWithSidebarIdx = (
-  prompts: ReadonlyArray<{ id: string }>,
-  root: Parameters<typeof _readMountedWithSidebarIdx>[1] = document
-): ReturnType<typeof _readMountedWithSidebarIdx> =>
-  _readMountedWithSidebarIdx(prompts, root);
 const createChatGptNavigationJumpId = (): string =>
   platform().diagnostics.createJumpId();
 const logChatGptNavigationEvent = (
@@ -98,20 +99,19 @@ function logMountedPromptViz(label: string): void {
 
 /**
  * Step 2: actively load the target prompt when it is not currently
- * mounted. Each iteration takes a 2-viewport step toward the target,
- * waits briefly for ChatGPT to mount more turns, and re-checks whether
- * the target has appeared. Converges when the target mounts, when the
- * user clicks any TOC row (which bumps `navigationJumpVersion`), or
- * once `LOAD_HARD_CAP` retries have been exhausted.
+ * mounted. The loop maintains a `MountQueue` of every prompt LunaTOC
+ * knows has been mounted in the DOM, and steps `scrollTop` toward the
+ * target one viewport at a time. After each step the loop immediately
+ * re-scans the queue for the target — Layer 1 and synchronous Layer 2
+ * mounts (already in ChatGPT's memory) are returned with no wait.
+ * When no new prompts mount across a step, we enter a single-shot
+ * `settleOnce` that re-asserts `scrollTop` and waits for ChatGPT's
+ * async backfill (the case where the target sits in Layer 3 and needs
+ * a network fetch).
  *
- * The 2-viewport step size was chosen empirically: large enough to make
- * progress on long conversations, small enough that a missed target is
- * recovered within one or two extra iterations rather than at the hard
- * cap. The old `waitForMountedChange` MutationObserver signal was
- * unreliable against ChatGPT's row-by-row async backfill (the mount
- * set kept shifting even when the target wasn't anywhere near), so
- * convergence is now purely "target is mounted" — a business-level
- * condition that doesn't depend on ChatGPT's transient DOM shape.
+ * Converges when the target mounts, when the user clicks any other
+ * TOC row (which bumps `navigationJumpVersion`), or once
+ * `LOAD_HARD_CAP` retries have been exhausted.
  */
 async function loadUntilMountedViaViewport(
   targetId: string,
@@ -121,13 +121,10 @@ async function loadUntilMountedViaViewport(
   jumpId: string
 ): Promise<HTMLElement | null> {
   const LOAD_HARD_CAP = 30;
-  const LOAD_SETTLE_MS = 2000;
-  const LOAD_STEP_VIEWPORTS = 2;
+  const LOAD_STEP_VIEWPORTS = 1;
+  const LOAD_SETTLE_MS = 1500;
   const root = document;
 
-  // Per-step progress, printed only when the `chatTocDebugJumpViz` toggle
-  // is enabled so it stays independent of the noisy `chatTocDebugJump`
-  // diagnostic stream.
   function logLoadStep(details: Record<string, unknown>): void {
     if (isJumpVizDebugEnabled()) {
       console.log('[LunaTOC load-step]', details);
@@ -141,40 +138,40 @@ async function loadUntilMountedViaViewport(
   const isReverse =
     window.getComputedStyle(container).flexDirection === 'column-reverse';
 
+  // Seed the queue with whatever ChatGPT currently has mounted.
+  // Step 2 only enters here when the fast path already missed, so
+  // the seed covers Layer 1 plus any sibling turns ChatGPT happens
+  // to have on screen.
+  const mountQueue: MountQueue = seedMountQueue(prompts, root);
+  if (mountQueue.size === 0) {
+    logLoadStep({ result: 'no-mounted-at-seed' });
+    return null;
+  }
+
+  // Cheap pre-check: if the target is already in the seed, the user
+  // just happened to click a prompt that ChatGPT had on screen.
+  const initialHit = findTargetInQueue(mountQueue, targetId, targetIndex);
+  if (initialHit) {
+    logLoadStep({ result: 'found-in-seed' });
+    return initialHit;
+  }
+
   for (let attempt = 0; attempt < LOAD_HARD_CAP; attempt++) {
-    // Convergence signal 1: the user picked another prompt while we
-    // were sliding toward the target. Bail without touching the
-    // container again so the new jump owns the scroll.
+    // Cancellation: the user picked another prompt mid-flight.
     if (myNavVersion !== navigationJumpVersion) {
       logLoadStep({ attempt, result: 'cancelled' });
       return null;
     }
 
-    // Convergence signal 2: the target prompt is mounted. Hand it back
-    // so the caller can run `finishIndependentVirtualJump`.
-    const target = findRenderedChatGptPrompt(targetId, root);
-    if (target) {
-      logLoadStep({ attempt, result: 'found' });
-      return target;
-    }
-
-    // Read the currently-mounted window to figure out which way to step.
-    // If nothing is mounted at all, ChatGPT's mount window has gone
-    // blank (rare) and continuing would just thrash — give up.
-    const mounted = readMountedWithSidebarIdx(prompts, root);
-    if (mounted.length === 0) {
-      logLoadStep({ attempt, result: 'no-mounted' });
+    // Compute the next step using the queue's current sidebar-index
+    // spread. If the queue is empty there's nothing left to chase.
+    const sidebarIndices = queueSidebarIndices(mountQueue);
+    if (sidebarIndices.length === 0) {
+      logLoadStep({ attempt, result: 'queue-empty' });
       break;
     }
-
-    const direction = computeDirectionTowardTarget(targetIndex, mounted);
+    const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
     const maxScrollTop = container.scrollHeight - container.clientHeight;
-    // "direction = 1" means the target is at a newer (larger) sidebar
-    // index; physically the newer turns sit at the bottom of the
-    // visible area regardless of the container's flex-direction. So
-    // moving toward a newer prompt must move toward the container's
-    // physical bottom — which in a column-reverse container means
-    // *increasing* scrollTop toward 0, the same as in a normal flow.
     const step = direction * LOAD_STEP_VIEWPORTS * window.innerHeight;
     const beforeScrollTop = container.scrollTop;
     const nextScrollTop = beforeScrollTop + step;
@@ -187,19 +184,72 @@ async function loadUntilMountedViaViewport(
       : Math.max(0, Math.min(maxScrollTop, nextScrollTop));
     container.scrollTop = clampedScrollTop;
 
-    logLoadStep({
-      attempt,
-      direction,
-      targetIndex,
-      nearestMountedIdx: nearestMountedIndex(targetIndex, mounted),
-      beforeScrollTop,
-      afterScrollTop: container.scrollTop,
-      maxScrollTop,
-    });
+    // Immediate re-scan: ChatGPT mounts Layer 2 (in-memory) prompts
+    // synchronously in response to `scrollTop` writes in many cases,
+    // so we don't sleep before checking again. If the target is here,
+    // it's an instant hit — no "wasted" settle time.
+    const afterScrollHit = findTargetInQueue(
+      mountQueue,
+      targetId,
+      targetIndex
+    );
+    if (afterScrollHit) {
+      logLoadStep({ attempt, result: 'found-after-scroll', direction });
+      return afterScrollHit;
+    }
 
-    await new Promise<void>(function (resolve) {
-      setTimeout(resolve, LOAD_SETTLE_MS);
-    });
+    // Absorb any prompts ChatGPT did mount, even if the target wasn't
+    // among them. They become the next direction-anchor for the
+    // following iteration without a wait.
+    const newEntries = detectNewMounts(mountQueue, prompts, root);
+    if (newEntries.length > 0) {
+      for (const entry of newEntries) {
+        mountQueue.set(entry.unitKey, entry);
+      }
+      logLoadStep({ attempt, result: 'absorbed', count: newEntries.length });
+
+      // Re-check with the freshly extended queue.
+      const postAbsorbHit = findTargetInQueue(
+        mountQueue,
+        targetId,
+        targetIndex
+      );
+      if (postAbsorbHit) {
+        logLoadStep({
+          attempt,
+          result: 'found-after-absorb',
+          direction,
+        });
+        return postAbsorbHit;
+      }
+      // No wait — the next step will keep pushing.
+      continue;
+    }
+
+    // No new mounts. Either ChatGPT has clamped us (Layer 3 fetch
+    // pending) or the mount window slid without picking up anything
+    // new. Either way we need ChatGPT to actually settle, so fall
+    // through to the to-top-style single-shot settle.
+    const settled = await settleOnce(
+      container,
+      mountQueue,
+      prompts,
+      root,
+      targetId,
+      targetIndex,
+      direction,
+      isReverse,
+      myNavVersion,
+      LOAD_SETTLE_MS
+    );
+    if (settled) {
+      logLoadStep({ attempt, result: 'found-after-settle' });
+      return settled;
+    }
+    if (myNavVersion !== navigationJumpVersion) {
+      logLoadStep({ attempt, result: 'cancelled-after-settle' });
+      return null;
+    }
   }
 
   logLoadStep({ result: 'hard-cap-reached' });
@@ -207,47 +257,72 @@ async function loadUntilMountedViaViewport(
 }
 
 /**
- * Returns 1 if the target sits "below" the closest mounted prompt in
- * sidebar-index terms (so we should scroll toward newer turns), and -1
- * if it sits "above" (so we should scroll toward older turns). Callers
- * multiply by their container's direction sign themselves.
+ * One round of the to-top-style settle: re-assert `scrollTop` toward
+ * the target direction, wait briefly for ChatGPT's async backfill,
+ * collect any new mounts into the queue, then re-check the queue.
+ *
+ * Returns the target element if the settle produced a hit, or null
+ * to let the outer loop decide whether to take another step. A null
+ * return does NOT mean "give up" — the outer loop still has budget
+ * for further attempts, and another step + settle may push us into
+ * a different ChatGPT mount window.
  */
-function computeDirectionTowardTarget(
+async function settleOnce(
+  container: HTMLElement,
+  mountQueue: MountQueue,
+  prompts: ReadonlyArray<{ id: string }>,
+  root: ParentNode,
+  targetId: string,
   targetIndex: number,
-  mounted: ReadonlyArray<{ sidebarIdx: number }>
-): 1 | -1 {
-  let nearestIdx = mounted[0].sidebarIdx;
-  let currentDist = Math.abs(targetIndex - nearestIdx);
-  for (let j = 1; j < mounted.length; j++) {
-    const d = Math.abs(targetIndex - mounted[j].sidebarIdx);
-    if (d < currentDist) {
-      currentDist = d;
-      nearestIdx = mounted[j].sidebarIdx;
-    }
-  }
-  return targetIndex > nearestIdx ? 1 : -1;
+  direction: 1 | -1,
+  isReverse: boolean,
+  myNavVersion: number,
+  settleMs: number
+): Promise<HTMLElement | null> {
+  // Re-assert the step from the current scrollTop so we don't keep
+  // pushing further past where the previous attempt landed.
+  const maxScrollTop = container.scrollHeight - container.clientHeight;
+  const step = direction * window.innerHeight;
+  const beforeScrollTop = container.scrollTop;
+  const nextScrollTop = beforeScrollTop + step;
+  const clampedScrollTop = isReverse
+    ? Math.max(-maxScrollTop, Math.min(0, nextScrollTop))
+    : Math.max(0, Math.min(maxScrollTop, nextScrollTop));
+  container.scrollTop = clampedScrollTop;
+
+  await new Promise<void>(function (resolve) {
+    setTimeout(resolve, settleMs);
+  });
+  if (myNavVersion !== navigationJumpVersion) return null;
+
+  // Pull whatever ChatGPT mounted during the wait into the queue.
+  const newEntries = detectNewMounts(mountQueue, prompts, root);
+  for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
+
+  return findTargetInQueue(mountQueue, targetId, targetIndex);
 }
 
 /**
- * Returns the sidebar index of the mounted prompt closest to `targetIndex`,
- * without the side-effect of `computeDirectionTowardTarget`. Used purely
- * for logging so the diagnostic dump shows how far the loop thinks it
- * is from the target each iteration.
+ * Returns 1 if the target sits "below" the closest mounted prompt in
+ * sidebar-index terms (so we should scroll toward newer turns), and -1
+ * if it sits "above" (so we should scroll toward older turns). Accepts
+ * a flat list of sidebar indices so callers don't have to materialise
+ * an array of objects just to ask for a direction.
  */
-function nearestMountedIndex(
+function computeDirectionTowardTarget(
   targetIndex: number,
-  mounted: ReadonlyArray<{ sidebarIdx: number }>
-): number {
-  let nearestIdx = mounted[0].sidebarIdx;
+  sidebarIndices: ReadonlyArray<number>
+): 1 | -1 {
+  let nearestIdx = sidebarIndices[0];
   let currentDist = Math.abs(targetIndex - nearestIdx);
-  for (let j = 1; j < mounted.length; j++) {
-    const d = Math.abs(targetIndex - mounted[j].sidebarIdx);
+  for (let j = 1; j < sidebarIndices.length; j++) {
+    const d = Math.abs(targetIndex - sidebarIndices[j]);
     if (d < currentDist) {
       currentDist = d;
-      nearestIdx = mounted[j].sidebarIdx;
+      nearestIdx = sidebarIndices[j];
     }
   }
-  return nearestIdx;
+  return targetIndex > nearestIdx ? 1 : -1;
 }
 
 interface VirtualSearchContext {
