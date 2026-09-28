@@ -17,7 +17,6 @@ const MAX_RETRIES = 20;
 describe('promptLoadingState', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    setLoading(false);
     clearSettleTimer();
     setOnSettleTimeout(() => {});
   });
@@ -26,15 +25,15 @@ describe('promptLoadingState', () => {
     vi.useRealTimers();
   });
 
-  it('starts not loading', () => {
-    expect(isLoading()).toBe(false);
+  it('starts loading (matches the controller initial state)', () => {
+    expect(isLoading()).toBe(true);
   });
 
   it('setLoading flips the flag', () => {
-    setLoading(true);
-    expect(isLoading()).toBe(true);
     setLoading(false);
     expect(isLoading()).toBe(false);
+    setLoading(true);
+    expect(isLoading()).toBe(true);
   });
 
   it('fires the timeout callback only after the retry budget is exhausted', () => {

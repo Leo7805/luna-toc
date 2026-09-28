@@ -15,7 +15,7 @@ import { APP_CONFIG } from '@/config/config';
 
 const MAX_SETTLE_RETRIES = 20;
 
-let loading = false;
+let loading = true;
 let settleTimer: ReturnType<typeof setTimeout> | null = null;
 let settleRetries = 0;
 let onSettleTimeout: (() => void) | null = null;

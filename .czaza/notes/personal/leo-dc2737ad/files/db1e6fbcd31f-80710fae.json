@@ -1,0 +1,15 @@
+{
+  "source": {
+    "sourceHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "defaults": {
+    "createdAt": "2026-09-28T08:21:58.811Z",
+    "updatedAt": "2026-09-28T08:21:58.811Z"
+  },
+  "fileNote": {
+    "userNote": "src/navigation/navigator/\n├── controller.ts          ← 顶层 facade：init / attach / sidebarController 注入（~80 行）\n├── dataSync.ts            ← 路由监听 + ChatGPT 数据采集 + 缓存 + 合并（#2, #3，~350 行）\n├── activeTracking.ts      ← 当前 active prompt 检测（#4 dead删 + #5 保留 + follow 同步）（~150 行）\n├── sidebar.ts             ← sidebar list 渲染 + 点击处理（#6，~300 行）\n└── jump.ts ← jumpToEdge / jumpToAbsoluteEdge / jumpToPromptIndex / lockPromptIndex / jumpProgress（#7 #8，~150 行）\n",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}
