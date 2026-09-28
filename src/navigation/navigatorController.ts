@@ -27,6 +27,19 @@ import {
   stopFollowing,
 } from '../navigation/follow/follow';
 import {
+  isLoading as isLoadingPrompts,
+  setLoading,
+  setOnSettleTimeout,
+  startSettleTimer,
+  clearSettleTimer,
+} from '../navigation/loading/promptLoadingState';
+import {
+  getJumpProgress as readJumpProgress,
+  setOnRender,
+  setJumpProgress as writeJumpProgress,
+  clearJumpProgress as resetJumpProgress,
+} from '../navigation/loading/jumpProgressState';
+import {
   initializePromptNavigation,
   jumpToAbsoluteEdge as jumpToPageEdge,
   jumpToConversationEdge,
@@ -106,31 +119,7 @@ export const navigatorController = (() => {
   let activePromptObserver: IntersectionObserver | null = null;
   let activePromptMutationObserver: MutationObserver | null = null;
   let activePromptMutationTimer: ReturnType<typeof setTimeout> | null = null;
-  /** True while prompts are still arriving (backfill / pagination in flight). */
-  let isLoadingPrompts = true;
-  /** Number of fallback settle-timer re-arms while waiting for the ENDED signal. */
-  let loadingSettleRetries = 0;
-  const MAX_LOADING_SETTLE_RETRIES = 20;
-  /**
-   * Tracks whether the auto-jump-to-last has fired for the current load
-   * cycle. Currently unused — `jumpToLastIfIdle`'s `activeNavigatorIndex
-   * !== null` gate plus `resetStateForCurrentRoute`'s index reset on
-   * route switch already gate re-firing correctly.
-   */
-  /**
-   * Fallback timer for cases where neither `CHATGPT_CONVERSATION_DATA`,
-   * `CHATGPT_CONVERSATION_ENDED`, nor the DOM observer provides a
-   * "loaded" signal. ChatGPT can hydrate a conversation entirely from
-   * its own client-side cache (or test setups can mock one from
-   * `localStorage`), in which case no page-hook event ever fires and
-   * ChatGPT's rendered DOM may even lack `[data-message-author-role]`
-   * user-message elements. The DOM observer handles the common
-   * cache-rendered case, this timer handles everything else. Configured
-   * via `APP_CONFIG.ui.sidebar.loadingSettleMs`. Cancelled automatically
-   * whenever the loading flag drops, so it never fires after a normal
-   * load or after the user starts typing.
-   */
-  let loadingSettleTimer: ReturnType<typeof setTimeout> | null = null;
+  /** (loading state now lives in src/navigation/loading/promptLoadingState.ts) */
   /**
    * Marks prompts loading as finished for the active conversation and re-renders
    * the sidebar so the status band leaves `loading` mode. Replaces the prior
@@ -141,49 +130,11 @@ export const navigatorController = (() => {
    * detects settled user-message elements, and by the fallback settle timer.
    */
   function markLoadingComplete(): void {
-    if (!isLoadingPrompts) return;
-    isLoadingPrompts = false;
-    if (loadingSettleTimer !== null) {
-      clearTimeout(loadingSettleTimer);
-      loadingSettleTimer = null;
-    }
+    if (!isLoadingPrompts()) return;
+    setLoading(false);
+    clearSettleTimer();
     render({ completed: true });
   }
-
-  /**
-   * (Re)arms the fallback settle timer. Safe to call repeatedly —
-   * previous timers are cleared first. The timer fires once and only
-   * acts if `isLoadingPrompts` is still true at that point, so a
-   * normal `CHATGPT_CONVERSATION_ENDED` (which clears loading earlier)
-   * makes this a no-op.
-   */
-  function startLoadingSettleTimer(): void {
-    if (loadingSettleTimer !== null) {
-      clearTimeout(loadingSettleTimer);
-    }
-    loadingSettleTimer = window.setTimeout(() => {
-      loadingSettleTimer = null;
-      if (!isLoadingPrompts) return;
-      // The authoritative end-of-load signal is CHATGPT_CONVERSATION_ENDED
-      // (which fires after the initial page AND any backfill pages have
-      // streamed). This timer is only a fallback for signal-less routes.
-      // Keep re-arming until either that signal lands (which clears this
-      // timer via markLoadingComplete) or we exhaust the retry budget and
-      // declare completion ourselves.
-      loadingSettleRetries += 1;
-      if (loadingSettleRetries <= MAX_LOADING_SETTLE_RETRIES) {
-        startLoadingSettleTimer();
-        return;
-      }
-      markLoadingComplete();
-    }, APP_CONFIG.ui.sidebar.loadingSettleMs);
-  }
-  /** Active jump navigation progress, or null when idle. */
-  let jumpProgress: {
-    active: boolean;
-    targetIndex: number;
-    remainingSteps: number;
-  } | null = null;
   let lockedNavigatorIndex: number | null = null;
   let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
   let isInitialized = false;
@@ -225,6 +176,11 @@ export const navigatorController = (() => {
   function attach(): void {
     if (isAttached) return;
 
+    // Wire the two extracted state machines' render/timeout notifications
+    // back into this controller.
+    setOnRender(() => render());
+    setOnSettleTimeout(() => markLoadingComplete());
+
     initializeFollow({
       listSelector: '#navigator-list',
       ignoredScrollSelector:
@@ -254,7 +210,7 @@ export const navigatorController = (() => {
     initActivePromptTracking();
     renderedFingerprintCollector.observe(document.body);
     isAttached = true;
-    startLoadingSettleTimer();
+    startSettleTimer();
     render();
   }
 
@@ -362,14 +318,11 @@ export const navigatorController = (() => {
     // status band state. The status band is a stateless renderer: the
     // caller picks the visible state.
     if (completed === true) {
-      isLoadingPrompts = false;
-      if (loadingSettleTimer !== null) {
-        clearTimeout(loadingSettleTimer);
-        loadingSettleTimer = null;
-      }
+      setLoading(false);
+      clearSettleTimer();
     } else if (completed === false) {
-      isLoadingPrompts = true;
-      startLoadingSettleTimer();
+      setLoading(true);
+      startSettleTimer();
     }
     // null → leave isLoadingPrompts alone
 
@@ -404,7 +357,7 @@ export const navigatorController = (() => {
     }
     if (completed === false) return 'loading';
     // null: preserve previous band state via the caller's intent.
-    return isLoadingPrompts
+    return isLoadingPrompts()
       ? 'loading'
       : conversationMessages.length === 0
         ? 'idle'
@@ -535,20 +488,19 @@ export const navigatorController = (() => {
    * Returns the current jump progress snapshot, or null when no jump is
    * active. Consumed by the sidebar status element.
    */
-  function getJumpProgress(): typeof jumpProgress {
-    return jumpProgress;
+  function getJumpProgress(): ReturnType<typeof readJumpProgress> {
+    return readJumpProgress();
   }
 
   /**
    * Marks a jump as active and records the target index plus the remaining
-   * slide-loop step budget. Re-renders so the sidebar status picks up the
-   * change on the next animation frame.
+   * slide-loop step budget. The module's render callback re-renders so the
+   * sidebar status picks up the change.
    */
   function setJumpProgress(
-    next: NonNullable<typeof jumpProgress>
+    next: NonNullable<ReturnType<typeof readJumpProgress>>
   ): void {
-    jumpProgress = next;
-    render();
+    writeJumpProgress(next);
   }
 
   /**
@@ -557,9 +509,7 @@ export const navigatorController = (() => {
    * prompt-count display.
    */
   function clearJumpProgress(): void {
-    if (jumpProgress === null) return;
-    jumpProgress = null;
-    render();
+    resetJumpProgress();
   }
 
   function normalizeText(text: string): string {
@@ -891,8 +841,8 @@ export const navigatorController = (() => {
     // far)" right after the user typed their first prompt because no
     // ENDED signal ever fires for a fresh chat.
     if (!isNewChatRouteTransition) {
-      isLoadingPrompts = true;
-      startLoadingSettleTimer();
+      setLoading(true);
+      startSettleTimer();
     }
     resetStateForCurrentRoute({
       nextMessages: cachedMessages,
@@ -1048,7 +998,7 @@ export const navigatorController = (() => {
         // "Loading... (1 so far)" until something else fires. Calling
         // `markLoadingComplete` here covers both orderings. It is itself
         // a no-op when `isLoadingPrompts` is already false.
-        if (isLoadingPrompts) markLoadingComplete();
+        if (isLoadingPrompts()) markLoadingComplete();
         render({ refreshObservers: true });
       }
 
