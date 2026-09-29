@@ -570,7 +570,7 @@ function getAnswerContainerForPrompt(index: number): HTMLElement | null {
     assistantMessageIds: answerTurn
       ? Array.from(
           answerTurn.querySelectorAll<HTMLElement>(
-            '[data-message-author-role="assistant"][data-message-id]'
+            '[data-chatgpt-search-unit-key$=":assistant"]'
           )
         ).map(({ dataset }) => dataset.messageId || null)
       : [],
@@ -582,7 +582,7 @@ function getAnswerContainerForPrompt(index: number): HTMLElement | null {
       ),
     markdownContainerCount:
       answerTurn?.querySelectorAll(
-        '[data-message-author-role="assistant"] .markdown'
+        '[data-chatgpt-search-unit-key$=":assistant"]'
       ).length ?? 0,
     rawHeadingCount:
       answerContainer?.querySelectorAll(HEADING_SELECTOR).length ?? 0,
@@ -602,7 +602,7 @@ function getAnswerMarkdownContainer(
 ): HTMLElement | null {
   const markdownContainers = Array.from(
     answerTurn.querySelectorAll<HTMLElement>(
-      '[data-message-author-role="assistant"] .markdown'
+      '[data-chatgpt-search-unit-key$=":assistant"]'
     )
   );
 
@@ -611,15 +611,16 @@ function getAnswerMarkdownContainer(
       container.querySelector(HEADING_SELECTOR)
     ) ||
     markdownContainers.at(-1) ||
-    answerTurn.querySelector('[data-message-author-role="assistant"]') ||
+    answerTurn.querySelector('[data-chatgpt-search-unit-key$=":assistant"]') ||
     null
   );
 }
 
 /**
  * Finds the rendered user message for a prompt. Prefer ChatGPT's stable
- * data-message-id; when an ID exists but the DOM node is still virtualized,
- * return null so the retry loop can wait instead of extracting the wrong row.
+ * data-chatgpt-search-message-ids; when an ID exists but the DOM node is
+ * still virtualized, return null so the retry loop can wait instead of
+ * extracting the wrong row.
  * @param {number} index Prompt index in the main ChatTOC navigator.
  * @returns {HTMLElement | null}
  */
@@ -627,11 +628,14 @@ function getRenderedUserMessageForPrompt(index: number): HTMLElement | null {
   const messageId = promptMessageIds.get(index);
   const userMessages = getRenderedUserMessages();
   const userMessageById = messageId
-    ? document.querySelector<HTMLElement>(
-        `[data-message-author-role="user"][data-message-id="${escapeCssIdentifier(
-          messageId
-        )}"]`
-      )
+    ? Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-chatgpt-search-unit-key$=":user"]'
+        )
+      ).find((el) => {
+        const id = el.getAttribute('data-chatgpt-search-message-ids');
+        return id === messageId || (id && id.split(',').includes(messageId));
+      }) ?? null
     : null;
 
   if (userMessageById) {
@@ -651,7 +655,9 @@ function getRenderedUserMessageForPrompt(index: number): HTMLElement | null {
  */
 function getRenderedUserMessages(): HTMLElement[] {
   return Array.from(
-    document.querySelectorAll<HTMLElement>('[data-message-author-role="user"]')
+    document.querySelectorAll<HTMLElement>(
+      '[data-chatgpt-search-unit-key$=":user"]'
+    )
   );
 }
 
