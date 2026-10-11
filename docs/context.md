@@ -49,8 +49,12 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 
 ## Next Step
 
-- Tasks P0.1, P0.2, and P0.3 are complete: test suite and TypeScript baseline are fully green across 40 test files (208/208 tests passing, typecheck and production build passing).
-- P0.2: Top-level `getActivePlatform()` evaluations removed from `sidebarVisibility.ts` and `navigatorController.ts`; `getRenderedFingerprintCollector()` ensures singleton collector lifecycle.
-- P0.3: Circular dependency chains broken by extracting `src/reactHost/portalContainer.ts`; verified with madge (0 circular dependencies across all 101 source files).
-- Line 40 in `src/navigation/jump/promptNavigation.ts` platform abstraction bypass remains noted for Task P1.1.
-- Ready for Task P0.4 or Phase P1 tasks upon user confirmation.
+- Tasks P0.1, P0.2, and P0.3 are complete: test suite and TypeScript baseline are fully green.
+- Task P0.4 Audit completed and documented in `docs/P0.4_AUDIT.md`.
+- Task P0.4a completed:
+  - Removed orphaned `renderedFingerprintCollector` lifecycle, state, and observer from `navigatorController.ts`.
+  - Removed background hashing calls to `buildFingerprintIndex` and `buildDerivedSegmentIndex` from `navigatorController.ts`.
+  - Preserved conversation prompt caching (`navigationSnapshotStore.replacePrompts` and `getCachedConversationMessages`) and all navigation behaviour.
+  - Added focused unit tests in `test/navigation/fingerprintCleanup.test.ts` and updated `test/platforms/lazyPlatformInit.test.ts`.
+  - Verified baseline: 41/41 test files (210/210 tests passing), typecheck clean, production build clean.
+- Ready for Task P0.4b (Navigation Snapshot Store Simplification) upon user approval.

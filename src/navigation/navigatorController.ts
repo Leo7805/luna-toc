@@ -7,11 +7,7 @@ import {
   extractUserMessages,
 } from '../features/conversationPrompts/message';
 import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnapshotStore';
-import { buildFingerprintIndex } from '@/navigation/fingerprint/index';
-import { buildDerivedSegmentIndex } from '@/navigation/fingerprint/segments';
 import { getActivePlatform } from '@/platforms';
-import type { PlatformRenderedFingerprintCollector } from '@/platforms/platformInterface';
-import type { NavigationTurn } from '@/navigation/navigationData';
 import type {
   ChatMessage,
   ConversationData,
@@ -99,24 +95,6 @@ export const navigatorController = (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
   const navigationSnapshotStore =
     createNavigationSnapshotStore<NavigatorMessage>();
-  let renderedFingerprintCollector: PlatformRenderedFingerprintCollector | null =
-    null;
-
-  function getRenderedFingerprintCollector(): PlatformRenderedFingerprintCollector {
-    if (!renderedFingerprintCollector) {
-      renderedFingerprintCollector =
-        getActivePlatform().contentCapture.createRenderedFingerprintCollector({
-          onFingerprintRecord: (context, record) => {
-            navigationSnapshotStore.upsertFingerprintRecord(
-              context.conversationKey,
-              context.revision,
-              record
-            );
-          },
-        });
-    }
-    return renderedFingerprintCollector;
-  }
 
   let conversationMessages: NavigatorMessage[] = [];
   const accumulatedConversationMessages = new Map<string, Map<string, ChatMessage>>();
@@ -218,7 +196,6 @@ export const navigatorController = (() => {
     });
 
     initActivePromptTracking();
-    getRenderedFingerprintCollector().observe(document.body);
     isAttached = true;
     startSettleTimer();
     render();
@@ -694,11 +671,10 @@ export const navigatorController = (() => {
   function cacheConversationMessages(conversationKey: string): void {
     if (!conversationKey) return;
 
-    const revision = navigationSnapshotStore.replacePrompts(
+    navigationSnapshotStore.replacePrompts(
       conversationKey,
       conversationMessages
     );
-    syncRenderedFingerprintContext(conversationKey, revision);
   }
 
   /**
@@ -713,72 +689,16 @@ export const navigatorController = (() => {
   }
 
   /**
-   * Builds fingerprints in the background and stores only the current revision.
+   * Caches conversation prompts for the active conversation key.
    */
   function cacheConversationNavigationData(
     conversationKey: string,
-    data: ConversationData
+    _data: ConversationData
   ): void {
-    const revision = navigationSnapshotStore.replacePrompts(
+    navigationSnapshotStore.replacePrompts(
       conversationKey,
       conversationMessages
     );
-    const turns = getActivePlatform().contentCapture.createNavigationTurns(data);
-    syncRenderedFingerprintContext(conversationKey, revision, turns);
-
-    void buildFingerprintIndex(turns, 'derived')
-      .then((fingerprintIndex) => {
-        navigationSnapshotStore.completeFingerprintIndex(
-          conversationKey,
-          revision,
-          fingerprintIndex
-        );
-      })
-      .catch((error: unknown) => {
-        console.warn(
-          '[LunaTOC] Failed to build navigation fingerprints.',
-          error
-        );
-      });
-
-    void buildDerivedSegmentIndex(turns)
-      .then((segmentIndex) => {
-        navigationSnapshotStore.completeSegmentIndex(
-          conversationKey,
-          revision,
-          segmentIndex
-        );
-      })
-      .catch((error: unknown) => {
-        console.warn(
-          '[LunaTOC] Failed to build derived navigation segments.',
-          error
-        );
-      });
-  }
-
-  /**
-   * Updates DOM fingerprint collection with the current response-to-prompt map.
-   */
-  function syncRenderedFingerprintContext(
-    conversationKey: string,
-    revision: number,
-    turns?: NavigationTurn[]
-  ): void {
-    const responsePromptIndexes = turns
-      ? createResponsePromptIndexMap(turns)
-      : new Map(
-          (
-            navigationSnapshotStore.getSnapshot(conversationKey)
-              ?.fingerprintIndex || []
-          ).map(({ responseId, promptIndex }) => [responseId, promptIndex])
-        );
-
-    getRenderedFingerprintCollector().setContext({
-      conversationKey,
-      revision,
-      responsePromptIndexes,
-    });
   }
 
   function flushPendingNewChatMessage(): void {
@@ -866,16 +786,6 @@ export const navigatorController = (() => {
     }
 
     currentConversationKey = nextConversationKey;
-    const nextSnapshot =
-      navigationSnapshotStore.getSnapshot(nextConversationKey);
-    if (nextSnapshot) {
-      syncRenderedFingerprintContext(
-        nextConversationKey,
-        nextSnapshot.revision
-      );
-    } else {
-      getRenderedFingerprintCollector().setContext(null);
-    }
     // Reset the loading flag for genuine conversation switches (e.g. user
     // navigates from chat A to chat B). Skip it for the new-chat
     // auto-rename — that is not a navigation from the user's perspective,
@@ -1069,16 +979,3 @@ export const navigatorController = (() => {
     setSearchQuery,
   };
 })();
-
-/**
- * Maps every platform response ID to the prompt index that owns it.
- */
-function createResponsePromptIndexMap(
-  turns: NavigationTurn[]
-): Map<string, number> {
-  return new Map(
-    turns.flatMap((turn) =>
-      turn.responses.map((response) => [response.id, turn.promptIndex] as const)
-    )
-  );
-}

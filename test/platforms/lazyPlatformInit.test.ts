@@ -60,7 +60,7 @@ describe('lazy platform initialisation', () => {
     expect(module.navigatorController).toBeDefined();
   });
 
-  it('reuses the same renderedFingerprintCollector instance across calls in navigatorController', async () => {
+  it('does not create or start renderedFingerprintCollector during attach in navigatorController', async () => {
     Object.defineProperty(window, 'location', {
       value: { ...window.location, host: 'chatgpt.com' },
       writable: true,
@@ -95,15 +95,11 @@ describe('lazy platform initialisation', () => {
     // At import time, createRenderedFingerprintCollector has not been called
     expect(createCollectorSpy).not.toHaveBeenCalled();
 
-    // Calling attach() for the first time creates the collector
+    // Calling attach() must NOT start the unused fingerprint collector
     navigatorController.init();
     navigatorController.attach();
 
-    expect(createCollectorSpy).toHaveBeenCalledTimes(1);
-    expect(collectorInstance.observe).toHaveBeenCalledWith(document.body);
-
-    // Calling attach() again or re-invoking actions reuses the same instance without recreating it
-    navigatorController.attach();
-    expect(createCollectorSpy).toHaveBeenCalledTimes(1);
+    expect(createCollectorSpy).not.toHaveBeenCalled();
+    expect(collectorInstance.observe).not.toHaveBeenCalled();
   });
 });
