@@ -82,29 +82,6 @@ export function findCopilotRenderedPrompt(
   notImplemented();
 }
 
-export function isCopilotElementVisible(
-  _element: HTMLElement,
-  _scrollContainer: HTMLElement
-): never {
-  notImplemented();
-}
-
-export function getCopilotScrollMetrics(_container: HTMLElement): never {
-  notImplemented();
-}
-
-export function createCopilotElementNavigationAnchor(_opts: unknown): never {
-  notImplemented();
-}
-
-export function observeCopilotVirtualPosition(_opts: unknown): never {
-  notImplemented();
-}
-
-export function getCopilotPromptMountDiagnostic(_opts: unknown): never {
-  notImplemented();
-}
-
 export function getCopilotNativePromptIndex(_button: HTMLButtonElement): never {
   notImplemented();
 }

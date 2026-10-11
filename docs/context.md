@@ -53,11 +53,14 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 - Task P0.4 Audit completed and documented in `docs/P0.4_AUDIT.md`.
 - Task P0.4a completed: removed orphaned background fingerprint collection and hashing lifecycles.
 - Task P0.4b completed: simplified `navigationSnapshotStore.ts` to focus strictly on prompt snapshots, preserving revision semantics and defensive cloning.
-- Task P0.4c completed:
-  - Decoupled `virtualSearchController.ts` by removing the dead `searchVirtualPrompt` execution loop (~640 LOC) and planner imports, retaining type declarations needed by `Platform` interfaces.
-  - Deleted fully disconnected search planner and machine modules: `virtualSearchPlanner.ts` (285 LOC), `relativeSearchPlanner.ts` (162 LOC), and `virtualSearchMachine.ts` (101 LOC).
-  - Deleted corresponding dead test suites: `virtualSearchController.test.ts` (9 tests), `virtualSearchPlanner.test.ts` (10 tests), `relativeSearchPlanner.test.ts` (5 tests), and `virtualSearchMachine.test.ts` (3 tests).
-  - Preserved platform interfaces, adapters, and active navigation engine 100% unchanged.
-  - Preserved platform-coupled modules (`navigationAnchorStore.ts`, `visiblePositionResolver.ts`, `matcher.ts`, `segmentMatcher.ts`) and all their test suites intact for P0.4d.
-  - Verified baseline: 37/37 test files (180/180 tests passing), typecheck clean, production build clean, and `git diff --check` clean.
-- Ready for Task P0.4d (Platform Interface and Adapter Residue Cleanup) upon user approval.
+- Task P0.4c completed: decoupled `virtualSearchController.ts` and deleted disconnected search planners and machine modules (`virtualSearchPlanner.ts`, `relativeSearchPlanner.ts`, `virtualSearchMachine.ts`).
+- Task P0.4d completed:
+  - Added regression tests for active DOM helpers (`findRenderedChatGptPromptByText`, `getChatGptThreadScrollContainer`, `readMountedWithSidebarIdx`) and platform interface contracts (`platformInterface.test.ts`).
+  - Pruned 5 unused navigation methods from `PlatformNavigationAdapter` (`isElementVisible`, `getScrollMetrics`, `createElementNavigationAnchor`, `observeVirtualPosition`, `getPromptMountDiagnostic`) and their ChatGPT/Copilot implementations and stubs.
+  - Cleaned `virtualSearchAdapter.ts` to strictly retain active DOM lookup and scroll container functions.
+  - Removed unused `RenderedTextBlock` and viewport sampling helper `getVisibleAssistantViewportSamples` from `renderedTextAdapter.ts`.
+  - Deleted remaining 5 legacy virtual search modules (`virtualSearchController.ts`, `navigationAnchorStore.ts`, `visiblePositionResolver.ts`, `matcher.ts`, `segmentMatcher.ts`).
+  - Deleted 5 legacy test suites (`navigationAnchorStore.test.ts`, `visiblePositionResolver.test.ts`, `resolvePromptIndexesFromIds.test.ts`, `matcher.test.ts`, `segmentMatcher.test.ts`).
+  - Verified baseline: 33/33 test files (143/143 tests passing), typecheck clean, production build clean, and `git diff --check` clean.
+- P0.4 cleanup is fully complete. Awaiting next instructions before proceeding to P1.
+

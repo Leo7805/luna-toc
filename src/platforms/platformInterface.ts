@@ -16,15 +16,8 @@
  * matchMedia) stays in `src/pageHook/`; only platform-specific dispatch
  * points use this interface.
  */
-import type { NavigationAnchor } from '@/navigation/jump/navigationAnchorStore';
-import type {
-  NavigationFingerprintIndex,
-  ResponseFingerprintRecord,
-} from '@/navigation/fingerprint/index';
-import type { NavigationSegmentIndex } from '@/navigation/fingerprint/segments';
+import type { ResponseFingerprintRecord } from '@/navigation/fingerprint/index';
 import type { NavigationTurn } from '@/navigation/navigationData';
-import type { VirtualSearchObservation } from '@/navigation/jump/virtualSearchController';
-import type { VirtualScrollMetrics } from '@/navigation/jump/virtualSearchController';
 
 /**
  * Literal platform id. Add new members as adapters are added.
@@ -180,27 +173,6 @@ export interface PlatformRenderedFingerprintCollector {
 }
 
 /**
- * Prompt-mount diagnostic shape returned by `getPromptMountDiagnostic`.
- * The ChatGPT adapter exposes a typed shape (`ChatGptPromptMountDiagnostic`);
- * copilot exposes an empty record until real diagnostics land. The
- * interface stays `unknown` so the typed shape can flow through without
- * structural coercion.
- */
-export type PlatformPromptMountDiagnostic = unknown;
-
-/**
- * Virtual-scroll observation options (input to `observeVirtualPosition`).
- */
-export interface PlatformVirtualPositionOptions {
-  conversationKey: string;
-  prompts: ReadonlyArray<{ id: string }>;
-  fingerprintIndex: NavigationFingerprintIndex;
-  segmentIndex: NavigationSegmentIndex;
-  root?: ParentNode;
-  scrollContainer?: HTMLElement | null;
-}
-
-/**
  * Per-platform scroll container / mounted-DOM adapter used by the
  * navigation controller.
  */
@@ -213,26 +185,6 @@ export interface PlatformNavigationAdapter {
    */
   getThreadScrollContainer?(root?: ParentNode): HTMLElement | null;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
-  isElementVisible(element: HTMLElement, scrollContainer: HTMLElement): boolean;
-  getScrollMetrics(container: HTMLElement): PlatformVirtualScrollMetrics;
-  createElementNavigationAnchor(opts: {
-    conversationKey: string;
-    promptId: string;
-    promptIndex: number;
-    element: HTMLElement;
-    scrollContainer: HTMLElement;
-  }): NavigationAnchor;
-  observeVirtualPosition(
-    opts: PlatformVirtualPositionOptions
-  ): Promise<VirtualSearchObservation>;
-  getPromptMountDiagnostic(opts: {
-    promptId: string;
-    matchedBlockIds: string[];
-    scrollContainer: HTMLElement;
-    getNavigatorIndex: (element: HTMLElement) => number;
-    matchesTargetPromptText: (element: HTMLElement) => boolean;
-    root?: ParentNode;
-  }): PlatformPromptMountDiagnostic;
   /** Native prompt-jump button selectors used for the legacy navigator. */
   nativePromptButtonSelectors: readonly string[];
   /** AX attribute or text matched against the rendered prompt button. */
@@ -245,13 +197,6 @@ export interface PlatformNavigationAdapter {
   settleAttempts: number;
   promptTopOffsetPx: number;
 }
-
-/**
- * Virtual-scroll metrics (subset of `VirtualScrollMetrics` consumed by the
- * generic controller). Re-exports the concrete shape so adapters can
- * return either alias without structural incompatibility.
- */
-export type PlatformVirtualScrollMetrics = VirtualScrollMetrics;
 
 /**
  * Generic message envelope seen by `getJumpTargetElement`. Concrete shape

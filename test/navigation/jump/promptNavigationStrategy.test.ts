@@ -14,7 +14,6 @@ const mocks = vi.hoisted(() => ({
   navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
   findPrompt: vi.fn(),
   getContainer: vi.fn(),
-  isPromptVisible: vi.fn(),
   createJumpId: vi.fn(() => 'jump-id-stub'),
   getTestConfig: vi.fn(() => null),
   logEvent: vi.fn(),
@@ -29,11 +28,6 @@ vi.mock('@/platforms', () => ({
     navigation: {
       getScrollContainer: mocks.getContainer,
       findRenderedPrompt: mocks.findPrompt,
-      isElementVisible: mocks.isPromptVisible,
-      getScrollMetrics: vi.fn(),
-      createElementNavigationAnchor: vi.fn(),
-      observeVirtualPosition: vi.fn(),
-      getPromptMountDiagnostic: vi.fn(),
     },
     diagnostics: {
       createJumpId: mocks.createJumpId,
@@ -90,7 +84,6 @@ beforeEach(() => {
     })
   );
   mocks.navigationAlgorithm = 'legacy-native';
-  mocks.isPromptVisible.mockReturnValue(false);
 
   initializePromptNavigation({
     getVirtualSearchContext: () => ({

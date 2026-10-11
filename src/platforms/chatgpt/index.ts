@@ -31,14 +31,9 @@ import {
   isNewChatRouteKey,
 } from './contentCapture';
 import {
-  createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt,
-  getChatGptPromptMountDiagnostic,
   getChatGptScrollContainer,
-  getChatGptScrollMetrics,
   getChatGptThreadScrollContainer,
-  isChatGptElementVisible,
-  observeChatGptVirtualPosition,
 } from './virtualSearchAdapter';
 import {
   createChatGptNavigationJumpId,
@@ -125,11 +120,6 @@ export const chatGptPlatform: Platform = {
     getScrollContainer: getChatGptScrollContainer,
     getThreadScrollContainer: getChatGptThreadScrollContainer,
     findRenderedPrompt: findRenderedChatGptPrompt,
-    isElementVisible: isChatGptElementVisible,
-    getScrollMetrics: getChatGptScrollMetrics,
-    createElementNavigationAnchor: createChatGptElementNavigationAnchor,
-    observeVirtualPosition: observeChatGptVirtualPosition,
-    getPromptMountDiagnostic: getChatGptPromptMountDiagnostic,
     nativePromptButtonSelectors: getNativePromptButtonSelectors(),
     getNativePromptIndex,
     observeVisibleUserMessages: observeChatGptVisibleUserMessages,

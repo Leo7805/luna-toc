@@ -1,16 +1,13 @@
 /** @vitest-environment jsdom */
-/** Tests ChatGPT DOM adaptation for generic virtual navigation. */
+/** Tests ChatGPT DOM adaptation for prompt navigation and scroll container resolution. */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  createChatGptElementNavigationAnchor,
   findRenderedChatGptPrompt,
-  getChatGptPromptMountDiagnostic,
+  findRenderedChatGptPromptByText,
   getChatGptScrollContainer,
-  getChatGptScrollMetrics,
-  isChatGptElementVisible,
-  observeChatGptVirtualPosition,
+  getChatGptThreadScrollContainer,
+  readMountedWithSidebarIdx,
 } from '@/platforms/chatgpt/virtualSearchAdapter';
-import type { NavigationFingerprintIndex } from '@/navigation/fingerprint/index';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -69,369 +66,100 @@ describe('ChatGPT virtual search adapter', () => {
     expect(findRenderedChatGptPrompt('missing')).toBeNull();
   });
 
-  it('returns normalized scroll metrics', () => {
-    const container = document.createElement('div');
-    setElementMeasurements(container, {
-      scrollTop: 600,
-      scrollHeight: 5_000,
-      clientWidth: 900,
-      clientHeight: 1_000,
-    });
-
-    expect(getChatGptScrollMetrics(container)).toEqual({
-      scrollTop: 600,
-      maximumScrollTop: 4_000,
-      viewportWidth: 900,
-      viewportHeight: 1_000,
-    });
-  });
-
-  it('distinguishes visible prompts from retained offscreen DOM', () => {
-    const container = document.createElement('div');
-    const visiblePrompt = document.createElement('div');
-    const offscreenPrompt = document.createElement('div');
-    const touchingBoundary = document.createElement('div');
-    setElementMeasurements(container, {
-      clientWidth: 900,
-      clientHeight: 500,
-      top: 100,
-    });
-    setElementMeasurements(visiblePrompt, {
-      clientHeight: 100,
-      top: 200,
-    });
-    setElementMeasurements(offscreenPrompt, {
-      clientHeight: 100,
-      top: 700,
-    });
-    setElementMeasurements(touchingBoundary, {
-      clientHeight: 100,
-      top: 600,
-    });
-
-    expect(isChatGptElementVisible(visiblePrompt, container)).toBe(true);
-    expect(isChatGptElementVisible(offscreenPrompt, container)).toBe(false);
-    expect(isChatGptElementVisible(touchingBoundary, container)).toBe(false);
-  });
-
-  it('collects text-free DOM evidence for exhausted Prompt mounting', () => {
+  it('finds rendered prompts by text prefix match', () => {
     document.body.innerHTML = `
-      <main>
-        <div id="chat-scroll">
-          <section
-            data-turn="user"
-            data-chatgpt-search-message-ids="prompt-20"
-            data-message-id="prompt-20"
-          >
-            <div
-              data-chatgpt-search-unit-key="prompt-20:user"
-              data-chatgpt-search-message-ids="prompt-20"
-              data-message-author-role="user"
-            >Private prompt text</div>
-          </section>
-          <section data-turn="assistant">
-            <div
-              data-chatgpt-search-unit-key="response-20:assistant"
-              data-chatgpt-search-message-ids="response-20"
-              data-message-author-role="assistant"
-              data-message-id="response-20"
-            >
-              <div class="markdown">Private response text</div>
-            </div>
-          </section>
-        </div>
-      </main>
+      <div
+        data-chatgpt-search-unit-key="prompt-1:user"
+        data-chatgpt-search-message-ids="prompt-1"
+        data-message-id="prompt-1"
+      >
+        How does quantum computing work?
+      </div>
+      <div
+        data-chatgpt-search-unit-key="prompt-2:user"
+        data-chatgpt-search-message-ids="prompt-2"
+        data-message-id="prompt-2"
+      >
+        Can you write a poem about autumn?
+      </div>
     `;
-    const container = document.getElementById('chat-scroll')!;
-    const prompt = document.querySelector<HTMLElement>(
-      '[data-message-author-role="user"]'
-    )!;
-    const assistant = document.querySelector<HTMLElement>(
-      '[data-message-author-role="assistant"]'
-    )!;
-    setElementMeasurements(container, {
-      clientWidth: 900,
-      clientHeight: 500,
-      top: 100,
-    });
-    setElementMeasurements(prompt, { clientHeight: 100, top: 200 });
-    setElementMeasurements(assistant, {
-      clientHeight: 100,
-      top: 350,
-    });
 
-    const diagnostic = getChatGptPromptMountDiagnostic({
-      promptId: 'prompt-20',
-      matchedBlockIds: ['response-20'],
-      scrollContainer: container,
-      getNavigatorIndex: (element) =>
-        element.dataset.messageAuthorRole === 'user' ? 20 : -1,
-      matchesTargetPromptText: (element) =>
-        element.dataset.messageAuthorRole === 'user',
-    });
-
-    expect(diagnostic).toMatchObject({
-      mountedUserMessageCount: 1,
-      visibleUserMessages: [
-        {
-          role: 'user',
-          messageId: 'prompt-20',
-          navigatorIndex: 20,
-          matchesTargetPromptText: true,
-          visible: true,
-        },
-      ],
-      targetPromptCandidates: [
-        {
-          messageId: 'prompt-20',
-        },
-      ],
-      targetIdNodes: [
-        {
-          messageId: 'prompt-20',
-          turn: 'user',
-        },
-      ],
-      matchedAssistantNodes: [
-        {
-          role: 'assistant',
-          messageId: 'response-20',
-        },
-      ],
-    });
-    expect(JSON.stringify(diagnostic)).not.toContain('Private');
+    expect(
+      findRenderedChatGptPromptByText('How does quantum')?.getAttribute(
+        'data-message-id'
+      )
+    ).toBe('prompt-1');
+    expect(
+      findRenderedChatGptPromptByText('  can  you  write  ')?.getAttribute(
+        'data-message-id'
+      )
+    ).toBe('prompt-2');
+    expect(findRenderedChatGptPromptByText('Non-existent text')).toBeNull();
+    expect(findRenderedChatGptPromptByText('')).toBeNull();
+    expect(findRenderedChatGptPromptByText('   ')).toBeNull();
   });
 
-  it('creates an anchor from the element position inside its container', () => {
-    const container = document.createElement('div');
-    const element = document.createElement('div');
-    setElementMeasurements(container, {
-      scrollTop: 1_000,
-      scrollHeight: 5_000,
-      clientWidth: 900,
-      clientHeight: 1_000,
-      top: 100,
-    });
-    setElementMeasurements(element, { top: 350 });
-
-    const anchor = createChatGptElementNavigationAnchor({
-      conversationKey: 'conversation-1',
-      promptId: 'prompt-3',
-      promptIndex: 3,
-      element,
-      scrollContainer: container,
-    });
-
-    expect(anchor).toMatchObject({
-      conversationKey: 'conversation-1',
-      promptId: 'prompt-3',
-      promptIndex: 3,
-      scrollTop: 1_250,
-      scrollHeight: 5_000,
-      viewportWidth: 900,
-      viewportHeight: 1_000,
-    });
-  });
-
-  it('maps located Assistant blocks to prompt-specific anchors', async () => {
+  it('finds the dedicated thread scroll container if present', () => {
     document.body.innerHTML = `
       <main>
-        <div id="chat-scroll" style="overflow-y: auto">
-          <div
-            data-message-author-role="assistant"
-            data-message-id="response-1"
-          >
-            <div class="markdown">Rendered answer</div>
+        <div id="general-scroll" class="overflow-y-auto">
+          <div id="feed-scroll" class="thread-scroll-container">
+            <div data-chatgpt-search-unit-key="prompt-1:user">Content</div>
           </div>
         </div>
       </main>
     `;
-    const container = document.getElementById('chat-scroll')!;
-    const assistant = document.querySelector<HTMLElement>(
-      '[data-message-author-role="assistant"]'
-    )!;
-    setElementMeasurements(container, {
-      scrollTop: 1_000,
-      scrollHeight: 5_000,
-      clientWidth: 900,
-      clientHeight: 1_000,
-      top: 100,
-    });
-    setElementMeasurements(assistant, { top: 350 });
-    const fingerprintIndex: NavigationFingerprintIndex = [
-      {
-        responseId: 'response-1',
-        promptIndex: 2,
-        quality: 'observed',
-        fingerprints: [],
-      },
+
+    expect(getChatGptThreadScrollContainer()?.id).toBe('feed-scroll');
+
+    document.body.innerHTML = '<div>No thread container</div>';
+    expect(getChatGptThreadScrollContainer()).toBeNull();
+  });
+
+  it('reads mounted user bubbles paired with their sidebar indices', () => {
+    document.body.innerHTML = `
+      <div
+        data-chatgpt-search-unit-key="msg-1:user"
+        data-chatgpt-search-message-ids="prompt-a"
+      >
+        Alpha
+      </div>
+      <div
+        data-chatgpt-search-unit-key="msg-2:user"
+        data-chatgpt-search-message-ids="prompt-b"
+      >
+        Beta
+      </div>
+      <div
+        data-chatgpt-search-unit-key="msg-3:user"
+        data-chatgpt-search-message-ids="prompt-unrelated"
+      >
+        Unrelated
+      </div>
+      <div
+        data-chatgpt-search-unit-key="msg-4:user"
+      >
+        Missing ID
+      </div>
+    `;
+
+    const prompts = [
+      { id: 'prompt-a' },
+      { id: 'prompt-x' },
+      { id: 'prompt-b' },
     ];
 
-    const observation = await observeChatGptVirtualPosition({
-      conversationKey: 'conversation-1',
-      prompts: [
-        { id: 'prompt-0' },
-        { id: 'prompt-1' },
-        { id: 'prompt-2' },
-      ],
-      fingerprintIndex,
-      segmentIndex: [],
-      scrollContainer: container,
+    const mounted = readMountedWithSidebarIdx(prompts);
+    expect(mounted).toHaveLength(2);
+    expect(mounted[0]).toEqual({
+      element: expect.any(HTMLElement),
+      sidebarIdx: 0,
+      unitKey: 'msg-1:user',
     });
-
-    expect(observation.position).toMatchObject({
-      status: 'located',
-      matchedBlocks: [
-        {
-          blockId: 'response-1',
-          promptIndex: 2,
-          source: 'response-id',
-        },
-      ],
-    });
-    expect(observation.anchors).toMatchObject([
-      {
-        promptId: 'prompt-2',
-        promptIndex: 2,
-        scrollTop: 1_250,
-      },
-    ]);
-  });
-
-  it('ignores offscreen Assistant DOM and out-of-range ownership', async () => {
-    document.body.innerHTML = `
-      <main>
-        <div id="chat-scroll" style="overflow-y: auto">
-          <div data-message-author-role="assistant" data-message-id="visible">
-            <div class="markdown">Visible answer</div>
-          </div>
-          <div data-message-author-role="assistant" data-message-id="offscreen">
-            <div class="markdown">Offscreen answer</div>
-          </div>
-          <div data-message-author-role="assistant" data-message-id="invalid">
-            <div class="markdown">Invalid answer</div>
-          </div>
-        </div>
-      </main>
-    `;
-    const container = document.getElementById('chat-scroll')!;
-    const visible = document.querySelector<HTMLElement>(
-      '[data-message-id="visible"]'
-    )!;
-    const offscreen = document.querySelector<HTMLElement>(
-      '[data-message-id="offscreen"]'
-    )!;
-    const invalid = document.querySelector<HTMLElement>(
-      '[data-message-id="invalid"]'
-    )!;
-    setElementMeasurements(container, {
-      scrollHeight: 5_000,
-      clientWidth: 900,
-      clientHeight: 500,
-      top: 100,
-    });
-    setElementMeasurements(visible, { clientHeight: 100, top: 200 });
-    setElementMeasurements(offscreen, {
-      clientHeight: 100,
-      top: 2_000,
-    });
-    setElementMeasurements(invalid, { clientHeight: 100, top: 350 });
-    const fingerprintIndex: NavigationFingerprintIndex = [
-      {
-        responseId: 'visible',
-        promptIndex: 0,
-        quality: 'observed',
-        fingerprints: [],
-      },
-      {
-        responseId: 'offscreen',
-        promptIndex: 1,
-        quality: 'observed',
-        fingerprints: [],
-      },
-      {
-        responseId: 'invalid',
-        promptIndex: 5,
-        quality: 'observed',
-        fingerprints: [],
-      },
-    ];
-
-    const observation = await observeChatGptVirtualPosition({
-      conversationKey: 'conversation-1',
-      prompts: [{ id: 'prompt-0' }, { id: 'prompt-1' }],
-      fingerprintIndex,
-      segmentIndex: [],
-      scrollContainer: container,
-    });
-
-    expect(observation.position).toMatchObject({
-      status: 'located',
-      matchedPromptIndexes: [0],
-      matchedBlocks: [
-        {
-          blockId: 'visible',
-          promptIndex: 0,
-          source: 'response-id',
-        },
-      ],
-    });
-    expect(observation.anchors).toHaveLength(1);
-  });
-
-  it('returns no observation when the scroll container is unavailable', async () => {
-    const observation = await observeChatGptVirtualPosition({
-      conversationKey: 'conversation-1',
-      prompts: [],
-      fingerprintIndex: [],
-      segmentIndex: [],
-      scrollContainer: null,
-    });
-
-    expect(observation).toEqual({
-      position: { status: 'none' },
-      anchors: [],
+    expect(mounted[1]).toEqual({
+      element: expect.any(HTMLElement),
+      sidebarIdx: 2,
+      unitKey: 'msg-2:user',
     });
   });
 });
-
-/**
- * Defines jsdom layout measurements used by scroll-position tests.
- */
-function setElementMeasurements(
-  element: HTMLElement,
-  measurements: {
-    scrollTop?: number;
-    scrollHeight?: number;
-    clientWidth?: number;
-    clientHeight?: number;
-    top?: number;
-  }
-): void {
-  const {
-    scrollTop = 0,
-    scrollHeight = 0,
-    clientWidth = 0,
-    clientHeight = 0,
-    top = 0,
-  } = measurements;
-
-  Object.defineProperties(element, {
-    scrollTop: { configurable: true, writable: true, value: scrollTop },
-    scrollHeight: { configurable: true, value: scrollHeight },
-    clientWidth: { configurable: true, value: clientWidth },
-    clientHeight: { configurable: true, value: clientHeight },
-  });
-  element.getBoundingClientRect = () =>
-    ({
-      x: 0,
-      y: top,
-      top,
-      right: clientWidth,
-      bottom: top + clientHeight,
-      left: 0,
-      width: clientWidth,
-      height: clientHeight,
-      toJSON: () => ({}),
-    }) as DOMRect;
-}

@@ -1,10 +1,8 @@
 /**
  * Converts currently mounted ChatGPT Assistant DOM into generic text blocks.
  */
-import type { RenderedTextBlock } from '@/navigation/fingerprint/matcher';
 import {
   createObservedResponseSegments,
-  extractRenderedTextWithinVerticalBounds,
   type ResponseSegmentFingerprint,
 } from '@/navigation/fingerprint/segments';
 
@@ -12,7 +10,7 @@ const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
 const MARKDOWN_SELECTOR = '.markdown';
 
 export interface ChatGptRenderedAssistantEntry {
-  block: RenderedTextBlock;
+  block: { id: string; text: string };
   element: HTMLElement;
 }
 
@@ -30,7 +28,7 @@ export interface ChatGptObservedSegmentOptions {
  */
 export function getRenderedAssistantTextBlocks(
   root: ParentNode = document
-): RenderedTextBlock[] {
+): Array<{ id: string; text: string }> {
   return getRenderedAssistantEntries(root).map(({ block }) => block);
 }
 
@@ -60,36 +58,6 @@ export function getRenderedAssistantEntries(
       },
     ];
   });
-}
-
-/**
- * Returns only Assistant text intersecting the current chat viewport.
- */
-export function getVisibleAssistantViewportSamples(
-  scrollContainer: HTMLElement,
-  root: ParentNode = document
-): RenderedTextBlock[] {
-  const viewport = scrollContainer.getBoundingClientRect();
-
-  return getRenderedAssistantEntries(root).flatMap(
-    ({ block, element }) => {
-      const contentElements = getAssistantMarkdownContainers(element);
-      const intersectsViewport = contentElements.some((contentElement) => {
-        const rect = contentElement.getBoundingClientRect();
-        return rect.bottom > viewport.top && rect.top < viewport.bottom;
-      });
-
-      if (!intersectsViewport) return [];
-
-      const text = extractRenderedTextWithinVerticalBounds(
-        contentElements,
-        viewport.top,
-        viewport.bottom
-      );
-
-      return text ? [{ id: block.id, text }] : [];
-    }
-  );
 }
 
 /**
