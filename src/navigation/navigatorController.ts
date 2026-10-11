@@ -10,6 +10,7 @@ import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnaps
 import { buildFingerprintIndex } from '@/navigation/fingerprint/index';
 import { buildDerivedSegmentIndex } from '@/navigation/fingerprint/segments';
 import { getActivePlatform } from '@/platforms';
+import type { PlatformRenderedFingerprintCollector } from '@/platforms/platformInterface';
 import type { NavigationTurn } from '@/navigation/navigationData';
 import type {
   ChatMessage,
@@ -98,15 +99,24 @@ export const navigatorController = (() => {
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
   const navigationSnapshotStore =
     createNavigationSnapshotStore<NavigatorMessage>();
-  const renderedFingerprintCollector = getActivePlatform().contentCapture.createRenderedFingerprintCollector({
-    onFingerprintRecord: (context, record) => {
-      navigationSnapshotStore.upsertFingerprintRecord(
-        context.conversationKey,
-        context.revision,
-        record
-      );
-    },
-  });
+  let renderedFingerprintCollector: PlatformRenderedFingerprintCollector | null =
+    null;
+
+  function getRenderedFingerprintCollector(): PlatformRenderedFingerprintCollector {
+    if (!renderedFingerprintCollector) {
+      renderedFingerprintCollector =
+        getActivePlatform().contentCapture.createRenderedFingerprintCollector({
+          onFingerprintRecord: (context, record) => {
+            navigationSnapshotStore.upsertFingerprintRecord(
+              context.conversationKey,
+              context.revision,
+              record
+            );
+          },
+        });
+    }
+    return renderedFingerprintCollector;
+  }
 
   let conversationMessages: NavigatorMessage[] = [];
   const accumulatedConversationMessages = new Map<string, Map<string, ChatMessage>>();
@@ -208,7 +218,7 @@ export const navigatorController = (() => {
     });
 
     initActivePromptTracking();
-    renderedFingerprintCollector.observe(document.body);
+    getRenderedFingerprintCollector().observe(document.body);
     isAttached = true;
     startSettleTimer();
     render();
@@ -764,7 +774,7 @@ export const navigatorController = (() => {
           ).map(({ responseId, promptIndex }) => [responseId, promptIndex])
         );
 
-    renderedFingerprintCollector.setContext({
+    getRenderedFingerprintCollector().setContext({
       conversationKey,
       revision,
       responsePromptIndexes,
@@ -864,7 +874,7 @@ export const navigatorController = (() => {
         nextSnapshot.revision
       );
     } else {
-      renderedFingerprintCollector.setContext(null);
+      getRenderedFingerprintCollector().setContext(null);
     }
     // Reset the loading flag for genuine conversation switches (e.g. user
     // navigates from chat A to chat B). Skip it for the new-chat

@@ -19,7 +19,7 @@ import {
   promptEditorController,
   type PromptEditorValues,
 } from '@/features/myPrompts/promptEditor';
-import { getReactPortalContainer } from '@/reactHost/reactHost';
+import { getReactPortalContainer } from '@/reactHost/portalContainer';
 
 /**
  * Connects the prompt editor controller to the React component tree.

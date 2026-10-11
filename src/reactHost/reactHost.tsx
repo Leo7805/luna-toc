@@ -8,13 +8,17 @@ import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomple
 import { PromptContextMenuHost } from '@/components/my-prompts/PromptContextMenu';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
 import { ContractAlert } from '@/features/contractAlert/ContractAlert';
+import {
+  setReactPortalContainer,
+  getReactPortalContainer,
+} from './portalContainer';
 import tailwindCss from '@/styles/tailwind.css?inline';
+
+export { getReactPortalContainer };
 
 const REACT_HOST_ID = 'luna-toc-react-host';
 const REACT_ROOT_ID = 'luna-toc-react-root';
 const PORTAL_ROOT_ID = 'luna-toc-react-portals';
-
-let portalContainer: HTMLDivElement | null = null;
 
 /**
  * Creates the isolated React host once the document body is available.
@@ -41,9 +45,10 @@ export async function initializeReactHost(): Promise<void> {
   reactContainer.id = REACT_ROOT_ID;
   reactContainer.className = 'luna-toc-ui';
 
-  portalContainer = document.createElement('div');
+  const portalContainer = document.createElement('div');
   portalContainer.id = PORTAL_ROOT_ID;
   portalContainer.className = 'luna-toc-ui';
+  setReactPortalContainer(portalContainer);
 
   shadowRoot.append(style, reactContainer, portalContainer);
   document.body.append(host);
@@ -56,22 +61,6 @@ export async function initializeReactHost(): Promise<void> {
       <ContractAlert />
     </>
   );
-}
-
-/**
- * Returns the Shadow DOM container used by React portals.
- *
- * @example
- * const container = getReactPortalContainer();
- *
- * @throws {Error} If the React host has not finished initializing.
- */
-export function getReactPortalContainer(): HTMLDivElement {
-  if (!portalContainer) {
-    throw new Error('The LunaTOC React host has not been initialized.');
-  }
-
-  return portalContainer;
 }
 
 /**

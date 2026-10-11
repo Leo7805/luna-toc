@@ -5,8 +5,15 @@ import { getActivePlatform } from '@/platforms';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
-const WIDTH_SPOOF_MESSAGE_TYPE = getActivePlatform().pageHook.messages.setWidthSpoof;
 const AUTO_HIDE_DELAY_MS = 300;
+
+let widthSpoofMessageType: string | null = null;
+function getWidthSpoofMessageType(): string {
+  if (!widthSpoofMessageType) {
+    widthSpoofMessageType = getActivePlatform().pageHook.messages.setWidthSpoof;
+  }
+  return widthSpoofMessageType;
+}
 
 let sidebar: HTMLElement | null = null;
 let toggleBtn: HTMLButtonElement | null = null;
@@ -265,7 +272,7 @@ function isSidebarExtensionSurfaceEvent(event: Event): boolean {
 function setWideViewportSpoofEnabled(enabled: boolean): void {
   window.postMessage(
     {
-      type: WIDTH_SPOOF_MESSAGE_TYPE,
+      type: getWidthSpoofMessageType(),
       enabled,
     },
     '*'

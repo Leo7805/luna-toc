@@ -49,7 +49,8 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 
 ## Next Step
 
-- Task P0.1 (Test Baseline Stabilisation) is complete: test suite and TypeScript baseline are fully green across 38 test files (202/202 tests passing, typecheck and build passing).
-- `promptNavigationStrategy.test.ts`, `outline.test.ts`, `virtualSearchAdapter.test.ts`, and `renderedFingerprintCollector.test.ts` have been updated to reflect current ChatGPT DOM selectors and asynchronous Web Crypto promise draining.
-- Line 40 in `src/navigation/jump/promptNavigation.ts` directly calls `_getChatGptScrollContainer(root)` from `virtualSearchAdapter.ts` instead of `platform().navigation.getScrollContainer(root)`. This platform abstraction bypass has been recorded for Task P1.1.
-- Ready for Task P0.2 / P1.1 upon user confirmation.
+- Tasks P0.1, P0.2, and P0.3 are complete: test suite and TypeScript baseline are fully green across 40 test files (208/208 tests passing, typecheck and production build passing).
+- P0.2: Top-level `getActivePlatform()` evaluations removed from `sidebarVisibility.ts` and `navigatorController.ts`; `getRenderedFingerprintCollector()` ensures singleton collector lifecycle.
+- P0.3: Circular dependency chains broken by extracting `src/reactHost/portalContainer.ts`; verified with madge (0 circular dependencies across all 101 source files).
+- Line 40 in `src/navigation/jump/promptNavigation.ts` platform abstraction bypass remains noted for Task P1.1.
+- Ready for Task P0.4 or Phase P1 tasks upon user confirmation.

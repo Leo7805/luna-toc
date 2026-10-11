@@ -23,7 +23,7 @@ import {
   type ChatGptRuntimeConfig,
 } from '@/config/config';
 import { getActivePlatform } from '@/platforms';
-import { getReactPortalContainer } from '@/reactHost/reactHost';
+import { getReactPortalContainer } from '@/reactHost/portalContainer';
 import {
   COMPATIBILITY_ALERT_BODY,
   COMPATIBILITY_ALERT_DETAILS_EXPECTED,
