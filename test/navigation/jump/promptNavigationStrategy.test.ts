@@ -8,28 +8,19 @@ import {
   it,
   vi,
 } from 'vitest';
-import {
-  APP_CONFIG,
-  type ChatGptNavigationAlgorithm,
-} from '@/config/config';
+import type { ChatGptNavigationAlgorithm } from '@/config/config';
 
 const mocks = vi.hoisted(() => ({
   navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
-  createAnchor: vi.fn(),
   findPrompt: vi.fn(),
   getContainer: vi.fn(),
-  getMetrics: vi.fn(),
   isPromptVisible: vi.fn(),
-  observePosition: vi.fn(),
-  recordConfirmed: vi.fn(),
-  searchVirtualPrompt: vi.fn(),
-  // Diagnostics stubs — promptNavigation reads these from `platform.diagnostics.*`.
   createJumpId: vi.fn(() => 'jump-id-stub'),
   getTestConfig: vi.fn(() => null),
   logEvent: vi.fn(),
-  // getPromptMountDiagnostic is referenced through `platform.navigation.*` —
-  // it's never called in these tests, so a vi.fn() suffices for the lazy wrapper.
-  getPromptMountDiagnostic: vi.fn(),
+  setJumpProgress: vi.fn(),
+  clearJumpProgress: vi.fn(),
+  notifyJumpFailed: vi.fn(),
 }));
 
 vi.mock('@/platforms', () => ({
@@ -39,10 +30,10 @@ vi.mock('@/platforms', () => ({
       getScrollContainer: mocks.getContainer,
       findRenderedPrompt: mocks.findPrompt,
       isElementVisible: mocks.isPromptVisible,
-      getScrollMetrics: mocks.getMetrics,
-      createElementNavigationAnchor: mocks.createAnchor,
-      observeVirtualPosition: mocks.observePosition,
-      getPromptMountDiagnostic: mocks.getPromptMountDiagnostic,
+      getScrollMetrics: vi.fn(),
+      createElementNavigationAnchor: vi.fn(),
+      observeVirtualPosition: vi.fn(),
+      getPromptMountDiagnostic: vi.fn(),
     },
     diagnostics: {
       createJumpId: mocks.createJumpId,
@@ -52,18 +43,11 @@ vi.mock('@/platforms', () => ({
   }),
 }));
 
-vi.mock('@/navigation/jump/navigationAnchorStore', () => ({
-  createNavigationAnchorStore: () => ({
-    findConfirmed: vi.fn(),
-    getConfirmedAnchors: vi.fn().mockResolvedValue([]),
-    getObservedAnchors: vi.fn().mockReturnValue([]),
-    recordConfirmed: mocks.recordConfirmed,
-    recordObservation: vi.fn(),
-  }),
-}));
-
-vi.mock('@/navigation/jump/virtualSearchController', () => ({
-  searchVirtualPrompt: mocks.searchVirtualPrompt,
+vi.mock('@/platforms/chatgpt/virtualSearchAdapter', () => ({
+  getChatGptScrollContainer: mocks.getContainer,
+  findRenderedChatGptPrompt: mocks.findPrompt,
+  findRenderedChatGptPromptByText: vi.fn(() => null),
+  readMountedWithSidebarIdx: vi.fn(() => []),
 }));
 
 vi.mock('@/navigation/follow/follow', () => ({
@@ -82,6 +66,7 @@ import {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  document.body.innerHTML = '';
   vi.stubGlobal(
     'IntersectionObserver',
     class {
@@ -105,20 +90,9 @@ beforeEach(() => {
     })
   );
   mocks.navigationAlgorithm = 'legacy-native';
-  mocks.recordConfirmed.mockResolvedValue(undefined);
   mocks.isPromptVisible.mockReturnValue(false);
-  mocks.searchVirtualPrompt.mockResolvedValue({
-    status: 'unresolved',
-    attempts: 1,
-    lastPlan: null,
-    lastPosition: { status: 'none' },
-  });
 
   initializePromptNavigation({
-    getNativePromptButtons: () => [],
-    normalizeText: (text) => text,
-    findConversationIndexByElement: () => -1,
-    getConversationMessageCount: () => 1,
     getVirtualSearchContext: () => ({
       conversationKey: 'conversation-1',
       prompts: [
@@ -129,12 +103,10 @@ beforeEach(() => {
           createTime: 0,
         },
       ],
-      fingerprintIndex: [],
-      segmentIndex: [],
     }),
-    lockActiveIndex: vi.fn(),
-      setJumpProgress: vi.fn(),
-      clearJumpProgress: vi.fn(),
+    setJumpProgress: mocks.setJumpProgress,
+    clearJumpProgress: mocks.clearJumpProgress,
+    notifyJumpFailed: mocks.notifyJumpFailed,
   });
 });
 
@@ -144,24 +116,19 @@ afterEach(() => {
 });
 
 describe('prompt navigation strategy', () => {
-  it('uses ChatGPT native buttons in the default legacy strategy', () => {
-    const nativeButton = document.createElement('button');
-    const click = vi.spyOn(nativeButton, 'click');
-    initializePromptNavigation({
-      getNativePromptButtons: () => [nativeButton],
-      normalizeText: (text) => text,
-      findConversationIndexByElement: () => -1,
-      getConversationMessageCount: () => 1,
-      getVirtualSearchContext: () => ({
-        conversationKey: 'conversation-1',
-        prompts: [],
-        fingerprintIndex: [],
-        segmentIndex: [],
-      }),
-      lockActiveIndex: vi.fn(),
-      setJumpProgress: vi.fn(),
-      clearJumpProgress: vi.fn(),
+  it('falls back to legacy navigation in the default legacy strategy', () => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 1000,
+      configurable: true,
     });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 600,
+      configurable: true,
+    });
+    container.scrollTop = 400;
+    document.body.appendChild(container);
+    mocks.getContainer.mockReturnValue(container);
 
     jumpToMessage(
       {
@@ -173,55 +140,19 @@ describe('prompt navigation strategy', () => {
       0
     );
 
-    expect(click).toHaveBeenCalledOnce();
+    expect(container.scrollTop).toBe(0);
     expect(mocks.findPrompt).not.toHaveBeenCalled();
-    expect(mocks.searchVirtualPrompt).not.toHaveBeenCalled();
+    expect(mocks.setJumpProgress).not.toHaveBeenCalled();
   });
 
-  it('avoids native buttons when an independent target is rendered', async () => {
+  it('navigates directly via fast-path when target is rendered in independent-virtual strategy', async () => {
     mocks.navigationAlgorithm = 'independent-virtual';
-    const nativeButton = document.createElement('button');
-    const click = vi.spyOn(nativeButton, 'click');
     const container = document.createElement('div');
     const target = document.createElement('div');
     document.body.append(container, target);
     target.scrollIntoView = vi.fn();
     mocks.getContainer.mockReturnValue(container);
     mocks.findPrompt.mockReturnValue(target);
-    mocks.isPromptVisible.mockReturnValue(true);
-    mocks.createAnchor.mockReturnValue({
-      conversationKey: 'conversation-1',
-      promptId: 'prompt-1',
-      promptIndex: 0,
-      scrollTop: 100,
-      scrollHeight: 1_000,
-      viewportWidth: 800,
-      viewportHeight: 600,
-      scrollProgress: 0.25,
-      updatedAt: 1,
-    });
-    initializePromptNavigation({
-      getNativePromptButtons: () => [nativeButton],
-      normalizeText: (text) => text,
-      findConversationIndexByElement: () => -1,
-      getConversationMessageCount: () => 1,
-      getVirtualSearchContext: () => ({
-        conversationKey: 'conversation-1',
-        prompts: [
-          {
-            id: 'prompt-1',
-            text: 'Prompt',
-            canMatchByText: true,
-            createTime: 0,
-          },
-        ],
-        fingerprintIndex: [],
-        segmentIndex: [],
-      }),
-      lockActiveIndex: vi.fn(),
-      setJumpProgress: vi.fn(),
-      clearJumpProgress: vi.fn(),
-    });
 
     jumpToMessage(
       {
@@ -232,76 +163,26 @@ describe('prompt navigation strategy', () => {
       },
       0
     );
-    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
-    expect(mocks.recordConfirmed).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(
-      APP_CONFIG.navigation.search.renderWaitMs
-    );
-
-    expect(click).not.toHaveBeenCalled();
-    expect(target.scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(target.scrollIntoView).toHaveBeenCalledOnce();
     expect(target.scrollIntoView).toHaveBeenLastCalledWith({
       behavior: 'auto',
       block: 'start',
     });
-    expect(mocks.recordConfirmed).toHaveBeenCalledOnce();
-    expect(mocks.searchVirtualPrompt).not.toHaveBeenCalled();
+    expect(target.style.outline).toBe('2px solid #60a5fa');
+    expect(mocks.clearJumpProgress).toHaveBeenCalled();
+    expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(target.style.outline).toBe('');
   });
 
-  it('searches when a retained target DOM node is outside the chat viewport', () => {
+  it('initiates virtual step-loading when target is not rendered in the DOM', () => {
     mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
-    const offscreenTarget = document.createElement('div');
-    mocks.getContainer.mockReturnValue(container);
-    mocks.findPrompt.mockReturnValue(offscreenTarget);
-    mocks.isPromptVisible.mockReturnValue(false);
-
-    jumpToMessage(
-      {
-        id: 'prompt-1',
-        text: 'Prompt',
-        canMatchByText: true,
-        createTime: 0,
-      },
-      0
-    );
-
-    expect(mocks.searchVirtualPrompt).toHaveBeenCalledOnce();
-    const searchOptions = mocks.searchVirtualPrompt.mock.calls[0]![0];
-    expect(searchOptions.isTargetRendered()).toBe(false);
-    expect(offscreenTarget.scrollIntoView).toBeUndefined();
-  });
-
-  it('starts independent virtual search without calling the legacy path', () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
-    const nativeButton = document.createElement('button');
-    const click = vi.spyOn(nativeButton, 'click');
-    const container = document.createElement('div');
+    document.body.appendChild(container);
     mocks.getContainer.mockReturnValue(container);
     mocks.findPrompt.mockReturnValue(null);
-    initializePromptNavigation({
-      getNativePromptButtons: () => [nativeButton],
-      normalizeText: (text) => text,
-      findConversationIndexByElement: () => -1,
-      getConversationMessageCount: () => 1,
-      getVirtualSearchContext: () => ({
-        conversationKey: 'conversation-1',
-        prompts: [
-          {
-            id: 'prompt-1',
-            text: 'Prompt',
-            canMatchByText: true,
-            createTime: 0,
-          },
-        ],
-        fingerprintIndex: [],
-        segmentIndex: [],
-      }),
-      lockActiveIndex: vi.fn(),
-      setJumpProgress: vi.fn(),
-      clearJumpProgress: vi.fn(),
-    });
 
     jumpToMessage(
       {
@@ -313,11 +194,45 @@ describe('prompt navigation strategy', () => {
       0
     );
 
-    expect(click).not.toHaveBeenCalled();
-    expect(mocks.searchVirtualPrompt).toHaveBeenCalledOnce();
-    expect(
-      mocks.searchVirtualPrompt.mock.calls[0]?.[0]
-        .targetDomRecoveryDirection
-    ).toBe(-1);
+    expect(mocks.setJumpProgress).toHaveBeenCalledWith({
+      active: true,
+      targetIndex: 0,
+      remainingSteps: 50,
+    });
+  });
+
+  it('starts independent virtual search without calling the legacy path', async () => {
+    mocks.navigationAlgorithm = 'independent-virtual';
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 1000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 600,
+      configurable: true,
+    });
+    container.scrollTop = 400;
+    document.body.appendChild(container);
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(null);
+
+    jumpToMessage(
+      {
+        id: 'prompt-1',
+        text: 'Prompt',
+        canMatchByText: true,
+        createTime: 0,
+      },
+      0
+    );
+
+    expect(mocks.setJumpProgress).toHaveBeenCalled();
+
+    await Promise.resolve();
+
+    expect(mocks.notifyJumpFailed).toHaveBeenCalledOnce();
+    expect(mocks.clearJumpProgress).toHaveBeenCalled();
+    expect(container.scrollTop).toBe(400);
   });
 });

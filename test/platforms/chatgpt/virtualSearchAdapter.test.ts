@@ -41,11 +41,22 @@ describe('ChatGPT virtual search adapter', () => {
 
   it('finds rendered prompts with direct or ancestor message IDs', () => {
     document.body.innerHTML = `
-      <div data-message-author-role="user" data-message-id="prompt-1">
+      <div
+        data-chatgpt-search-unit-key="prompt-1:user"
+        data-chatgpt-search-message-ids="prompt-1"
+        data-message-author-role="user"
+        data-message-id="prompt-1"
+      >
         First prompt
       </div>
-      <section data-message-id="prompt-2">
-        <div data-message-author-role="user">Second prompt</div>
+      <section
+        data-chatgpt-search-message-ids="prompt-2"
+        data-message-id="prompt-2"
+      >
+        <div
+          data-chatgpt-search-unit-key="prompt-2:user"
+          data-message-author-role="user"
+        >Second prompt</div>
       </section>
     `;
 
@@ -107,11 +118,21 @@ describe('ChatGPT virtual search adapter', () => {
     document.body.innerHTML = `
       <main>
         <div id="chat-scroll">
-          <section data-turn="user" data-message-id="prompt-20">
-            <div data-message-author-role="user">Private prompt text</div>
+          <section
+            data-turn="user"
+            data-chatgpt-search-message-ids="prompt-20"
+            data-message-id="prompt-20"
+          >
+            <div
+              data-chatgpt-search-unit-key="prompt-20:user"
+              data-chatgpt-search-message-ids="prompt-20"
+              data-message-author-role="user"
+            >Private prompt text</div>
           </section>
           <section data-turn="assistant">
             <div
+              data-chatgpt-search-unit-key="response-20:assistant"
+              data-chatgpt-search-message-ids="response-20"
               data-message-author-role="assistant"
               data-message-id="response-20"
             >

@@ -9,6 +9,18 @@ import type {
 
 let collector: RenderedFingerprintCollector | null = null;
 
+const flushAsyncOperations = () =>
+  new Promise<void>((resolve) => {
+    const defer = (
+      globalThis as unknown as { setImmediate?: (cb: () => void) => void }
+    ).setImmediate;
+    if (typeof defer === 'function') {
+      defer(resolve);
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+
 afterEach(() => {
   collector?.disconnect();
   collector = null;
@@ -103,7 +115,7 @@ describe('ChatGPT rendered fingerprint collector', () => {
   });
 
   it('collects the latest text after DOM mutations settle', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const onFingerprintRecord = vi.fn();
     collector = createRenderedFingerprintCollector({
       debounceMs: 50,
@@ -126,6 +138,7 @@ describe('ChatGPT rendered fingerprint collector', () => {
 
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(50);
+    await flushAsyncOperations();
 
     expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
     expect(
@@ -134,7 +147,7 @@ describe('ChatGPT rendered fingerprint collector', () => {
   });
 
   it('uses the current conversation context after a route switch', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const onFingerprintRecord = vi.fn();
     collector = createRenderedFingerprintCollector({
       debounceMs: 20,
@@ -159,6 +172,7 @@ describe('ChatGPT rendered fingerprint collector', () => {
 
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(20);
+    await flushAsyncOperations();
 
     expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
     expect(onFingerprintRecord.mock.calls[0]?.[0]).toMatchObject({

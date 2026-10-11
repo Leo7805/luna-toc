@@ -100,9 +100,25 @@ function renderConversation(
   userTurn.dataset.turn = 'user';
   userMessage.dataset.messageAuthorRole = 'user';
   userMessage.dataset.messageId = promptMessageId;
+  userMessage.setAttribute(
+    'data-chatgpt-search-unit-key',
+    `${promptMessageId}:user`
+  );
+  userMessage.setAttribute(
+    'data-chatgpt-search-message-ids',
+    promptMessageId
+  );
   assistantTurn.dataset.turn = 'assistant';
   assistantMessage.dataset.messageAuthorRole = 'assistant';
   assistantMessage.dataset.messageId = `response-${promptMessageId}`;
+  assistantMessage.setAttribute(
+    'data-chatgpt-search-unit-key',
+    `response-${promptMessageId}:assistant`
+  );
+  assistantMessage.setAttribute(
+    'data-chatgpt-search-message-ids',
+    `response-${promptMessageId}`
+  );
   markdown.className = 'markdown';
 
   headings.forEach(([tagName, text], index) => {
