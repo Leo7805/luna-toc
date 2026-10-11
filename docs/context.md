@@ -51,10 +51,13 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
 
 - Tasks P0.1, P0.2, and P0.3 are complete: test suite and TypeScript baseline are fully green.
 - Task P0.4 Audit completed and documented in `docs/P0.4_AUDIT.md`.
-- Task P0.4a completed:
-  - Removed orphaned `renderedFingerprintCollector` lifecycle, state, and observer from `navigatorController.ts`.
-  - Removed background hashing calls to `buildFingerprintIndex` and `buildDerivedSegmentIndex` from `navigatorController.ts`.
-  - Preserved conversation prompt caching (`navigationSnapshotStore.replacePrompts` and `getCachedConversationMessages`) and all navigation behaviour.
-  - Added focused unit tests in `test/navigation/fingerprintCleanup.test.ts` and updated `test/platforms/lazyPlatformInit.test.ts`.
-  - Verified baseline: 41/41 test files (210/210 tests passing), typecheck clean, production build clean.
-- Ready for Task P0.4b (Navigation Snapshot Store Simplification) upon user approval.
+- Task P0.4a completed: removed orphaned background fingerprint collection and hashing lifecycles.
+- Task P0.4b completed:
+  - Simplified `navigationSnapshotStore.ts` by removing unused fingerprint and segment state, methods (`completeFingerprintIndex`, `upsertFingerprintRecord`, `completeSegmentIndex`, `upsertResponseSegments`), and associated cloning/merging helpers.
+  - Preserved exact revision semantics (`Math.max(...) + 1` in `copySnapshot()`, monotonic increment in `replacePrompts()`).
+  - Preserved defensive-copying behavior via `structuredClone()`.
+  - Preserved prompt caching, conversation-key isolation, and route transition copying.
+  - Simplified `getVirtualSearchContext` in `navigatorController.ts`.
+  - Updated snapshot store tests to verify prompt caching, revisions, isolation, route copying, and defensive copying.
+  - Verified baseline: 41/41 test files (207/207 tests passing), typecheck clean, production build clean, and `git diff --check` clean.
+- Ready for Task P0.4c (Legacy Virtual Search Dead Code Removal) upon user approval.

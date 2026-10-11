@@ -177,17 +177,10 @@ export const navigatorController = (() => {
     });
 
     initializePromptNavigation({
-      getVirtualSearchContext: () => {
-        const conversationKey = getCurrentConversationKey();
-        const snapshot = navigationSnapshotStore.getSnapshot(conversationKey);
-
-        return {
-          conversationKey,
-          prompts: conversationMessages,
-          fingerprintIndex: snapshot?.fingerprintIndex || [],
-          segmentIndex: snapshot?.segmentIndex || [],
-        };
-      },
+      getVirtualSearchContext: () => ({
+        conversationKey: getCurrentConversationKey(),
+        prompts: conversationMessages,
+      }),
       setJumpProgress,
       clearJumpProgress,
       notifyJumpFailed: () => {
