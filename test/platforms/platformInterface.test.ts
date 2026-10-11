@@ -42,19 +42,33 @@ describe('platformInterface and registration', () => {
   });
 
   it('fulfills active navigation contract on ChatGPT platform', () => {
-    const { navigation } = getActivePlatform('chatgpt.com');
+    const platform = getActivePlatform('chatgpt.com');
+    const { navigation, diagnostics, config } = platform;
     expect(typeof navigation.getScrollContainer).toBe('function');
     expect(typeof navigation.getThreadScrollContainer).toBe('function');
     expect(typeof navigation.findRenderedPrompt).toBe('function');
+    expect(typeof navigation.findRenderedPromptByText).toBe('function');
+    expect(typeof navigation.readMountedWithSidebarIdx).toBe('function');
+    expect(typeof navigation.getMessageIdFromElement).toBe('function');
     expect(typeof navigation.getJumpTargetElement).toBe('function');
     expect(typeof navigation.observeVisibleUserMessages).toBe('function');
     expect(typeof navigation.settleAttempts).toBe('number');
     expect(navigation.settleAttempts).toBeGreaterThan(0);
     expect(typeof navigation.promptTopOffsetPx).toBe('number');
+
+    expect(typeof diagnostics.isJumpVizDebugEnabled).toBe('function');
+    expect(config.selectors.userMessage).toBe(
+      '[data-chatgpt-search-unit-key$=":user"]'
+    );
+    expect(config.selectors.assistantMessage).toBe(
+      '[data-chatgpt-search-unit-key$=":assistant"]'
+    );
+    expect(config.selectors.messageId).toBe('data-chatgpt-search-message-ids');
   });
 
-  it('fulfills active navigation contract on Copilot platform', () => {
-    const { navigation } = getActivePlatform('copilot.microsoft.com');
+  it('fulfills active navigation contract on Copilot platform and leaves optional methods undefined', () => {
+    const platform = getActivePlatform('copilot.microsoft.com');
+    const { navigation, diagnostics } = platform;
     expect(typeof navigation.getScrollContainer).toBe('function');
     expect(typeof navigation.findRenderedPrompt).toBe('function');
     expect(typeof navigation.getJumpTargetElement).toBe('function');
@@ -62,5 +76,11 @@ describe('platformInterface and registration', () => {
     expect(typeof navigation.settleAttempts).toBe('number');
     expect(navigation.settleAttempts).toBeGreaterThan(0);
     expect(typeof navigation.promptTopOffsetPx).toBe('number');
+
+    // Optional capabilities remain undefined without dummy stubs
+    expect(navigation.findRenderedPromptByText).toBeUndefined();
+    expect(navigation.readMountedWithSidebarIdx).toBeUndefined();
+    expect(navigation.getMessageIdFromElement).toBeUndefined();
+    expect(diagnostics.isJumpVizDebugEnabled).toBeUndefined();
   });
 });

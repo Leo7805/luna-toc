@@ -185,6 +185,26 @@ export interface PlatformNavigationAdapter {
    */
   getThreadScrollContainer?(root?: ParentNode): HTMLElement | null;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
+  /**
+   * Finds a currently mounted user message by normalized text prefix.
+   * Returns null when no rendered bubble matches or when unsupported.
+   */
+  findRenderedPromptByText?(
+    promptText: string,
+    root?: ParentNode
+  ): HTMLElement | null;
+  /**
+   * Reads every currently-mounted user bubble and pairs it with the sidebar
+   * prompt index it corresponds to. Used by the mount-expansion loop.
+   */
+  readMountedWithSidebarIdx?(
+    prompts: ReadonlyArray<{ id: string }>,
+    root?: ParentNode
+  ): Array<{ element: HTMLElement; sidebarIdx: number; unitKey: string }>;
+  /**
+   * Returns the closest message ID stored on an element or its turn wrapper.
+   */
+  getMessageIdFromElement?(element: HTMLElement): string | null;
   /** Native prompt-jump button selectors used for the legacy navigator. */
   nativePromptButtonSelectors: readonly string[];
   /** AX attribute or text matched against the rendered prompt button. */
@@ -236,6 +256,8 @@ export interface PlatformNavigationDiagnostics {
     details?: Record<string, unknown>,
     storage?: Storage
   ): void;
+  /** Returns whether the click-to-jump visibility dump is enabled. */
+  isJumpVizDebugEnabled?(storage?: Pick<Storage, 'getItem'>): boolean;
 }
 
 /**

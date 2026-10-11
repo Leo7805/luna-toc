@@ -32,12 +32,16 @@ import {
 } from './contentCapture';
 import {
   findRenderedChatGptPrompt,
+  findRenderedChatGptPromptByText,
+  getChatGptMessageId,
   getChatGptScrollContainer,
   getChatGptThreadScrollContainer,
+  readMountedWithSidebarIdx,
 } from './virtualSearchAdapter';
 import {
   createChatGptNavigationJumpId,
   getChatGptNavigationTestConfig,
+  isJumpVizDebugEnabled,
   logChatGptNavigationEvent,
   NAVIGATION_DEBUG_STORAGE_KEY,
   NAVIGATION_TEST_CONFIG_STORAGE_KEY,
@@ -120,6 +124,9 @@ export const chatGptPlatform: Platform = {
     getScrollContainer: getChatGptScrollContainer,
     getThreadScrollContainer: getChatGptThreadScrollContainer,
     findRenderedPrompt: findRenderedChatGptPrompt,
+    findRenderedPromptByText: findRenderedChatGptPromptByText,
+    readMountedWithSidebarIdx,
+    getMessageIdFromElement: getChatGptMessageId,
     nativePromptButtonSelectors: getNativePromptButtonSelectors(),
     getNativePromptIndex,
     observeVisibleUserMessages: observeChatGptVisibleUserMessages,
@@ -151,9 +158,9 @@ export const chatGptPlatform: Platform = {
     useLocalConfig: APP_CONFIG.platforms.chatgpt.useLocalConfig,
     showCompatibilityAlert: APP_CONFIG.platforms.chatgpt.showCompatibilityAlert,
     selectors: {
-      userMessage: '[data-message-author-role="user"]',
-      assistantMessage: '[data-message-author-role="assistant"]',
-      messageId: '[data-message-id]',
+      userMessage: '[data-chatgpt-search-unit-key$=":user"]',
+      assistantMessage: '[data-chatgpt-search-unit-key$=":assistant"]',
+      messageId: 'data-chatgpt-search-message-ids',
     },
     contract: chatGptContractTable,
   },
@@ -169,6 +176,7 @@ export const chatGptPlatform: Platform = {
     getTestConfig: getChatGptNavigationTestConfig,
     createJumpId: createChatGptNavigationJumpId,
     logEvent: logChatGptNavigationEvent,
+    isJumpVizDebugEnabled,
   },
   runtimeConfigKey: 'luna:chatgpt:runtimeConfig',
   theme: {

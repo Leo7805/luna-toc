@@ -11,6 +11,11 @@ import {
 } from './outlineNavigation';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
 import { APP_CONFIG } from '@/config/config';
+import { getActivePlatform } from '@/platforms';
+
+function platform() {
+  return getActivePlatform();
+}
 
 interface OutlineEntry {
   level: number;
@@ -567,10 +572,10 @@ function getAnswerContainerForPrompt(index: number): HTMLElement | null {
     userMessageConnected: userMessage?.isConnected ?? false,
     userTurnFound: Boolean(userTurn),
     assistantTurnFound: Boolean(answerTurn),
-    assistantMessageIds: answerTurn
+    assistantMessageIds: answerTurn && platform().config.selectors.assistantMessage
       ? Array.from(
           answerTurn.querySelectorAll<HTMLElement>(
-            '[data-chatgpt-search-unit-key$=":assistant"]'
+            platform().config.selectors.assistantMessage
           )
         ).map(({ dataset }) => dataset.messageId || null)
       : [],
@@ -581,9 +586,11 @@ function getAnswerContainerForPrompt(index: number): HTMLElement | null {
         answerContainer?.closest('[hidden], [aria-hidden="true"]')
       ),
     markdownContainerCount:
-      answerTurn?.querySelectorAll(
-        '[data-chatgpt-search-unit-key$=":assistant"]'
-      ).length ?? 0,
+      (answerTurn && platform().config.selectors.assistantMessage)
+        ? answerTurn.querySelectorAll(
+            platform().config.selectors.assistantMessage
+          ).length
+        : 0,
     rawHeadingCount:
       answerContainer?.querySelectorAll(HEADING_SELECTOR).length ?? 0,
   });
@@ -600,25 +607,28 @@ function getAnswerContainerForPrompt(index: number): HTMLElement | null {
 function getAnswerMarkdownContainer(
   answerTurn: HTMLElement
 ): HTMLElement | null {
-  const markdownContainers = Array.from(
-    answerTurn.querySelectorAll<HTMLElement>(
-      '[data-chatgpt-search-unit-key$=":assistant"]'
-    )
-  );
+  const assistantSelector = platform().config.selectors.assistantMessage;
+  const markdownContainers = assistantSelector
+    ? Array.from(
+        answerTurn.querySelectorAll<HTMLElement>(assistantSelector)
+      )
+    : [];
 
   return (
     markdownContainers.find((container) =>
       container.querySelector(HEADING_SELECTOR)
     ) ||
     markdownContainers.at(-1) ||
-    answerTurn.querySelector('[data-chatgpt-search-unit-key$=":assistant"]') ||
+    (assistantSelector
+      ? answerTurn.querySelector(assistantSelector)
+      : null) ||
     null
   );
 }
 
 /**
- * Finds the rendered user message for a prompt. Prefer ChatGPT's stable
- * data-chatgpt-search-message-ids; when an ID exists but the DOM node is
+ * Finds the rendered user message for a prompt. Prefer the platform's stable
+ * message ID; when an ID exists but the DOM node is
  * still virtualized, return null so the retry loop can wait instead of
  * extracting the wrong row.
  * @param {number} index Prompt index in the main ChatTOC navigator.
@@ -627,14 +637,20 @@ function getAnswerMarkdownContainer(
 function getRenderedUserMessageForPrompt(index: number): HTMLElement | null {
   const messageId = promptMessageIds.get(index);
   const userMessages = getRenderedUserMessages();
-  const userMessageById = messageId
+  const userSelector = platform().config.selectors.userMessage;
+  const userMessageById = messageId && userSelector
     ? Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[data-chatgpt-search-unit-key$=":user"]'
-        )
+        document.querySelectorAll<HTMLElement>(userSelector)
       ).find((el) => {
-        const id = el.getAttribute('data-chatgpt-search-message-ids');
-        return id === messageId || (id && id.split(',').includes(messageId));
+        const id =
+          platform().navigation.getMessageIdFromElement?.(el) ??
+          (platform().config.selectors.messageId
+            ? el.getAttribute(platform().config.selectors.messageId)
+            : null);
+        return (
+          id === messageId ||
+          (id !== null && id.split(',').includes(messageId))
+        );
       }) ?? null
     : null;
 
@@ -654,10 +670,10 @@ function getRenderedUserMessageForPrompt(index: number): HTMLElement | null {
  * @returns {HTMLElement[]}
  */
 function getRenderedUserMessages(): HTMLElement[] {
+  const userSelector = platform().config.selectors.userMessage;
+  if (!userSelector) return [];
   return Array.from(
-    document.querySelectorAll<HTMLElement>(
-      '[data-chatgpt-search-unit-key$=":user"]'
-    )
+    document.querySelectorAll<HTMLElement>(userSelector)
   );
 }
 

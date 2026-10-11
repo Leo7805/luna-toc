@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   findRenderedChatGptPrompt,
   findRenderedChatGptPromptByText,
+  getChatGptMessageId,
   getChatGptScrollContainer,
   getChatGptThreadScrollContainer,
   readMountedWithSidebarIdx,
@@ -161,5 +162,23 @@ describe('ChatGPT virtual search adapter', () => {
       sidebarIdx: 2,
       unitKey: 'msg-2:user',
     });
+  });
+
+  it('resolves message id from element or closest ancestor', () => {
+    document.body.innerHTML = `
+      <div id="direct" data-chatgpt-search-message-ids="msg-direct"></div>
+      <section data-chatgpt-search-message-ids="msg-ancestor">
+        <div id="descendant">Child content</div>
+      </section>
+      <div id="none">No id</div>
+    `;
+
+    const directEl = document.getElementById('direct')!;
+    const descendantEl = document.getElementById('descendant')!;
+    const noneEl = document.getElementById('none')!;
+
+    expect(getChatGptMessageId(directEl)).toBe('msg-direct');
+    expect(getChatGptMessageId(descendantEl)).toBe('msg-ancestor');
+    expect(getChatGptMessageId(noneEl)).toBeNull();
   });
 });

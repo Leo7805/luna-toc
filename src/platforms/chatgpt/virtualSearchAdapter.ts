@@ -142,7 +142,7 @@ export function readMountedWithSidebarIdx(
 /**
  * Returns the closest message ID stored on an element or its turn wrapper.
  */
-function getChatGptMessageId(element: HTMLElement): string | null {
+export function getChatGptMessageId(element: HTMLElement): string | null {
   return (
     element.getAttribute('data-chatgpt-search-message-ids') ||
     element

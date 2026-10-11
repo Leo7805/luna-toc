@@ -16,10 +16,7 @@
  * read the DOM, which keeps them straightforward to unit-test without
  * a ChatGPT page.
  */
-import {
-  readMountedWithSidebarIdx,
-  findRenderedChatGptPrompt,
-} from '@/platforms/chatgpt/virtualSearchAdapter';
+import { getActivePlatform } from '@/platforms';
 
 export interface MountQueueEntry {
   unitKey: string;
@@ -27,25 +24,35 @@ export interface MountQueueEntry {
   element: HTMLElement;
 }
 
+function platform() {
+  return getActivePlatform();
+}
+
 /**
  * Stable lookup of every currently-known mounted prompt. Keyed by
- * `unitKey` (the ChatGPT `data-chatgpt-search-unit-key` attribute) so
+ * `unitKey` (the platform's search unit key attribute) so
  * that the same prompt mounted in two consecutive step iterations
  * counts once, while a freshly mounted prompt shows up as a new key.
  */
 export type MountQueue = Map<string, MountQueueEntry>;
 
 /**
- * Builds the initial queue from whatever ChatGPT already has mounted
+ * Builds the initial queue from whatever the host platform already has mounted
  * in the DOM. Safe to call on every iteration — it never grows beyond
- * the current ChatGPT mount window (typically a few dozen entries).
+ * the current mount window (typically a few dozen entries).
  */
 export function seedMountQueue(
   prompts: ReadonlyArray<{ id: string }>,
   root: ParentNode = document
 ): MountQueue {
   const queue: MountQueue = new Map();
-  const mounted = readMountedWithSidebarIdx(prompts, root);
+  const reader = platform().navigation.readMountedWithSidebarIdx;
+  if (!reader) {
+    throw new Error(
+      'LunaTOC: current platform does not support mounted prompt inspection'
+    );
+  }
+  const mounted = reader(prompts, root);
   for (const entry of mounted) {
     queue.set(entry.unitKey, {
       unitKey: entry.unitKey,
@@ -57,7 +64,7 @@ export function seedMountQueue(
 }
 
 /**
- * Returns every prompt that ChatGPT has newly mounted since `queue`
+ * Returns every prompt that the host platform has newly mounted since `queue`
  * was last refreshed. A prompt that was unmounted and re-mounted
  * with the same `unitKey` is treated as "already known" (its entry
  * is overwritten so the element reference stays current).
@@ -67,7 +74,13 @@ export function detectNewMounts(
   prompts: ReadonlyArray<{ id: string }>,
   root: ParentNode = document
 ): MountQueueEntry[] {
-  const mounted = readMountedWithSidebarIdx(prompts, root);
+  const reader = platform().navigation.readMountedWithSidebarIdx;
+  if (!reader) {
+    throw new Error(
+      'LunaTOC: current platform does not support mounted prompt inspection'
+    );
+  }
+  const mounted = reader(prompts, root);
   const fresh: MountQueueEntry[] = [];
   for (const entry of mounted) {
     const existing = queue.get(entry.unitKey);
@@ -78,7 +91,7 @@ export function detectNewMounts(
         element: entry.element,
       });
     } else {
-      // Refresh the element reference in case ChatGPT replaced the
+      // Refresh the element reference in case the host platform replaced the
       // underlying node during virtual render.
       existing.element = entry.element;
     }
@@ -89,9 +102,9 @@ export function detectNewMounts(
 /**
  * Returns the element for the target prompt if it is already known
  * to the queue, otherwise null. Tries the stable message id first
- * (covers the case where ChatGPT kept the same id across re-mounts),
+ * (covers the case where the host kept the same id across re-mounts),
  * then falls back to the sidebar index (covers the case where the id
- * string is a ChatGPT-generated placeholder for that index).
+ * string is a placeholder for that index).
  */
 export function findTargetInQueue(
   queue: MountQueue,
@@ -100,13 +113,12 @@ export function findTargetInQueue(
   root: ParentNode = document
 ): HTMLElement | null {
   // Fast path: the target's stable message id resolves to a current
-  // mounted element. `findRenderedChatGptPrompt` already handles the
-  // ancestor-attribute fallback for the new DOM.
-  const byId = findRenderedChatGptPrompt(targetId, root);
+  // mounted element via the platform's prompt finder.
+  const byId = platform().navigation.findRenderedPrompt(targetId, root);
   if (byId) return byId;
 
   // Fallback: match by sidebar index. Useful when the target's id
-  // string doesn't line up (for example when ChatGPT has just
+  // string doesn't line up (for example when the host platform has just
   // remounted the prompt under a placeholder id).
   for (const entry of queue.values()) {
     if (entry.sidebarIdx === targetIndex) return entry.element;

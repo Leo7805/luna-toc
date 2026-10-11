@@ -28,20 +28,23 @@ vi.mock('@/platforms', () => ({
     navigation: {
       getScrollContainer: mocks.getContainer,
       findRenderedPrompt: mocks.findPrompt,
+      findRenderedPromptByText: vi.fn(() => null),
+      readMountedWithSidebarIdx: vi.fn(() => []),
+      promptTopOffsetPx: 16,
     },
     diagnostics: {
       createJumpId: mocks.createJumpId,
       getTestConfig: mocks.getTestConfig,
       logEvent: mocks.logEvent,
     },
+    config: {
+      selectors: {
+        userMessage: '[data-chatgpt-search-unit-key$=":user"]',
+        assistantMessage: '[data-chatgpt-search-unit-key$=":assistant"]',
+        messageId: 'data-chatgpt-search-message-ids',
+      },
+    },
   }),
-}));
-
-vi.mock('@/platforms/chatgpt/virtualSearchAdapter', () => ({
-  getChatGptScrollContainer: mocks.getContainer,
-  findRenderedChatGptPrompt: mocks.findPrompt,
-  findRenderedChatGptPromptByText: vi.fn(() => null),
-  readMountedWithSidebarIdx: vi.fn(() => []),
 }));
 
 vi.mock('@/navigation/follow/follow', () => ({

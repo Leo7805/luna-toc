@@ -11,6 +11,11 @@ import {
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 beforeEach(() => {
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: { ...window.location, host: 'chatgpt.com' },
+    writable: true,
+  });
   if (!globalThis.CSS) {
     Object.defineProperty(globalThis, 'CSS', {
       configurable: true,

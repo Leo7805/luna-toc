@@ -551,16 +551,18 @@ export const navigatorController = (() => {
   }
 
   function findConversationIndexByElement(element: HTMLElement): number {
-    // The new ChatGPT DOM exposes the stable message id on every user
-    // message container as `data-chatgpt-search-message-ids` (regardless of
-    // whether the prompt is text-only, an image, or any other content).
+    // The host platform exposes the stable message id on the user message container.
     // Match by id so picture-only prompts and prompts with identical text
     // resolve to the correct sidebar row.
+    const platform = getActivePlatform();
     const id =
-      element.getAttribute('data-chatgpt-search-message-ids') ||
-      element
-        .closest<HTMLElement>('[data-chatgpt-search-message-ids]')
-        ?.getAttribute('data-chatgpt-search-message-ids');
+      platform.navigation.getMessageIdFromElement?.(element) ??
+      (platform.config.selectors.messageId
+        ? element.getAttribute(platform.config.selectors.messageId) ||
+          element
+            .closest<HTMLElement>(`[${platform.config.selectors.messageId}]`)
+            ?.getAttribute(platform.config.selectors.messageId)
+        : null);
     if (!id) return -1;
     return conversationMessages.findIndex((message) => message.id === id);
   }
@@ -581,9 +583,12 @@ export const navigatorController = (() => {
       { threshold: [0.1, 0.25, 0.5, 0.75, 1] }
     );
 
-    document
-      .querySelectorAll<HTMLElement>('[data-chatgpt-search-unit-key$=":user"]')
-      .forEach((element) => activePromptObserver?.observe(element));
+    const userSelector = getActivePlatform().config.selectors.userMessage;
+    if (userSelector) {
+      document
+        .querySelectorAll<HTMLElement>(userSelector)
+        .forEach((element) => activePromptObserver?.observe(element));
+    }
   }
 
   /**
@@ -593,15 +598,20 @@ export const navigatorController = (() => {
    * `document.body`, but they don't touch search-unit elements.
    */
   function getMountedPromptSignature(): string {
+    const platform = getActivePlatform();
+    const userSelector = platform.config.selectors.userMessage;
+    if (!userSelector) return '';
+
     return Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-chatgpt-search-unit-key$=":user"]'
-      )
+      document.querySelectorAll<HTMLElement>(userSelector)
     )
       .map(
         (element) =>
           element.getAttribute('data-chatgpt-search-unit-key') ||
-          element.getAttribute('data-chatgpt-search-message-ids') ||
+          platform.navigation.getMessageIdFromElement?.(element) ||
+          (platform.config.selectors.messageId
+            ? element.getAttribute(platform.config.selectors.messageId)
+            : '') ||
           ''
       )
       .join('|');

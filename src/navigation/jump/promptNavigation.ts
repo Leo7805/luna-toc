@@ -7,16 +7,6 @@ import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
 import {
-  findRenderedChatGptPrompt as _findRenderedChatGptPrompt,
-  findRenderedChatGptPromptByText as _findRenderedChatGptPromptByText,
-  getChatGptScrollContainer as _getChatGptScrollContainer,
-} from '@/platforms/chatgpt/virtualSearchAdapter';
-import {
-  createChatGptNavigationJumpId as _createChatGptNavigationJumpId,
-  logChatGptNavigationEvent as _logChatGptNavigationEvent,
-  isJumpVizDebugEnabled as _isJumpVizDebugEnabled,
-} from '@/platforms/chatgpt/navigationDiagnostics';
-import {
   detectNewMounts,
   findTargetInQueue,
   queueSidebarIndices,
@@ -36,20 +26,22 @@ const findRenderedChatGptPrompt = (
 const findRenderedChatGptPromptByText = (
   text: string,
   root?: ParentNode
-): HTMLElement | null => _findRenderedChatGptPromptByText(text, root);
+): HTMLElement | null =>
+  platform().navigation.findRenderedPromptByText?.(text, root) ?? null;
 const getChatGptScrollContainer = (root?: ParentNode): HTMLElement | null =>
-  _getChatGptScrollContainer(root);
+  platform().navigation.getScrollContainer(root);
 const createChatGptNavigationJumpId = (): string =>
   platform().diagnostics.createJumpId();
 const logChatGptNavigationEvent = (
   jumpId: string,
   eventName: string,
   details: Record<string, unknown> = {},
-  storage: Parameters<typeof _logChatGptNavigationEvent>[3] = localStorage
-): void => _logChatGptNavigationEvent(jumpId, eventName, details, storage);
+  storage?: Storage
+): void => platform().diagnostics.logEvent(jumpId, eventName, details, storage);
 const isJumpVizDebugEnabled = (
-  storage: Parameters<typeof _isJumpVizDebugEnabled>[0] = localStorage
-): boolean => _isJumpVizDebugEnabled(storage);
+  storage?: Pick<Storage, 'getItem'>
+): boolean =>
+  platform().diagnostics.isJumpVizDebugEnabled?.(storage) ?? false;
 
 /**
  * Prints the currently-mounted and currently-visible user messages to the
@@ -61,10 +53,9 @@ const isJumpVizDebugEnabled = (
  * @param label Phase identifier prepended to the dump.
  */
 function logMountedPromptViz(label: string): void {
+  const userSelector = platform().config.selectors.userMessage;
   const all = Array.from(
-    document.querySelectorAll<HTMLElement>(
-      '[data-chatgpt-search-unit-key$=":user"]'
-    )
+    document.querySelectorAll<HTMLElement>(userSelector)
   );
   const visible = all.filter(function (el) {
     const r = el.getBoundingClientRect();
@@ -82,7 +73,12 @@ function logMountedPromptViz(label: string): void {
     console.log(`  ${header} (n=${list.length}):`);
     list.forEach(function (el, i) {
       const r = el.getBoundingClientRect();
-      const id = el.getAttribute('data-chatgpt-search-message-ids') || '(none)';
+      const id =
+        platform().navigation.getMessageIdFromElement?.(el) ||
+        (platform().config.selectors.messageId
+          ? el.getAttribute(platform().config.selectors.messageId)
+          : null) ||
+        '(none)';
       const text = truncate(el.textContent || '', 40);
       console.log(
         `    ${i + 1}. ${id.slice(0, 8)} "${text}"` +
@@ -815,7 +811,7 @@ function finishIndependentVirtualJump(
   const scrollTargetIntoView = function (el: HTMLElement): boolean {
     if (!el.isConnected) return false;
     const previousScrollMarginTop = el.style.scrollMarginTop;
-    el.style.scrollMarginTop = `${APP_CONFIG.platforms.chatgpt.promptTopOffsetPx}px`;
+    el.style.scrollMarginTop = `${platform().navigation.promptTopOffsetPx}px`;
     el.scrollIntoView({ behavior: 'auto', block: 'start' });
     el.style.scrollMarginTop = previousScrollMarginTop;
     highlightMatchedElement(el);

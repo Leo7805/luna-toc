@@ -62,5 +62,12 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
   - Deleted remaining 5 legacy virtual search modules (`virtualSearchController.ts`, `navigationAnchorStore.ts`, `visiblePositionResolver.ts`, `matcher.ts`, `segmentMatcher.ts`).
   - Deleted 5 legacy test suites (`navigationAnchorStore.test.ts`, `visiblePositionResolver.test.ts`, `resolvePromptIndexesFromIds.test.ts`, `matcher.test.ts`, `segmentMatcher.test.ts`).
   - Verified baseline: 33/33 test files (143/143 tests passing), typecheck clean, production build clean, and `git diff --check` clean.
-- P0.4 cleanup is fully complete. Awaiting next instructions before proceeding to P1.
+- P0.4 cleanup is fully complete.
+- Task P1.1 completed:
+  - Extended `PlatformNavigationAdapter` and `PlatformNavigationDiagnostics` in `src/platforms/platformInterface.ts` with optional methods (`findRenderedPromptByText`, `readMountedWithSidebarIdx`, `getMessageIdFromElement`, `isJumpVizDebugEnabled`) and modern selectors in `config.selectors`.
+  - Exported `getChatGptMessageId` from `virtualSearchAdapter.ts` and wired active implementations in `chatgpt/index.ts`. Left optional methods `undefined` on `copilotPlatform` without dummy stubs.
+  - Refactored `mountQueue.ts` and `promptNavigation.ts` to use `getActivePlatform()` lazily, eliminating direct imports from `@/platforms/chatgpt/*` and adding explicit error handling when mounted prompt inspection is unsupported.
+  - Refactored `navigatorController.ts` and `outline.ts` to use `platform.config.selectors` and `platform.navigation.getMessageIdFromElement`, preserving DOM selector semantics, query scopes, ancestor lookups, and comma-separated message ID matching.
+  - Verified baseline: 34 test files (147 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
+- Next step: Awaiting next instructions for Phase P1.2. Do not proceed to P1.2 without approval.
 
