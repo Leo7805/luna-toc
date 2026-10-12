@@ -19,6 +19,28 @@ const isJumpVizDebugEnabled = (
 ): boolean =>
   platform().diagnostics.isJumpVizDebugEnabled?.(storage) ?? false;
 
+interface JumpPerfLogger {
+  readonly t0: number;
+  log(tag: string, details?: Record<string, unknown>): void;
+}
+
+function createJumpPerfLogger(): JumpPerfLogger {
+  const t0 = performance.now();
+  return {
+    t0,
+    log(tag: string, details?: Record<string, unknown>) {
+      const elapsedMs = (performance.now() - t0).toFixed(1);
+      const detailStr = details
+        ? ' ' +
+          Object.entries(details)
+            .map(([k, v]) => `${k}=${Array.isArray(v) ? `[${v.join(',')}]` : typeof v === 'object' && v !== null ? JSON.stringify(v) : v}`)
+            .join(' ')
+        : '';
+      console.log(`[LunaTOC jump-perf] [+${elapsedMs}ms] ${tag}${detailStr}`);
+    },
+  };
+}
+
 /**
  * Clamps a candidate `scrollTop` to the physical scroll range. In
  * standard flex the range is `[0, maxScrollTop]`; in column-reverse
@@ -42,35 +64,57 @@ function clampScrollTo(
 }
 
 /**
+ * Pacing helper: yields one browser animation frame between scroll writes.
+ */
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(resolve, 16);
+    }
+  });
+}
+
+/**
  * One-shot MutationObserver wait: resolves `true` once the DOM has
  * changed within `timeoutMs`, `false` on timeout. Debounced so
  * per-node callbacks fired by React during a batch mount coalesce
- * into one effective "mount complete" signal. If `isCancelled` returns
- * true (the user clicked another prompt mid-flight or version bumped),
- * resolves `'cancelled'`.
- *
- * Shared by `waitForMount` and `settleOnce` — both want the same
- * "did the DOM change in response to my scrollTop write" signal.
+ * into one effective signal. If `isCancelled` returns true, resolves `'cancelled'`.
+ * Used strictly during physical boundary stalls.
  */
 function waitForDomChange(
   root: ParentNode,
   isCancelled: () => boolean,
   timeoutMs: number,
-  debounceMs: number = 10
+  debounceMs: number = 10,
+  perf?: JumpPerfLogger,
+  tag?: string,
+  container?: HTMLElement
 ): Promise<boolean | 'cancelled'> {
   return new Promise<boolean | 'cancelled'>(function (resolve) {
     let settled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+    let mutationRecordTotal = 0;
 
     function finish(result: boolean | 'cancelled'): void {
       if (settled) return;
       settled = true;
       observer.disconnect();
       if (debounceTimer !== null) clearTimeout(debounceTimer);
+      if (timeoutTimer !== null) clearTimeout(timeoutTimer);
       resolve(result);
     }
 
-    const observer = new MutationObserver(function () {
+    const observer = new MutationObserver(function (mutations) {
+      mutationRecordTotal += mutations.length;
+      perf?.log('MUTATION_OBSERVER_CALLBACK', {
+        tag,
+        recordCount: mutations.length,
+        totalRecords: mutationRecordTotal,
+        scrollTop: container ? container.scrollTop : 'n/a',
+      });
       if (isCancelled()) {
         finish('cancelled');
         return;
@@ -81,133 +125,129 @@ function waitForDomChange(
           finish('cancelled');
           return;
         }
+        perf?.log('DEBOUNCE_COMPLETED', {
+          tag,
+          debounceMs,
+          totalRecords: mutationRecordTotal,
+          scrollTop: container ? container.scrollTop : 'n/a',
+        });
         finish(true);
       }, debounceMs);
     });
     observer.observe(root, { childList: true, subtree: true });
 
-    setTimeout(function () {
+    timeoutTimer = setTimeout(function () {
+      if (settled) return;
+      perf?.log('TIMEOUT_EXPIRED', {
+        tag,
+        timeoutMs,
+        totalRecords: mutationRecordTotal,
+        scrollTop: container ? container.scrollTop : 'n/a',
+      });
       finish(false);
     }, timeoutMs);
   });
 }
 
 /**
- * One round of the to-top-style settle: send a small batch of
- * `scrollTop` writes spaced 10 ms apart, then wait for ChatGPT's
- * MutationObserver to report that the DOM has changed (debounced to
- * 10 ms to coalesce the per-node callbacks React fires during a
- * batch mount). Returns the target element if it landed inside the
- * batch, otherwise null so the outer loop can decide whether to
- * take another step.
+ * Checks whether the exact target prompt is currently rendered and connected.
  */
-async function settleOnce(
+function findExactTarget(
+  mountQueue: MountQueue,
+  targetId: string,
+  targetIndex: number,
+  root: ParentNode = document
+): HTMLElement | null {
+  const el = findTargetInQueue(mountQueue, targetId, targetIndex, root);
+  return el && el.isConnected ? el : null;
+}
+
+/**
+ * Tests whether `after` moved in the requested direction relative to `before`.
+ * Supports both standard flex and column-reverse negative scrollTop.
+ */
+function hasMovedTowardTarget(
+  before: number,
+  after: number,
+  direction: 1 | -1
+): boolean {
+  return (after - before) * direction > 0;
+}
+
+/**
+ * Handles a physical scroll boundary stall (e.g. top of conversation).
+ * Nudges the scroll container at the boundary to stimulate ChatGPT's
+ * scroll-boundary listeners, then waits for DOM mutations or scroll-range expansion.
+ */
+async function handleBoundaryOrBackfillStall(
   container: HTMLElement,
   mountQueue: MountQueue,
-  prompts: ReadonlyArray<{ id: string }>,
-  root: ParentNode,
   targetId: string,
   targetIndex: number,
   direction: 1 | -1,
   isReverse: boolean,
   isCancelled: () => boolean,
-  settleMs: number
-): Promise<HTMLElement | null> {
-  function logSettlePoll(details: Record<string, unknown>): void {
-    if (isJumpVizDebugEnabled()) {
-      console.log('[LunaTOC settle-poll]', details);
-    }
-  }
+  settleMs: number,
+  root: ParentNode,
+  perf?: JumpPerfLogger
+): Promise<HTMLElement | null | 'resumed'> {
+  perf?.log('PHYSICAL_STALL', {
+    direction,
+    scrollTop: container.scrollTop,
+    scrollHeight: container.scrollHeight,
+  });
 
-  // Send the same direction step a handful of times in a tight loop.
-  // Each write moves one viewport toward the target; together they
-  // mimic a continuous flick. 10 ms between writes is short enough
-  // to land before ChatGPT has finished processing the previous one
-  // (so it sees a batch) and long enough to avoid being collapsed
-  // into a single no-op by the browser.
+  const preCheck = findExactTarget(mountQueue, targetId, targetIndex, root);
+  if (preCheck) return preCheck;
+
+  // Send small burst of edge flick writes (up to 5 writes spaced 10ms)
+  // to stimulate host infinite-scroll / pagination observers at the boundary
   const MAX_BATCH_SIZE = 5;
   const BATCH_INTERVAL_MS = 10;
   const step = direction * window.innerHeight;
   for (let i = 0; i < MAX_BATCH_SIZE; i++) {
+    if (isCancelled()) return null;
     const next = container.scrollTop + step;
     container.scrollTop = clampScrollTo(container, next, isReverse);
-    await new Promise<void>(function (resolve) {
-      setTimeout(resolve, BATCH_INTERVAL_MS);
-    });
+    await new Promise<void>((r) => setTimeout(r, BATCH_INTERVAL_MS));
   }
 
-  // Watch for the batch's mount response via MutationObserver. Shared
-  // with `waitForMount` — both want the same "did the DOM change in
-  // response to my scrollTop write" signal.
+  const postBatchCheck = findExactTarget(mountQueue, targetId, targetIndex, root);
+  if (postBatchCheck) return postBatchCheck;
+
+  perf?.log('BOUNDARY_WAIT', {
+    timeoutMs: settleMs,
+    scrollTop: container.scrollTop,
+    scrollHeight: container.scrollHeight,
+  });
+
   const OBSERVER_DEBOUNCE_MS = 10;
-  const OBSERVER_TIMEOUT_MS = Math.max(settleMs, 100);
   const changed = await waitForDomChange(
     document.body,
     isCancelled,
-    OBSERVER_TIMEOUT_MS,
-    OBSERVER_DEBOUNCE_MS
+    Math.max(settleMs, 100),
+    OBSERVER_DEBOUNCE_MS,
+    perf,
+    'boundaryWait',
+    container
   );
-  if (changed === 'cancelled') return null;
 
-  logSettlePoll({
-    phase: 'observer-returned',
-    changed: changed === true,
-    elapsedMs: OBSERVER_TIMEOUT_MS,
-  });
+  if (changed === 'cancelled' || isCancelled()) return null;
 
-  // Pull whatever ChatGPT mounted during the wait into the queue
-  // before re-scanning it for the target. `detectNewMounts` also
-  // refreshes the element reference on existing entries, so a
-  // re-mount by ChatGPT during virtual render doesn't leave us
-  // holding a stale node.
-  const newEntries = detectNewMounts(mountQueue, prompts, root);
-  for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
+  const targetAfterWait = findExactTarget(mountQueue, targetId, targetIndex, root);
+  if (targetAfterWait) return targetAfterWait;
 
-  return findTargetInQueue(mountQueue, targetId, targetIndex);
-}
-
-/**
- * One round of "wait for ChatGPT to actually finish mounting after a
- * `scrollTop` change, then check if the target is in the queue".
- */
-async function waitForMount(
-  mountQueue: MountQueue,
-  prompts: ReadonlyArray<{ id: string }>,
-  root: ParentNode,
-  targetId: string,
-  targetIndex: number,
-  isCancelled: () => boolean,
-  timeoutMs: number
-): Promise<HTMLElement | null | 'cancelled'> {
-  const OBSERVER_DEBOUNCE_MS = 10;
-
-  function checkAfterMount(): HTMLElement | null {
-    const newEntries = detectNewMounts(mountQueue, prompts, root);
-    for (const entry of newEntries) mountQueue.set(entry.unitKey, entry);
-    return findTargetInQueue(mountQueue, targetId, targetIndex);
+  // Check if boundary expanded (physical scrolling can move now)
+  const testScrollTop = clampScrollTo(container, container.scrollTop + step, isReverse);
+  if (testScrollTop !== container.scrollTop) {
+    perf?.log('BOUNDARY_EXPANDED', {
+      scrollHeight: container.scrollHeight,
+      scrollTop: container.scrollTop,
+    });
+    return 'resumed';
   }
 
-  // Cheap synchronous re-scan first — many of ChatGPT's in-memory
-  // mounts land before the next paint, so this catches the easy hits
-  // without paying the observer latency.
-  const immediateHit = checkAfterMount();
-  if (immediateHit) return immediateHit;
-
-  // Wait for the next DOM change and re-scan; loop because one
-  // observer signal can carry multiple mounts and ChatGPT may keep
-  // mounting additional batches as it processes the scrollTop write.
-  while (true) {
-    const result = await waitForDomChange(
-      root,
-      isCancelled,
-      timeoutMs,
-      OBSERVER_DEBOUNCE_MS
-    );
-    if (result === 'cancelled') return 'cancelled';
-    const hit = checkAfterMount();
-    if (hit) return hit;
-    if (result === false) return null;
-  }
+  return null;
 }
 
 /**
@@ -233,11 +273,9 @@ function computeDirectionTowardTarget(
 
 /**
  * Actively loads the target prompt when it is not currently mounted.
- * The loop maintains a `MountQueue` of every prompt LunaTOC knows has been
- * mounted in the DOM, and steps `scrollTop` toward the target one viewport
- * at a time. After each step the loop immediately re-scans the queue for the
- * target. When no new prompts mount across a step, enters `settleOnce` to wait
- * for async backfill.
+ * Walks the scroll container toward the target one viewport at a time
+ * while simultaneously watching for the target via a passive MutationObserver.
+ * Stops immediately the instant the target appears in the DOM.
  *
  * @param targetId Stable prompt ID to search for.
  * @param targetIndex 0-indexed position in the conversation.
@@ -246,18 +284,6 @@ function computeDirectionTowardTarget(
  * @param jumpId Optional diagnostic navigation jump ID.
  * @param isCancelled Optional cancellation check predicate.
  * @returns The mounted target HTMLElement, or null if cancelled or exhausted.
- *
- * @example
- * ```ts
- * const element = await loadUntilMountedViaViewport(
- *   'prompt-1',
- *   0,
- *   prompts,
- *   container,
- *   'jump-123',
- *   () => isCancelled
- * );
- * ```
  */
 export async function loadUntilMountedViaViewport(
   targetId: string,
@@ -267,9 +293,18 @@ export async function loadUntilMountedViaViewport(
   jumpId?: string,
   isCancelled: () => boolean = () => false
 ): Promise<HTMLElement | null> {
-  const LOAD_HARD_CAP = 30;
   const LOAD_SETTLE_MS = 1500;
   const root = document;
+
+  const perf = createJumpPerfLogger();
+  perf.log('LOAD_START', {
+    jumpId,
+    targetId,
+    targetIndex,
+    promptsCount: prompts.length,
+    scrollTop: container.scrollTop,
+    scrollHeight: container.scrollHeight,
+  });
 
   function logLoadStep(details: Record<string, unknown>): void {
     if (isJumpVizDebugEnabled()) {
@@ -280,96 +315,152 @@ export async function loadUntilMountedViaViewport(
   const isReverse =
     window.getComputedStyle(container).flexDirection === 'column-reverse';
 
-  // Seed the queue with whatever ChatGPT currently has mounted.
+  // Seed the queue to establish initial direction
   const mountQueue: MountQueue = seedMountQueue(prompts, root);
-
   if (mountQueue.size === 0) {
+    perf.log('LOAD_END', { result: 'no-mounted-at-seed' });
     logLoadStep({ result: 'no-mounted-at-seed' });
     return null;
   }
 
-  // Cheap pre-check: if the target is already in the seed, return immediately.
-  const initialHit = findTargetInQueue(mountQueue, targetId, targetIndex);
+  // Initial check: if already mounted, exit immediately in 0 scroll writes
+  const initialHit = findExactTarget(mountQueue, targetId, targetIndex, root);
   if (initialHit) {
+    perf.log('LOAD_END', { result: 'found-in-seed', targetId });
     logLoadStep({ result: 'found-in-seed' });
     return initialHit;
   }
 
-  for (let attempt = 0; attempt < LOAD_HARD_CAP; attempt++) {
-    // Cancellation: the user picked another prompt mid-flight.
-    if (isCancelled()) {
-      logLoadStep({ attempt, result: 'cancelled' });
-      return null;
-    }
+  const sidebarIndices = queueSidebarIndices(mountQueue);
+  if (sidebarIndices.length === 0) {
+    perf.log('LOAD_END', { result: 'queue-empty-at-seed' });
+    return null;
+  }
+  const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
 
-    // Compute the next step using the queue's current sidebar-index spread.
-    const sidebarIndices = queueSidebarIndices(mountQueue);
-    if (sidebarIndices.length === 0) {
-      logLoadStep({ attempt, result: 'queue-empty' });
+  // Passive exact-target observer for the lifetime of this walk
+  let detectedTarget: HTMLElement | null = null;
+  const targetObserver = new MutationObserver(() => {
+    if (isCancelled()) return;
+    const found = findExactTarget(mountQueue, targetId, targetIndex, root);
+    if (found) {
+      detectedTarget = found;
+      perf.log('TARGET_OBSERVER_HIT', {
+        targetId,
+        scrollTop: container.scrollTop,
+      });
+    }
+  });
+
+  try {
+    targetObserver.observe(root, { childList: true, subtree: true });
+
+    let stepIndex = 0;
+    while (!isCancelled()) {
+      const currentStep = stepIndex++;
+
+      // Check if target was detected by passive observer or direct check
+      const observedHit = detectedTarget as HTMLElement | null;
+      if (observedHit && observedHit.isConnected) {
+        perf.log('LOAD_END', { step: currentStep, result: 'observer-hit', targetId });
+        return observedHit;
+      }
+      const targetBeforeStep = findExactTarget(mountQueue, targetId, targetIndex, root);
+      if (targetBeforeStep) {
+        perf.log('LOAD_END', { step: currentStep, result: 'pre-step-hit', targetId });
+        return targetBeforeStep;
+      }
+
+      const beforeScrollTop = container.scrollTop;
+      const step = direction * window.innerHeight;
+      const nextScrollTop = beforeScrollTop + step;
+      const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
+
+      perf.log('FAST_SCROLL_WRITE', {
+        step: currentStep,
+        direction,
+        beforeScrollTop,
+        afterScrollTop: clampedScrollTop,
+        scrollHeight: container.scrollHeight,
+      });
+
+      container.scrollTop = clampedScrollTop;
+      logLoadStep({
+        step: currentStep,
+        phase: 'fast-step',
+        direction,
+        beforeScrollTop,
+        afterScrollTop: clampedScrollTop,
+      });
+
+      // Pacing: yield one browser animation frame
+      await nextAnimationFrame();
+      perf.log('FRAME_YIELD', {
+        step: currentStep,
+        scrollTop: container.scrollTop,
+      });
+
+      if (isCancelled()) {
+        perf.log('LOAD_END', { step: currentStep, result: 'cancelled-after-frame' });
+        return null;
+      }
+
+      // Target check after frame yield
+      const observedPostFrame = detectedTarget as HTMLElement | null;
+      if (observedPostFrame && observedPostFrame.isConnected) {
+        perf.log('LOAD_END', { step: currentStep, result: 'observer-hit-post-frame', targetId });
+        return observedPostFrame;
+      }
+      const targetAfterFrame = findExactTarget(mountQueue, targetId, targetIndex, root);
+      if (targetAfterFrame) {
+        perf.log('LOAD_END', { step: currentStep, result: 'post-frame-hit', targetId });
+        return targetAfterFrame;
+      }
+
+      const afterScrollTop = container.scrollTop;
+      const movedTowardTarget = hasMovedTowardTarget(beforeScrollTop, afterScrollTop, direction);
+
+      if (movedTowardTarget) {
+        // Physical scroll moved freely in the requested direction.
+        // Keep fast-walking without any MutationObserver or settle delay.
+        continue;
+      }
+
+      // Physical stall: hit boundary without target. Enter boundary/backfill wait.
+      const stallOutcome = await handleBoundaryOrBackfillStall(
+        container,
+        mountQueue,
+        targetId,
+        targetIndex,
+        direction,
+        isReverse,
+        isCancelled,
+        LOAD_SETTLE_MS,
+        root,
+        perf
+      );
+
+      if (isCancelled()) return null;
+
+      if (stallOutcome === 'resumed') {
+        // Boundary expanded, resume fast walk
+        continue;
+      }
+
+      if (stallOutcome) {
+        // Target was found during stall handling
+        perf.log('LOAD_END', { step: currentStep, result: 'stall-hit', targetId });
+        return stallOutcome;
+      }
+
+      // Boundary stall could not resolve (exhausted)
       break;
     }
-    const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
-    const step = direction * window.innerHeight;
-    const beforeScrollTop = container.scrollTop;
-    const nextScrollTop = beforeScrollTop + step;
-    const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
-    container.scrollTop = clampedScrollTop;
-    logLoadStep({
-      attempt,
-      phase: 'step',
-      direction,
-      beforeScrollTop,
-      afterScrollTop: clampedScrollTop,
-      deltaScrollTop: clampedScrollTop - beforeScrollTop,
-    });
 
-    // Wait for mount triggered by scrollTop write, then check queue.
-    const MOUNT_WAIT_TIMEOUT_MS = 500;
-    const waitResult = await waitForMount(
-      mountQueue,
-      prompts,
-      root,
-      targetId,
-      targetIndex,
-      isCancelled,
-      MOUNT_WAIT_TIMEOUT_MS
-    );
-    if (waitResult === 'cancelled') {
-      logLoadStep({ attempt, result: 'cancelled-after-wait' });
-      return null;
-    }
-    if (waitResult) {
-      logLoadStep({
-        attempt,
-        result: 'found-after-wait',
-        direction,
-      });
-      return waitResult;
-    }
-
-    // No hit within the wait. Settle with a batch of scrollTop writes.
-    const settled = await settleOnce(
-      container,
-      mountQueue,
-      prompts,
-      root,
-      targetId,
-      targetIndex,
-      direction,
-      isReverse,
-      isCancelled,
-      LOAD_SETTLE_MS
-    );
-    if (settled) {
-      logLoadStep({ attempt, result: 'found-after-settle' });
-      return settled;
-    }
-    if (isCancelled()) {
-      logLoadStep({ attempt, result: 'cancelled-after-settle' });
-      return null;
-    }
+    perf.log('LOAD_END', { result: isCancelled() ? 'cancelled' : 'exhausted' });
+    logLoadStep({ result: isCancelled() ? 'cancelled' : 'exhausted' });
+    return null;
+  } finally {
+    targetObserver.disconnect();
   }
-
-  logLoadStep({ result: 'hard-cap-reached' });
-  return null;
 }
