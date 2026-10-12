@@ -16,7 +16,15 @@ import { promptContextMenuController } from './promptContextMenu';
 
 import { previewTooltip } from '@/features/tooltip';
 
-type SortMode = 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
+import {
+  formatPromptsAsMarkdown,
+  parseMarkdownPrompts,
+} from './promptSerializer';
+import {
+  sortMyPrompts,
+  type SortMode,
+} from './promptSorter';
+
 type VoidCallback = () => void;
 
 interface PromptLibraryDependencies {
@@ -105,36 +113,6 @@ function requirePromptUsageStore(): PromptUsageStore {
   return promptUsageStore;
 }
 
-/**
- * Returns a Markdown fence that does not occur in the prompt content.
- * @param {string} content
- * @returns {string}
- */
-function getMarkdownFence(content: string): string {
-  const backtickRuns = content.match(/`+/g) || [];
-  const longestRun = backtickRuns.reduce(
-    (length, run) => Math.max(length, run.length),
-    0
-  );
-  return '`'.repeat(Math.max(3, longestRun + 1));
-}
-
-/**
- * Formats prompts as editable Markdown sections.
- * @param {Array} prompts
- * @returns {string}
- */
-function formatPromptsAsMarkdown(prompts: SavedPrompt[]): string {
-  return prompts
-    .map(({ title, content }) => {
-      const fence = getMarkdownFence(content);
-      const closingNewline = content.endsWith('\n') ? '' : '\n';
-      return `# ${title}\n\n${fence}prompt\n${content}${closingNewline}${
-        fence
-      }`;
-    })
-    .join('\n\n');
-}
 
 /**
  * Downloads saved prompts as an editable Markdown file.
@@ -156,46 +134,6 @@ async function exportMyPrompts(): Promise<void> {
   URL.revokeObjectURL(downloadUrl);
 }
 
-/**
- * Parses prompt sections from the Markdown format created by the exporter.
- * @param {string} markdown
- * @returns {Array<{title: string, content: string}>}
- */
-function parseMarkdownPrompts(
-  markdown: string
-): Array<Pick<SavedPrompt, 'title' | 'content'>> {
-  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
-  const prompts: Array<Pick<SavedPrompt, 'title' | 'content'>> = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    if (!lines[index].startsWith('# ')) continue;
-
-    const title = lines[index].slice(2).trim();
-    index += 1;
-    while (lines[index] === '') index += 1;
-
-    const openingFence = lines[index]?.match(/^(`{3,})prompt\s*$/);
-    if (!title || !openingFence) continue;
-
-    const fence = openingFence[1];
-    const contentLines = [];
-    index += 1;
-
-    while (index < lines.length && lines[index] !== fence) {
-      contentLines.push(lines[index]);
-      index += 1;
-    }
-
-    if (index === lines.length) break;
-
-    const content = contentLines.join('\n');
-    if (content.trim()) {
-      prompts.push({ title, content });
-    }
-  }
-
-  return prompts;
-}
 
 /**
  * Opens a Markdown file and appends its prompts to the current collection.
@@ -255,36 +193,7 @@ function importMyPrompts(onImport: VoidCallback): void {
   input.click();
 }
 
-/**
- * Sorts the prompts list based on the chosen mode.
- * @param {Array} list
- * @param {string} sortMode
- * @returns {Array}
- */
-export function sortMyPrompts(
-  list: SavedPrompt[],
-  sortMode: SortMode
-): SavedPrompt[] {
-  const sorted = [...list];
-  if (sortMode === 'updated_desc') {
-    sorted.sort((a, b) => b.updatedAt - a.updatedAt);
-  } else if (sortMode === 'updated_asc') {
-    sorted.sort((a, b) => a.updatedAt - b.updatedAt);
-  } else if (sortMode === 'name_asc') {
-    sorted.sort((a, b) => a.title.localeCompare(b.title));
-  } else if (sortMode === 'name_desc') {
-    sorted.sort((a, b) => b.title.localeCompare(a.title));
-  }
-  return sorted;
-}
 
-/**
- * Returns the currently selected prompt sort mode.
- * @returns {string}
- */
-export function getActiveSort(): SortMode {
-  return activeSort;
-}
 
 /**
  * Escapes text inserted into HTML templates.

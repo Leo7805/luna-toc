@@ -95,5 +95,12 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
     3. `src/navigation/jump/promptNavigation.ts`: high-level facade and coordinator managing prompt fast-path matching, search progress state, outline heading jumps, active-prompt follow locking, visual highlights, and cancellation concurrency. Preserved all 6 existing public exports (`initializePromptNavigation`, `jumpToMessage`, `jumpToPromptIndex`, `lockPromptIndex`, `jumpToAbsoluteEdge`, `jumpToConversationEdge`).
   - Added dedicated unit test suites: `test/navigation/jump/viewportWalker.test.ts` (4 tests) and `test/navigation/jump/edgeNavigation.test.ts` (9 tests).
   - Verified baseline: 40 test files (195 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
-- Next step: Awaiting instructions for Phase P1.4 (`promptLibrary.ts` decomposition) after manual verification of P1.3. Do not proceed to P1.4 without approval.
+- Task P1.4 completed:
+  - Decomposed monolithic `src/features/myPrompts/promptLibrary.ts` (787 LOC) into focused modules:
+    1. `src/features/myPrompts/promptSerializer.ts` (84 LOC): pure Markdown parser and formatter for import/export (`formatPromptsAsMarkdown`, `parseMarkdownPrompts`), keeping dynamic fence calculation module-private.
+    2. `src/features/myPrompts/promptSorter.ts` (34 LOC): pure sorting logic (`sortMyPrompts`) and `SortMode` type definition.
+    3. `src/features/myPrompts/promptLibrary.ts` (696 LOC): manages storage coordination, active sort selection state, export/import file actions, modal dialogs, and DOM list rendering. Exposes only the 6 methods required by production callers.
+  - Added dedicated pure-logic unit test suites: `test/myPrompts/promptSerializer.test.ts` (14 tests) and `test/myPrompts/promptSorter.test.ts` (6 tests).
+  - Verified baseline: 42 test files (214 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
+- Next step: Awaiting instructions for Phase P1.5 (`outline.ts` decomposition) after manual verification of P1.4. Do not proceed to P1.5 without approval.
 

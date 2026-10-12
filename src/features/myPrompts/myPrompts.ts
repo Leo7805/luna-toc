@@ -7,14 +7,12 @@ import {
   insertIntoChatGPTInput,
 } from './promptAutocomplete';
 import {
-  getActiveSort,
   getMyPrompts,
   initializePromptLibrary,
   onPromptsChanged,
   renderMyPrompts,
   saveMyPrompts,
   showDialog,
-  sortMyPrompts,
 } from './promptLibrary';
 import { createPromptStore } from './promptStore';
 import { createPromptUsageStore } from './promptUsageStore';
