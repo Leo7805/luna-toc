@@ -38,9 +38,9 @@ import {
   handlePromptNavigation,
   resetOutline,
   scheduleBuild,
-  setSidebarStatus,
   syncMarkState,
 } from './jump/outline';
+import { setSidebarStatus } from './ui/sidebarStatus';
 import { previewTooltip } from '@/features/tooltip';
 
 export type { RenderOptions };

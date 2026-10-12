@@ -10,10 +10,12 @@ import {
   createPromptItem,
   resetPromptItems,
   setPromptMessages,
-  setSidebarStatus,
   syncActivePrompt,
-  type SidebarStatusState,
 } from '@/navigation/jump/outline';
+import {
+  setSidebarStatus,
+  type SidebarStatusState,
+} from './sidebarStatus';
 import { isFollowing, stopFollowing } from '@/navigation/follow/follow';
 import {
   clearSettleTimer,

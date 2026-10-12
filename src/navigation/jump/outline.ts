@@ -1,7 +1,6 @@
 /**
- * Helpers for building per-prompt answer outlines from rendered ChatGPT
- * headings. This file intentionally keeps outline parsing separate from the
- * main content script UI code.
+ * Coordinates building per-prompt answer outlines from rendered ChatGPT
+ * headings, manages accordion UI state, and dispatches outline navigation.
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { isPromptMarked as isMessageMarked } from '@/features/conversationPrompts/promptMark';
@@ -10,26 +9,13 @@ import {
   jumpToOutlineEntry,
 } from './outlineNavigation';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
-import { APP_CONFIG } from '@/config/config';
-import { getActivePlatform } from '@/platforms';
+import {
+  getPromptOutline as extractPromptOutline,
+  type OutlineEntry,
+} from './headingExtractor';
+import * as outlineCache from './outlineCache';
 
-function platform() {
-  return getActivePlatform();
-}
-
-interface OutlineEntry {
-  level: number;
-  headingLevel: number;
-  text: string;
-  occurrence: number;
-  element: HTMLElement;
-  sectionId: string;
-}
-
-interface CachedPromptOutline {
-  promptMessageId: string;
-  entries: OutlineEntry[];
-}
+export type { OutlineEntry };
 
 interface PromptItemEntry {
   item: HTMLElement;
@@ -46,52 +32,22 @@ interface CreatePromptItemOptions {
 interface PromptNavigationAction {
   shouldBuild: boolean;
 }
-const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
+
 const OUTLINE_BUILD_RETRY_DELAY_MS = 300;
 const OUTLINE_BUILD_MAX_ATTEMPTS = 15;
 
-const promptOutlines = new Map<number, CachedPromptOutline>();
 const expandedPromptOutlines = new Set<number>();
 const promptItems = new Map<number, PromptItemEntry>();
-const promptMessageIds = new Map<number, string>();
 let currentPromptIndex: number | null = null;
 let outlineBuildVersion = 0;
 
 /**
  * Extracts the two-level heading outline from a rendered prompt answer.
  * @param {number} index Prompt index in the main ChatTOC navigator.
- * @returns {Array<{ level: number, text: string, element?: HTMLElement, sectionId?: string }>}
+ * @returns {Array<OutlineEntry>}
  */
 export function getPromptOutline(index: number): OutlineEntry[] {
-  const answerContainer = getAnswerContainerForPrompt(index);
-  const outline = answerContainer
-    ? extractHeadingOutline(answerContainer)
-    : [];
-
-  logOutlineDiagnostic('OUTLINE_EXTRACTED', {
-    promptIndex: index,
-    promptMessageId: promptMessageIds.get(index) || null,
-    answerContainerFound: Boolean(answerContainer),
-    answerContainerConnected: answerContainer?.isConnected ?? false,
-    headingCount: outline.length,
-    headings: outline.map(
-      ({ level, headingLevel, text, occurrence, element, sectionId }) => ({
-        level,
-        headingLevel,
-        text,
-        occurrence,
-        tagName: element.tagName,
-        sectionId: sectionId || null,
-        connected: element.isConnected,
-        hidden:
-          element.hidden ||
-          element.closest('[hidden], [aria-hidden="true"]') !== null,
-        insideCodeBlock: element.closest('pre, code') !== null,
-      })
-    ),
-  });
-
-  return outline;
+  return extractPromptOutline(index, outlineCache.getPromptMessageId(index));
 }
 
 /**
@@ -100,9 +56,8 @@ export function getPromptOutline(index: number): OutlineEntry[] {
 export function resetOutline(): void {
   cancelOutlineNavigation();
   outlineBuildVersion += 1;
-  promptOutlines.clear();
+  outlineCache.clearOutlineCache();
   expandedPromptOutlines.clear();
-  promptMessageIds.clear();
   resetPromptItems();
   currentPromptIndex = null;
 }
@@ -116,205 +71,25 @@ export function resetPromptItems(): void {
 
 /**
  * Replaces the prompt index to message ID mapping for the active conversation.
- * @param {Array<{ id: string }>} messages Navigator messages in display order.
+ * @param {Array<NavigatorMessage>} messages Navigator messages in display order.
  */
 export function setPromptMessages(messages: NavigatorMessage[]): void {
-  const nextPromptMessageIds = new Map<number, string>();
-  messages.forEach((message, index) => {
-    if (message.id) nextPromptMessageIds.set(index, message.id);
-  });
-
-  promptOutlines.forEach((cachedOutline, index) => {
-    if (cachedOutline.promptMessageId !== nextPromptMessageIds.get(index)) {
-      invalidatePromptOutline(index, 'message-id-changed');
-    }
-  });
-
-  promptMessageIds.clear();
-  nextPromptMessageIds.forEach((messageId, index) => {
-    promptMessageIds.set(index, messageId);
-  });
+  outlineCache.setPromptMessages(messages).forEach(handleInvalidatedOutline);
 }
 
-/**
- * How long the completed-status text lingers before retracting. Shared by
- * the loading-complete and jump-complete transitions. Sourced from
- * `APP_CONFIG.ui.sidebar.statusLingerMs`.
- */
-const STATUS_LINGER_MS = APP_CONFIG.ui.sidebar.statusLingerMs;
-
-export type SidebarStatusState =
-  | 'idle'
-  | 'loading'
-  | 'jumping'
-  | 'complete'
-  | 'empty'
-  | 'failed';
-let currentStatusMode: SidebarStatusState = 'idle';
-let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
-/**
- * Last text rendered while in `jumping` mode. Reused as the lingering
- * text after a jump finishes so the user sees the final target instead of
- * an empty band.
- */
-let lastJumpingText = '';
-
-/**
- * Formats a prompt count with the correct singular/plural form for the
- * sidebar status band. Always produces "0 prompts" / "1 prompt" /
- * "N prompts".
- * @param {number} count
- * @returns {string}
- */
-function pluralizePrompts(count: number): string {
-  return count === 1 ? '1 prompt' : `${count} prompts`;
-}
-
-/**
- * Updates the small status line that lives between the sidebar header and
- * the prompt list. Owns five mutually exclusive states:
- *
- *   - `jumping`: a jump is in progress; band shows the destination
- *     with the animated dots and lives until the jump ends.
- *   - `loading`: prompts are still arriving (initial page load or
- *     backfill). Shown immediately as "Loading…". Not gated on count —
- *     loading the *first* prompt of an empty chat also falls here, so
- *     the user never sees a "No prompts yet" → "Loading…" flicker.
- *   - `complete`: a load (or jump) just finished. Shows the count
- *     briefly, then retracts to `idle` after `STATUS_LINGER_MS`.
- *   - `empty`: definitively empty chat (loading done, zero prompts).
- *     Shows "No prompts" *persistently* — no linger timer, no retract,
- *     because the empty state is the stable visual until the user
- *     starts typing.
- *   - `idle`: nothing to convey. Hidden, no reserved space.
- *
- * Safe to call on every render — the helper short-circuits when neither
- * the mode nor the rendered text changes.
- *
- * @param {Object} options
- * @param {SidebarStatusState} options.state  The visible state to
- *   render. Caller chooses; this function does not infer.
- * @param {Object | null} [options.jump]  Current jump progress, used
- *   for `jumping` text. Ignored for other states.
- * @param {number} [options.promptCount=0]  Total prompts accumulated
- *   so far. Used for `loading` (suffix) and `complete` (count).
- */
-export function setSidebarStatus(options: {
-  state: SidebarStatusState;
-  jump?: { active: boolean; targetIndex: number; remainingSteps: number } | null;
-  promptCount?: number;
-}): void {
-  const { state, jump, promptCount = 0 } = options;
-  const element = document.getElementById('luna-toc-status');
-  if (!element) return;
-
-  let text: string;
-
-  switch (state) {
-    case 'jumping':
-      text = jump
-        ? `Jumping to prompt #${jump.targetIndex + 1}`
-        : 'Jumping';
-      lastJumpingText = text;
-      break;
-    case 'loading':
-      // Bare "Loading…" covers the `promptCount === 0` case (e.g. an
-      // empty chat whose page hook never posted DATA). Once at least
-      // one prompt has landed, appending "(N so far)" gives backfill
-      // progress for long conversations.
-      text = promptCount > 0 ? `Loading... (${promptCount} so far)` : 'Loading…';
-      break;
-    case 'empty':
-      // Definitively empty chat: persistent, no linger timer.
-      text = 'No prompts';
-      break;
-    case 'failed':
-      // A jump could not resolve its target (e.g. the prompt is too far
-      // to mount). Show briefly, then retract like `complete`.
-      text = 'Jump failed';
-      break;
-    case 'complete':
-      // Linger on the last jump text when transitioning out of a
-      // jump so the user sees the destination they were scrolled to,
-      // not a count that may have shifted by the time the band retracts.
-      text =
-        currentStatusMode === 'jumping'
-          ? lastJumpingText
-          : pluralizePrompts(promptCount);
-      break;
-    case 'idle':
-    default:
-      text = '';
-  }
-
-  if (state === currentStatusMode && element.textContent === text) {
-    return;
-  }
-
-  currentStatusMode = state;
-
-  if (state === 'jumping') {
-    // The CSS `.jumping-dots .dot` keyframe animation owns the motion.
-    // Build the DOM once on entry; subsequent calls during the same
-    // jump hit the early-return above (textContent matches the prefix)
-    // and leave the dots structure intact.
-    element.replaceChildren(
-      document.createTextNode(text),
-      buildJumpingDotsElement()
-    );
-    element.classList.add('navigator-status-active');
-    if (statusLingerTimer !== null) {
-      clearTimeout(statusLingerTimer);
-      statusLingerTimer = null;
-    }
-    return;
-  }
-
-  element.textContent = text;
-  element.classList.toggle('navigator-status-active', state !== 'idle');
-
-  if (statusLingerTimer !== null) {
-    clearTimeout(statusLingerTimer);
-    statusLingerTimer = null;
-  }
-  if (state === 'complete' || state === 'failed') {
-    statusLingerTimer = window.setTimeout(() => {
-      currentStatusMode = 'idle';
-      element.textContent = '';
-      element.classList.remove('navigator-status-active');
-      statusLingerTimer = null;
-    }, STATUS_LINGER_MS);
-  }
-}
-
-/**
- * Builds the three-dot span cluster that the CSS keyframe animation drives.
- * Returned element: <span class="jumping-dots"><span class="dot"></span>...
- */
-function buildJumpingDotsElement(): HTMLSpanElement {
-  const container = document.createElement('span');
-  container.className = 'jumping-dots';
-  container.setAttribute('aria-hidden', 'true');
-  for (let i = 0; i < 3; i += 1) {
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    container.appendChild(dot);
-  }
-  return container;
+function handleInvalidatedOutline(index: number): void {
+  expandedPromptOutlines.delete(index);
+  updatePromptItemByIndex(index);
 }
 
 /**
  * Creates and registers the outline-related DOM pieces for a prompt row.
- * @param {Object} params
- * @param {HTMLElement} params.item Prompt row element.
- * @param {number} params.index Prompt index in the navigator.
- * @param {string} params.messageId ChatGPT user message ID.
+ * @param {CreatePromptItemOptions} params
  * @returns {{ outlineIndicator: HTMLElement, outlineList: HTMLElement }}
  */
 export function createPromptItem({
   item,
   index,
-  messageId,
 }: CreatePromptItemOptions): {
   outlineIndicator: HTMLSpanElement;
   outlineList: HTMLDivElement;
@@ -332,7 +107,6 @@ export function createPromptItem({
   };
 
   promptItems.set(index, entry);
-  promptMessageIds.set(index, messageId);
   updatePromptItemState(entry, index);
 
   return {
@@ -345,7 +119,7 @@ export function createPromptItem({
  * Handles outline state changes for a prompt row click.
  * @param {number} index Clicked prompt index.
  * @param {number | null} activeIndex Currently active prompt index.
- * @returns {{ shouldBuild: boolean }} Whether the caller should try building an outline after navigation.
+ * @returns {PromptNavigationAction} Whether caller should try building outline after navigation.
  */
 export function handlePromptNavigation(
   index: number,
@@ -354,11 +128,16 @@ export function handlePromptNavigation(
   cancelOutlineNavigation();
 
   const cachedOutline =
-    index === activeIndex ? getReusablePromptOutline(index) : null;
+    index === activeIndex
+      ? outlineCache.getReusablePromptOutline(index, () =>
+          getPromptOutline(index)
+        )
+      : null;
+
   if (cachedOutline) {
     logOutlineDiagnostic('OUTLINE_CACHE_REUSED', {
       promptIndex: index,
-      promptMessageId: promptMessageIds.get(index) || null,
+      promptMessageId: outlineCache.getPromptMessageId(index),
       headingCount: cachedOutline.entries.length,
       headings: cachedOutline.entries.map(
         ({ text, occurrence, element, sectionId }) => ({
@@ -410,7 +189,7 @@ function setCurrentPrompt(index: number): void {
 
 /**
  * Collapses every expanded outline except the given prompt.
- * @param {number} index Prompt index that is allowed to stay expanded.
+ * @param {number | null} index Prompt index allowed to stay expanded.
  */
 function collapseAllExcept(index: number | null): void {
   expandedPromptOutlines.forEach((expandedIndex) => {
@@ -442,7 +221,7 @@ export function syncMarkState(): void {
  * @returns {boolean}
  */
 function isPromptMarked(index: number): boolean {
-  const messageId = promptMessageIds.get(index);
+  const messageId = outlineCache.getPromptMessageId(index);
 
   return Boolean(messageId && isMessageMarked(messageId));
 }
@@ -450,6 +229,7 @@ function isPromptMarked(index: number): boolean {
 /**
  * Lazily builds and stores an outline for a prompt, then refreshes its row UI.
  * @param {number} index Prompt index to build an outline for.
+ * @param {number} [attempts] Remaining build attempts.
  */
 export function scheduleBuild(
   index: number,
@@ -459,7 +239,7 @@ export function scheduleBuild(
 
   logOutlineDiagnostic('OUTLINE_BUILD_SCHEDULED', {
     promptIndex: index,
-    promptMessageId: promptMessageIds.get(index) || null,
+    promptMessageId: outlineCache.getPromptMessageId(index),
     attempts,
     buildVersion,
   });
@@ -469,9 +249,6 @@ export function scheduleBuild(
 
 /**
  * Retries outline extraction while ignoring stale async build attempts.
- * @param {number} index Prompt index to build an outline for.
- * @param {number} attempts Remaining retry attempts.
- * @param {number} buildVersion Version captured when this build started.
  */
 function runBuild(index: number, attempts: number, buildVersion: number): void {
   if (buildVersion !== outlineBuildVersion || index !== currentPromptIndex) {
@@ -493,310 +270,15 @@ function runBuild(index: number, attempts: number, buildVersion: number): void {
     return;
   }
 
-  const promptMessageId = promptMessageIds.get(index);
-  if (!promptMessageId) return;
+  const cached = outlineCache.cachePromptOutline(index, outline);
+  if (!cached) return;
 
   currentPromptIndex = index;
-  promptOutlines.set(index, {
-    promptMessageId,
-    entries: outline,
-  });
   updatePromptItemByIndex(index);
-}
-
-/**
- * Returns a cache only when it still belongs to the current Prompt and its
- * headings can be verified against the current Assistant DOM.
- */
-function getReusablePromptOutline(index: number): CachedPromptOutline | null {
-  const cachedOutline = promptOutlines.get(index);
-  const promptMessageId = promptMessageIds.get(index);
-  if (!cachedOutline || !promptMessageId) return null;
-
-  if (cachedOutline.promptMessageId !== promptMessageId) {
-    invalidatePromptOutline(index, 'message-id-mismatch');
-    return null;
-  }
-
-  if (cachedOutline.entries.every(({ element }) => element.isConnected)) {
-    return cachedOutline;
-  }
-
-  const refreshedEntries = getPromptOutline(index);
-  if (refreshedEntries.length === 0) {
-    invalidatePromptOutline(index, 'disconnected-heading');
-    return null;
-  }
-
-  const refreshedOutline = {
-    promptMessageId,
-    entries: refreshedEntries,
-  };
-  promptOutlines.set(index, refreshedOutline);
-  return refreshedOutline;
-}
-
-/**
- * Removes one stale Outline and its expanded state.
- */
-function invalidatePromptOutline(index: number, reason: string): void {
-  if (!promptOutlines.delete(index)) return;
-
-  expandedPromptOutlines.delete(index);
-  logOutlineDiagnostic('OUTLINE_CACHE_INVALIDATED', {
-    promptIndex: index,
-    promptMessageId: promptMessageIds.get(index) || null,
-    reason,
-  });
-  updatePromptItemByIndex(index);
-}
-
-/**
- * Finds the assistant answer container that follows the rendered user prompt.
- * @param {number} index Prompt index in the main ChatTOC navigator.
- * @returns {HTMLElement | null}
- */
-function getAnswerContainerForPrompt(index: number): HTMLElement | null {
-  const userMessage = getRenderedUserMessageForPrompt(index);
-  const userTurn = userMessage?.closest('section[data-turn="user"]');
-  const answerTurn = userTurn ? findNextAssistantTurn(userTurn) : null;
-  const answerContainer = answerTurn
-    ? getAnswerMarkdownContainer(answerTurn)
-    : null;
-
-  logOutlineDiagnostic('OUTLINE_SOURCE_RESOLVED', {
-    promptIndex: index,
-    expectedPromptMessageId: promptMessageIds.get(index) || null,
-    renderedPromptMessageId:
-      userMessage?.dataset.messageId || null,
-    userMessageConnected: userMessage?.isConnected ?? false,
-    userTurnFound: Boolean(userTurn),
-    assistantTurnFound: Boolean(answerTurn),
-    assistantMessageIds: answerTurn && platform().config.selectors.assistantMessage
-      ? Array.from(
-          answerTurn.querySelectorAll<HTMLElement>(
-            platform().config.selectors.assistantMessage
-          )
-        ).map(({ dataset }) => dataset.messageId || null)
-      : [],
-    answerContainerConnected: answerContainer?.isConnected ?? false,
-    answerContainerHidden:
-      Boolean(answerContainer?.hidden) ||
-      Boolean(
-        answerContainer?.closest('[hidden], [aria-hidden="true"]')
-      ),
-    markdownContainerCount:
-      (answerTurn && platform().config.selectors.assistantMessage)
-        ? answerTurn.querySelectorAll(
-            platform().config.selectors.assistantMessage
-          ).length
-        : 0,
-    rawHeadingCount:
-      answerContainer?.querySelectorAll(HEADING_SELECTOR).length ?? 0,
-  });
-
-  return answerContainer;
-}
-
-/**
- * Finds the markdown block that actually contains answer headings. Some
- * ChatGPT turns render a short assistant preface before the final answer.
- * @param {HTMLElement} answerTurn Assistant turn section.
- * @returns {HTMLElement | null}
- */
-function getAnswerMarkdownContainer(
-  answerTurn: HTMLElement
-): HTMLElement | null {
-  const assistantSelector = platform().config.selectors.assistantMessage;
-  const markdownContainers = assistantSelector
-    ? Array.from(
-        answerTurn.querySelectorAll<HTMLElement>(assistantSelector)
-      )
-    : [];
-
-  return (
-    markdownContainers.find((container) =>
-      container.querySelector(HEADING_SELECTOR)
-    ) ||
-    markdownContainers.at(-1) ||
-    (assistantSelector
-      ? answerTurn.querySelector(assistantSelector)
-      : null) ||
-    null
-  );
-}
-
-/**
- * Finds the rendered user message for a prompt. Prefer the platform's stable
- * message ID; when an ID exists but the DOM node is
- * still virtualized, return null so the retry loop can wait instead of
- * extracting the wrong row.
- * @param {number} index Prompt index in the main ChatTOC navigator.
- * @returns {HTMLElement | null}
- */
-function getRenderedUserMessageForPrompt(index: number): HTMLElement | null {
-  const messageId = promptMessageIds.get(index);
-  const userMessages = getRenderedUserMessages();
-  const userSelector = platform().config.selectors.userMessage;
-  const userMessageById = messageId && userSelector
-    ? Array.from(
-        document.querySelectorAll<HTMLElement>(userSelector)
-      ).find((el) => {
-        const id =
-          platform().navigation.getMessageIdFromElement?.(el) ??
-          (platform().config.selectors.messageId
-            ? el.getAttribute(platform().config.selectors.messageId)
-            : null);
-        return (
-          id === messageId ||
-          (id !== null && id.split(',').includes(messageId))
-        );
-      }) ?? null
-    : null;
-
-  if (userMessageById) {
-    return userMessageById;
-  }
-
-  if (messageId) {
-    return null;
-  }
-
-  return getCenteredRenderedUserMessage(userMessages);
-}
-
-/**
- * Returns all currently rendered user message elements.
- * @returns {HTMLElement[]}
- */
-function getRenderedUserMessages(): HTMLElement[] {
-  const userSelector = platform().config.selectors.userMessage;
-  if (!userSelector) return [];
-  return Array.from(
-    document.querySelectorAll<HTMLElement>(userSelector)
-  );
-}
-
-/**
- * Escapes a value for use in a CSS attribute selector.
- * @param {string} value
- * @returns {string}
- */
-function escapeCssIdentifier(value: string): string {
-  return CSS.escape(value);
-}
-
-/**
- * Returns the visible user message closest to the viewport center.
- * @param {HTMLElement[]} userMessages Rendered user message elements.
- * @returns {HTMLElement | null}
- */
-function getCenteredRenderedUserMessage(
-  userMessages: HTMLElement[]
-): HTMLElement | null {
-  if (userMessages.length === 0) return null;
-
-  const viewportCenter = window.innerHeight / 2;
-
-  return userMessages
-    .map((element) => {
-      const rect = element.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-
-      return {
-        element,
-        distance: Math.abs(center - viewportCenter),
-      };
-    })
-    .sort((a, b) => a.distance - b.distance)[0]?.element;
-}
-
-/**
- * Finds the next assistant turn after a user turn.
- * @param {HTMLElement} userTurn
- * @returns {HTMLElement | null}
- */
-function findNextAssistantTurn(userTurn: Element): HTMLElement | null {
-  let nextTurn = userTurn.parentElement?.nextElementSibling;
-
-  while (nextTurn) {
-    const section = nextTurn.matches('section[data-turn]')
-      ? nextTurn
-      : nextTurn.querySelector('section[data-turn]');
-
-    if (
-      section instanceof HTMLElement &&
-      section.dataset.turn === 'assistant'
-    ) {
-      return section;
-    }
-
-    if (section instanceof HTMLElement && section.dataset.turn === 'user') {
-      return null;
-    }
-
-    nextTurn = nextTurn.nextElementSibling;
-  }
-
-  return null;
-}
-
-/**
- * Extracts the highest heading level and the next level from an answer.
- * @param {HTMLElement} answerContainer
- * @returns {Array<{ level: number, text: string, element: HTMLElement, sectionId?: string }>}
- */
-function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
-  const headings = Array.from(
-    answerContainer.querySelectorAll<HTMLElement>(HEADING_SELECTOR)
-  ).filter((heading) => heading.textContent.trim().length > 0);
-
-  if (!headings.length) return [];
-
-  const baseLevel = Math.min(
-    ...headings.map((heading) => getHeadingLevel(heading))
-  );
-  const childLevel = baseLevel + 1;
-
-  const occurrenceByDescriptor = new Map<string, number>();
-
-  return headings
-    .filter((heading) => {
-      const level = getHeadingLevel(heading);
-
-      return level === baseLevel || level === childLevel;
-    })
-    .map((heading) => {
-      const headingLevel = getHeadingLevel(heading);
-      const level = headingLevel === baseLevel ? 1 : 2;
-      const text = heading.textContent.trim();
-      const descriptorKey = `${headingLevel}\u0000${text}`;
-      const occurrence = occurrenceByDescriptor.get(descriptorKey) || 0;
-      occurrenceByDescriptor.set(descriptorKey, occurrence + 1);
-
-      return {
-        level,
-        headingLevel,
-        text,
-        occurrence,
-        element: heading,
-        sectionId: heading.dataset.sectionId || '',
-      };
-    });
-}
-
-/**
- * Parses a heading tag name into its numeric level.
- * @param {HTMLElement} heading
- * @returns {number}
- */
-function getHeadingLevel(heading: HTMLElement): number {
-  return Number(heading.tagName.slice(1));
 }
 
 /**
  * Toggles whether a prompt's already-built outline is expanded.
- * @param {number} index Prompt index.
  */
 function togglePromptOutline(index: number): void {
   if (expandedPromptOutlines.has(index)) {
@@ -809,11 +291,9 @@ function togglePromptOutline(index: number): void {
 
 /**
  * Finds a prompt row by index and reapplies outline classes/indicator state.
- * @param {number} index Prompt index.
  */
 function updatePromptItemByIndex(index: number): void {
   const entry = promptItems.get(index);
-
   if (!entry) return;
 
   updatePromptItemState(entry, index);
@@ -830,11 +310,9 @@ function updateAllPromptItems(): void {
 
 /**
  * Applies outline availability and expansion state to a prompt row.
- * @param {{ item: HTMLElement, outlineIndicator: HTMLElement, outlineList: HTMLElement }} entry Prompt row outline DOM.
- * @param {number} index Prompt index.
  */
 function updatePromptItemState(entry: PromptItemEntry, index: number): void {
-  const outline = promptOutlines.get(index)?.entries || [];
+  const outline = outlineCache.getCachedEntries(index);
   const isCurrent = index === currentPromptIndex;
   const isMarkExpanded =
     expandedPromptOutlines.has(index) && isPromptMarked(index);
@@ -855,7 +333,6 @@ function updatePromptItemState(entry: PromptItemEntry, index: number): void {
 /**
  * Returns the shared chevron icon used by collapsed and expanded outlines.
  * CSS rotates the same SVG so both states stay visually consistent.
- * @returns {string}
  */
 function getOutlineIndicatorIcon(): string {
   return `
@@ -867,10 +344,6 @@ function getOutlineIndicatorIcon(): string {
 
 /**
  * Renders the visible heading rows for an expanded prompt outline.
- * @param {HTMLElement} outlineList Container for rendered heading rows.
- * @param {Array<{ level: number, text: string, element?: HTMLElement, sectionId?: string }>} outline Heading entries.
- * @param {boolean} isExpanded Whether the outline should be visible.
- * @param {number} promptIndex Parent prompt index.
  */
 function renderOutlineList(
   outlineList: HTMLDivElement,
@@ -899,9 +372,6 @@ function renderOutlineList(
 
 /**
  * Handles clicks on answer-outline rows without toggling the parent prompt.
- * @param {MouseEvent} event
- * @param {{ level: number, text: string, element?: HTMLElement, sectionId?: string }} entry
- * @param {number} promptIndex Parent prompt index.
  */
 function handleOutlineItemClick(
   event: MouseEvent,

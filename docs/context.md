@@ -102,5 +102,14 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
     3. `src/features/myPrompts/promptLibrary.ts` (696 LOC): manages storage coordination, active sort selection state, export/import file actions, modal dialogs, and DOM list rendering. Exposes only the 6 methods required by production callers.
   - Added dedicated pure-logic unit test suites: `test/myPrompts/promptSerializer.test.ts` (14 tests) and `test/myPrompts/promptSorter.test.ts` (6 tests).
   - Verified baseline: 42 test files (214 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
-- Next step: Awaiting instructions for Phase P1.5 (`outline.ts` decomposition) after manual verification of P1.4. Do not proceed to P1.5 without approval.
+- Task P1.5 completed:
+  - Decomposed monolithic `src/navigation/jump/outline.ts` (936 LOC) into focused modules:
+    1. `src/navigation/ui/sidebarStatus.ts` (176 LOC): sidebar status drawer rendering, jumping dots animation, and linger timer. Exports only `setSidebarStatus` and `type SidebarStatusState`.
+    2. `src/navigation/jump/headingExtractor.ts` (290 LOC): DOM turn traversal and 2-level heading extraction. Exports only `getPromptOutline` and `type OutlineEntry`.
+    3. `src/navigation/jump/outlineCache.ts` (155 LOC): cached outline descriptors, message ID associations, and invalidation rules.
+    4. `src/navigation/jump/outline.ts` (410 LOC): coordinator managing accordion expansion state, prompt item registrations, debounced build retries, and click routing.
+  - Deleted dead helper `escapeCssIdentifier` from `outline.ts`.
+  - Added dedicated unit test suites: `test/navigation/ui/sidebarStatus.test.ts` (5 tests), `test/navigation/jump/headingExtractor.test.ts` (4 tests), and `test/navigation/jump/outlineCache.test.ts` (5 tests).
+  - Verified baseline: 45 test files (228 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
+- Next step: Awaiting instructions for Phase P1.6 (`config.ts` decomposition) after manual verification of P1.5. Do not proceed to P1.6 without approval.
 
