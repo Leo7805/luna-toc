@@ -153,6 +153,13 @@ export function getChatGptMessageId(element: HTMLElement): string | null {
 }
 
 /**
+ * Returns the platform unit key stored on a ChatGPT prompt element.
+ */
+export function getChatGptPromptUnitKey(element: HTMLElement): string | null {
+  return element.getAttribute('data-chatgpt-search-unit-key');
+}
+
+/**
  * Checks whether an element declares vertical scrolling.
  */
 function isVerticallyScrollable(element: HTMLElement): boolean {

@@ -69,5 +69,18 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
   - Refactored `mountQueue.ts` and `promptNavigation.ts` to use `getActivePlatform()` lazily, eliminating direct imports from `@/platforms/chatgpt/*` and adding explicit error handling when mounted prompt inspection is unsupported.
   - Refactored `navigatorController.ts` and `outline.ts` to use `platform.config.selectors` and `platform.navigation.getMessageIdFromElement`, preserving DOM selector semantics, query scopes, ancestor lookups, and comma-separated message ID matching.
   - Verified baseline: 34 test files (147 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
-- Next step: Awaiting next instructions for Phase P1.2. Do not proceed to P1.2 without approval.
+- Task P1.2 completed:
+  - Decomposed `navigatorController.ts` into three focused, acyclic modules:
+    1. `src/navigation/state/conversationStore.ts`: pure data and state store managing conversation turns, deduplication, chronological sorting, pagination merging, snapshot caching, and route transition migrations with an injected route resolver.
+    2. `src/navigation/tracking/activePromptTracker.ts`: viewport active-prompt tracking using IntersectionObserver and MutationObserver with signature checks, element ID matching, and navigation jump cursor locking.
+    3. `src/navigation/ui/tocListRenderer.ts`: sidebar list DOM construction, search filtering, empty/loading hints, active item class styling, scroll-into-view, status band state selection, and idle scroll-to-last snapping.
+  - Maintained `src/navigation/navigatorController.ts` as the slim coordinator wiring route changes, page-hook message events, and delegating to store, tracker, renderer, and jump navigation.
+  - Preserved the public `navigatorController` API and all runtime lifecycles (new-chat migration, pagination merging, observer/timer cleanup, cursor locking, search state, jump progress).
+  - Added unit test suites for all extracted modules: `test/navigation/state/conversationStore.test.ts`, `test/navigation/tracking/activePromptTracker.test.ts`, `test/navigation/ui/tocListRenderer.test.ts`, and `test/navigation/navigatorControllerLifecycle.test.ts`.
+  - Residual coupling cleanup: moved `data-chatgpt-search-unit-key` DOM attribute extraction behind `PlatformNavigationAdapter.getPromptUnitKeyFromElement?(element: HTMLElement): string | null` (implemented on ChatGPT via `getChatGptPromptUnitKey`, left undefined on Copilot). Updated `activePromptTracker.ts` to call it lazily.
+  - Verified navigation decoupling: zero occurrences of platform-specific DOM attributes (`data-chatgpt`, `data-message-id`, `data-message-author-role`) or direct platform imports (`@/platforms/chatgpt`, `@/platforms/copilot`) inside `src/navigation/`.
+  - P1.2 wire-contract regression fix: restored pre-P1.2 window message contract (`event.data.payload`, `event.data.routeKey`, `syncRouteState()` on message arrival, route-matching guards, and `clearPendingNewChat()`) in `navigatorController.ts:listenForConversationData()`.
+  - Expanded `test/navigation/navigatorControllerLifecycle.test.ts` with regression suites proving `conversationData` payload parsing, stale data rejection, matching-route `conversationEnded` completion, `newUserMessage` payload handling, and new-chat route migration.
+  - Verified baseline: 38 test files (178 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
+- Next step: Manual browser verification of P1.2. Awaiting instructions for Phase P1.3 after manual test approval. Do not proceed to P1.3 without approval.
 

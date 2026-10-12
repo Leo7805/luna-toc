@@ -50,6 +50,7 @@ describe('platformInterface and registration', () => {
     expect(typeof navigation.findRenderedPromptByText).toBe('function');
     expect(typeof navigation.readMountedWithSidebarIdx).toBe('function');
     expect(typeof navigation.getMessageIdFromElement).toBe('function');
+    expect(typeof navigation.getPromptUnitKeyFromElement).toBe('function');
     expect(typeof navigation.getJumpTargetElement).toBe('function');
     expect(typeof navigation.observeVisibleUserMessages).toBe('function');
     expect(typeof navigation.settleAttempts).toBe('number');
@@ -81,6 +82,7 @@ describe('platformInterface and registration', () => {
     expect(navigation.findRenderedPromptByText).toBeUndefined();
     expect(navigation.readMountedWithSidebarIdx).toBeUndefined();
     expect(navigation.getMessageIdFromElement).toBeUndefined();
+    expect(navigation.getPromptUnitKeyFromElement).toBeUndefined();
     expect(diagnostics.isJumpVizDebugEnabled).toBeUndefined();
   });
 });

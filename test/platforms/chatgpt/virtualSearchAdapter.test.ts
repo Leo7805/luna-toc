@@ -5,6 +5,7 @@ import {
   findRenderedChatGptPrompt,
   findRenderedChatGptPromptByText,
   getChatGptMessageId,
+  getChatGptPromptUnitKey,
   getChatGptScrollContainer,
   getChatGptThreadScrollContainer,
   readMountedWithSidebarIdx,
@@ -180,5 +181,18 @@ describe('ChatGPT virtual search adapter', () => {
     expect(getChatGptMessageId(directEl)).toBe('msg-direct');
     expect(getChatGptMessageId(descendantEl)).toBe('msg-ancestor');
     expect(getChatGptMessageId(noneEl)).toBeNull();
+  });
+
+  it('resolves prompt unit key from element attribute', () => {
+    document.body.innerHTML = `
+      <div id="unit" data-chatgpt-search-unit-key="msg-1:user"></div>
+      <div id="no-unit"></div>
+    `;
+
+    const unitEl = document.getElementById('unit')!;
+    const noUnitEl = document.getElementById('no-unit')!;
+
+    expect(getChatGptPromptUnitKey(unitEl)).toBe('msg-1:user');
+    expect(getChatGptPromptUnitKey(noUnitEl)).toBeNull();
   });
 });

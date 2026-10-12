@@ -205,6 +205,10 @@ export interface PlatformNavigationAdapter {
    * Returns the closest message ID stored on an element or its turn wrapper.
    */
   getMessageIdFromElement?(element: HTMLElement): string | null;
+  /**
+   * Returns the platform-specific unit/mount tracking key stored on an element.
+   */
+  getPromptUnitKeyFromElement?(element: HTMLElement): string | null;
   /** Native prompt-jump button selectors used for the legacy navigator. */
   nativePromptButtonSelectors: readonly string[];
   /** AX attribute or text matched against the rendered prompt button. */

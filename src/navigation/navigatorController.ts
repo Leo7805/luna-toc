@@ -2,63 +2,48 @@
  * Coordinates conversation data, TOC rendering, prompt navigation, and active
  * prompt tracking for the LunaTOC sidebar.
  */
+import { createConversationStore } from './state/conversationStore';
+import { createActivePromptTracker } from './tracking/activePromptTracker';
 import {
-  createNavigatorMessage,
-  extractUserMessages,
-} from '../features/conversationPrompts/message';
-import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnapshotStore';
+  createTocListRenderer,
+  type RenderOptions,
+} from './ui/tocListRenderer';
 import { getActivePlatform } from '@/platforms';
 import type {
   ChatMessage,
   ConversationData,
   NavigatorMessage,
-} from '../features/conversationPrompts/message';
-import {
-  createPromptMarkButton,
-  initializePromptMark,
-} from '../features/conversationPrompts/promptMark';
-import {
-  initializeFollow,
-  isFollowing,
-  keepFollowing,
-  stopFollowing,
-} from '../navigation/follow/follow';
+} from '@/features/conversationPrompts/message';
+import { initializePromptMark } from '@/features/conversationPrompts/promptMark';
+import { initializeFollow } from './follow/follow';
 import {
   isLoading as isLoadingPrompts,
   setLoading,
   setOnSettleTimeout,
   startSettleTimer,
   clearSettleTimer,
-} from '../navigation/loading/promptLoadingState';
+} from './loading/promptLoadingState';
 import {
   getJumpProgress as readJumpProgress,
   setOnRender,
   setJumpProgress as writeJumpProgress,
   clearJumpProgress as resetJumpProgress,
-} from '../navigation/loading/jumpProgressState';
+} from './loading/jumpProgressState';
 import {
   initializePromptNavigation,
   jumpToAbsoluteEdge as jumpToPageEdge,
-  jumpToConversationEdge,
   jumpToMessage,
-} from '../navigation/jump/promptNavigation';
+} from './jump/promptNavigation';
 import {
-  collapseAll,
-  createPromptItem,
   handlePromptNavigation,
   resetOutline,
-  resetPromptItems,
   scheduleBuild,
-  setPromptMessages,
   setSidebarStatus,
-  syncActivePrompt,
   syncMarkState,
-} from '../navigation/jump/outline';
-import {
-  isElementTextTruncated,
-  previewTooltip,
-} from '@/features/tooltip';
-import { APP_CONFIG } from '@/config/config';
+} from './jump/outline';
+import { previewTooltip } from '@/features/tooltip';
+
+export type { RenderOptions };
 
 interface NavigatorControllerOptions {
   onPromptCountChanged?: (count: number) => void;
@@ -68,63 +53,12 @@ interface NavigatorControllerOptions {
   onTitleChanged?: () => void;
 }
 
-interface RenderOptions {
-  refreshObservers?: boolean;
-  /**
-   * Caller-declared completion status for this render pass.
-   *   - `null`  (default): preserve `isLoadingPrompts` as-is — used by
-   *     callers that don't know whether more data is on the way
-   *     (e.g. the initial render at `attach()`).
-   *   - `true`: the data backing this render is final. Clear the
-   *     settle timer, flip the loading flag to false, and (if the
-   *     user hasn't already moved the cursor and isn't mid-scroll)
-   *     snap the TOC cursor + scroll position to the last prompt.
-   *   - `false`: more data is expected. Flip the loading flag to
-   *     true and arm the fallback settle timer so cached /
-   *     localStorage scenarios that go silent still resolve.
-   */
-  completed?: boolean | null;
-}
-
 interface ResetRouteOptions {
   preserveMessages?: boolean;
   nextMessages?: NavigatorMessage[];
 }
 
 export const navigatorController = (() => {
-  const EMPTY_HINT_TEXT = 'Waiting for prompts...';
-  const navigationSnapshotStore =
-    createNavigationSnapshotStore<NavigatorMessage>();
-
-  let conversationMessages: NavigatorMessage[] = [];
-  const accumulatedConversationMessages = new Map<string, Map<string, ChatMessage>>();
-  let searchQuery = '';
-  let currentConversationKey: string | null = null;
-  let pendingNewChatRouteKey: string | null = null;
-  let pendingNewChatMessage: ChatMessage | null = null;
-  let activeNavigatorIndex: number | null = null;
-  let navigatorItems: HTMLElement[] = [];
-  let activePromptObserver: IntersectionObserver | null = null;
-  let activePromptMutationObserver: MutationObserver | null = null;
-  let activePromptMutationTimer: ReturnType<typeof setTimeout> | null = null;
-  /** (loading state now lives in src/navigation/loading/promptLoadingState.ts) */
-  /**
-   * Marks prompts loading as finished for the active conversation and re-renders
-   * the sidebar so the status band leaves `loading` mode. Replaces the prior
-   * `page_info.has_previous_page !== false` heuristic, which stranded the UI
-   * whenever the page hook omitted `page_info` on its final response or its
-   * backfill hit `BACKFILL_MAX_PAGES` before the true last page. Called when
-   * the page hook posts `CHATGPT_CONVERSATION_ENDED`, when the DOM observer
-   * detects settled user-message elements, and by the fallback settle timer.
-   */
-  function markLoadingComplete(): void {
-    if (!isLoadingPrompts()) return;
-    setLoading(false);
-    clearSettleTimer();
-    render({ completed: true });
-  }
-  let lockedNavigatorIndex: number | null = null;
-  let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
   let isInitialized = false;
   let isAttached = false;
   let reportedPromptCount = -1;
@@ -135,12 +69,64 @@ export const navigatorController = (() => {
   let onTitleChanged = () => {};
 
   /**
+   * Returns the route key shared with prompt marking and page-hook messages.
+   * @returns {string}
+   */
+  function getCurrentConversationKey(): string {
+    const match = location.pathname.match(/\/c\/([^/]+)/);
+    return match?.[1] || `new-chat:${location.pathname}`;
+  }
+
+  const conversationStore = createConversationStore({
+    getCurrentRouteKey: () => getCurrentConversationKey(),
+  });
+
+  const activePromptTracker = createActivePromptTracker({
+    getMessages: () => conversationStore.getMessages(),
+    onActiveIndexChange: (index, changed) => {
+      tocListRenderer.updateActiveItemUI(index, changed);
+    },
+  });
+
+  const tocListRenderer = createTocListRenderer({
+    getMessages: () => conversationStore.getMessages(),
+    getActiveIndex: () => activePromptTracker.getActiveIndex(),
+    onItemClick: (message, index) => {
+      handleNavigatorItemClick(message, index);
+    },
+    onSavePrompt: (message) => {
+      onSavePrompt(message);
+    },
+    onPromptCountReported: (count) => {
+      if (count === reportedPromptCount) return;
+      reportedPromptCount = count;
+      onPromptCountChanged(count);
+    },
+    onForceActiveIndex: (index) => {
+      activePromptTracker.forceActiveIndex(index);
+    },
+    onRefreshObservers: () => {
+      if (isAttached) {
+        activePromptTracker.observeVisiblePrompts();
+      }
+    },
+    getJumpProgress: () => readJumpProgress(),
+  });
+
+  /**
+   * Marks prompts loading as finished for the active conversation and re-renders
+   * the sidebar so the status band leaves `loading` mode.
+   */
+  function markLoadingComplete(): void {
+    if (!isLoadingPrompts()) return;
+    setLoading(false);
+    clearSettleTimer();
+    render({ completed: true });
+  }
+
+  /**
    * Initializes data and route listeners before the page hook starts emitting.
    * @param {Object} [options]
-   * @param {Function} [options.onPromptCountChanged]
-   * @param {Function} [options.onRouteChanged]
-   * @param {Function} [options.onSavePrompt]
-   * @param {Function} [options.onTitleChanged]
    */
   function init(options: NavigatorControllerOptions = {}): void {
     if (isInitialized) return;
@@ -151,7 +137,7 @@ export const navigatorController = (() => {
     onRouteChanged = options.onRouteChanged || onRouteChanged;
     onSavePrompt = options.onSavePrompt || onSavePrompt;
     onTitleChanged = options.onTitleChanged || onTitleChanged;
-    currentConversationKey = getCurrentConversationKey();
+    conversationStore.setCurrentConversationKey(getCurrentConversationKey());
     initMarkedPrompts();
     listenForConversationData();
     listenForRouteChanges();
@@ -164,8 +150,6 @@ export const navigatorController = (() => {
   function attach(): void {
     if (isAttached) return;
 
-    // Wire the two extracted state machines' render/timeout notifications
-    // back into this controller.
     setOnRender(() => render());
     setOnSettleTimeout(() => markLoadingComplete());
 
@@ -179,12 +163,15 @@ export const navigatorController = (() => {
     initializePromptNavigation({
       getVirtualSearchContext: () => ({
         conversationKey: getCurrentConversationKey(),
-        prompts: conversationMessages,
+        prompts: conversationStore.getMessages(),
       }),
       setJumpProgress,
       clearJumpProgress,
       notifyJumpFailed: () => {
-        setSidebarStatus({ state: 'failed', promptCount: conversationMessages.length });
+        setSidebarStatus({
+          state: 'failed',
+          promptCount: conversationStore.getMessages().length,
+        });
       },
     });
 
@@ -195,37 +182,18 @@ export const navigatorController = (() => {
   }
 
   /**
-   * Returns the route key shared with prompt marking and page-hook messages.
-   * @returns {string}
-   */
-  function getCurrentConversationKey(): string {
-    const match = location.pathname.match(/\/c\/([^/]+)/);
-    return match?.[1] || `new-chat:${location.pathname}`;
-  }
-
-  /**
    * Updates the TOC search query and rebuilds the list.
    * @param {string} query
    */
   function setSearchQuery(query: string): void {
-    searchQuery = query;
-    render();
+    tocListRenderer.setSearchQuery(query);
   }
 
   /**
    * Resets search and outline state without changing the chat scroll position.
    */
   function resetView(): void {
-    searchQuery = '';
-    previewTooltip.hide();
-    stopFollowing();
-    collapseAll();
-    render();
-
-    document.getElementById('navigator-list')?.scrollTo({
-      top: 0,
-      behavior: 'auto',
-    });
+    tocListRenderer.resetView();
   }
 
   /**
@@ -233,9 +201,6 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToEdge(edge: 'top' | 'bottom'): void {
-    // The top/bottom controls mean "scroll the chat to its absolute edge",
-    // not "jump to the first/last prompt". Route straight to the absolute
-    // edge jump so a single click does not enter the prompt-jump path.
     jumpToPageEdge(edge, 'auto');
   }
 
@@ -250,192 +215,9 @@ export const navigatorController = (() => {
   /**
    * Builds the conversation TOC from normalized user messages.
    * @param {Object} [options]
-   * @param {boolean} [options.refreshObservers=false]
-   * @param {boolean | null} [options.completed=null]  Caller-declared
-   *   completion status. `null` preserves `isLoadingPrompts`; `true`
-   *   declares the data final; `false` arms the fallback timer.
    */
-  function render({
-    refreshObservers = false,
-    completed = null,
-  }: RenderOptions = {}): void {
-    const list = document.getElementById('navigator-list');
-    const hint = document.querySelector<HTMLElement>('.navigator-hint');
-
-    if (!list) return;
-
-    list.innerHTML = '';
-    navigatorItems = [];
-    resetPromptItems();
-    setPromptMessages(conversationMessages);
-    reportPromptCount();
-
-    const normalizedQuery = normalizeText(searchQuery).toLowerCase();
-    const visibleMessages = conversationMessages
-      .map((message, index) => ({ message, index }))
-      .filter(({ message }) => {
-        if (!normalizedQuery) return true;
-        return normalizeText(message.text)
-          .toLowerCase()
-          .includes(normalizedQuery);
-      });
-
-    if (hint) {
-      const hasMessages = conversationMessages.length > 0;
-      const hasQuery = normalizedQuery.length > 0;
-
-      hint.hidden = hasMessages && (!hasQuery || visibleMessages.length > 0);
-      hint.textContent = hasQuery ? 'No matching prompts.' : EMPTY_HINT_TEXT;
-    }
-
-    visibleMessages.forEach(({ message, index }) => {
-      const item = createNavigatorItem(message, index);
-      navigatorItems[index] = item;
-      list.appendChild(item);
-    });
-
-    // Translate the caller's `completed` flag into the loading flag +
-    // status band state. The status band is a stateless renderer: the
-    // caller picks the visible state.
-    if (completed === true) {
-      setLoading(false);
-      clearSettleTimer();
-    } else if (completed === false) {
-      setLoading(true);
-      startSettleTimer();
-    }
-    // null → leave isLoadingPrompts alone
-
-    setSidebarStatus({
-      state: pickStatusBandState(completed),
-      jump: getJumpProgress(),
-      promptCount: conversationMessages.length,
-    });
-
-    if (completed === true) {
-      jumpToLastIfIdle();
-    }
-
-    if (refreshObservers && isAttached) {
-      observeVisibleUserMessages();
-    }
-  }
-
-  /**
-   * Chooses the visible state for the status band based on the caller's
-   * completion flag and the current prompt count.
-   * @param {boolean | null} completed
-   * @returns {import('../navigation/jump/outline').SidebarStatusState}
-   */
-  function pickStatusBandState(
-    completed: boolean | null
-  ): import('../navigation/jump/outline').SidebarStatusState {
-    const jump = getJumpProgress();
-    if (jump && jump.active) return 'jumping';
-    if (completed === true) {
-      return conversationMessages.length === 0 ? 'empty' : 'complete';
-    }
-    if (completed === false) return 'loading';
-    // null: preserve previous band state via the caller's intent.
-    return isLoadingPrompts()
-      ? 'loading'
-      : conversationMessages.length === 0
-        ? 'idle'
-        : 'idle';
-  }
-
-  /**
-   * Snaps the TOC cursor to the last prompt and scrolls the sidebar so
-   * the row sits flush at the bottom. Called exactly once when loading
-   * completes (gated above). Skipped when the user is mid-scroll or
-   * has already moved the active cursor.
-   */
-  function jumpToLastIfIdle(): void {
-    if (isFollowing()) return;
-    if (conversationMessages.length === 0) return;
-    const lastIndex = conversationMessages.length - 1;
-    // The earlier `activeNavigatorIndex !== null` guard has been
-    // removed. It bailed in exactly the case it was meant to enable:
-    // when ChatGPT's own auto-scroll-to-bottom on load fires our
-    // `follow.ts` settle first, it sets the cursor to the last prompt
-    // before our `completed: true` render runs, so the guard skipped
-    // the scroll-into-view even though `innerHTML = ''` had just
-    // reset the sidebar's scrollTop to 0. The remaining `isFollowing`
-    // gate is sufficient: while the user is mid-scroll they want to
-    // see what `follow.ts` shows them; after load settles we are free
-    // to anchor the cursor + scroll position to the last prompt.
-    forceActiveNavigatorItem(lastIndex);
-    const lastItem = navigatorItems[lastIndex];
-    if (lastItem) {
-      lastItem.scrollIntoView({ block: 'end' });
-    }
-  }
-
-  /**
-   * Creates one TOC row and its outline, mark, tooltip, and save behaviors.
-   * @param {Object} message
-   * @param {number} index
-   * @returns {HTMLElement}
-   */
-  function createNavigatorItem(
-    message: NavigatorMessage,
-    index: number
-  ): HTMLElement {
-    const item = document.createElement('div');
-    const itemMain = document.createElement('div');
-    const itemText = document.createElement('span');
-
-    item.dataset.messageIndex = String(index);
-    item.className = 'navigator-item';
-    item.classList.toggle(
-      'navigator-item-active',
-      index === activeNavigatorIndex
-    );
-    itemMain.className = 'navigator-item-main';
-    itemText.className = 'navigator-item-text';
-    itemText.textContent = `${index + 1}. ${message.text.replace(/\s+/g, ' ')}`;
-
-    const markButton = createPromptMarkButton({
-      item,
-      messageId: message.id,
-    });
-    const outlineControls = createPromptItem({
-      item,
-      index,
-      messageId: message.id,
-    });
-
-    itemMain.append(
-      itemText,
-      outlineControls?.outlineIndicator || document.createElement('span'),
-      markButton
-    );
-    item.append(itemMain);
-
-    if (outlineControls?.outlineList) {
-      item.appendChild(outlineControls.outlineList);
-    }
-
-    item.addEventListener('click', (event) => {
-      handleNavigatorItemClick(message, index);
-      if (isElementTextTruncated(itemText) && item.matches(':hover')) {
-        previewTooltip.show(message.text, event, itemMain);
-      }
-    });
-    item.addEventListener('contextmenu', (event) => {
-      event.preventDefault();
-      onSavePrompt(message);
-    });
-    item.addEventListener('mouseenter', (event) => {
-      if (isElementTextTruncated(itemText)) {
-        previewTooltip.show(message.text, event, itemMain);
-      }
-    });
-    item.addEventListener('mouseleave', () => {
-      previewTooltip.hide();
-    });
-
-    return item;
+  function render(options: RenderOptions = {}): void {
+    tocListRenderer.render(options);
   }
 
   /**
@@ -448,20 +230,15 @@ export const navigatorController = (() => {
     index: number
   ): void {
     previewTooltip.hide();
-    const outlineAction = handlePromptNavigation(index, activeNavigatorIndex);
+    const outlineAction = handlePromptNavigation(
+      index,
+      activePromptTracker.getActiveIndex()
+    );
 
     jumpToMessage(message, index);
     if (outlineAction?.shouldBuild) {
       scheduleBuild(index);
     }
-  }
-
-  function reportPromptCount(): void {
-    const promptCount = conversationMessages.length;
-    if (promptCount === reportedPromptCount) return;
-
-    reportedPromptCount = promptCount;
-    onPromptCountChanged(promptCount);
   }
 
   /**
@@ -474,8 +251,7 @@ export const navigatorController = (() => {
 
   /**
    * Marks a jump as active and records the target index plus the remaining
-   * slide-loop step budget. The module's render callback re-renders so the
-   * sidebar status picks up the change.
+   * slide-loop step budget.
    */
   function setJumpProgress(
     next: NonNullable<ReturnType<typeof readJumpProgress>>
@@ -484,231 +260,27 @@ export const navigatorController = (() => {
   }
 
   /**
-   * Clears any active jump progress. Called by the navigation layer when a
-   * jump resolves or aborts so the sidebar status returns to the idle
-   * prompt-count display.
+   * Clears any active jump progress.
    */
   function clearJumpProgress(): void {
     resetJumpProgress();
   }
 
-  function normalizeText(text: string): string {
-    return text.replace(/\s+/g, ' ').trim();
-  }
-
-  function forceActiveNavigatorItem(index: number): void {
-    const activeIndexChanged = index !== activeNavigatorIndex;
-    activeNavigatorIndex = index;
-    navigatorItems.forEach((item) => {
-      item.classList.remove('navigator-item-active');
-    });
-
-    const item = navigatorItems[index];
-    if (!item) return;
-
-    item.classList.add('navigator-item-active');
-    if (activeIndexChanged) {
-      syncActivePrompt(index);
-    }
-    scrollNavigatorItemIntoView(item);
-  }
-
   function setActiveNavigatorItem(index: number): void {
-    if (
-      lockedNavigatorIndex !== null &&
-      index !== lockedNavigatorIndex &&
-      lockedNavigatorTimer
-    ) {
-      return;
-    }
-    forceActiveNavigatorItem(index);
-  }
-
-  function scrollNavigatorItemIntoView(item: HTMLElement): void {
-    const scrollContainer = document.getElementById('navigator-list');
-    if (!scrollContainer || !isFollowing()) return;
-
-    const itemRect = item.getBoundingClientRect();
-    const containerRect = scrollContainer.getBoundingClientRect();
-    const topPadding = 56;
-    const bottomPadding = 80;
-    const isAbove = itemRect.top < containerRect.top + topPadding;
-    const isBelow = itemRect.bottom > containerRect.bottom - bottomPadding;
-
-    if (!isAbove && !isBelow) return;
-
-    const nextScrollTop = isAbove
-      ? scrollContainer.scrollTop +
-        itemRect.top -
-        containerRect.top -
-        topPadding
-      : scrollContainer.scrollTop +
-        itemRect.bottom -
-        containerRect.bottom +
-        bottomPadding;
-
-    scrollContainer.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
-  }
-
-  function findConversationIndexByElement(element: HTMLElement): number {
-    // The host platform exposes the stable message id on the user message container.
-    // Match by id so picture-only prompts and prompts with identical text
-    // resolve to the correct sidebar row.
-    const platform = getActivePlatform();
-    const id =
-      platform.navigation.getMessageIdFromElement?.(element) ??
-      (platform.config.selectors.messageId
-        ? element.getAttribute(platform.config.selectors.messageId) ||
-          element
-            .closest<HTMLElement>(`[${platform.config.selectors.messageId}]`)
-            ?.getAttribute(platform.config.selectors.messageId)
-        : null);
-    if (!id) return -1;
-    return conversationMessages.findIndex((message) => message.id === id);
+    activePromptTracker.setActiveIndex(index);
   }
 
   function observeVisibleUserMessages(): void {
-    activePromptObserver?.disconnect();
-    activePromptObserver = new IntersectionObserver(
-      (entries) => {
-        const topEntry = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-        if (!topEntry) return;
-        if (!(topEntry.target instanceof HTMLElement)) return;
-        const index = findConversationIndexByElement(topEntry.target);
-        if (index !== -1) setActiveNavigatorItem(index);
-      },
-      { threshold: [0.1, 0.25, 0.5, 0.75, 1] }
-    );
-
-    const userSelector = getActivePlatform().config.selectors.userMessage;
-    if (userSelector) {
-      document
-        .querySelectorAll<HTMLElement>(userSelector)
-        .forEach((element) => activePromptObserver?.observe(element));
-    }
-  }
-
-  /**
-   * Returns a fingerprint of the currently-mounted user messages. The follow
-   * MutationObserver uses it to skip re-observing when the mount set is
-   * unchanged — sidebar re-renders are also `childList` mutations under
-   * `document.body`, but they don't touch search-unit elements.
-   */
-  function getMountedPromptSignature(): string {
-    const platform = getActivePlatform();
-    const userSelector = platform.config.selectors.userMessage;
-    if (!userSelector) return '';
-
-    return Array.from(
-      document.querySelectorAll<HTMLElement>(userSelector)
-    )
-      .map(
-        (element) =>
-          element.getAttribute('data-chatgpt-search-unit-key') ||
-          platform.navigation.getMessageIdFromElement?.(element) ||
-          (platform.config.selectors.messageId
-            ? element.getAttribute(platform.config.selectors.messageId)
-            : '') ||
-          ''
-      )
-      .join('|');
+    activePromptTracker.observeVisiblePrompts();
   }
 
   function initActivePromptTracking(): void {
-    activePromptMutationObserver?.disconnect();
-    let lastMountSignature = getMountedPromptSignature();
-
-    const reobserveIfMountedChanged = (): void => {
-      const signature = getMountedPromptSignature();
-      if (signature === lastMountSignature) return;
-      lastMountSignature = signature;
-      observeVisibleUserMessages();
-    };
-
-    activePromptMutationObserver = new MutationObserver(() => {
-      if (activePromptMutationTimer !== null)
-        clearTimeout(activePromptMutationTimer);
-      activePromptMutationTimer = setTimeout(reobserveIfMountedChanged, 200);
-    });
-    // Watch document.body, not the chat container. Scoping to
-    // `.thread-scroll-container` missed mount events on the new DOM: the
-    // older prompts that mount as the user scrolls up were never
-    // re-observed, so follow tracking only worked for the initial bottom
-    // batch. The jump loader already proved document.body childList
-    // mutations carry mount events (`loadUntilMountedViaViewport`). The
-    // signature guard keeps the sidebar's own re-renders from re-observing
-    // in a loop.
-    activePromptMutationObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-    observeVisibleUserMessages();
-  }
-
-  function isNewChatRouteKey(routeKey: string): boolean {
-    return routeKey.startsWith('new-chat:') || routeKey.startsWith('WEB:');
-  }
-
-  function clearPendingNewChat(): void {
-    pendingNewChatRouteKey = null;
-    pendingNewChatMessage = null;
-  }
-
-  function appendNavigatorMessage(newMessage: ChatMessage): boolean {
-    if (conversationMessages.some((message) => message.id === newMessage.id)) {
-      return false;
-    }
-    conversationMessages.push(createNavigatorMessage(newMessage));
-    cacheConversationMessages(getCurrentConversationKey());
-    return true;
-  }
-
-  /**
-   * Stores a snapshot of the current normalized prompts for one conversation.
-   * The cache is memory-only and lasts for this content script's lifetime.
-   * @param {string} conversationKey
-   */
-  function cacheConversationMessages(conversationKey: string): void {
-    if (!conversationKey) return;
-
-    navigationSnapshotStore.replacePrompts(
-      conversationKey,
-      conversationMessages
-    );
-  }
-
-  /**
-   * Returns a cached prompt snapshot for a conversation.
-   * @param {string} conversationKey
-   * @returns {Object[]}
-   */
-  function getCachedConversationMessages(
-    conversationKey: string
-  ): NavigatorMessage[] {
-    return navigationSnapshotStore.getSnapshot(conversationKey)?.prompts || [];
-  }
-
-  /**
-   * Caches conversation prompts for the active conversation key.
-   */
-  function cacheConversationNavigationData(
-    conversationKey: string,
-    _data: ConversationData
-  ): void {
-    navigationSnapshotStore.replacePrompts(
-      conversationKey,
-      conversationMessages
-    );
+    activePromptTracker.initTracking();
   }
 
   function flushPendingNewChatMessage(): void {
-    if (!pendingNewChatMessage) return;
-    const didAppend = appendNavigatorMessage(pendingNewChatMessage);
-    clearPendingNewChat();
-    if (didAppend) {
+    const flushed = conversationStore.flushPendingNewChatMessage();
+    if (flushed.didAppend) {
       onPromptAdded();
       render({ refreshObservers: true });
     }
@@ -725,83 +297,37 @@ export const navigatorController = (() => {
    * Resets route-scoped navigation state while optionally preserving prompts
    * captured before a new chat receives its permanent conversation URL.
    * @param {Object} [options]
-   * @param {boolean} [options.preserveMessages=false]
-   * @param {Object[]} [options.nextMessages=[]]
    */
   function resetStateForCurrentRoute({
     preserveMessages = false,
     nextMessages = [],
   }: ResetRouteOptions = {}): void {
-    if (!preserveMessages) {
-      conversationMessages = nextMessages;
-    }
+    conversationStore.resetForCurrentRoute({
+      preserveMessages,
+      nextMessages,
+    });
 
     initMarkedPrompts();
-    activeNavigatorIndex = null;
+    activePromptTracker.reset();
     resetOutline();
-    navigatorItems = [];
-    searchQuery = '';
+    tocListRenderer.resetList();
     previewTooltip.hide();
-    // `isLoadingPrompts` is intentionally NOT reset here. It used to be
-    // set to `true` on every call, but that misfires for the
-    // "new-chat auto-rename" transition (ChatGPT assigning a permanent
-    // `/c/...` URL to a freshly opened empty chat): from the user's
-    // perspective they are still in the same chat — the URL just got
-    // upgraded from a placeholder. Resetting `isLoadingPrompts` to `true`
-    // there re-parked the sidebar at "Loading... (1 so far)" right after
-    // the user typed their first prompt, because the page hook never
-    // fires `CHATGPT_CONVERSATION_DATA` or `CHATGPT_CONVERSATION_ENDED`
-    // for a fresh chat, so there was no signal that would clear it
-    // again. The caller (`syncRouteState`) now owns the reset and only
-    // applies it for genuine conversation switches.
     onRouteChanged();
     render({ refreshObservers: true });
   }
 
   function syncRouteState(): void {
     const nextConversationKey = getCurrentConversationKey();
-    if (currentConversationKey === null) {
-      currentConversationKey = nextConversationKey;
-      return;
-    }
-    if (nextConversationKey === currentConversationKey) return;
+    const transition = conversationStore.syncRouteState(nextConversationKey);
+    if (!transition.isTransition) return;
 
-    const previousConversationKey = currentConversationKey;
-    const isNewChatRouteTransition = isNewChatRouteKey(previousConversationKey);
-    const shouldPreserveMessages =
-      isNewChatRouteTransition && conversationMessages.length > 0;
-
-    if (
-      shouldPreserveMessages &&
-      navigationSnapshotStore.copySnapshot(
-        previousConversationKey,
-        nextConversationKey
-      ) === null
-    ) {
-      cacheConversationMessages(nextConversationKey);
-    }
-
-    const cachedMessages = getCachedConversationMessages(nextConversationKey);
-    if (isNewChatRouteTransition) {
-      pendingNewChatRouteKey = previousConversationKey;
-    } else {
-      clearPendingNewChat();
-    }
-
-    currentConversationKey = nextConversationKey;
-    // Reset the loading flag for genuine conversation switches (e.g. user
-    // navigates from chat A to chat B). Skip it for the new-chat
-    // auto-rename — that is not a navigation from the user's perspective,
-    // and resetting there re-parked the sidebar at "Loading... (1 so
-    // far)" right after the user typed their first prompt because no
-    // ENDED signal ever fires for a fresh chat.
-    if (!isNewChatRouteTransition) {
+    if (!transition.isNewChatRouteTransition) {
       setLoading(true);
       startSettleTimer();
     }
     resetStateForCurrentRoute({
-      nextMessages: cachedMessages,
-      preserveMessages: shouldPreserveMessages,
+      nextMessages: transition.cachedMessages,
+      preserveMessages: transition.shouldPreserveMessages,
     });
 
     flushPendingNewChatMessage();
@@ -811,7 +337,12 @@ export const navigatorController = (() => {
     window.addEventListener('popstate', syncRouteState);
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
-      if (event.data?.type === getActivePlatform().pageHook.messages.routeChanged) syncRouteState();
+      if (
+        event.data?.type ===
+        getActivePlatform().pageHook.messages.routeChanged
+      ) {
+        syncRouteState();
+      }
     });
   }
 
@@ -821,76 +352,11 @@ export const navigatorController = (() => {
 
     onTitleChanged();
 
-    const conversationKey = getCurrentConversationKey();
-    const messageMap = getAccumulatedMessageMap(conversationKey);
-
-    for (const message of incomingMessages) {
-      if (message?.id) messageMap.set(message.id, message);
-    }
-
-    const mergedData = buildMergedConversationData(
-      conversationKey,
-      data.current_node
+    conversationStore.handleConversationData(
+      data,
+      getCurrentConversationKey()
     );
-    conversationMessages = extractUserMessages(mergedData);
-    cacheConversationNavigationData(conversationKey, mergedData);
-    // `isLoadingPrompts` is intentionally NOT updated here. It used to be
-    // (re)derived from `data.page_info.has_previous_page`, but that turns
-    // every subsequent conversation GET — including the ones ChatGPT's
-    // frontend fires after the user types a message to fold the assistant
-    // reply into the cached payload — into a fresh loading state. With the
-    // page hook's `CHATGPT_CONVERSATION_ENDED` signal in place, the load
-    // lifecycle is now driven by signals, not by data-shape inference:
-    //   - true: initial value, and reset by `resetStateForCurrentRoute`
-    //   - false: `CHATGPT_CONVERSATION_ENDED` listener, and the
-    //            `NEW_USER_MESSAGE` handler after a user-typed prompt.
     render({ refreshObservers: true });
-  }
-
-  /**
-   * Returns the per-conversation raw message accumulator used to merge pages.
-   * @param {string} conversationKey
-   * @returns {Map<string, ChatMessage>}
-   */
-  function getAccumulatedMessageMap(
-    conversationKey: string
-  ): Map<string, ChatMessage> {
-    let messageMap = accumulatedConversationMessages.get(conversationKey);
-
-    if (!messageMap) {
-      messageMap = new Map();
-      accumulatedConversationMessages.set(conversationKey, messageMap);
-    }
-
-    return messageMap;
-  }
-
-  /**
-   * Builds a merged conversation payload from accumulated pages, ordered oldest
-   * first so downstream turns and prompts keep a stable chronological order.
-   * @param {string} conversationKey
-   * @param {string | null} [current_node]
-   * @returns {ConversationData}
-   */
-  function buildMergedConversationData(
-    conversationKey: string,
-    current_node?: string | null
-  ): ConversationData {
-    const messageMap = accumulatedConversationMessages.get(conversationKey);
-    const messages = messageMap ? Array.from(messageMap.values()) : [];
-
-    messages.sort((a, b) => getMessageCreateTime(a) - getMessageCreateTime(b));
-
-    return { messages, current_node };
-  }
-
-  /**
-   * Returns a message's creation timestamp, tolerating both API field names.
-   * @param {ChatMessage} message
-   * @returns {number}
-   */
-  function getMessageCreateTime(message: ChatMessage): number {
-    return message.create_time ?? message.createTime ?? 0;
   }
 
   function listenForConversationData(): void {
@@ -898,71 +364,52 @@ export const navigatorController = (() => {
       if (event.source !== window) return;
       syncRouteState();
 
-      if (event.data?.type === getActivePlatform().pageHook.messages.conversationData) {
+      if (
+        event.data?.type ===
+        getActivePlatform().pageHook.messages.conversationData
+      ) {
         const routeKey = event.data.routeKey;
         if (routeKey && routeKey !== getCurrentConversationKey()) return;
-        clearPendingNewChat();
+        conversationStore.clearPendingNewChat();
         handleConversationData(event.data.payload);
       }
 
-      if (event.data?.type === getActivePlatform().pageHook.messages.conversationEnded) {
-        // Only honor an ENDED signal aimed at the conversation we are
-        // actually rendering. A late signal aimed at a previously visited
-        // route must not flip state for the new one.
+      if (
+        event.data?.type ===
+        getActivePlatform().pageHook.messages.conversationEnded
+      ) {
         const routeKey = event.data.routeKey;
         if (!routeKey || routeKey !== getCurrentConversationKey()) return;
         markLoadingComplete();
       }
 
-      if (event.data?.type === getActivePlatform().pageHook.messages.newUserMessage) {
+      if (
+        event.data?.type ===
+        getActivePlatform().pageHook.messages.newUserMessage
+      ) {
+        const newMessage = event.data.payload as ChatMessage;
+        if (!newMessage?.id) return;
+
         const routeKey = event.data.routeKey;
-        const isCurrentRoute =
-          !routeKey || routeKey === getCurrentConversationKey();
-        const isMigratingNewChatMessage =
-          routeKey && routeKey === pendingNewChatRouteKey;
+        const result = conversationStore.handleNewUserMessage(
+          newMessage,
+          routeKey
+        );
 
-        if (!isCurrentRoute && !isMigratingNewChatMessage) return;
+        if (!result.accepted) return;
 
-        const newMessage = event.data.payload;
-        const didAppend = appendNavigatorMessage(newMessage);
-
-        if (isMigratingNewChatMessage) {
-          clearPendingNewChat();
-        } else if (routeKey && isNewChatRouteKey(routeKey)) {
-          pendingNewChatMessage = newMessage;
-        }
-
-        if (didAppend) {
+        if (result.didAppend) {
           onPromptAdded();
         }
-        // The user just interacted with the chat, so the "initial page
-        // load / backfill" loading band is no longer the relevant status.
-        // Without this flip, sending the first prompt of an empty chat
-        // parks the sidebar at "Loading... (1 so far)" forever: empty
-        // chats don't trigger a conversation GET, so the page hook's
-        // `CHATGPT_CONVERSATION_ENDED` signal never fires.
-        //
-        // We have to do this regardless of `didAppend`: ChatGPT's frontend
-        // sometimes prefetches the conversation data (firing
-        // `CHATGPT_CONVERSATION_DATA` with the user message included)
-        // before the SSE `input_message` event lands, which makes
-        // `appendNavigatorMessage` return false on a duplicate ID. In that
-        // ordering, the message was already added to `conversationMessages`
-        // by `handleConversationData`, but the controller's render still
-        // sees `loading=true && count>0`, parking the band on
-        // "Loading... (1 so far)" until something else fires. Calling
-        // `markLoadingComplete` here covers both orderings. It is itself
-        // a no-op when `isLoadingPrompts` is already false.
+
         if (isLoadingPrompts()) markLoadingComplete();
         render({ refreshObservers: true });
       }
 
-      if (event.data?.type === getActivePlatform().pageHook.messages.titleChanged) {
-        // ChatGPT mutated `document.title` directly (e.g. user renamed
-        // the conversation in the host sidebar). No conversation fetch
-        // fires for a rename, so none of the triggers above catch it.
-        // Re-run the sidebar title derivation through the existing
-        // `onTitleChanged` callback wired by applicationShell.
+      if (
+        event.data?.type ===
+        getActivePlatform().pageHook.messages.titleChanged
+      ) {
         onTitleChanged();
       }
     });
