@@ -94,17 +94,9 @@ function renderConversation(
   promptMessageId: string,
   headings: Array<[tagName: string, text: string]>
 ): void {
-  const userWrapper = document.createElement('div');
-  const userTurn = document.createElement('section');
   const userMessage = document.createElement('div');
-  const assistantWrapper = document.createElement('div');
-  const assistantTurn = document.createElement('section');
   const assistantMessage = document.createElement('div');
-  const markdown = document.createElement('div');
 
-  userTurn.dataset.turn = 'user';
-  userMessage.dataset.messageAuthorRole = 'user';
-  userMessage.dataset.messageId = promptMessageId;
   userMessage.setAttribute(
     'data-chatgpt-search-unit-key',
     `${promptMessageId}:user`
@@ -113,9 +105,7 @@ function renderConversation(
     'data-chatgpt-search-message-ids',
     promptMessageId
   );
-  assistantTurn.dataset.turn = 'assistant';
-  assistantMessage.dataset.messageAuthorRole = 'assistant';
-  assistantMessage.dataset.messageId = `response-${promptMessageId}`;
+
   assistantMessage.setAttribute(
     'data-chatgpt-search-unit-key',
     `response-${promptMessageId}:assistant`
@@ -124,20 +114,14 @@ function renderConversation(
     'data-chatgpt-search-message-ids',
     `response-${promptMessageId}`
   );
-  markdown.className = 'markdown';
 
   headings.forEach(([tagName, text], index) => {
     const heading = document.createElement(tagName);
 
     heading.textContent = text;
     heading.dataset.sectionId = `section-${index}`;
-    markdown.appendChild(heading);
+    assistantMessage.appendChild(heading);
   });
 
-  userTurn.appendChild(userMessage);
-  userWrapper.appendChild(userTurn);
-  assistantMessage.appendChild(markdown);
-  assistantTurn.appendChild(assistantMessage);
-  assistantWrapper.appendChild(assistantTurn);
-  document.body.append(userWrapper, assistantWrapper);
+  document.body.append(userMessage, assistantMessage);
 }

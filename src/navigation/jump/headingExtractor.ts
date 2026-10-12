@@ -1,7 +1,7 @@
 /**
  * Extracts per-prompt answer heading outlines from rendered ChatGPT DOM elements.
- * Traverses user turn sections, locates assistant responses, and normalizes
- * Markdown headings into a two-level hierarchy.
+ * Resolves user messages, locates following assistant responses in DOM order,
+ * and normalizes Markdown headings into a two-level hierarchy.
  */
 import { getActivePlatform } from '@/platforms';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
@@ -70,39 +70,29 @@ function getAnswerContainerForPrompt(
   messageId?: string | null
 ): HTMLElement | null {
   const userMessage = getRenderedUserMessageForPrompt(index, messageId);
-  const userTurn = userMessage?.closest('section[data-turn="user"]');
-  const answerTurn = userTurn ? findNextAssistantTurn(userTurn) : null;
-  const answerContainer = answerTurn
-    ? getAnswerMarkdownContainer(answerTurn)
+  const answerContainer = userMessage
+    ? findNextAssistantMessage(userMessage)
     : null;
 
   logOutlineDiagnostic('OUTLINE_SOURCE_RESOLVED', {
     promptIndex: index,
     expectedPromptMessageId: messageId || null,
     renderedPromptMessageId:
-      userMessage?.dataset.messageId || null,
+      (userMessage &&
+        platform().navigation.getMessageIdFromElement?.(userMessage)) ??
+      (platform().config.selectors.messageId && userMessage
+        ? userMessage.getAttribute(platform().config.selectors.messageId)
+        : null) ??
+      userMessage?.dataset.messageId ??
+      null,
     userMessageConnected: userMessage?.isConnected ?? false,
-    userTurnFound: Boolean(userTurn),
-    assistantTurnFound: Boolean(answerTurn),
-    assistantMessageIds: answerTurn && platform().config.selectors.assistantMessage
-      ? Array.from(
-          answerTurn.querySelectorAll<HTMLElement>(
-            platform().config.selectors.assistantMessage
-          )
-        ).map(({ dataset }) => dataset.messageId || null)
-      : [],
+    assistantTurnFound: Boolean(answerContainer),
     answerContainerConnected: answerContainer?.isConnected ?? false,
     answerContainerHidden:
       Boolean(answerContainer?.hidden) ||
       Boolean(
         answerContainer?.closest('[hidden], [aria-hidden="true"]')
       ),
-    markdownContainerCount:
-      (answerTurn && platform().config.selectors.assistantMessage)
-        ? answerTurn.querySelectorAll(
-            platform().config.selectors.assistantMessage
-          ).length
-        : 0,
     rawHeadingCount:
       answerContainer?.querySelectorAll(HEADING_SELECTOR).length ?? 0,
   });
@@ -111,29 +101,34 @@ function getAnswerContainerForPrompt(
 }
 
 /**
- * Finds the markdown block that actually contains answer headings. Some
- * ChatGPT turns render a short assistant preface before the final answer.
+ * Finds the next mounted assistant message element following a user message.
  */
-function getAnswerMarkdownContainer(
-  answerTurn: HTMLElement
+function findNextAssistantMessage(
+  userMessage: HTMLElement
 ): HTMLElement | null {
+  const userSelector = platform().config.selectors.userMessage;
   const assistantSelector = platform().config.selectors.assistantMessage;
-  const markdownContainers = assistantSelector
-    ? Array.from(
-        answerTurn.querySelectorAll<HTMLElement>(assistantSelector)
-      )
-    : [];
+  if (!userSelector || !assistantSelector) return null;
 
-  return (
-    markdownContainers.find((container) =>
-      container.querySelector(HEADING_SELECTOR)
-    ) ||
-    markdownContainers.at(-1) ||
-    (assistantSelector
-      ? answerTurn.querySelector(assistantSelector)
-      : null) ||
-    null
+  const messages = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      `${userSelector}, ${assistantSelector}`
+    )
   );
+  const userIndex = messages.indexOf(userMessage);
+  if (userIndex === -1) return null;
+
+  for (let i = userIndex + 1; i < messages.length; i++) {
+    const message = messages[i];
+    if (message.matches(assistantSelector)) {
+      return message;
+    }
+    if (message.matches(userSelector)) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -208,33 +203,6 @@ function getCenteredRenderedUserMessage(
     .sort((a, b) => a.distance - b.distance)[0]?.element;
 }
 
-/**
- * Finds the next assistant turn after a user turn.
- */
-function findNextAssistantTurn(userTurn: Element): HTMLElement | null {
-  let nextTurn = userTurn.parentElement?.nextElementSibling;
-
-  while (nextTurn) {
-    const section = nextTurn.matches('section[data-turn]')
-      ? nextTurn
-      : nextTurn.querySelector('section[data-turn]');
-
-    if (
-      section instanceof HTMLElement &&
-      section.dataset.turn === 'assistant'
-    ) {
-      return section;
-    }
-
-    if (section instanceof HTMLElement && section.dataset.turn === 'user') {
-      return null;
-    }
-
-    nextTurn = nextTurn.nextElementSibling;
-  }
-
-  return null;
-}
 
 /**
  * Extracts the highest heading level and the next level from an answer.

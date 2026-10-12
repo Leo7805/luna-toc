@@ -111,5 +111,11 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
   - Deleted dead helper `escapeCssIdentifier` from `outline.ts`.
   - Added dedicated unit test suites: `test/navigation/ui/sidebarStatus.test.ts` (5 tests), `test/navigation/jump/headingExtractor.test.ts` (4 tests), and `test/navigation/jump/outlineCache.test.ts` (5 tests).
   - Verified baseline: 45 test files (228 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
-- Next step: Awaiting instructions for Phase P1.6 (`config.ts` decomposition) after manual verification of P1.5. Do not proceed to P1.6 without approval.
+- Task ChatGPT Outline regression fix completed:
+  - Fixed heading extraction on modern ChatGPT DOM: removed stale `<section data-turn="user/assistant">` traversal, `findNextAssistantTurn`, and `getAnswerMarkdownContainer` from `src/navigation/jump/headingExtractor.ts`.
+  - Implemented wrapper-agnostic, DOM-order message sequence scanning using `platform().config.selectors.userMessage` and `platform().config.selectors.assistantMessage`.
+  - Updated test fixtures in `headingExtractor.test.ts` and `outline.test.ts` to modern ChatGPT DOM without `section[data-turn]`.
+  - Added regression tests for `user -> assistant`, multi-turn isolation (`user1 -> assistant1 -> user2 -> assistant2`), and consecutive user prompts without assistant (`user1 -> user2`).
+  - Verified baseline: 45 test files (231 tests passing), `typecheck` clean, `build` clean, and zero remaining `data-turn` occurrences in `src/`.
+- Next step: Awaiting user approval to commit the Outline fix before proceeding to Phase P1.6. Do not commit or start P1.6.
 

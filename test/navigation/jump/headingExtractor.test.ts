@@ -66,27 +66,62 @@ describe('headingExtractor', () => {
     expect(outline.map(({ text }) => text)).toEqual(['Valid Heading']);
   });
 
-  it('returns empty array when user message or assistant turn is missing', () => {
+  it('returns empty array when user message or assistant message is missing', () => {
     const outline = getPromptOutline(0, 'nonexistent-prompt');
     expect(outline).toEqual([]);
   });
+
+  it('extracts outline for a direct user -> assistant sequence', () => {
+    renderConversation('prompt-basic', [
+      ['h2', 'Overview'],
+      ['h3', 'Deep Dive'],
+    ]);
+
+    const outline = getPromptOutline(0, 'prompt-basic');
+    expect(outline.map(({ text, level }) => ({ text, level }))).toEqual([
+      { text: 'Overview', level: 1 },
+      { text: 'Deep Dive', level: 2 },
+    ]);
+  });
+
+  it('isolates headings across multiple turns (user1 -> assistant1 -> user2 -> assistant2)', () => {
+    const user1 = renderUserMessage('prompt-1');
+    const assistant1 = renderAssistantMessage('response-1', [
+      ['h2', 'Assistant 1 Heading'],
+    ]);
+    const user2 = renderUserMessage('prompt-2');
+    const assistant2 = renderAssistantMessage('response-2', [
+      ['h2', 'Assistant 2 Heading'],
+    ]);
+
+    document.body.append(user1, assistant1, user2, assistant2);
+
+    const outline1 = getPromptOutline(0, 'prompt-1');
+    const outline2 = getPromptOutline(1, 'prompt-2');
+
+    expect(outline1.map(({ text }) => text)).toEqual(['Assistant 1 Heading']);
+    expect(outline2.map(({ text }) => text)).toEqual(['Assistant 2 Heading']);
+  });
+
+  it('returns empty array when user is immediately followed by another user message (user1 -> user2)', () => {
+    const user1 = renderUserMessage('prompt-unanswered');
+    const user2 = renderUserMessage('prompt-answered');
+    const assistant2 = renderAssistantMessage('response-2', [
+      ['h2', 'Response 2 Heading'],
+    ]);
+
+    document.body.append(user1, user2, assistant2);
+
+    const outline1 = getPromptOutline(0, 'prompt-unanswered');
+    const outline2 = getPromptOutline(1, 'prompt-answered');
+
+    expect(outline1).toEqual([]);
+    expect(outline2.map(({ text }) => text)).toEqual(['Response 2 Heading']);
+  });
 });
 
-function renderConversation(
-  promptMessageId: string,
-  headings: Array<[tagName: string, text: string]>
-): void {
-  const userWrapper = document.createElement('div');
-  const userTurn = document.createElement('section');
+function renderUserMessage(promptMessageId: string): HTMLElement {
   const userMessage = document.createElement('div');
-  const assistantWrapper = document.createElement('div');
-  const assistantTurn = document.createElement('section');
-  const assistantMessage = document.createElement('div');
-  const markdown = document.createElement('div');
-
-  userTurn.dataset.turn = 'user';
-  userMessage.dataset.messageAuthorRole = 'user';
-  userMessage.dataset.messageId = promptMessageId;
   userMessage.setAttribute(
     'data-chatgpt-search-unit-key',
     `${promptMessageId}:user`
@@ -95,31 +130,38 @@ function renderConversation(
     'data-chatgpt-search-message-ids',
     promptMessageId
   );
+  return userMessage;
+}
 
-  assistantTurn.dataset.turn = 'assistant';
-  assistantMessage.dataset.messageAuthorRole = 'assistant';
-  assistantMessage.dataset.messageId = `response-${promptMessageId}`;
+function renderAssistantMessage(
+  responseId: string,
+  headings: Array<[tagName: string, text: string]>
+): HTMLElement {
+  const assistantMessage = document.createElement('div');
   assistantMessage.setAttribute(
     'data-chatgpt-search-unit-key',
-    `response-${promptMessageId}:assistant`
+    `${responseId}:assistant`
   );
   assistantMessage.setAttribute(
     'data-chatgpt-search-message-ids',
-    `response-${promptMessageId}`
+    responseId
   );
-  markdown.className = 'markdown';
 
   headings.forEach(([tagName, text], index) => {
     const heading = document.createElement(tagName);
     heading.textContent = text;
     heading.dataset.sectionId = `section-${index}`;
-    markdown.appendChild(heading);
+    assistantMessage.appendChild(heading);
   });
 
-  userTurn.appendChild(userMessage);
-  userWrapper.appendChild(userTurn);
-  assistantMessage.appendChild(markdown);
-  assistantTurn.appendChild(assistantMessage);
-  assistantWrapper.appendChild(assistantTurn);
-  document.body.append(userWrapper, assistantWrapper);
+  return assistantMessage;
+}
+
+function renderConversation(
+  promptMessageId: string,
+  headings: Array<[tagName: string, text: string]>
+): void {
+  const user = renderUserMessage(promptMessageId);
+  const assistant = renderAssistantMessage(`response-${promptMessageId}`, headings);
+  document.body.append(user, assistant);
 }
