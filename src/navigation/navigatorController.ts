@@ -313,6 +313,9 @@ export const navigatorController = (() => {
     tocListRenderer.resetList();
     previewTooltip.hide();
     onRouteChanged();
+    if (isAttached) {
+      initActivePromptTracking();
+    }
     render({ refreshObservers: true });
   }
 

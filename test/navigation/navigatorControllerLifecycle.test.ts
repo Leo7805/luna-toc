@@ -357,4 +357,98 @@ describe('navigatorController lifecycle and coordination', () => {
     navigatorController.resetView();
     expect(list.children.length).toBe(2);
   });
+
+  it('re-arms active prompt mutation tracking on route transition so new prompts are observed', async () => {
+    vi.resetModules();
+    const platform = getActivePlatform();
+    const observedElements: Element[] = [];
+
+    class MockIntersectionObserver {
+      observe = vi.fn((element: Element) => {
+        observedElements.push(element);
+      });
+      unobserve = vi.fn();
+      disconnect = vi.fn(() => {
+        observedElements.length = 0;
+      });
+    }
+
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
+
+    const mutationObserveSpy = vi.spyOn(MutationObserver.prototype, 'observe');
+    const mutationDisconnectSpy = vi.spyOn(
+      MutationObserver.prototype,
+      'disconnect'
+    );
+
+    // Initial conversation route
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/tracker-route-initial',
+      },
+    });
+
+    const { navigatorController: freshController } = await import(
+      '@/navigation/navigatorController'
+    );
+
+    freshController.init();
+    freshController.attach();
+
+    // 1. Tracker is initialized and observing mutations
+    expect(mutationObserveSpy).toHaveBeenCalled();
+    const initialObserveCallCount = mutationObserveSpy.mock.calls.length;
+    const initialDisconnectCallCount =
+      mutationDisconnectSpy.mock.calls.length;
+
+    // 2 & 3. Route transition triggers reset and re-arms mutation tracking
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/tracker-route-switched',
+      },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.routeChanged,
+        },
+        source: window,
+      })
+    );
+
+    // 2. Route reset disconnects existing mutation observer
+    expect(mutationDisconnectSpy.mock.calls.length).toBeGreaterThan(
+      initialDisconnectCallCount
+    );
+
+    // 3. Route transition re-arms mutation tracking
+    expect(mutationObserveSpy.mock.calls.length).toBeGreaterThan(
+      initialObserveCallCount
+    );
+
+    // 4. Newly mounted prompts after the transition are observed again
+    const newPrompt = document.createElement('div');
+    newPrompt.setAttribute(
+      'data-chatgpt-search-unit-key',
+      'prompt-after-transition:user'
+    );
+    newPrompt.setAttribute(
+      'data-chatgpt-search-message-ids',
+      'prompt-after-transition'
+    );
+    document.body.appendChild(newPrompt);
+
+    // Flush MutationObserver microtasks and debounce timer
+    await Promise.resolve();
+    vi.advanceTimersByTime(250);
+
+    expect(observedElements).toContain(newPrompt);
+  });
 });

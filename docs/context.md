@@ -81,6 +81,12 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
   - Verified navigation decoupling: zero occurrences of platform-specific DOM attributes (`data-chatgpt`, `data-message-id`, `data-message-author-role`) or direct platform imports (`@/platforms/chatgpt`, `@/platforms/copilot`) inside `src/navigation/`.
   - P1.2 wire-contract regression fix: restored pre-P1.2 window message contract (`event.data.payload`, `event.data.routeKey`, `syncRouteState()` on message arrival, route-matching guards, and `clearPendingNewChat()`) in `navigatorController.ts:listenForConversationData()`.
   - Expanded `test/navigation/navigatorControllerLifecycle.test.ts` with regression suites proving `conversationData` payload parsing, stale data rejection, matching-route `conversationEnded` completion, `newUserMessage` payload handling, and new-chat route migration.
-  - Verified baseline: 38 test files (178 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
-- Next step: Manual browser verification of P1.2. Awaiting instructions for Phase P1.3 after manual test approval. Do not proceed to P1.3 without approval.
+  - SPA scroll container and active-tracker lifecycle:
+    1. Resolved ChatGPT scroll host via `.thread-scroll-container`: `findDirectThreadScrollContainer()` in `src/platforms/chatgpt/virtualSearchAdapter.ts` queries connected, visible (`clientHeight > 0`) candidate thread containers in reverse document order to select the active container owning mounted conversation messages or composer during SPA route transitions.
+    2. Streamlined container resolution order: active `.thread-scroll-container` -> scrollable message ancestor via `isValidScrollContainer` (`isConnected && isScrollable && scrollHeight > clientHeight`) -> `null`.
+    3. Retained `flex-direction: column-reverse` and negative `scrollTop` support in `retryEdgeUntilSettled()` (`src/navigation/jump/promptNavigation.ts`).
+    4. Re-arms active prompt tracking on route transition in `src/navigation/navigatorController.ts`.
+    5. Cleaned all temporary investigation diagnostics and speculative `<main>` crawling heuristics.
+  - Verified baseline: 38 test files (182 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
+- Next step: Manual browser verification of P1.2, SPA scroll container navigation (`To Top`, `To Bottom`, and TOC rows), and active tracker lifecycle. Awaiting instructions for Phase P1.3 after manual test approval. Do not proceed to P1.3 without approval.
 

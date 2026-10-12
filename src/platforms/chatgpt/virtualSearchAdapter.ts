@@ -13,7 +13,71 @@ const ASSISTANT_MESSAGE_SELECTOR =
   '[data-chatgpt-search-unit-key$=":assistant"]';
 
 /**
+ * Checks whether an element is connected, declares vertical scrolling via computed
+ * style, and has measurable scrollable overflow (scrollHeight > clientHeight).
+ *
+ * @param {HTMLElement | null} element
+ * @returns {boolean}
+ */
+function isValidScrollContainer(
+  element: HTMLElement | null
+): boolean {
+  if (!element || !element.isConnected) return false;
+  const overflowY = window.getComputedStyle(element).overflowY;
+  const isScrollable = overflowY === 'auto' || overflowY === 'scroll';
+  return isScrollable && element.scrollHeight > element.clientHeight;
+}
+
+/**
+ * Resolves the ChatGPT thread scroll container (`.thread-scroll-container`),
+ * prioritizing connected, visible elements and the container that owns
+ * mounted conversation messages or composer form.
+ *
+ * @param {ParentNode} [root=document] Root node to query within.
+ * @returns {HTMLElement | null} The active thread scroll container, or null if unresolved.
+ */
+function findDirectThreadScrollContainer(
+  root: ParentNode = document
+): HTMLElement | null {
+  const allContainers = Array.from(
+    root.querySelectorAll<HTMLElement>('.thread-scroll-container')
+  ).filter((el) => el.isConnected);
+
+  if (allContainers.length === 0) return null;
+
+  // Filter to visible candidates if any have measurable clientHeight
+  const visibleContainers = allContainers.filter(
+    (el) => el.clientHeight > 0 && !el.hasAttribute('aria-hidden')
+  );
+  const candidates =
+    visibleContainers.length > 0 ? visibleContainers : allContainers;
+
+  if (candidates.length === 1) return candidates[0];
+
+  // If multiple exist (e.g. during SPA transition), prioritize the newest
+  // container in document order that contains mounted messages or form
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const candidate = candidates[i];
+    if (
+      candidate.querySelector(USER_MESSAGE_SELECTOR) ||
+      candidate.querySelector(ASSISTANT_MESSAGE_SELECTOR) ||
+      candidate.querySelector('[data-message-author-role="user"]') ||
+      candidate.querySelector('[data-message-author-role="assistant"]') ||
+      candidate.querySelector('form')
+    ) {
+      return candidate;
+    }
+  }
+
+  // Fallback to the last candidate in document order (most recently mounted)
+  return candidates[candidates.length - 1];
+}
+
+/**
  * Finds the scrollable container that owns ChatGPT's mounted messages.
+ *
+ * @param {ParentNode} [root=document] Root node to query within.
+ * @returns {HTMLElement | null} The active scroll container, or null if unresolved.
  *
  * @example
  * const container = getChatGptScrollContainer(document);
@@ -21,37 +85,37 @@ const ASSISTANT_MESSAGE_SELECTOR =
 export function getChatGptScrollContainer(
   root: ParentNode = document
 ): HTMLElement | null {
+  // 1. Prefer the active ChatGPT thread scroll container if present.
+  const threadContainer = findDirectThreadScrollContainer(root);
+  if (threadContainer) {
+    return threadContainer;
+  }
+
+  // 2. Fall back to message-ancestor lookup.
   const sampleMessage =
     root.querySelector<HTMLElement>(USER_MESSAGE_SELECTOR) ||
-    root.querySelector<HTMLElement>(ASSISTANT_MESSAGE_SELECTOR);
+    root.querySelector<HTMLElement>(ASSISTANT_MESSAGE_SELECTOR) ||
+    root.querySelector<HTMLElement>('[data-message-author-role="user"]') ||
+    root.querySelector<HTMLElement>('[data-message-author-role="assistant"]');
   let parent = sampleMessage?.parentElement || null;
 
   while (parent && parent !== document.body) {
-    if (isVerticallyScrollable(parent)) return parent;
+    if (isValidScrollContainer(parent)) {
+      return parent;
+    }
     parent = parent.parentElement;
   }
 
-  const selectorFallback =
-    root.querySelector<HTMLElement>('main div.overflow-y-auto') ||
-    root.querySelector<HTMLElement>('[class*="react-scroll-to-bottom"]') ||
-    root.querySelector<HTMLElement>('main [class*="react-scroll-to-bottom"]');
-
-  if (selectorFallback) return selectorFallback;
-
-  const main = root.querySelector<HTMLElement>('main');
-  if (!main) return null;
-
-  return (
-    Array.from(main.querySelectorAll<HTMLElement>('div')).find(
-      isVerticallyScrollable
-    ) || null
-  );
+  return null;
 }
 
 /**
  * Finds the container whose `scrollTop` maps to the chat feed's absolute
- * top/bottom. On ChatGPT this is the `.thread-scroll-container` thread
- * element, not an inner overflow wrapper.
+ * top/bottom. Prioritizes the active `.thread-scroll-container`, falling
+ * back to the general scroll container resolver.
+ *
+ * @param {ParentNode} [root=document] Root node to query within.
+ * @returns {HTMLElement | null} The active thread scroll container, or null if unresolved.
  *
  * @example
  * const container = getChatGptThreadScrollContainer(document);
@@ -59,7 +123,9 @@ export function getChatGptScrollContainer(
 export function getChatGptThreadScrollContainer(
   root: ParentNode = document
 ): HTMLElement | null {
-  return root.querySelector<HTMLElement>('.thread-scroll-container');
+  return (
+    findDirectThreadScrollContainer(root) ?? getChatGptScrollContainer(root)
+  );
 }
 
 /**
@@ -157,12 +223,4 @@ export function getChatGptMessageId(element: HTMLElement): string | null {
  */
 export function getChatGptPromptUnitKey(element: HTMLElement): string | null {
   return element.getAttribute('data-chatgpt-search-unit-key');
-}
-
-/**
- * Checks whether an element declares vertical scrolling.
- */
-function isVerticallyScrollable(element: HTMLElement): boolean {
-  const overflowY = window.getComputedStyle(element).overflowY;
-  return overflowY === 'auto' || overflowY === 'scroll';
 }

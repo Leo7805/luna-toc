@@ -43,6 +43,7 @@ const isJumpVizDebugEnabled = (
 ): boolean =>
   platform().diagnostics.isJumpVizDebugEnabled?.(storage) ?? false;
 
+
 /**
  * Prints the currently-mounted and currently-visible user messages to the
  * console, tagged with the given label so callers can distinguish which
@@ -241,6 +242,7 @@ async function loadUntilMountedViaViewport(
   // the seed covers Layer 1 plus any sibling turns ChatGPT happens
   // to have on screen.
   const mountQueue: MountQueue = seedMountQueue(prompts, root);
+
   if (mountQueue.size === 0) {
     logLoadStep({ result: 'no-mounted-at-seed' });
     return null;
@@ -743,6 +745,7 @@ function jumpWithIndependentVirtualNavigation(
     idHit ??
     (message.text ? findRenderedChatGptPromptByText(message.text) : null);
   const renderedTarget = idHit ?? textHit;
+
   if (renderedTarget) {
     clearJumpProgress();
     logChatGptNavigationEvent(jumpId, 'JUMP_FAST_PATH_RESULT', {
@@ -772,10 +775,6 @@ function jumpWithIndependentVirtualNavigation(
       return;
     }
 
-    // Step 2 failed to mount the target. Stop silently — a jump that
-    // cannot resolve should not fall back to the legacy anchor-search
-    // algorithm, whose scrollTop probing bounces the view between the
-    // two newest turns and looks like the page is glitching.
     clearJumpProgress();
     notifyJumpFailed();
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
@@ -812,6 +811,7 @@ function finishIndependentVirtualJump(
     if (!el.isConnected) return false;
     const previousScrollMarginTop = el.style.scrollMarginTop;
     el.style.scrollMarginTop = `${platform().navigation.promptTopOffsetPx}px`;
+
     el.scrollIntoView({ behavior: 'auto', block: 'start' });
     el.style.scrollMarginTop = previousScrollMarginTop;
     highlightMatchedElement(el);
@@ -944,9 +944,10 @@ export function jumpToAbsoluteEdge(
   clearJumpProgress();
 
   // Straight to the real thread scroll container via the platform adapter.
-  const container =
-    platform().navigation.getThreadScrollContainer?.() ??
-    platform().navigation.getScrollContainer();
+  const threadContainer =
+    platform().navigation.getThreadScrollContainer?.() ?? null;
+  const scrollContainer = platform().navigation.getScrollContainer();
+  const container = threadContainer ?? scrollContainer;
   if (!container) return;
 
   const isReverse =
@@ -1014,6 +1015,7 @@ async function retryEdgeUntilSettled(
       : (isReverse ? 0 : maxScrollTop);
 
     container.scrollTop = targetTop;
+
     logEdgeSettle({
       attempt,
       edge,
