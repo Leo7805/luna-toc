@@ -205,12 +205,23 @@ function getCenteredRenderedUserMessage(
 
 
 /**
+ * Checks whether a heading element is for accessibility / screen readers only.
+ */
+function isAccessibilityHeading(heading: HTMLElement): boolean {
+  return heading.closest('.sr-only') !== null;
+}
+
+/**
  * Extracts the highest heading level and the next level from an answer.
  */
 function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
   const headings = Array.from(
     answerContainer.querySelectorAll<HTMLElement>(HEADING_SELECTOR)
-  ).filter((heading) => heading.textContent.trim().length > 0);
+  ).filter(
+    (heading) =>
+      heading.textContent.trim().length > 0 &&
+      !isAccessibilityHeading(heading)
+  );
 
   if (!headings.length) return [];
 

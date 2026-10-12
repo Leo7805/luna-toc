@@ -118,6 +118,75 @@ describe('headingExtractor', () => {
     expect(outline1).toEqual([]);
     expect(outline2.map(({ text }) => text)).toEqual(['Response 2 Heading']);
   });
+
+  it('excludes accessibility-only heading when assistant has no content headings', () => {
+    const user = renderUserMessage('prompt-sr-only-1');
+    const assistant = document.createElement('div');
+    assistant.setAttribute(
+      'data-chatgpt-search-unit-key',
+      'response-prompt-sr-only-1:assistant'
+    );
+    assistant.setAttribute(
+      'data-chatgpt-search-message-ids',
+      'response-prompt-sr-only-1'
+    );
+    assistant.innerHTML = `
+      <h5 class="sr-only">ChatGPT said:</h5>
+      <p>Normal answer without headings.</p>
+    `;
+    document.body.append(user, assistant);
+
+    const outline = getPromptOutline(0, 'prompt-sr-only-1');
+    expect(outline).toEqual([]);
+  });
+
+  it('excludes accessibility heading while preserving real content headings', () => {
+    const user = renderUserMessage('prompt-sr-only-2');
+    const assistant = document.createElement('div');
+    assistant.setAttribute(
+      'data-chatgpt-search-unit-key',
+      'response-prompt-sr-only-2:assistant'
+    );
+    assistant.setAttribute(
+      'data-chatgpt-search-message-ids',
+      'response-prompt-sr-only-2'
+    );
+    assistant.innerHTML = `
+      <h5 class="sr-only">ChatGPT said:</h5>
+      <h2>Real Section</h2>
+      <h3>Details</h3>
+    `;
+    document.body.append(user, assistant);
+
+    const outline = getPromptOutline(0, 'prompt-sr-only-2');
+    expect(outline.map(({ text, level }) => ({ text, level }))).toEqual([
+      { text: 'Real Section', level: 1 },
+      { text: 'Details', level: 2 },
+    ]);
+  });
+
+  it('does not filter out a visible heading merely because of its text', () => {
+    const user = renderUserMessage('prompt-sr-only-3');
+    const assistant = document.createElement('div');
+    assistant.setAttribute(
+      'data-chatgpt-search-unit-key',
+      'response-prompt-sr-only-3:assistant'
+    );
+    assistant.setAttribute(
+      'data-chatgpt-search-message-ids',
+      'response-prompt-sr-only-3'
+    );
+    assistant.innerHTML = `
+      <h2>ChatGPT said:</h2>
+      <p>Discussion about what ChatGPT said.</p>
+    `;
+    document.body.append(user, assistant);
+
+    const outline = getPromptOutline(0, 'prompt-sr-only-3');
+    expect(outline.map(({ text, level }) => ({ text, level }))).toEqual([
+      { text: 'ChatGPT said:', level: 1 },
+    ]);
+  });
 });
 
 function renderUserMessage(promptMessageId: string): HTMLElement {
