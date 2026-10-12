@@ -3,7 +3,6 @@
  */
 import { getActivePlatform } from '@/platforms';
 import {
-  detectNewMounts,
   findTargetInQueue,
   queueSidebarIndices,
   seedMountQueue,
@@ -18,28 +17,6 @@ const isJumpVizDebugEnabled = (
   storage?: Pick<Storage, 'getItem'>
 ): boolean =>
   platform().diagnostics.isJumpVizDebugEnabled?.(storage) ?? false;
-
-interface JumpPerfLogger {
-  readonly t0: number;
-  log(tag: string, details?: Record<string, unknown>): void;
-}
-
-function createJumpPerfLogger(): JumpPerfLogger {
-  const t0 = performance.now();
-  return {
-    t0,
-    log(tag: string, details?: Record<string, unknown>) {
-      const elapsedMs = (performance.now() - t0).toFixed(1);
-      const detailStr = details
-        ? ' ' +
-          Object.entries(details)
-            .map(([k, v]) => `${k}=${Array.isArray(v) ? `[${v.join(',')}]` : typeof v === 'object' && v !== null ? JSON.stringify(v) : v}`)
-            .join(' ')
-        : '';
-      console.log(`[LunaTOC jump-perf] [+${elapsedMs}ms] ${tag}${detailStr}`);
-    },
-  };
-}
 
 /**
  * Clamps a candidate `scrollTop` to the physical scroll range. In
@@ -87,16 +64,12 @@ function waitForDomChange(
   root: ParentNode,
   isCancelled: () => boolean,
   timeoutMs: number,
-  debounceMs: number = 10,
-  perf?: JumpPerfLogger,
-  tag?: string,
-  container?: HTMLElement
+  debounceMs: number = 10
 ): Promise<boolean | 'cancelled'> {
   return new Promise<boolean | 'cancelled'>(function (resolve) {
     let settled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-    let mutationRecordTotal = 0;
 
     function finish(result: boolean | 'cancelled'): void {
       if (settled) return;
@@ -107,14 +80,7 @@ function waitForDomChange(
       resolve(result);
     }
 
-    const observer = new MutationObserver(function (mutations) {
-      mutationRecordTotal += mutations.length;
-      perf?.log('MUTATION_OBSERVER_CALLBACK', {
-        tag,
-        recordCount: mutations.length,
-        totalRecords: mutationRecordTotal,
-        scrollTop: container ? container.scrollTop : 'n/a',
-      });
+    const observer = new MutationObserver(function () {
       if (isCancelled()) {
         finish('cancelled');
         return;
@@ -125,12 +91,6 @@ function waitForDomChange(
           finish('cancelled');
           return;
         }
-        perf?.log('DEBOUNCE_COMPLETED', {
-          tag,
-          debounceMs,
-          totalRecords: mutationRecordTotal,
-          scrollTop: container ? container.scrollTop : 'n/a',
-        });
         finish(true);
       }, debounceMs);
     });
@@ -138,12 +98,6 @@ function waitForDomChange(
 
     timeoutTimer = setTimeout(function () {
       if (settled) return;
-      perf?.log('TIMEOUT_EXPIRED', {
-        tag,
-        timeoutMs,
-        totalRecords: mutationRecordTotal,
-        scrollTop: container ? container.scrollTop : 'n/a',
-      });
       finish(false);
     }, timeoutMs);
   });
@@ -188,15 +142,8 @@ async function handleBoundaryOrBackfillStall(
   isReverse: boolean,
   isCancelled: () => boolean,
   settleMs: number,
-  root: ParentNode,
-  perf?: JumpPerfLogger
+  root: ParentNode
 ): Promise<HTMLElement | null | 'resumed'> {
-  perf?.log('PHYSICAL_STALL', {
-    direction,
-    scrollTop: container.scrollTop,
-    scrollHeight: container.scrollHeight,
-  });
-
   const preCheck = findExactTarget(mountQueue, targetId, targetIndex, root);
   if (preCheck) return preCheck;
 
@@ -215,21 +162,12 @@ async function handleBoundaryOrBackfillStall(
   const postBatchCheck = findExactTarget(mountQueue, targetId, targetIndex, root);
   if (postBatchCheck) return postBatchCheck;
 
-  perf?.log('BOUNDARY_WAIT', {
-    timeoutMs: settleMs,
-    scrollTop: container.scrollTop,
-    scrollHeight: container.scrollHeight,
-  });
-
   const OBSERVER_DEBOUNCE_MS = 10;
   const changed = await waitForDomChange(
     document.body,
     isCancelled,
     Math.max(settleMs, 100),
-    OBSERVER_DEBOUNCE_MS,
-    perf,
-    'boundaryWait',
-    container
+    OBSERVER_DEBOUNCE_MS
   );
 
   if (changed === 'cancelled' || isCancelled()) return null;
@@ -240,10 +178,6 @@ async function handleBoundaryOrBackfillStall(
   // Check if boundary expanded (physical scrolling can move now)
   const testScrollTop = clampScrollTo(container, container.scrollTop + step, isReverse);
   if (testScrollTop !== container.scrollTop) {
-    perf?.log('BOUNDARY_EXPANDED', {
-      scrollHeight: container.scrollHeight,
-      scrollTop: container.scrollTop,
-    });
     return 'resumed';
   }
 
@@ -281,7 +215,7 @@ function computeDirectionTowardTarget(
  * @param targetIndex 0-indexed position in the conversation.
  * @param prompts Readonly array of conversation prompt descriptors.
  * @param container Live scroll container element.
- * @param jumpId Optional diagnostic navigation jump ID.
+ * @param _jumpId Optional diagnostic navigation jump ID.
  * @param isCancelled Optional cancellation check predicate.
  * @returns The mounted target HTMLElement, or null if cancelled or exhausted.
  */
@@ -290,21 +224,11 @@ export async function loadUntilMountedViaViewport(
   targetIndex: number,
   prompts: ReadonlyArray<{ id: string }>,
   container: HTMLElement,
-  jumpId?: string,
+  _jumpId?: string,
   isCancelled: () => boolean = () => false
 ): Promise<HTMLElement | null> {
   const LOAD_SETTLE_MS = 1500;
   const root = document;
-
-  const perf = createJumpPerfLogger();
-  perf.log('LOAD_START', {
-    jumpId,
-    targetId,
-    targetIndex,
-    promptsCount: prompts.length,
-    scrollTop: container.scrollTop,
-    scrollHeight: container.scrollHeight,
-  });
 
   function logLoadStep(details: Record<string, unknown>): void {
     if (isJumpVizDebugEnabled()) {
@@ -318,7 +242,6 @@ export async function loadUntilMountedViaViewport(
   // Seed the queue to establish initial direction
   const mountQueue: MountQueue = seedMountQueue(prompts, root);
   if (mountQueue.size === 0) {
-    perf.log('LOAD_END', { result: 'no-mounted-at-seed' });
     logLoadStep({ result: 'no-mounted-at-seed' });
     return null;
   }
@@ -326,14 +249,12 @@ export async function loadUntilMountedViaViewport(
   // Initial check: if already mounted, exit immediately in 0 scroll writes
   const initialHit = findExactTarget(mountQueue, targetId, targetIndex, root);
   if (initialHit) {
-    perf.log('LOAD_END', { result: 'found-in-seed', targetId });
     logLoadStep({ result: 'found-in-seed' });
     return initialHit;
   }
 
   const sidebarIndices = queueSidebarIndices(mountQueue);
   if (sidebarIndices.length === 0) {
-    perf.log('LOAD_END', { result: 'queue-empty-at-seed' });
     return null;
   }
   const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
@@ -345,10 +266,6 @@ export async function loadUntilMountedViaViewport(
     const found = findExactTarget(mountQueue, targetId, targetIndex, root);
     if (found) {
       detectedTarget = found;
-      perf.log('TARGET_OBSERVER_HIT', {
-        targetId,
-        scrollTop: container.scrollTop,
-      });
     }
   });
 
@@ -362,12 +279,10 @@ export async function loadUntilMountedViaViewport(
       // Check if target was detected by passive observer or direct check
       const observedHit = detectedTarget as HTMLElement | null;
       if (observedHit && observedHit.isConnected) {
-        perf.log('LOAD_END', { step: currentStep, result: 'observer-hit', targetId });
         return observedHit;
       }
       const targetBeforeStep = findExactTarget(mountQueue, targetId, targetIndex, root);
       if (targetBeforeStep) {
-        perf.log('LOAD_END', { step: currentStep, result: 'pre-step-hit', targetId });
         return targetBeforeStep;
       }
 
@@ -375,14 +290,6 @@ export async function loadUntilMountedViaViewport(
       const step = direction * window.innerHeight;
       const nextScrollTop = beforeScrollTop + step;
       const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
-
-      perf.log('FAST_SCROLL_WRITE', {
-        step: currentStep,
-        direction,
-        beforeScrollTop,
-        afterScrollTop: clampedScrollTop,
-        scrollHeight: container.scrollHeight,
-      });
 
       container.scrollTop = clampedScrollTop;
       logLoadStep({
@@ -395,25 +302,18 @@ export async function loadUntilMountedViaViewport(
 
       // Pacing: yield one browser animation frame
       await nextAnimationFrame();
-      perf.log('FRAME_YIELD', {
-        step: currentStep,
-        scrollTop: container.scrollTop,
-      });
 
       if (isCancelled()) {
-        perf.log('LOAD_END', { step: currentStep, result: 'cancelled-after-frame' });
         return null;
       }
 
       // Target check after frame yield
       const observedPostFrame = detectedTarget as HTMLElement | null;
       if (observedPostFrame && observedPostFrame.isConnected) {
-        perf.log('LOAD_END', { step: currentStep, result: 'observer-hit-post-frame', targetId });
         return observedPostFrame;
       }
       const targetAfterFrame = findExactTarget(mountQueue, targetId, targetIndex, root);
       if (targetAfterFrame) {
-        perf.log('LOAD_END', { step: currentStep, result: 'post-frame-hit', targetId });
         return targetAfterFrame;
       }
 
@@ -436,8 +336,7 @@ export async function loadUntilMountedViaViewport(
         isReverse,
         isCancelled,
         LOAD_SETTLE_MS,
-        root,
-        perf
+        root
       );
 
       if (isCancelled()) return null;
@@ -449,7 +348,6 @@ export async function loadUntilMountedViaViewport(
 
       if (stallOutcome) {
         // Target was found during stall handling
-        perf.log('LOAD_END', { step: currentStep, result: 'stall-hit', targetId });
         return stallOutcome;
       }
 
@@ -457,7 +355,6 @@ export async function loadUntilMountedViaViewport(
       break;
     }
 
-    perf.log('LOAD_END', { result: isCancelled() ? 'cancelled' : 'exhausted' });
     logLoadStep({ result: isCancelled() ? 'cancelled' : 'exhausted' });
     return null;
   } finally {
