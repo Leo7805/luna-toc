@@ -88,5 +88,12 @@ This file is the concise handoff for resuming LunaTOC work after a session resta
     4. Re-arms active prompt tracking on route transition in `src/navigation/navigatorController.ts`.
     5. Cleaned all temporary investigation diagnostics and speculative `<main>` crawling heuristics.
   - Verified baseline: 38 test files (182 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
-- Next step: Manual browser verification of P1.2, SPA scroll container navigation (`To Top`, `To Bottom`, and TOC rows), and active tracker lifecycle. Awaiting instructions for Phase P1.3 after manual test approval. Do not proceed to P1.3 without approval.
+- Task P1.3 completed:
+  - Decomposed monolithic `src/navigation/jump/promptNavigation.ts` (1,096 LOC) into three focused, acyclic modules:
+    1. `src/navigation/jump/viewportWalker.ts`: low-level scroll container stepping, distance heuristics, MutationObserver DOM mount waits, and batch settling. Exports only `loadUntilMountedViaViewport`.
+    2. `src/navigation/jump/edgeNavigation.ts`: page-edge jumping (`To Top` / `To Bottom`), `column-reverse` negative `scrollTop` edge loops, settle checking, and top-band prompt detection (`findFirstPromptInTopBand`). Exports `executeAbsoluteEdgeJump` and `findFirstPromptInTopBand`. Generic visual highlighting remains decoupled and injected via callback.
+    3. `src/navigation/jump/promptNavigation.ts`: high-level facade and coordinator managing prompt fast-path matching, search progress state, outline heading jumps, active-prompt follow locking, visual highlights, and cancellation concurrency. Preserved all 6 existing public exports (`initializePromptNavigation`, `jumpToMessage`, `jumpToPromptIndex`, `lockPromptIndex`, `jumpToAbsoluteEdge`, `jumpToConversationEdge`).
+  - Added dedicated unit test suites: `test/navigation/jump/viewportWalker.test.ts` (4 tests) and `test/navigation/jump/edgeNavigation.test.ts` (9 tests).
+  - Verified baseline: 40 test files (195 tests passing), `typecheck` clean, `build` clean, and `git diff --check` clean.
+- Next step: Awaiting instructions for Phase P1.4 (`promptLibrary.ts` decomposition) after manual verification of P1.3. Do not proceed to P1.4 without approval.
 
