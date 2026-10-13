@@ -72,8 +72,23 @@ Update documentation when appropriate:
 - AGENTS.md
 - docs/ARCHITECTURE.md
 - docs/DECISIONS.md
+- docs/BUG_INDEX.md
 
 Do not create unnecessary documentation files.
+
+## Bug History
+
+1. `docs/BUG_INDEX.md` is the master bug-history index.
+2. Before investigating a bug that resembles an earlier issue, check `docs/BUG_INDEX.md` first.
+3. When reviewing a suspected regression, use `docs/BUG_INDEX.md` as a lightweight historical reference before introducing new compatibility logic or repeating an old fix.
+4. Follow linked detail documents only when relevant; do not scan every bug detail by default.
+5. New bugs receive the next permanent sequential Bxxx ID (`B001`, `B002`, ...); never renumber existing bugs.
+6. Keep the master index sorted newest-first.
+7. Every recorded bug appears in `docs/BUG_INDEX.md`. Only important bugs require a `docs/bugs/Bxxx-*.md` detail file.
+8. Important bug detail files normally stay around 20–30 lines and should not exceed 40 lines without a strong reason.
+9. Detail documents describe the final diagnosis and fix, not the full debugging diary.
+10. Set `Showcase = Yes` only for bugs with meaningful engineering or interview value.
+11. After the corresponding fix is committed, update the `Commit` field with the short commit hash when practical.
 
 ## Persistent Context
 
