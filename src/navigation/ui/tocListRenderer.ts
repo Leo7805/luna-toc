@@ -250,8 +250,16 @@ export function createTocListRenderer(
       promptContextMenuController.show(
         { left: event.clientX, top: event.clientY },
         [
-          { id: 'save-prompt', label: 'Add to My Prompts' },
-          { id: 'rename-toc', label: 'Rename TOC Item…' },
+          {
+            id: 'save-prompt',
+            label: 'Add to My Prompts',
+            icon: 'bookmark-plus',
+          },
+          {
+            id: 'rename-toc',
+            label: 'Rename TOC Item…',
+            icon: 'pencil-line',
+          },
         ],
         (itemId) => {
           if (itemId === 'save-prompt') {

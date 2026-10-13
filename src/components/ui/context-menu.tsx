@@ -2,12 +2,18 @@
  * Provides a reusable floating context menu for LunaTOC feature surfaces.
  */
 import { useEffect, useRef } from 'react';
-import { ClipboardIcon, CopyIcon, Trash2Icon } from 'lucide-react';
+import {
+  BookmarkPlusIcon,
+  ClipboardIcon,
+  CopyIcon,
+  PencilLineIcon,
+  Trash2Icon,
+} from 'lucide-react';
 
 export interface ContextMenuItem {
   id: string;
   label: string;
-  icon?: 'clipboard' | 'copy' | 'trash';
+  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line';
   variant?: 'default' | 'destructive';
   disabled?: boolean;
 }
@@ -32,7 +38,11 @@ function ContextMenuIcon({
       ? Trash2Icon
       : icon === 'clipboard'
         ? ClipboardIcon
-        : CopyIcon;
+        : icon === 'bookmark-plus'
+          ? BookmarkPlusIcon
+          : icon === 'pencil-line'
+            ? PencilLineIcon
+            : CopyIcon;
   return <Icon aria-hidden="true" className="size-4" strokeWidth={1.8} />;
 }
 
