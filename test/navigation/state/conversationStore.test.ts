@@ -115,23 +115,82 @@ describe('conversationStore', () => {
 
     expect(store.getMessages()).toHaveLength(1);
 
-    // ChatGPT updates route to permanent conversation URL
-    currentKey = 'c-perm-456';
-    const transition = store.syncRouteState('c-perm-456');
+    // Stage 1: ChatGPT updates route to temporary local conversation key
+    currentKey = 'local-temp-123';
+    const transitionLocal = store.syncRouteState('local-temp-123');
 
-    expect(transition.isTransition).toBe(true);
-    expect(transition.isNewChatRouteTransition).toBe(true);
-    expect(transition.shouldPreserveMessages).toBe(true);
+    expect(transitionLocal.isTransition).toBe(true);
+    expect(transitionLocal.isNewChatRouteTransition).toBe(true);
+    expect(transitionLocal.shouldPreserveMessages).toBe(true);
     expect(store.getPendingNewChatRouteKey()).toBe('new-chat:/');
 
-    // Route reset with preserveMessages=true
     store.resetForCurrentRoute({
-      preserveMessages: transition.shouldPreserveMessages,
-      nextMessages: transition.cachedMessages,
+      preserveMessages: transitionLocal.shouldPreserveMessages,
+      nextMessages: transitionLocal.cachedMessages,
+    });
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('prompt-1');
+
+    // Stage 2: ChatGPT updates route to permanent conversation URL
+    currentKey = 'c-perm-456';
+    const transitionPerm = store.syncRouteState('c-perm-456');
+
+    expect(transitionPerm.isTransition).toBe(true);
+    expect(transitionPerm.isNewChatRouteTransition).toBe(true);
+    expect(transitionPerm.shouldPreserveMessages).toBe(true);
+    expect(store.getPendingNewChatRouteKey()).toBe('local-temp-123');
+
+    // Test 2: Verify temporary local state is cleaned after migration
+    expect(store.getCachedConversationMessages('local-temp-123')).toHaveLength(0);
+
+    store.resetForCurrentRoute({
+      preserveMessages: transitionPerm.shouldPreserveMessages,
+      nextMessages: transitionPerm.cachedMessages,
     });
 
     expect(store.getMessages()).toHaveLength(1);
     expect(store.getMessages()[0].id).toBe('prompt-1');
+
+    // Empty conversation data arrives for permanent route
+    store.handleConversationData(
+      { messages: [] } as ConversationData,
+      'c-perm-456'
+    );
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('prompt-1');
+
+    // Server later returns prompt-1
+    store.handleConversationData(
+      {
+        messages: [
+          {
+            id: 'prompt-1',
+            author: { role: 'user' },
+            content: { parts: ['Initial prompt'] },
+            create_time: 100,
+          } as ChatMessage,
+        ],
+      } as ConversationData,
+      'c-perm-456'
+    );
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('prompt-1');
+
+    // Second prompt arrives under permanent route
+    store.appendNavigatorMessage(
+      {
+        id: 'prompt-2',
+        author: { role: 'user' },
+        content: { parts: ['Second prompt'] },
+        create_time: 200,
+      } as ChatMessage,
+      'c-perm-456'
+    );
+    expect(store.getMessages()).toHaveLength(2);
+    expect(store.getMessages().map((m) => m.id)).toEqual([
+      'prompt-1',
+      'prompt-2',
+    ]);
   });
 
   it('handles late arriving newUserMessage destined for pending new chat key', () => {
@@ -201,5 +260,113 @@ describe('conversationStore', () => {
 
     expect(storeA.getMessages()).toHaveLength(1);
     expect(storeB.getMessages()).toHaveLength(0);
+  });
+
+  it('isolates accumulated and snapshot state across consecutive new-chat sessions without cross-contamination', () => {
+    let currentKey = 'new-chat:/';
+    const store = createConversationStore({
+      getCurrentRouteKey: () => currentKey,
+    });
+
+    // --- Session A ---
+    store.syncRouteState('new-chat:/');
+    store.appendNavigatorMessage({
+      id: 'prompt-A1',
+      author: { role: 'user' },
+      content: { parts: ['Prompt A1 text'] },
+      create_time: 100,
+    } as ChatMessage);
+
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('prompt-A1');
+
+    // Migrate to conversation-A
+    currentKey = 'c-perm-A';
+    const transitionA = store.syncRouteState('c-perm-A');
+    store.resetForCurrentRoute({
+      preserveMessages: transitionA.shouldPreserveMessages,
+      nextMessages: transitionA.cachedMessages,
+    });
+    expect(store.getMessages().map((m) => m.id)).toEqual(['prompt-A1']);
+
+    // --- Session B ---
+    // User starts a second new chat (URL returns to new-chat:/)
+    currentKey = 'new-chat:/';
+    const transitionB = store.syncRouteState('new-chat:/');
+    expect(transitionB.isNewChatRouteTransition).toBe(false);
+    expect(transitionB.shouldPreserveMessages).toBe(false);
+
+    // Verify temporary snapshot is empty when Session B begins
+    expect(transitionB.cachedMessages).toHaveLength(0);
+    expect(store.getCachedConversationMessages('new-chat:/')).toHaveLength(0);
+
+    store.resetForCurrentRoute({
+      preserveMessages: transitionB.shouldPreserveMessages,
+      nextMessages: transitionB.cachedMessages,
+    });
+    expect(store.getMessages()).toHaveLength(0);
+
+    // User submits prompt-B1 in Session B
+    store.appendNavigatorMessage({
+      id: 'prompt-B1',
+      author: { role: 'user' },
+      content: { parts: ['Prompt B1 text'] },
+      create_time: 200,
+    } as ChatMessage);
+
+    expect(store.getMessages().map((m) => m.id)).toEqual(['prompt-B1']);
+
+    // Migrate to conversation-B
+    currentKey = 'c-perm-B';
+    const transitionB2 = store.syncRouteState('c-perm-B');
+    store.resetForCurrentRoute({
+      preserveMessages: transitionB2.shouldPreserveMessages,
+      nextMessages: transitionB2.cachedMessages,
+    });
+
+    // Empty or partial conversationData arrives for conversation-B
+    store.handleConversationData(
+      { messages: [] } as ConversationData,
+      'c-perm-B'
+    );
+
+    // Final messages in Session B must equal [prompt-B1], with no trace of prompt-A1
+    expect(store.getMessages().map((m) => m.id)).toEqual(['prompt-B1']);
+    expect(store.getMessages().some((m) => m.id === 'prompt-A1')).toBe(false);
+  });
+
+  it('keeps real conversation switching isolated without migrating messages', () => {
+    let currentKey = 'c-real-conv-A';
+    const store = createConversationStore({
+      getCurrentRouteKey: () => currentKey,
+    });
+
+    store.syncRouteState('c-real-conv-A');
+    store.appendNavigatorMessage({
+      id: 'prompt-A1',
+      author: { role: 'user' },
+      content: { parts: ['Prompt A1 from real conversation A'] },
+      create_time: 100,
+    } as ChatMessage);
+
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('prompt-A1');
+
+    // User switches from real-A to real-B
+    currentKey = 'c-real-conv-B';
+    const transition = store.syncRouteState('c-real-conv-B');
+
+    expect(transition.isTransition).toBe(true);
+    expect(transition.isNewChatRouteTransition).toBe(false);
+    expect(transition.shouldPreserveMessages).toBe(false);
+    expect(transition.cachedMessages).toHaveLength(0);
+
+    store.resetForCurrentRoute({
+      preserveMessages: transition.shouldPreserveMessages,
+      nextMessages: transition.cachedMessages,
+    });
+
+    // Conversation B starts empty; prompt-A1 must not migrate
+    expect(store.getMessages()).toHaveLength(0);
   });
 });

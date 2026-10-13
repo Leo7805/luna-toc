@@ -278,6 +278,29 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(list.children.length).toBe(1);
     expect(list.children[0].textContent).toContain('My first prompt in new chat');
 
+    // ChatGPT assigns temporary local URL
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/local-123456',
+      },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.routeChanged,
+        },
+        source: window,
+      })
+    );
+
+    // Prompt #1 must be preserved in temporary local route
+    expect(list.children.length).toBe(1);
+    expect(list.children[0].textContent).toContain('My first prompt in new chat');
+
     // ChatGPT assigns permanent URL
     Object.defineProperty(window, 'location', {
       writable: true,
@@ -297,9 +320,80 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
 
-    // Message must be preserved in migrated conversation
+    // Prompt #1 must be preserved in migrated permanent conversation
     expect(list.children.length).toBe(1);
     expect(list.children[0].textContent).toContain('My first prompt in new chat');
+
+    // Test 1: Empty conversationData arrives for the real conversation ID
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.conversationData,
+          routeKey: 'migrated-permanent-id',
+          payload: {
+            messages: [],
+          },
+        },
+        source: window,
+      })
+    );
+
+    // Prompt #1 must still exist
+    expect(list.children.length).toBe(1);
+    expect(list.children[0].textContent).toContain('My first prompt in new chat');
+
+    // Test 2: Server later returns prompt #1
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.conversationData,
+          routeKey: 'migrated-permanent-id',
+          payload: {
+            messages: [
+              {
+                id: 'prompt-first',
+                author: { role: 'user' },
+                content: { parts: ['My first prompt in new chat'] },
+                create_time: 100,
+              },
+              {
+                id: 'asst-first',
+                author: { role: 'assistant' },
+                content: { parts: ['First assistant reply'] },
+                create_time: 150,
+              },
+            ],
+          },
+        },
+        source: window,
+      })
+    );
+
+    // Prompt #1 must not be duplicated
+    expect(list.children.length).toBe(1);
+    expect(list.children[0].textContent).toContain('My first prompt in new chat');
+
+    // Test 3: Second prompt arrives under real conversation ID
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.newUserMessage,
+          routeKey: 'migrated-permanent-id',
+          payload: {
+            id: 'prompt-second',
+            author: { role: 'user' },
+            content: { parts: ['My second prompt'] },
+            create_time: 200,
+          },
+        },
+        source: window,
+      })
+    );
+
+    // Final TOC contains both prompts in order
+    expect(list.children.length).toBe(2);
+    expect(list.children[0].textContent).toContain('My first prompt in new chat');
+    expect(list.children[1].textContent).toContain('My second prompt');
   });
 
   it('updates search query and filters rendered list', () => {

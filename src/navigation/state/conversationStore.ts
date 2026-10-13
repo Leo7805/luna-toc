@@ -103,7 +103,11 @@ export function createConversationStore(
   }
 
   function isNewChatRouteKey(routeKey: string): boolean {
-    return routeKey.startsWith('new-chat:') || routeKey.startsWith('WEB:');
+    return (
+      routeKey.startsWith('new-chat:') ||
+      routeKey.startsWith('WEB:') ||
+      routeKey.startsWith('local-')
+    );
   }
 
   function getMessages(): NavigatorMessage[] {
@@ -137,11 +141,19 @@ export function createConversationStore(
     newMessage: ChatMessage,
     routeKey?: string
   ): boolean {
+    const targetConversationKey = routeKey || getCurrentConversationKey();
+    if (newMessage?.id) {
+      getAccumulatedMessageMap(targetConversationKey).set(
+        newMessage.id,
+        newMessage
+      );
+    }
+
     if (conversationMessages.some((message) => message.id === newMessage.id)) {
       return false;
     }
     conversationMessages.push(createNavigatorMessage(newMessage));
-    cacheConversationMessages(routeKey || getCurrentConversationKey());
+    cacheConversationMessages(targetConversationKey);
     return true;
   }
 
@@ -270,14 +282,26 @@ export function createConversationStore(
     const shouldPreserveMessages =
       isNewChatRouteTransition && conversationMessages.length > 0;
 
-    if (
-      shouldPreserveMessages &&
-      navigationSnapshotStore.copySnapshot(
-        previousConversationKey,
-        nextConversationKey
-      ) === null
-    ) {
-      cacheConversationMessages(nextConversationKey);
+    if (shouldPreserveMessages) {
+      const previousAccumulated =
+        accumulatedConversationMessages.get(previousConversationKey);
+      if (previousAccumulated && previousAccumulated.size > 0) {
+        const nextAccumulated = getAccumulatedMessageMap(nextConversationKey);
+        for (const [id, message] of previousAccumulated) {
+          nextAccumulated.set(id, message);
+        }
+      }
+      accumulatedConversationMessages.delete(previousConversationKey);
+
+      if (
+        navigationSnapshotStore.copySnapshot(
+          previousConversationKey,
+          nextConversationKey
+        ) === null
+      ) {
+        cacheConversationMessages(nextConversationKey);
+      }
+      navigationSnapshotStore.replacePrompts(previousConversationKey, []);
     }
 
     const cachedMessages = getCachedConversationMessages(nextConversationKey);

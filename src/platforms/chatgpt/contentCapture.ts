@@ -58,7 +58,8 @@ export function inspectFetchRequest(
 export function isNewChatRouteKey(routeKey: string): boolean {
   return (
     routeKey.startsWith(NEW_CHAT_PREFIX) ||
-    routeKey.startsWith(NEW_CHAT_WEB_PREFIX)
+    routeKey.startsWith(NEW_CHAT_WEB_PREFIX) ||
+    routeKey.startsWith('local-')
   );
 }
 
