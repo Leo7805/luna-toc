@@ -52,7 +52,11 @@ export interface TocListRenderer {
   resetList(): void;
   getNavigatorItems(): HTMLElement[];
   updateActiveItemUI(index: number, changed: boolean): void;
-  scrollNavigatorItemIntoView(item: HTMLElement): void;
+  scrollNavigatorItemIntoView(
+    item: HTMLElement,
+    options?: { force?: boolean; behavior?: ScrollBehavior }
+  ): boolean;
+  ensureActiveItemVisible(): boolean;
   pickStatusBandState(completed: boolean | null): SidebarStatusState;
   createNavigatorItem(message: NavigatorMessage, index: number): HTMLElement;
 }
@@ -73,6 +77,7 @@ export function createTocListRenderer(
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
+  let hasScrolledInitialActive = false;
 
   function getSearchQuery(): string {
     return searchQuery;
@@ -90,6 +95,7 @@ export function createTocListRenderer(
   function resetList(): void {
     navigatorItems = [];
     searchQuery = '';
+    hasScrolledInitialActive = false;
   }
 
   function resetView(): void {
@@ -97,6 +103,7 @@ export function createTocListRenderer(
     previewTooltip.hide();
     stopFollowing();
     collapseAll();
+    hasScrolledInitialActive = true;
     render();
 
     const scrollTarget = document.getElementById('navigator-list');
@@ -119,33 +126,61 @@ export function createTocListRenderer(
     return isLoadingPrompts() ? 'loading' : promptCount === 0 ? 'idle' : 'idle';
   }
 
-  function scrollNavigatorItemIntoView(item: HTMLElement): void {
+  /**
+   * Scrolls a navigator item into view if outside the visible padding area.
+   *
+   * @param item The DOM item to scroll into view.
+   * @param scrollOptions Optional override options (force following bypass, behavior).
+   * @returns True if visibility was successfully handled (already in bounds or scrolled); false otherwise.
+   */
+  function scrollNavigatorItemIntoView(
+    item: HTMLElement,
+    scrollOptions?: { force?: boolean; behavior?: ScrollBehavior }
+  ): boolean {
     const scrollContainer = document.getElementById('navigator-list');
     const following = options.isFollowingMode ? options.isFollowingMode() : isFollowing();
-    if (!scrollContainer || !following) return;
+    if (!scrollContainer || (!following && !scrollOptions?.force)) return false;
 
     const itemRect = item.getBoundingClientRect();
     const containerRect = scrollContainer.getBoundingClientRect();
+    if (containerRect.height === 0 || itemRect.height === 0) return false;
+
     const topPadding = 56;
     const bottomPadding = 80;
     const isAbove = itemRect.top < containerRect.top + topPadding;
     const isBelow = itemRect.bottom > containerRect.bottom - bottomPadding;
 
-    if (!isAbove && !isBelow) return;
+    if (!isAbove && !isBelow) return true;
+    if (typeof scrollContainer.scrollTo !== 'function') return false;
 
     const nextScrollTop = isAbove
-      ? scrollContainer.scrollTop +
-        itemRect.top -
-        containerRect.top -
-        topPadding
-      : scrollContainer.scrollTop +
-        itemRect.bottom -
-        containerRect.bottom +
-        bottomPadding;
+      ? scrollContainer.scrollTop + itemRect.top - containerRect.top - topPadding
+      : scrollContainer.scrollTop + itemRect.bottom - containerRect.bottom + bottomPadding;
 
-    if (typeof scrollContainer.scrollTo === 'function') {
-      scrollContainer.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
-    }
+    scrollContainer.scrollTo({
+      top: nextScrollTop,
+      behavior: scrollOptions?.behavior ?? 'smooth',
+    });
+    return true;
+  }
+
+  /**
+   * Ensures the active TOC item is visible on initial load.
+   */
+  function ensureActiveItemVisible(): boolean {
+    if (hasScrolledInitialActive) return true;
+    if (isLoadingPrompts()) return false;
+
+    const activeIndex = options.getActiveIndex();
+    const item = activeIndex !== null ? navigatorItems[activeIndex] : null;
+    if (!item?.isConnected) return false;
+
+    const handled = scrollNavigatorItemIntoView(item, {
+      force: true,
+      behavior: 'auto',
+    });
+    if (handled) hasScrolledInitialActive = true;
+    return handled;
   }
 
   function updateActiveItemUI(index: number, changed: boolean): void {
@@ -154,13 +189,18 @@ export function createTocListRenderer(
     });
 
     const item = navigatorItems[index];
-    if (!item) return;
+    if (!item?.isConnected) return;
 
     item.classList.add('navigator-item-active');
     if (changed) {
       syncActivePrompt(index);
     }
-    scrollNavigatorItemIntoView(item);
+
+    if (!hasScrolledInitialActive) {
+      ensureActiveItemVisible();
+    } else {
+      scrollNavigatorItemIntoView(item);
+    }
   }
 
   function createNavigatorItem(
@@ -273,6 +313,14 @@ export function createTocListRenderer(
 
     if (!list) return;
 
+    if (completed === true) {
+      setLoading(false);
+      clearSettleTimer();
+    } else if (completed === false) {
+      setLoading(true);
+      startSettleTimer();
+    }
+
     list.innerHTML = '';
     navigatorItems = [];
     resetPromptItems();
@@ -304,23 +352,17 @@ export function createTocListRenderer(
       list.appendChild(item);
     });
 
-    if (completed === true) {
-      setLoading(false);
-      clearSettleTimer();
-    } else if (completed === false) {
-      setLoading(true);
-      startSettleTimer();
+    if (refreshObservers || completed === true) {
+      options.onRefreshObservers?.();
     }
+
+    ensureActiveItemVisible();
 
     setSidebarStatus({
       state: pickStatusBandState(completed),
       jump: options.getJumpProgress ? options.getJumpProgress() : readJumpProgress(),
       promptCount: conversationMessages.length,
     });
-
-    if (refreshObservers) {
-      options.onRefreshObservers?.();
-    }
   }
 
   return {
@@ -332,6 +374,7 @@ export function createTocListRenderer(
     getNavigatorItems,
     updateActiveItemUI,
     scrollNavigatorItemIntoView,
+    ensureActiveItemVisible,
     pickStatusBandState,
     createNavigatorItem,
   };

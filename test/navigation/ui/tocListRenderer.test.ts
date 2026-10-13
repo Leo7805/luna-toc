@@ -1,8 +1,9 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
+import { setLoading } from '@/navigation/loading/promptLoadingState';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 describe('tocListRenderer', () => {
@@ -187,5 +188,196 @@ describe('tocListRenderer', () => {
     expect(firstItem.classList.contains('navigator-item-custom-title')).toBe(false);
 
     await removeCustomTitle('msg-2');
+  });
+
+  describe('initial active TOC scroll-position synchronization', () => {
+    let scrollToMock: ReturnType<typeof vi.fn>;
+    const origGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+
+    beforeEach(() => {
+      scrollToMock = vi.fn();
+      listElement.scrollTo = scrollToMock as unknown as typeof listElement.scrollTo;
+      setLoading(true);
+    });
+
+    afterEach(() => {
+      window.HTMLElement.prototype.getBoundingClientRect = origGetBCR;
+      setLoading(false);
+    });
+
+    function mockLayout(itemTop = 600, containerHeight = 500) {
+      window.HTMLElement.prototype.getBoundingClientRect = function () {
+        if (this === listElement) {
+          return { top: 0, bottom: containerHeight, height: containerHeight, left: 0, right: 200, width: 200 } as DOMRect;
+        }
+        return { top: itemTop, bottom: itemTop + 40, height: 40, left: 0, right: 200, width: 200 } as DOMRect;
+      };
+    }
+
+    it('does not force scroll or finalize initial sync while loading is in progress', () => {
+      mockLayout(600);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 2,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render();
+      expect(scrollToMock).not.toHaveBeenCalled();
+      expect(renderer.ensureActiveItemVisible()).toBe(false);
+    });
+
+    it('scrolls active item into view on completed render when active index is known, using behavior auto and bypassing follow', () => {
+      mockLayout(600);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 2,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render({ completed: true });
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+      expect(scrollToMock).toHaveBeenCalledWith({ top: expect.any(Number), behavior: 'auto' });
+    });
+
+    it('scrolls active item on updateActiveItemUI when active arrives after completed render, then respects follow on subsequent updates', () => {
+      mockLayout(600);
+      let activeIndex: number | null = null;
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => activeIndex,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render({ completed: true });
+      expect(scrollToMock).not.toHaveBeenCalled();
+
+      activeIndex = 2;
+      renderer.updateActiveItemUI(2, true);
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+      expect(scrollToMock).toHaveBeenCalledWith({ top: expect.any(Number), behavior: 'auto' });
+
+      scrollToMock.mockClear();
+      renderer.updateActiveItemUI(1, true);
+      expect(scrollToMock).not.toHaveBeenCalled();
+    });
+
+    it('keeps initial sync pending when layout has zero height until layout becomes ready', () => {
+      mockLayout(0, 0);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 2,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render({ completed: true });
+      expect(scrollToMock).not.toHaveBeenCalled();
+
+      mockLayout(600, 500);
+      expect(renderer.ensureActiveItemVisible()).toBe(true);
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks initial sync completed without calling scrollTo when active item is already in visible bounds', () => {
+      mockLayout(100);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 0,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render({ completed: true });
+      expect(scrollToMock).not.toHaveBeenCalled();
+      expect(renderer.ensureActiveItemVisible()).toBe(true);
+    });
+
+    it('resets initial sync state on resetList() to allow fresh sync on route change', () => {
+      mockLayout(600);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 2,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render({ completed: true });
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+
+      renderer.resetList();
+      scrollToMock.mockClear();
+      renderer.render({ completed: true });
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not scroll or error when the active item is filtered out by search query', () => {
+      mockLayout(600);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 0,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.setSearchQuery('coding');
+      expect(scrollToMock).not.toHaveBeenCalled();
+      expect(renderer.ensureActiveItemVisible()).toBe(false);
+    });
+
+    it('returns false when scrollTo is unavailable on container and scroll is required', () => {
+      mockLayout(600);
+      (listElement as any).scrollTo = undefined;
+      setLoading(false);
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => 2,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      const item = renderer.createNavigatorItem(mockMessages[2], 2);
+      listElement.appendChild(item);
+      expect(renderer.scrollNavigatorItemIntoView(item, { force: true })).toBe(false);
+    });
+
+    it('recalculates active index on completed render and scrolls to the shifted final index rather than a stale pre-backfill index', () => {
+      mockLayout(600);
+      let activeIndex: number | null = 1;
+      let currentMessages = mockMessages.slice(0, 2);
+      let renderer: ReturnType<typeof createTocListRenderer>;
+
+      renderer = createTocListRenderer({
+        getMessages: () => currentMessages,
+        getActiveIndex: () => activeIndex,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+        onRefreshObservers: () => {
+          if (currentMessages.length === 3) {
+            activeIndex = 2;
+            renderer.updateActiveItemUI(2, true);
+          }
+        },
+      });
+
+      // 1. Partial render while loading
+      renderer.render();
+      expect(scrollToMock).not.toHaveBeenCalled();
+
+      // 2. Backfill prepends older messages; list expands to 3 items
+      currentMessages = mockMessages;
+
+      // 3. Mark completed
+      renderer.render({ completed: true });
+
+      // Active class and scroll must both target shifted final index 2, not stale index 1
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+      const items = renderer.getNavigatorItems();
+      expect(items[2].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[1].classList.contains('navigator-item-active')).toBe(false);
+    });
   });
 });

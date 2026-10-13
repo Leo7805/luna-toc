@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-10-13T03:40:29.316Z",
+  "updatedAt": "2026-10-13T07:25:18.838Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -40,9 +40,9 @@
     },
     "src/features/contractAlert/ContractAlert.tsx": {
       "noteFile": "files/3393e170cb07-d020dcce.json",
-      "sourceHash": "sha256:20966bd0ce4ad69535dcf6888b7f093af08cd5c85cbb1856336ffe180e9b94db",
+      "sourceHash": "sha256:d8c8b6131531c07fc5ba8256bf3077ac2c0bde3c16108a959a98c91694005b56",
       "programmingLanguage": "typescriptreact",
-      "updatedAt": "2026-08-26T06:36:28.514Z"
+      "updatedAt": "2026-10-13T07:25:18.838Z"
     },
     "src/components/ui/dialog.tsx": {
       "noteFile": "files/c24ba5eb166e-ae27a9c4.json",
@@ -137,9 +137,9 @@
     },
     "src/navigation/follow/follow.ts": {
       "noteFile": "files/03be37a9f52b-7a2e2e63.json",
-      "sourceHash": "sha256:8a52c675126addf79d379b64416e19b61487686dbcaf3f4da7367828af234b23",
+      "sourceHash": "sha256:51cd535720dcd3780e6c3dcd14ba9552217661bfa53015fe60b8852ceff5dddb",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-24T02:24:54.225Z"
+      "updatedAt": "2026-10-13T07:25:18.835Z"
     },
     "src/pageHook": {
       "noteFile": "files/b850dcf8821e-9b980051.json",
@@ -219,9 +219,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/678c8485ed6c-69709b70.json",
-      "sourceHash": "sha256:6b04ce52980153c1371379989b7c31fe97546f46851b8782fe31d371601e4cc4",
+      "sourceHash": "sha256:029f434c446a40a883c479963c91be368e66b9c885f97d7c4f60a1904a3196a7",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-08-31T13:27:43.815Z"
+      "updatedAt": "2026-10-13T07:25:18.830Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-7873eb25.json",
@@ -248,9 +248,9 @@
     },
     "src/navigation/navigatorController.ts": {
       "noteFile": "files/9c5b112e28e7-fd937abe.json",
-      "sourceHash": "sha256:02e295405f699c09fca267eb07ad516bd0310ad383c9a7991fea57d0fc6bcbca",
+      "sourceHash": "sha256:05488cae5482d46c542d391dbfc1e5922043a7f1e0f65373a3350bf7e7dfc385",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-09-28T04:50:31.807Z"
+      "updatedAt": "2026-10-13T07:25:18.826Z"
     },
     "src/features/SidebarToggleButton.ts": {
       "noteFile": "files/904acb994f1b-0f683464.json",
