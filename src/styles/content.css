@@ -75,6 +75,10 @@ html[data-theme='dark'] {
   --ct-accent-outline-active: #60a5fa;
   --ct-accent-outline-indicator: #93c5fd;
 
+  /* Flag / Bookmark (gold) */
+  --ct-flag-color: #F0C341;
+  --ct-flag-hover: #F6CF5A;
+
   /* Floating toggle button */
   --ct-toggle-btn-color: #60a5fa;
   --ct-toggle-btn-hover-bg: rgba(96, 165, 250, 0.12);
@@ -162,6 +166,10 @@ html[data-theme='light'] {
   --ct-accent-strong-hover: #1d4ed8;
   --ct-accent-outline-active: #2563eb;
   --ct-accent-outline-indicator: #2563eb;
+
+  /* Flag / Bookmark (gold) */
+  --ct-flag-color: #E6B800;
+  --ct-flag-hover: #D89F00;
 
   /* Floating toggle button */
   --ct-toggle-btn-color: #2563eb;
@@ -688,9 +696,16 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   opacity: 1;
 }
 
-.navigator-mark-btn:hover,
+.navigator-mark-btn:hover {
+  color: var(--ct-flag-hover);
+}
+
 .navigator-mark-btn.navigator-mark-btn-active {
-  color: #facc15; /* mark yellow — intentionally not themed */
+  color: var(--ct-flag-color);
+}
+
+.navigator-mark-btn.navigator-mark-btn-active:hover {
+  color: var(--ct-flag-hover);
 }
 
 .navigator-mark-btn svg {
