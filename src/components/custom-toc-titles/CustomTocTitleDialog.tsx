@@ -158,6 +158,7 @@ function CustomTocTitleDialog({
                 className="bg-background text-foreground placeholder:text-muted-foreground/50 dark:bg-background"
                 autoFocus
                 disabled={submitting}
+                autoComplete="off"
               />
               {errorMessage ? (
                 <p className="mt-1 text-xs font-medium text-destructive">
