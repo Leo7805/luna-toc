@@ -71,18 +71,37 @@ function CustomTocTitleDialog({
   const existingTitle = getCustomTitle(request.messageId) ?? '';
   const [title, setTitle] = useState(existingTitle);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const submit = async (action: () => Promise<void>): Promise<void> => {
     if (submitting) return;
     setSubmitting(true);
+    setErrorMessage(null);
     try {
       await action();
-      request.onUpdated?.();
-      closeCustomTocTitleDialog();
     } catch (error) {
       console.error('Unable to persist the custom TOC title.', error);
+      const isContextInvalidated =
+        error instanceof Error &&
+        error.message.toLowerCase().includes('extension context invalidated');
+      setErrorMessage(
+        isContextInvalidated
+          ? 'Extension updated. Refresh ChatGPT to save.'
+          : 'Unable to save custom title. Please try again.'
+      );
+      return;
     } finally {
       setSubmitting(false);
+    }
+
+    closeCustomTocTitleDialog();
+    try {
+      request.onUpdated?.();
+    } catch (error) {
+      console.error(
+        'Unable to refresh the TOC after updating the custom title.',
+        error
+      );
     }
   };
 
@@ -129,12 +148,22 @@ function CustomTocTitleDialog({
               <Input
                 id={inputId}
                 value={title}
-                onChange={(e) => setTitle(e.currentTarget.value)}
+                onChange={(e) => {
+                  setTitle(e.currentTarget.value);
+                  if (errorMessage) {
+                    setErrorMessage(null);
+                  }
+                }}
                 placeholder="Enter custom title…"
                 className="bg-background text-foreground placeholder:text-muted-foreground/50 dark:bg-background"
                 autoFocus
                 disabled={submitting}
               />
+              {errorMessage ? (
+                <p className="mt-1 text-xs font-medium text-destructive">
+                  {errorMessage}
+                </p>
+              ) : null}
             </div>
           </div>
 
