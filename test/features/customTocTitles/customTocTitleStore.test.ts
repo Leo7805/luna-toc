@@ -81,4 +81,28 @@ describe('customTocTitleStore', () => {
 
     expect(storedData[STORAGE_KEY]).toBeUndefined();
   });
+
+  it('restores the previous title when persistence fails', async () => {
+    storedData[STORAGE_KEY] = { 'msg-1': 'Existing Title' };
+    await initializeCustomTocTitles();
+    const storageError = new Error('Extension context invalidated');
+    vi.mocked(chrome.storage.local.set).mockRejectedValueOnce(storageError);
+
+    await expect(setCustomTitle('msg-1', 'New Title')).rejects.toBe(
+      storageError
+    );
+
+    expect(getCustomTitle('msg-1')).toBe('Existing Title');
+  });
+
+  it('restores a removed title when persistence fails', async () => {
+    storedData[STORAGE_KEY] = { 'msg-1': 'Existing Title' };
+    await initializeCustomTocTitles();
+    const storageError = new Error('Extension context invalidated');
+    vi.mocked(chrome.storage.local.set).mockRejectedValueOnce(storageError);
+
+    await expect(removeCustomTitle('msg-1')).rejects.toBe(storageError);
+
+    expect(getCustomTitle('msg-1')).toBe('Existing Title');
+  });
 });

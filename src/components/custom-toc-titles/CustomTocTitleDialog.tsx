@@ -79,6 +79,8 @@ function CustomTocTitleDialog({
       await action();
       request.onUpdated?.();
       closeCustomTocTitleDialog();
+    } catch (error) {
+      console.error('Unable to persist the custom TOC title.', error);
     } finally {
       setSubmitting(false);
     }

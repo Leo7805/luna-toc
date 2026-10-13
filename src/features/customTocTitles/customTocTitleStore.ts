@@ -34,14 +34,30 @@ export async function setCustomTitle(
     return;
   }
 
+  const previousTitle = cache[messageId];
   cache[messageId] = trimmed;
-  await chrome.storage.local.set({ [STORAGE_KEY]: cache });
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEY]: cache });
+  } catch (error) {
+    if (previousTitle === undefined) {
+      delete cache[messageId];
+    } else {
+      cache[messageId] = previousTitle;
+    }
+    throw error;
+  }
 }
 
 /** Removes a Custom TOC Title for a message ID. */
 export async function removeCustomTitle(messageId: string): Promise<void> {
   if (!messageId || !(messageId in cache)) return;
 
+  const previousTitle = cache[messageId];
   delete cache[messageId];
-  await chrome.storage.local.set({ [STORAGE_KEY]: cache });
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEY]: cache });
+  } catch (error) {
+    cache[messageId] = previousTitle;
+    throw error;
+  }
 }
