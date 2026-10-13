@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-09-28T10:52:43.417Z",
+  "updatedAt": "2026-10-13T02:42:35.715Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -283,6 +283,18 @@
       "noteFile": "files/2f6f8b44f5de-27a8830c.json",
       "sourceHash": "sha256:0183746c1b8b5448bacec6073a0ea7daad301f9161b97f6668a49652e47945c1",
       "updatedAt": "2026-09-28T10:52:43.417Z"
+    },
+    "src/features/customTocTitles/customTocTitleStore.ts": {
+      "noteFile": "files/fff56363dbc8-b228b648.json",
+      "sourceHash": "sha256:2c921e52e7d2046dcb9b7e3c0101eede090f0675e97f0ce4de3bedb982730dae",
+      "programmingLanguage": "typescript",
+      "updatedAt": "2026-10-13T02:41:34.201Z"
+    },
+    "src/components/custom-toc-titles/CustomTocTitleDialog.tsx": {
+      "noteFile": "files/004dc299c280-93474709.json",
+      "sourceHash": "sha256:affe2fefb94180ac17d7390f75ef4c0f1e1482ec335279d86e1dd197e7b83618",
+      "programmingLanguage": "typescriptreact",
+      "updatedAt": "2026-10-13T02:42:35.715Z"
     }
   }
 }

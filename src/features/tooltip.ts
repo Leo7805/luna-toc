@@ -6,8 +6,10 @@
 
 // 1. Preview Tooltip Module
 export interface PreviewTooltipContent {
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
+  originalPrompt?: string;
+  customTitle?: string;
 }
 
 /**
@@ -91,16 +93,30 @@ export const previewTooltip = (() => {
     showTimer = setTimeout(() => {
       tooltip.innerHTML = '';
       if (typeof text === 'object' && text !== null) {
-        const titleEl = document.createElement('div');
-        titleEl.className = 'navigator-preview-tooltip-title';
-        titleEl.textContent = text.title;
+        if (text.customTitle && text.originalPrompt) {
+          tooltip.innerHTML =
+            '<div class="navigator-preview-tooltip-custom"></div>' +
+            '<div class="navigator-preview-tooltip-original"></div>';
+          const customEl = tooltip.querySelector<HTMLElement>(
+            '.navigator-preview-tooltip-custom'
+          );
+          const origEl = tooltip.querySelector<HTMLElement>(
+            '.navigator-preview-tooltip-original'
+          );
+          if (customEl) customEl.textContent = text.customTitle;
+          if (origEl) origEl.textContent = text.originalPrompt;
+        } else if (text.title && text.content) {
+          const titleEl = document.createElement('div');
+          titleEl.className = 'navigator-preview-tooltip-title';
+          titleEl.textContent = text.title;
 
-        const contentEl = document.createElement('div');
-        contentEl.className = 'navigator-preview-tooltip-content';
-        contentEl.textContent = text.content;
+          const contentEl = document.createElement('div');
+          contentEl.className = 'navigator-preview-tooltip-content';
+          contentEl.textContent = text.content;
 
-        tooltip.appendChild(titleEl);
-        tooltip.appendChild(contentEl);
+          tooltip.appendChild(titleEl);
+          tooltip.appendChild(contentEl);
+        }
       } else {
         const contentEl = document.createElement('div');
         contentEl.className = 'navigator-preview-tooltip-content';

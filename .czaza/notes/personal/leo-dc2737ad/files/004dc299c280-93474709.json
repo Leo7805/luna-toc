@@ -1,0 +1,17 @@
+{
+  "source": {
+    "sourceHash": "sha256:affe2fefb94180ac17d7390f75ef4c0f1e1482ec335279d86e1dd197e7b83618",
+    "sourceHashKind": "text",
+    "programmingLanguage": "typescriptreact"
+  },
+  "defaults": {
+    "createdAt": "2026-10-13T02:42:35.715Z",
+    "updatedAt": "2026-10-13T02:42:35.715Z"
+  },
+  "fileNote": {
+    "userNote": "Dialog + 很小的 imperative bridge",
+    "createdBy": "user"
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

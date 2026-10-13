@@ -5,6 +5,9 @@
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { createPromptMarkButton } from '@/features/conversationPrompts/promptMark';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
+import { getCustomTitle } from '@/features/customTocTitles/customTocTitleStore';
+import { openCustomTocTitleDialog } from '@/components/custom-toc-titles/CustomTocTitleDialog';
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
   collapseAll,
   createPromptItem,
@@ -186,15 +189,22 @@ export function createTocListRenderer(
     const itemMain = document.createElement('div');
     const itemText = document.createElement('span');
 
+    const customTitle = getCustomTitle(message.id);
+    const hasCustomTitle = Boolean(customTitle);
+    const titleText = hasCustomTitle ? customTitle! : message.text;
+
     item.dataset.messageIndex = String(index);
     item.className = 'navigator-item';
     item.classList.toggle(
       'navigator-item-active',
       index === options.getActiveIndex()
     );
+    if (hasCustomTitle) {
+      item.classList.add('navigator-item-custom-title');
+    }
     itemMain.className = 'navigator-item-main';
     itemText.className = 'navigator-item-text';
-    itemText.textContent = `${index + 1}. ${message.text.replace(/\s+/g, ' ')}`;
+    itemText.textContent = `${index + 1}. ${titleText.replace(/\s+/g, ' ')}`;
 
     const markButton = createPromptMarkButton({
       item,
@@ -217,21 +227,46 @@ export function createTocListRenderer(
       item.appendChild(outlineControls.outlineList);
     }
 
-    item.addEventListener('click', (event) => {
-      options.onItemClick(message, index);
-      if (isElementTextTruncated(itemText) && item.matches(':hover')) {
+    const showTooltip = (event: MouseEvent): void => {
+      if (hasCustomTitle) {
+        previewTooltip.show(
+          { originalPrompt: message.text, customTitle },
+          event,
+          itemMain
+        );
+      } else if (isElementTextTruncated(itemText)) {
         previewTooltip.show(message.text, event, itemMain);
       }
+    };
+
+    item.addEventListener('click', (event) => {
+      options.onItemClick(message, index);
+      if (item.matches(':hover')) showTooltip(event);
     });
     item.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      options.onSavePrompt?.(message);
+      event.stopPropagation();
+      previewTooltip.hide();
+      promptContextMenuController.show(
+        { left: event.clientX, top: event.clientY },
+        [
+          { id: 'save-prompt', label: 'Add to My Prompts' },
+          { id: 'rename-toc', label: 'Rename TOC Item…' },
+        ],
+        (itemId) => {
+          if (itemId === 'save-prompt') {
+            options.onSavePrompt?.(message);
+          } else if (itemId === 'rename-toc') {
+            openCustomTocTitleDialog({
+              messageId: message.id,
+              originalPrompt: message.text,
+              onUpdated: render,
+            });
+          }
+        }
+      );
     });
-    item.addEventListener('mouseenter', (event) => {
-      if (isElementTextTruncated(itemText)) {
-        previewTooltip.show(message.text, event, itemMain);
-      }
-    });
+    item.addEventListener('mouseenter', showTooltip);
     item.addEventListener('mouseleave', () => {
       previewTooltip.hide();
     });

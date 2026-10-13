@@ -7,7 +7,7 @@ import { ClipboardIcon, CopyIcon, Trash2Icon } from 'lucide-react';
 export interface ContextMenuItem {
   id: string;
   label: string;
-  icon: 'clipboard' | 'copy' | 'trash';
+  icon?: 'clipboard' | 'copy' | 'trash';
   variant?: 'default' | 'destructive';
   disabled?: boolean;
 }
@@ -25,7 +25,8 @@ const MENU_WIDTH = 220;
 
 function ContextMenuIcon({
   icon,
-}: Pick<ContextMenuItem, 'icon'>): React.JSX.Element {
+}: Pick<ContextMenuItem, 'icon'>): React.JSX.Element | null {
+  if (!icon) return null;
   const Icon =
     icon === 'trash'
       ? Trash2Icon

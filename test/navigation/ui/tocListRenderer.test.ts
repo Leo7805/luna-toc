@@ -156,4 +156,38 @@ describe('tocListRenderer', () => {
     expect(rendererA.getSearchQuery()).toBe('test');
     expect(rendererB.getSearchQuery()).toBe('');
   });
+
+  it('renders custom TOC title and applies styling class when set', async () => {
+    vi.stubGlobal('chrome', {
+      storage: {
+        local: {
+          get: vi.fn(async () => ({})),
+          set: vi.fn(async () => {}),
+        },
+      },
+    });
+
+    const { setCustomTitle, removeCustomTitle } = await import(
+      '@/features/customTocTitles/customTocTitleStore'
+    );
+    await setCustomTitle('msg-2', 'Renamed Step 2');
+
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+
+    renderer.render();
+
+    const secondItem = listElement.children[1] as HTMLElement;
+    expect(secondItem.textContent).toContain('2. Renamed Step 2');
+    expect(secondItem.classList.contains('navigator-item-custom-title')).toBe(true);
+
+    const firstItem = listElement.children[0] as HTMLElement;
+    expect(firstItem.textContent).toContain('1. First user prompt');
+    expect(firstItem.classList.contains('navigator-item-custom-title')).toBe(false);
+
+    await removeCustomTitle('msg-2');
+  });
 });
