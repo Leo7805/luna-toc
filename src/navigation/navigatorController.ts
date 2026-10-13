@@ -201,6 +201,20 @@ export const navigatorController = (() => {
   }
 
   /**
+   * Navigates to the last user prompt in the active conversation.
+   * Does nothing safely if no prompts exist.
+   */
+  function jumpToLastPrompt(): void {
+    const messages = conversationStore.getMessages();
+    const lastIndex = messages.length - 1;
+    const lastMessage = messages[lastIndex];
+
+    if (lastMessage) {
+      handleNavigatorItemClick(lastMessage, lastIndex);
+    }
+  }
+
+  /**
    * Jumps directly to the absolute chat edge.
    * @param {'top' | 'bottom'} edge
    */
@@ -414,6 +428,7 @@ export const navigatorController = (() => {
     init,
     jumpToAbsoluteEdge,
     jumpToEdge,
+    jumpToLastPrompt,
     render,
     resetView,
     setJumpProgress,

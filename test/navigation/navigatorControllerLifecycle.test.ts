@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { navigatorController } from '@/navigation/navigatorController';
 import { getActivePlatform } from '@/platforms';
 import { isLoading } from '@/navigation/loading/promptLoadingState';
+import * as promptNav from '@/navigation/jump/promptNavigation';
 
 describe('navigatorController lifecycle and coordination', () => {
   beforeEach(() => {
@@ -39,6 +40,7 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(typeof navigatorController.init).toBe('function');
     expect(typeof navigatorController.jumpToAbsoluteEdge).toBe('function');
     expect(typeof navigatorController.jumpToEdge).toBe('function');
+    expect(typeof navigatorController.jumpToLastPrompt).toBe('function');
     expect(typeof navigatorController.render).toBe('function');
     expect(typeof navigatorController.resetView).toBe('function');
     expect(typeof navigatorController.setJumpProgress).toBe('function');
@@ -518,5 +520,133 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(mutationObserveSpy.mock.calls.length).toBeGreaterThan(
       initialObserveCallCount
     );
+  });
+
+  it('jumpToLastPrompt() navigates to the last message when messages exist', () => {
+    const platform = getActivePlatform();
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/test-jump-bottom-messages',
+      },
+    });
+
+    const jumpToMessageSpy = vi
+      .spyOn(promptNav, 'jumpToMessage')
+      .mockImplementation(() => {});
+    const jumpToAbsoluteEdgeSpy = vi
+      .spyOn(promptNav, 'jumpToAbsoluteEdge')
+      .mockImplementation(() => {});
+
+    navigatorController.init();
+    navigatorController.attach();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.routeChanged,
+        },
+        source: window,
+      })
+    );
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.conversationData,
+          routeKey: 'test-jump-bottom-messages',
+          payload: {
+            messages: [
+              {
+                id: 'prompt-1',
+                author: { role: 'user' },
+                content: { parts: ['First prompt'] },
+                create_time: 100,
+              },
+              {
+                id: 'asst-1',
+                author: { role: 'assistant' },
+                content: { parts: ['First reply'] },
+                create_time: 150,
+              },
+              {
+                id: 'prompt-2',
+                author: { role: 'user' },
+                content: { parts: ['Second prompt'] },
+                create_time: 200,
+              },
+            ],
+          },
+        },
+        source: window,
+      })
+    );
+
+    navigatorController.jumpToLastPrompt();
+
+    expect(jumpToMessageSpy).toHaveBeenCalledOnce();
+    expect(jumpToMessageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'prompt-2', text: 'Second prompt' }),
+      1
+    );
+    expect(jumpToAbsoluteEdgeSpy).not.toHaveBeenCalled();
+  });
+
+  it('jumpToLastPrompt() does nothing safely when no messages exist', () => {
+    const platform = getActivePlatform();
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/test-jump-bottom-empty',
+      },
+    });
+
+    const jumpToMessageSpy = vi
+      .spyOn(promptNav, 'jumpToMessage')
+      .mockImplementation(() => {});
+    const jumpToAbsoluteEdgeSpy = vi
+      .spyOn(promptNav, 'jumpToAbsoluteEdge')
+      .mockImplementation(() => {});
+
+    navigatorController.init();
+    navigatorController.attach();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.routeChanged,
+        },
+        source: window,
+      })
+    );
+
+    navigatorController.jumpToLastPrompt();
+
+    expect(jumpToMessageSpy).not.toHaveBeenCalled();
+    expect(jumpToAbsoluteEdgeSpy).not.toHaveBeenCalled();
+  });
+
+  it('jumpToEdge("bottom") delegates directly to jumpToPageEdge', () => {
+    const jumpToAbsoluteEdgeSpy = vi
+      .spyOn(promptNav, 'jumpToAbsoluteEdge')
+      .mockImplementation(() => {});
+
+    navigatorController.jumpToEdge('bottom');
+
+    expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
+  });
+
+  it('jumpToEdge("top") delegates directly to jumpToPageEdge', () => {
+    const jumpToAbsoluteEdgeSpy = vi
+      .spyOn(promptNav, 'jumpToAbsoluteEdge')
+      .mockImplementation(() => {});
+
+    navigatorController.jumpToEdge('top');
+
+    expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
   });
 });

@@ -108,5 +108,9 @@ function handleJumpControlDoubleClick(
     scrollNavigatorListToEdge(edge, 'auto');
     return;
   }
+  if (edge === 'bottom') {
+    navigatorController.jumpToLastPrompt();
+    return;
+  }
   navigatorController.jumpToAbsoluteEdge(edge);
 }

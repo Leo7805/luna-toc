@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const navigatorMocks = vi.hoisted(() => ({
   jumpToAbsoluteEdge: vi.fn(),
   jumpToEdge: vi.fn(),
+  jumpToLastPrompt: vi.fn(),
 }));
 
 vi.mock('@/navigation/navigatorController', () => ({
@@ -39,19 +40,43 @@ describe('jump-to-edge controls', () => {
     ).toBe('Jump to bottom');
   });
 
-  it('delegates chat-view clicks to the navigator controller', () => {
+  it('delegates single clicks immediately to jumpToEdge without timer delay', () => {
     createJumpToEdgeControls(() => false);
 
     document.getElementById('jump-chat-top-btn')?.click();
-    document
-      .getElementById('jump-chat-bottom-btn')
-      ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-
     expect(navigatorMocks.jumpToEdge).toHaveBeenCalledWith('top');
-    expect(navigatorMocks.jumpToAbsoluteEdge).toHaveBeenCalledWith('bottom');
+
+    document.getElementById('jump-chat-bottom-btn')?.click();
+    expect(navigatorMocks.jumpToEdge).toHaveBeenCalledWith('bottom');
+    expect(navigatorMocks.jumpToLastPrompt).not.toHaveBeenCalled();
   });
 
-  it('scrolls the sidebar list while My Prompts is active', () => {
+  it('delegates double-click on bottom to jumpToLastPrompt while click events invoke physical-bottom', () => {
+    createJumpToEdgeControls(() => false);
+
+    const bottomBtn = document.getElementById('jump-chat-bottom-btn')!;
+
+    // Browser event sequence: click -> click -> dblclick
+    bottomBtn.click();
+    bottomBtn.click();
+    bottomBtn.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+    expect(navigatorMocks.jumpToEdge).toHaveBeenCalledTimes(2);
+    expect(navigatorMocks.jumpToEdge).toHaveBeenCalledWith('bottom');
+    expect(navigatorMocks.jumpToLastPrompt).toHaveBeenCalledOnce();
+  });
+
+  it('delegates double-click on top to jumpToAbsoluteEdge', () => {
+    createJumpToEdgeControls(() => false);
+
+    document
+      .getElementById('jump-chat-top-btn')
+      ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+    expect(navigatorMocks.jumpToAbsoluteEdge).toHaveBeenCalledWith('top');
+  });
+
+  it('scrolls the sidebar list immediately while My Prompts is active', () => {
     const list = document.getElementById('navigator-list') as HTMLElement;
     const scrollTo = vi.fn();
     list.scrollTo = scrollTo;
@@ -59,6 +84,7 @@ describe('jump-to-edge controls', () => {
 
     createJumpToEdgeControls(() => true);
     document.getElementById('jump-chat-top-btn')?.click();
+    document.getElementById('jump-chat-bottom-btn')?.click();
     document
       .getElementById('jump-chat-bottom-btn')
       ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -69,9 +95,14 @@ describe('jump-to-edge controls', () => {
     });
     expect(scrollTo).toHaveBeenNthCalledWith(2, {
       top: 480,
+      behavior: 'smooth',
+    });
+    expect(scrollTo).toHaveBeenNthCalledWith(3, {
+      top: 480,
       behavior: 'auto',
     });
     expect(navigatorMocks.jumpToEdge).not.toHaveBeenCalled();
     expect(navigatorMocks.jumpToAbsoluteEdge).not.toHaveBeenCalled();
+    expect(navigatorMocks.jumpToLastPrompt).not.toHaveBeenCalled();
   });
 });
