@@ -212,9 +212,9 @@ function jumpWithIndependentVirtualNavigation(
     promptCount: context.prompts.length,
   });
 
-  // Far jumps slide the virtual render window over several seconds. Hold the
-  // active-row lock for the whole slide so scroll-follow cannot snap the
-  // highlight to intermediate prompts mid-jump.
+  // Far jumps slide the virtual render window over several seconds. Keep the
+  // sidebar follow window open for the slide duration so the sidebar list can
+  // scroll to track the target once it reaches the viewport.
   keepFollowing(15_000);
   setJumpProgress({
     active: true,
@@ -364,21 +364,6 @@ export function jumpToPromptIndex(
   keepFollowing(duration);
   jumpWithIndependentVirtualNavigation(message, index);
   return true;
-}
-
-/**
- * Locks the sidebar active-row for a duration without navigating again.
- * Used by outline navigation to keep the highlighted subsection pinned
- * while the user reads ChatGPT's response.
- *
- * @param index 0-indexed position in the conversation.
- * @param duration Duration in ms to lock active prompt follow tracking.
- */
-export function lockPromptIndex(
-  index: number,
-  duration: number = 1800
-): void {
-  keepFollowing(duration);
 }
 
 /**

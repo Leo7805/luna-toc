@@ -7,15 +7,52 @@ import { getActivePlatform } from '@/platforms';
 import type { Platform } from '@/platforms/platformInterface';
 
 describe('activePromptTracker', () => {
+  let container: HTMLElement;
+
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = '';
+    container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    mockRect(container, { top: 0, bottom: 800, height: 800 });
+    document.body.appendChild(container);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+    document.body.innerHTML = '';
   });
+
+  function mockRect(
+    element: HTMLElement,
+    rect: { top: number; bottom: number; height?: number }
+  ): void {
+    element.getBoundingClientRect = () => ({
+      top: rect.top,
+      bottom: rect.bottom,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: rect.height ?? rect.bottom - rect.top,
+      x: 0,
+      y: rect.top,
+      toJSON: () => {},
+    });
+  }
+
+  function createPromptElement(
+    id: string,
+    top: number,
+    bottom: number
+  ): HTMLElement {
+    const el = document.createElement('div');
+    el.setAttribute('data-message-author-role', 'user');
+    el.setAttribute('data-message-id', id);
+    mockRect(el, { top, bottom });
+    document.body.appendChild(el);
+    return el;
+  }
 
   const basePlatform = getActivePlatform('chatgpt.com');
   const mockPlatform: Platform = {
@@ -30,8 +67,11 @@ describe('activePromptTracker', () => {
     },
     navigation: {
       ...basePlatform.navigation,
+      getThreadScrollContainer: () => container,
+      getScrollContainer: () => container,
       getMessageIdFromElement: (element: HTMLElement) =>
         element.getAttribute('data-message-id') || null,
+      promptTopOffsetPx: 16,
     },
   };
 
@@ -57,143 +97,177 @@ describe('activePromptTracker', () => {
     parentElement.appendChild(childElement);
     document.body.appendChild(parentElement);
 
-    // Platform getMessageIdFromElement might only check target, but ancestor fallback works
-    const platformWithoutGetter: Platform = {
-      ...mockPlatform,
-      navigation: {
-        ...mockPlatform.navigation,
-        getMessageIdFromElement: undefined,
-      },
-    };
-    const trackerWithoutGetter = createActivePromptTracker({
-      getMessages: () => sampleMessages,
-      getPlatform: () => platformWithoutGetter,
-    });
-    expect(trackerWithoutGetter.findConversationIndexByElement(childElement)).toBe(2);
+    expect(tracker.findConversationIndexByElement(childElement)).toBe(2);
 
-    // Non-existent message
     const unknownElement = document.createElement('div');
     unknownElement.setAttribute('data-message-id', 'msg-999');
     expect(tracker.findConversationIndexByElement(unknownElement)).toBe(-1);
   });
 
-  it('computes mounted prompt signatures using unit key adapter with fallback to message IDs', () => {
-    const platformWithUnitKey: Platform = {
-      ...mockPlatform,
-      navigation: {
-        ...mockPlatform.navigation,
-        getPromptUnitKeyFromElement: (el) =>
-          el.getAttribute('data-test-unit-key') || null,
-      },
-    };
-
-    const tracker = createActivePromptTracker({
-      getMessages: () => sampleMessages,
-      getPlatform: () => platformWithUnitKey,
-    });
-
-    expect(tracker.getMountedPromptSignature()).toBe('');
-
-    const el1 = document.createElement('div');
-    el1.setAttribute('data-message-author-role', 'user');
-    el1.setAttribute('data-test-unit-key', 'unit-0');
-    el1.setAttribute('data-message-id', 'msg-0');
-
-    const el2 = document.createElement('div');
-    el2.setAttribute('data-message-author-role', 'user');
-    el2.setAttribute('data-message-id', 'msg-1');
-
-    document.body.append(el1, el2);
-    expect(tracker.getMountedPromptSignature()).toBe('unit-0|msg-1');
-  });
-
-  it('computes mounted prompt signatures with real ChatGPT platform adapter', () => {
-    const chatgptPlatform = getActivePlatform('chatgpt.com');
-    const tracker = createActivePromptTracker({
-      getMessages: () => sampleMessages,
-      getPlatform: () => chatgptPlatform,
-    });
-
-    const el1 = document.createElement('div');
-    el1.setAttribute('data-chatgpt-search-unit-key', 'chatgpt-unit-0:user');
-    el1.setAttribute('data-chatgpt-search-message-ids', 'msg-0');
-
-    const el2 = document.createElement('div');
-    el2.setAttribute('data-chatgpt-search-unit-key', 'chatgpt-unit-1:user');
-    el2.setAttribute('data-chatgpt-search-message-ids', 'msg-1');
-
-    document.body.append(el1, el2);
-    expect(tracker.getMountedPromptSignature()).toBe(
-      'chatgpt-unit-0:user|chatgpt-unit-1:user'
-    );
-  });
-
-  it('locks cursor and rejects conflicting active updates during lock period', () => {
-    let notifiedIndex: number | null = null;
-    let notifiedChanged: boolean | null = null;
+  it('activates Prompt N when navigation lands it at the intended top position', () => {
+    // Navigation lands Prompt 1 at containerTop + promptTopOffsetPx (0 + 16 = 16px)
+    createPromptElement('msg-0', -300, -200);
+    createPromptElement('msg-1', 16, 96);
+    createPromptElement('msg-2', 500, 580);
 
     const tracker = createActivePromptTracker({
       getMessages: () => sampleMessages,
       getPlatform: () => mockPlatform,
-      onActiveIndexChange: (index, changed) => {
-        notifiedIndex = index;
-        notifiedChanged = changed;
-      },
     });
 
-    expect(tracker.getActiveIndex()).toBeNull();
-    tracker.setActiveIndex(0);
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('does NOT activate Prompt N+1 while it is still below the effective navigation boundary', () => {
+    createPromptElement('msg-0', -400, -320);
+    // Boundary is containerTop (0) + 16 + 2 = 18px. Prompt 1 is at 25px (below boundary)
+    createPromptElement('msg-1', 25, 105);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
     expect(tracker.getActiveIndex()).toBe(0);
-    expect(notifiedIndex).toBe(0);
-    expect(notifiedChanged).toBe(true);
-
-    // Lock to index 1 for 1000ms
-    tracker.lockActiveIndex(1, 1000);
-    expect(tracker.getActiveIndex()).toBe(1);
-    expect(tracker.isLocked()).toBe(true);
-    expect(tracker.getLockedIndex()).toBe(1);
-
-    // Conflicting setActiveIndex is blocked
-    const updated = tracker.setActiveIndex(2);
-    expect(updated).toBe(false);
-    expect(tracker.getActiveIndex()).toBe(1);
-
-    // After timer expires, new index can be set
-    vi.advanceTimersByTime(1001);
-    expect(tracker.isLocked()).toBe(false);
-    expect(tracker.setActiveIndex(2)).toBe(true);
-    expect(tracker.getActiveIndex()).toBe(2);
   });
 
-  it('releases lock immediately via unlockActiveIndex', () => {
+  it('tolerates a tiny 1-2px subpixel difference without leaving the previous prompt Active', () => {
+    createPromptElement('msg-0', -400, -320);
+    // Target landed at 17.5px (1.5px below intended 16px due to subpixel layout)
+    createPromptElement('msg-1', 17.5, 97.5);
+
     const tracker = createActivePromptTracker({
       getMessages: () => sampleMessages,
       getPlatform: () => mockPlatform,
     });
 
-    tracker.lockActiveIndex(0, 5000);
-    expect(tracker.isLocked()).toBe(true);
-    tracker.unlockActiveIndex();
-    expect(tracker.isLocked()).toBe(false);
-    expect(tracker.setActiveIndex(2)).toBe(true);
-    expect(tracker.getActiveIndex()).toBe(2);
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
   });
 
-  it('cleans up and resets all observers, timers, and active state', () => {
+  it('keeps Prompt N Active throughout Assistant Response N even when Prompt N+1 is visible at bottom', () => {
+    // Prompt 0 is above viewport top (user is reading assistant response 0)
+    createPromptElement('msg-0', -400, -320);
+    // Prompt 1 is visible near the bottom edge (top = 700px, container height = 800px)
+    createPromptElement('msg-1', 700, 780);
+
     const tracker = createActivePromptTracker({
       getMessages: () => sampleMessages,
       getPlatform: () => mockPlatform,
     });
 
-    tracker.lockActiveIndex(1, 2000);
-    tracker.reset();
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(0);
+  });
 
+  it('makes Prompt N+1 Active only after its top crosses the effective boundary', () => {
+    const el0 = createPromptElement('msg-0', -600, -520);
+    const el1 = createPromptElement('msg-1', 50, 130);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(0);
+
+    // Scroll down so Prompt 1 reaches the effective boundary (top <= 18)
+    mockRect(el0, { top: -650, bottom: -570 });
+    mockRect(el1, { top: 16, bottom: 96 });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('returns Active to Prompt N-1 symmetrically on upward scrolling', () => {
+    const el0 = createPromptElement('msg-0', -200, -120);
+    const el1 = createPromptElement('msg-1', 16, 96);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
+
+    // Scroll upward: Prompt 1 moves below effective boundary (18px)
+    mockRect(el0, { top: -100, bottom: -20 });
+    mockRect(el1, { top: 40, bottom: 120 });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(0);
+  });
+
+  it('preserves previous Active prompt when final short prompt cannot reach effective boundary', () => {
+    // Turn 1 (Prompt 1) is at the top; Turn 2 (final short prompt) is near bottom (500px)
+    createPromptElement('msg-1', 0, 80);
+    createPromptElement('msg-2', 500, 580);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('falls back to Prompt 0 when at conversation top and Prompt 0 is below effective boundary', () => {
+    // User is scrolled to very top; Prompt 0 sits at 40px (below effective boundary 18px)
+    createPromptElement('msg-0', 40, 120);
+    createPromptElement('msg-1', 450, 530);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(0);
+  });
+
+  it('recalculates Active on DOM mutation remounting', async () => {
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.initTracking();
     expect(tracker.getActiveIndex()).toBeNull();
-    expect(tracker.isLocked()).toBe(false);
-    expect(tracker.getLockedIndex()).toBeNull();
+
+    // Dynamically mount prompt that crossed the effective boundary
+    createPromptElement('msg-0', 10, 90);
+
+    // Allow MutationObserver microtask to fire, then run rAF
+    await Promise.resolve();
+    vi.runAllTimers();
+    expect(tracker.getActiveIndex()).toBe(0);
+
+    tracker.disconnect();
+  });
+
+  it('cleans up and resets all listeners and active state', () => {
+    createPromptElement('msg-0', 10, 90);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.initTracking();
+    expect(tracker.getActiveIndex()).toBe(0);
+
+    tracker.reset();
+    expect(tracker.getActiveIndex()).toBeNull();
   });
 
   it('isolates state across independent instances', () => {
+    createPromptElement('msg-0', 10, 90);
+
     const trackerA = createActivePromptTracker({
       getMessages: () => sampleMessages,
       getPlatform: () => mockPlatform,
@@ -203,7 +277,7 @@ describe('activePromptTracker', () => {
       getPlatform: () => mockPlatform,
     });
 
-    trackerA.setActiveIndex(0);
+    trackerA.checkActivePrompt();
     expect(trackerA.getActiveIndex()).toBe(0);
     expect(trackerB.getActiveIndex()).toBeNull();
   });

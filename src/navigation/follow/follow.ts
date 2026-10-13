@@ -8,13 +8,11 @@
 interface FollowOptions {
   listSelector: string;
   ignoredScrollSelector: string;
-  setActiveIndex: (index: number) => void;
 }
 const SCROLL_SETTLE_DELAY_MS = 300;
 const FOLLOW_AFTER_JUMP_MS = 1800;
 
 let followUntil = 0;
-let setActiveIndex: (index: number) => void = () => {};
 let ignoredScrollSelector = '';
 
 /**
@@ -22,10 +20,8 @@ let ignoredScrollSelector = '';
  * @param {Object} options
  * @param {string} options.listSelector
  * @param {string} options.ignoredScrollSelector
- * @param {(index: number) => void} options.setActiveIndex
  */
 export function initializeFollow(options: FollowOptions): void {
-  setActiveIndex = options.setActiveIndex;
   ignoredScrollSelector = options.ignoredScrollSelector;
 
   document.addEventListener(

@@ -102,12 +102,9 @@ export const navigatorController = (() => {
       reportedPromptCount = count;
       onPromptCountChanged(count);
     },
-    onForceActiveIndex: (index) => {
-      activePromptTracker.forceActiveIndex(index);
-    },
     onRefreshObservers: () => {
       if (isAttached) {
-        activePromptTracker.observeVisiblePrompts();
+        activePromptTracker.checkActivePrompt();
       }
     },
     getJumpProgress: () => readJumpProgress(),
@@ -157,7 +154,6 @@ export const navigatorController = (() => {
       listSelector: '#navigator-list',
       ignoredScrollSelector:
         '#luna-toc-sidebar, #luna-toc-preview-tooltip, #luna-toc-button-tooltip',
-      setActiveIndex: setActiveNavigatorItem,
     });
 
     initializePromptNavigation({
@@ -264,14 +260,6 @@ export const navigatorController = (() => {
    */
   function clearJumpProgress(): void {
     resetJumpProgress();
-  }
-
-  function setActiveNavigatorItem(index: number): void {
-    activePromptTracker.setActiveIndex(index);
-  }
-
-  function observeVisibleUserMessages(): void {
-    activePromptTracker.observeVisiblePrompts();
   }
 
   function initActivePromptTracking(): void {

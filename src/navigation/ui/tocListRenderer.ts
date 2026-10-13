@@ -39,7 +39,6 @@ export interface TocListRendererOptions {
   onItemClick: (message: NavigatorMessage, index: number) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   onPromptCountReported?: (count: number) => void;
-  onForceActiveIndex?: (index: number) => void;
   onRefreshObservers?: () => void;
   getJumpProgress?: () => ReturnType<typeof readJumpProgress>;
   isFollowingMode?: () => boolean;
@@ -53,7 +52,6 @@ export interface TocListRenderer {
   resetList(): void;
   getNavigatorItems(): HTMLElement[];
   updateActiveItemUI(index: number, changed: boolean): void;
-  jumpToLastIfIdle(): void;
   scrollNavigatorItemIntoView(item: HTMLElement): void;
   pickStatusBandState(completed: boolean | null): SidebarStatusState;
   createNavigatorItem(message: NavigatorMessage, index: number): HTMLElement;
@@ -163,22 +161,6 @@ export function createTocListRenderer(
       syncActivePrompt(index);
     }
     scrollNavigatorItemIntoView(item);
-  }
-
-  function jumpToLastIfIdle(): void {
-    const following = options.isFollowingMode ? options.isFollowingMode() : isFollowing();
-    if (following) return;
-
-    const conversationMessages = options.getMessages();
-    if (conversationMessages.length === 0) return;
-
-    const lastIndex = conversationMessages.length - 1;
-    options.onForceActiveIndex?.(lastIndex);
-
-    const lastItem = navigatorItems[lastIndex];
-    if (lastItem && typeof lastItem.scrollIntoView === 'function') {
-      lastItem.scrollIntoView({ block: 'end' });
-    }
   }
 
   function createNavigatorItem(
@@ -336,10 +318,6 @@ export function createTocListRenderer(
       promptCount: conversationMessages.length,
     });
 
-    if (completed === true) {
-      jumpToLastIfIdle();
-    }
-
     if (refreshObservers) {
       options.onRefreshObservers?.();
     }
@@ -353,7 +331,6 @@ export function createTocListRenderer(
     resetList,
     getNavigatorItems,
     updateActiveItemUI,
-    jumpToLastIfIdle,
     scrollNavigatorItemIntoView,
     pickStatusBandState,
     createNavigatorItem,

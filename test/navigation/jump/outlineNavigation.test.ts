@@ -4,10 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const promptNavigationMocks = vi.hoisted(() => ({
   jumpToPromptIndex: vi.fn(),
-  lockPromptIndex: vi.fn(),
+}));
+
+const followMocks = vi.hoisted(() => ({
+  keepFollowing: vi.fn(),
 }));
 
 vi.mock('@/navigation/jump/promptNavigation', () => promptNavigationMocks);
+vi.mock('@/navigation/follow/follow', () => followMocks);
 
 import {
   cancelOutlineNavigation,
@@ -17,7 +21,7 @@ import {
 beforeEach(() => {
   vi.useFakeTimers();
   promptNavigationMocks.jumpToPromptIndex.mockReset();
-  promptNavigationMocks.lockPromptIndex.mockReset();
+  followMocks.keepFollowing.mockReset();
 });
 
 afterEach(() => {
@@ -40,7 +44,7 @@ describe('outline navigation', () => {
 
     expect(resolveCurrentHeading).not.toHaveBeenCalled();
     expect(promptNavigationMocks.jumpToPromptIndex).not.toHaveBeenCalled();
-    expect(promptNavigationMocks.lockPromptIndex).toHaveBeenCalledWith(3);
+    expect(followMocks.keepFollowing).toHaveBeenCalled();
     expect(scrollIntoView).toHaveBeenCalledWith({
       behavior: 'smooth',
       block: 'center',
@@ -69,7 +73,7 @@ describe('outline navigation', () => {
     vi.advanceTimersByTime(250);
 
     expect(resolveCurrentHeading).toHaveBeenCalledTimes(2);
-    expect(promptNavigationMocks.lockPromptIndex).toHaveBeenCalledWith(5);
+    expect(followMocks.keepFollowing).toHaveBeenCalled();
     expect(scrollIntoView).toHaveBeenCalledOnce();
   });
 });

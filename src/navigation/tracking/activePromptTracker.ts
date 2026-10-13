@@ -1,6 +1,6 @@
 /**
- * Tracks the visible active prompt in the chat viewport using IntersectionObserver
- * and MutationObserver, with cursor locking during navigation jumps.
+ * Tracks the visible active prompt in the chat viewport using top-boundary
+ * viewport geometry, requestAnimationFrame throttling, and MutationObserver.
  */
 import { getActivePlatform } from '@/platforms';
 import type { Platform } from '@/platforms/platformInterface';
@@ -24,15 +24,8 @@ export interface ActivePromptTrackerOptions {
 
 export interface ActivePromptTracker {
   getActiveIndex(): number | null;
-  setActiveIndex(index: number): boolean;
-  forceActiveIndex(index: number): void;
-  lockActiveIndex(index: number, durationMs?: number): void;
-  unlockActiveIndex(): void;
-  isLocked(): boolean;
-  getLockedIndex(): number | null;
   findConversationIndexByElement(element: HTMLElement): number;
-  getMountedPromptSignature(): string;
-  observeVisiblePrompts(): void;
+  checkActivePrompt(): void;
   initTracking(): void;
   disconnect(): void;
   reset(): void;
@@ -48,11 +41,9 @@ export function createActivePromptTracker(
   options: ActivePromptTrackerOptions
 ): ActivePromptTracker {
   let activeNavigatorIndex: number | null = null;
-  let lockedNavigatorIndex: number | null = null;
-  let lockedNavigatorTimer: ReturnType<typeof setTimeout> | null = null;
-  let activePromptObserver: IntersectionObserver | null = null;
   let activePromptMutationObserver: MutationObserver | null = null;
-  let activePromptMutationTimer: ReturnType<typeof setTimeout> | null = null;
+  let isTracking = false;
+  let rafId: number | null = null;
 
   function resolvePlatform(): Platform {
     return options.getPlatform ? options.getPlatform() : getActivePlatform();
@@ -60,52 +51,6 @@ export function createActivePromptTracker(
 
   function getActiveIndex(): number | null {
     return activeNavigatorIndex;
-  }
-
-  function isLocked(): boolean {
-    return lockedNavigatorIndex !== null && lockedNavigatorTimer !== null;
-  }
-
-  function getLockedIndex(): number | null {
-    return lockedNavigatorIndex;
-  }
-
-  function lockActiveIndex(index: number, durationMs = 2000): void {
-    if (lockedNavigatorTimer !== null) {
-      clearTimeout(lockedNavigatorTimer);
-    }
-    lockedNavigatorIndex = index;
-    forceActiveIndex(index);
-    lockedNavigatorTimer = setTimeout(() => {
-      lockedNavigatorIndex = null;
-      lockedNavigatorTimer = null;
-    }, durationMs);
-  }
-
-  function unlockActiveIndex(): void {
-    if (lockedNavigatorTimer !== null) {
-      clearTimeout(lockedNavigatorTimer);
-      lockedNavigatorTimer = null;
-    }
-    lockedNavigatorIndex = null;
-  }
-
-  function forceActiveIndex(index: number): void {
-    const activeIndexChanged = index !== activeNavigatorIndex;
-    activeNavigatorIndex = index;
-    options.onActiveIndexChange?.(index, activeIndexChanged);
-  }
-
-  function setActiveIndex(index: number): boolean {
-    if (
-      lockedNavigatorIndex !== null &&
-      index !== lockedNavigatorIndex &&
-      lockedNavigatorTimer !== null
-    ) {
-      return false;
-    }
-    forceActiveIndex(index);
-    return true;
   }
 
   function findConversationIndexByElement(element: HTMLElement): number {
@@ -122,114 +67,130 @@ export function createActivePromptTracker(
     return options.getMessages().findIndex((message) => message.id === id);
   }
 
-  function getMountedPromptSignature(): string {
+  function checkActivePrompt(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
     const platform = resolvePlatform();
-    const userSelector = platform.config.selectors.userMessage;
-    if (!userSelector || typeof document === 'undefined') return '';
+    const container =
+      platform.navigation.getThreadScrollContainer?.() ??
+      platform.navigation.getScrollContainer?.() ??
+      null;
+    const containerTop = container ? container.getBoundingClientRect().top : 0;
+    // Aligns with promptNavigation landing geometry: elements land at `containerTop + promptTopOffsetPx`
+    // via scrollMarginTop. Aligning the activation boundary ensures that landing at the intended top
+    // position immediately and consistently activates the target prompt.
+    const targetOffset = platform.navigation.promptTopOffsetPx ?? 16;
+    const SUBPIXEL_TOLERANCE_PX = 2;
+    const referenceBoundary = containerTop + targetOffset + SUBPIXEL_TOLERANCE_PX;
 
-    return Array.from(document.querySelectorAll<HTMLElement>(userSelector))
-      .map(
-        (element) =>
-          platform.navigation.getPromptUnitKeyFromElement?.(element) ||
-          platform.navigation.getMessageIdFromElement?.(element) ||
-          (platform.config.selectors.messageId
-            ? element.getAttribute(platform.config.selectors.messageId)
-            : '') ||
-          ''
-      )
-      .join('|');
+    const userSelector = platform.config.selectors.userMessage;
+    if (!userSelector || typeof document === 'undefined') return;
+
+    const elements = Array.from(
+      document.querySelectorAll<HTMLElement>(userSelector)
+    );
+    if (elements.length === 0) return;
+
+    let latestAboveTop: number | null = null;
+    let lowestMountedIndex: number | null = null;
+
+    for (const element of elements) {
+      const index = findConversationIndexByElement(element);
+      if (index === -1) continue;
+
+      if (lowestMountedIndex === null || index < lowestMountedIndex) {
+        lowestMountedIndex = index;
+      }
+
+      const rect = element.getBoundingClientRect();
+      if (rect.top <= referenceBoundary) {
+        if (latestAboveTop === null || index > latestAboveTop) {
+          latestAboveTop = index;
+        }
+      }
+    }
+
+    let nextIndex: number | null = null;
+    if (latestAboveTop !== null) {
+      nextIndex = latestAboveTop;
+    } else if (lowestMountedIndex === 0) {
+      nextIndex = 0;
+    } else {
+      nextIndex =
+        activeNavigatorIndex ??
+        (lowestMountedIndex !== null
+          ? Math.max(0, lowestMountedIndex - 1)
+          : null);
+    }
+
+    if (nextIndex !== null && nextIndex !== activeNavigatorIndex) {
+      const changed = activeNavigatorIndex !== nextIndex;
+      activeNavigatorIndex = nextIndex;
+      options.onActiveIndexChange?.(nextIndex, changed);
+    }
   }
 
-  function observeVisiblePrompts(): void {
-    if (activePromptObserver) {
-      activePromptObserver.disconnect();
-      activePromptObserver = null;
+  function scheduleGeometryCheck(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (typeof requestAnimationFrame === 'undefined') {
+      checkActivePrompt();
+      return;
     }
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      checkActivePrompt();
+    });
+  }
 
-    if (typeof IntersectionObserver === 'undefined') return;
-
-    activePromptObserver = new IntersectionObserver(
-      (entries) => {
-        const topEntry = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-        if (!topEntry) return;
-        if (!(topEntry.target instanceof HTMLElement)) return;
-        const index = findConversationIndexByElement(topEntry.target);
-        if (index !== -1) {
-          setActiveIndex(index);
-        }
-      },
-      { threshold: [0.1, 0.25, 0.5, 0.75, 1] }
-    );
-
-    const platform = resolvePlatform();
-    const userSelector = platform.config.selectors.userMessage;
-    if (userSelector && typeof document !== 'undefined') {
-      document
-        .querySelectorAll<HTMLElement>(userSelector)
-        .forEach((element) => activePromptObserver?.observe(element));
-    }
+  function handleScroll(): void {
+    scheduleGeometryCheck();
   }
 
   function initTracking(): void {
-    if (
-      typeof MutationObserver === 'undefined' ||
-      typeof document === 'undefined'
-    ) {
-      return;
-    }
+    if (typeof document === 'undefined') return;
+    if (isTracking) return;
+    isTracking = true;
 
-    if (activePromptMutationObserver) {
-      activePromptMutationObserver.disconnect();
-      activePromptMutationObserver = null;
-    }
-
-    let lastMountSignature = getMountedPromptSignature();
-
-    const reobserveIfMountedChanged = (): void => {
-      const signature = getMountedPromptSignature();
-      if (signature === lastMountSignature) return;
-      lastMountSignature = signature;
-      observeVisiblePrompts();
-    };
-
-    activePromptMutationObserver = new MutationObserver(() => {
-      if (activePromptMutationTimer !== null) {
-        clearTimeout(activePromptMutationTimer);
-      }
-      activePromptMutationTimer = setTimeout(reobserveIfMountedChanged, 200);
+    document.addEventListener('scroll', handleScroll, {
+      capture: true,
+      passive: true,
     });
 
-    if (document.body) {
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+      if (activePromptMutationObserver) {
+        activePromptMutationObserver.disconnect();
+      }
+      activePromptMutationObserver = new MutationObserver(() => {
+        scheduleGeometryCheck();
+      });
       activePromptMutationObserver.observe(document.body, {
         childList: true,
         subtree: true,
       });
     }
 
-    observeVisiblePrompts();
+    checkActivePrompt();
   }
 
   function disconnect(): void {
-    if (activePromptObserver) {
-      activePromptObserver.disconnect();
-      activePromptObserver = null;
+    isTracking = false;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener(
+        'scroll',
+        handleScroll,
+        { capture: true } as EventListenerOptions
+      );
     }
     if (activePromptMutationObserver) {
       activePromptMutationObserver.disconnect();
       activePromptMutationObserver = null;
     }
-    if (activePromptMutationTimer !== null) {
-      clearTimeout(activePromptMutationTimer);
-      activePromptMutationTimer = null;
+    if (rafId !== null) {
+      if (typeof cancelAnimationFrame !== 'undefined') {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = null;
     }
-    if (lockedNavigatorTimer !== null) {
-      clearTimeout(lockedNavigatorTimer);
-      lockedNavigatorTimer = null;
-    }
-    lockedNavigatorIndex = null;
   }
 
   function reset(): void {
@@ -239,15 +200,8 @@ export function createActivePromptTracker(
 
   return {
     getActiveIndex,
-    setActiveIndex,
-    forceActiveIndex,
-    lockActiveIndex,
-    unlockActiveIndex,
-    isLocked,
-    getLockedIndex,
     findConversationIndexByElement,
-    getMountedPromptSignature,
-    observeVisiblePrompts,
+    checkActivePrompt,
     initTracking,
     disconnect,
     reset,

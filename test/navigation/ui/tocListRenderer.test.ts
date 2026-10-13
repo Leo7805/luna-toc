@@ -124,20 +124,18 @@ describe('tocListRenderer', () => {
     expect(emptyRenderer.pickStatusBandState(true)).toBe('empty');
   });
 
-  it('snaps cursor to last prompt on idle load completion when not following', () => {
-    let forcedIndex: number | null = null;
+  it('does not force or snap active cursor on load completion', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
-      getActiveIndex: () => null,
+      getActiveIndex: () => 0,
       onItemClick: vi.fn(),
-      onForceActiveIndex: (index) => {
-        forcedIndex = index;
-      },
       isFollowingMode: () => false,
     });
 
     renderer.render({ completed: true });
-    expect(forcedIndex).toBe(2);
+    const items = renderer.getNavigatorItems();
+    expect(items[0].classList.contains('navigator-item-active')).toBe(true);
+    expect(items[2].classList.contains('navigator-item-active')).toBe(false);
   });
 
   it('isolates state across independent renderer instances', () => {
