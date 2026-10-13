@@ -15,6 +15,7 @@ let activeEdgeJumpVersion = 0;
 const EDGE_JUMP_HARD_CAP = 30;
 const EDGE_JUMP_SETTLE_MS = 1500;
 const EDGE_JUMP_HEIGHT_GROWTH_EPSILON = 50;
+const EDGE_JUMP_BOTTOM_TOLERANCE_PX = 2;
 
 /**
  * How close to the visible top of the scroll container the first prompt
@@ -126,6 +127,24 @@ async function retryEdgeUntilSettled(
       onFirstPromptVisible?.(firstPromptInView);
       logEdgeSettle({ attempt, phase: 'first-prompt-visible' });
       return;
+    }
+
+    if (edge === 'bottom') {
+      const currentBottomTarget = isReverse
+        ? 0
+        : Math.max(0, container.scrollHeight - container.clientHeight);
+      const isAtBottom =
+        Math.abs(container.scrollTop - currentBottomTarget) <=
+        EDGE_JUMP_BOTTOM_TOLERANCE_PX;
+      logEdgeSettle({
+        attempt,
+        phase: isAtBottom ? 'bottom-settled' : 'bottom-displaced',
+        scrollTop: container.scrollTop,
+        currentBottomTarget,
+        isAtBottom,
+      });
+      if (isAtBottom) return;
+      continue;
     }
 
     const afterHeight = container.scrollHeight;

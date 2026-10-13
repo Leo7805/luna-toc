@@ -146,5 +146,51 @@ describe('edgeNavigation', () => {
 
       expect(onFirstPromptVisible).not.toHaveBeenCalled();
     });
+
+    it('settles cleanly on column-reverse bottom jump when scrollTop reaches 0', async () => {
+      container.style.flexDirection = 'column-reverse';
+
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(0);
+    });
+
+    it('re-asserts bottom target on subsequent attempt when displaced during settle delay in column-reverse layout', async () => {
+      container.style.flexDirection = 'column-reverse';
+
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(0);
+
+      // Virtualizer or scroll-anchoring shifts scrollTop away from 0 during settle
+      container.scrollTop = -300;
+
+      // First settle delay completes (attempt 0). Loop notices displacement and re-asserts 0 on attempt 1.
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(0);
+
+      // Second settle completes while container remains at 0
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(0);
+    });
+
+    it('settles cleanly on standard layout bottom jump and re-asserts if displaced', async () => {
+      container.style.flexDirection = 'column';
+
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(1200);
+
+      // Displaced during settle delay
+      container.scrollTop = 900;
+
+      // Attempt 1 re-asserts 1200
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(1200);
+
+      // Attempt 1 settle verified
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(1200);
+    });
   });
 });
