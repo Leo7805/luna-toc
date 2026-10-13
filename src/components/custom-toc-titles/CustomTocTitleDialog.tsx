@@ -2,13 +2,23 @@
  * Renders the modal dialog for renaming a Prompt Navigator Item.
  */
 import { useId, useState, useSyncExternalStore } from 'react';
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCustomTitle, removeCustomTitle, setCustomTitle } from '@/features/customTocTitles/customTocTitleStore';
+import {
+  getCustomTitle,
+  removeCustomTitle,
+  setCustomTitle,
+} from '@/features/customTocTitles/customTocTitleStore';
 import { getReactPortalContainer } from '@/reactHost/portalContainer';
 
 export interface OpenCustomTocTitleDialogOptions {
@@ -24,7 +34,9 @@ const listeners = new Set<() => void>();
 const notify = (): void => listeners.forEach((l) => l());
 
 /** Opens the rename dialog for a given message. */
-export function openCustomTocTitleDialog(options: OpenCustomTocTitleDialogOptions): void {
+export function openCustomTocTitleDialog(
+  options: OpenCustomTocTitleDialogOptions
+): void {
   currentRequest = { id: Date.now(), ...options };
   notify();
 }
@@ -39,13 +51,22 @@ export function closeCustomTocTitleDialog(): void {
 /** Mounts the dialog in the React host. */
 export function CustomTocTitleDialogHost(): React.JSX.Element | null {
   const request = useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l); },
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
     () => currentRequest
   );
-  return request ? <CustomTocTitleDialog key={request.id} request={request} /> : null;
+  return request ? (
+    <CustomTocTitleDialog key={request.id} request={request} />
+  ) : null;
 }
 
-function CustomTocTitleDialog({ request }: { request: RenameRequest }): React.JSX.Element {
+function CustomTocTitleDialog({
+  request,
+}: {
+  request: RenameRequest;
+}): React.JSX.Element {
   const inputId = useId();
   const existingTitle = getCustomTitle(request.messageId) ?? '';
   const [title, setTitle] = useState(existingTitle);
@@ -63,20 +84,27 @@ function CustomTocTitleDialog({ request }: { request: RenameRequest }): React.JS
     }
   };
 
-  const handleSave = (e: FormEvent): void => {
+  const handleSave = (e: SubmitEvent<HTMLFormElement>): void => {
     e.preventDefault();
     void submit(() => setCustomTitle(request.messageId, title));
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !submitting && closeCustomTocTitleDialog()}>
+    <Dialog
+      open
+      onOpenChange={(open) =>
+        !open && !submitting && closeCustomTocTitleDialog()
+      }
+    >
       <DialogContent
         portalContainer={getReactPortalContainer()}
         overlayClassName="z-[var(--ct-z-modal,1100)] bg-black/65 backdrop-blur-sm"
-        className="z-[var(--ct-z-modal,1100)] flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-105 flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
+        className="z-(--ct-z-modal,1100) flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-105 flex-col gap-0 overflow-hidden border border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
       >
         <DialogHeader className="shrink-0 gap-0 border-b border-border px-5 py-4 pr-12">
-          <DialogTitle className="text-base font-semibold text-foreground">Rename TOC Item</DialogTitle>
+          <DialogTitle className="text-base font-semibold text-foreground">
+            Rename TOC Item
+          </DialogTitle>
         </DialogHeader>
 
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSave}>
@@ -85,12 +113,15 @@ function CustomTocTitleDialog({ request }: { request: RenameRequest }): React.JS
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Original Prompt
               </span>
-              <p className="line-clamp-2 text-xs text-muted-foreground/80 italic break-words">
+              <p className="line-clamp-2 text-xs text-muted-foreground/80 italic wrap-break-word">
                 {request.originalPrompt}
               </p>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor={inputId} className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              <Label
+                htmlFor={inputId}
+                className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+              >
                 TOC Title
               </Label>
               <Input
@@ -111,7 +142,9 @@ function CustomTocTitleDialog({ request }: { request: RenameRequest }): React.JS
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => void submit(() => removeCustomTitle(request.messageId))}
+                  onClick={() =>
+                    void submit(() => removeCustomTitle(request.messageId))
+                  }
                   disabled={submitting}
                   className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
                 >
@@ -120,10 +153,19 @@ function CustomTocTitleDialog({ request }: { request: RenameRequest }): React.JS
               ) : null}
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={closeCustomTocTitleDialog} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeCustomTocTitleDialog}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:bg-primary/85">
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="bg-primary text-primary-foreground hover:bg-primary/85"
+              >
                 Save
               </Button>
             </div>
