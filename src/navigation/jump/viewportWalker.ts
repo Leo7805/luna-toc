@@ -3,6 +3,7 @@
  */
 import { getActivePlatform } from '@/platforms';
 import {
+  detectNewMounts,
   findTargetInQueue,
   queueSidebarIndices,
   seedMountQueue,
@@ -257,7 +258,7 @@ export async function loadUntilMountedViaViewport(
   if (sidebarIndices.length === 0) {
     return null;
   }
-  const direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
+  let direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
 
   // Passive exact-target observer for the lifetime of this walk
   let detectedTarget: HTMLElement | null = null;
@@ -287,7 +288,8 @@ export async function loadUntilMountedViaViewport(
       }
 
       const beforeScrollTop = container.scrollTop;
-      const step = direction * window.innerHeight;
+      const stepDirection = direction;
+      const step = stepDirection * window.innerHeight;
       const nextScrollTop = beforeScrollTop + step;
       const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
 
@@ -295,7 +297,7 @@ export async function loadUntilMountedViaViewport(
       logLoadStep({
         step: currentStep,
         phase: 'fast-step',
-        direction,
+        direction: stepDirection,
         beforeScrollTop,
         afterScrollTop: clampedScrollTop,
       });
@@ -312,13 +314,31 @@ export async function loadUntilMountedViaViewport(
       if (observedPostFrame && observedPostFrame.isConnected) {
         return observedPostFrame;
       }
+
+      // Ingest currently/newly mounted prompts into mountQueue
+      const freshMounts = detectNewMounts(mountQueue, prompts, root);
+      for (const entry of freshMounts) {
+        mountQueue.set(entry.unitKey, entry);
+      }
+      for (const [key, entry] of mountQueue) {
+        if (!entry.element.isConnected) {
+          mountQueue.delete(key);
+        }
+      }
+
       const targetAfterFrame = findExactTarget(mountQueue, targetId, targetIndex, root);
       if (targetAfterFrame) {
         return targetAfterFrame;
       }
 
+      // Recompute mounted indices and direction toward target
+      const currentIndices = queueSidebarIndices(mountQueue);
+      if (currentIndices.length > 0) {
+        direction = computeDirectionTowardTarget(targetIndex, currentIndices);
+      }
+
       const afterScrollTop = container.scrollTop;
-      const movedTowardTarget = hasMovedTowardTarget(beforeScrollTop, afterScrollTop, direction);
+      const movedTowardTarget = hasMovedTowardTarget(beforeScrollTop, afterScrollTop, stepDirection);
 
       if (movedTowardTarget) {
         // Physical scroll moved freely in the requested direction.

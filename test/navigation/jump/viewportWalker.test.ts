@@ -382,4 +382,179 @@ describe('viewportWalker', () => {
     const hit = await promise;
     expect(hit).toBeNull();
   });
+
+  it('ingests newly mounted prompts post-frame, detects target, and prevents further downward writes', async () => {
+    // Initial mounted prompt: #1 (index 0)
+    document.body.innerHTML = `
+      <div data-chatgpt-search-unit-key="msg-1:user" data-chatgpt-search-message-ids="msg-1">Prompt 1</div>
+    `;
+
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 20000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 200,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 200,
+      configurable: true,
+    });
+
+    const prompts = Array.from({ length: 12 }, (_, i) => ({
+      id: `msg-${i + 1}`,
+    }));
+    // Target is prompt #9 (index 8)
+    const promise = loadUntilMountedViaViewport(
+      'msg-9',
+      8,
+      prompts,
+      container
+    );
+
+    // Initial step 0 writes scrollTop = 200
+    expect(container.scrollTop).toBe(200);
+
+    // After frame 0, ChatGPT mounts prompts #7, #8, #9, #10
+    const msg7El = document.createElement('div');
+    msg7El.setAttribute('data-chatgpt-search-unit-key', 'msg-7:user');
+    msg7El.setAttribute('data-chatgpt-search-message-ids', 'msg-7');
+    document.body.appendChild(msg7El);
+
+    const msg8El = document.createElement('div');
+    msg8El.setAttribute('data-chatgpt-search-unit-key', 'msg-8:user');
+    msg8El.setAttribute('data-chatgpt-search-message-ids', 'msg-8');
+    document.body.appendChild(msg8El);
+
+    const msg9El = document.createElement('div');
+    msg9El.setAttribute('data-chatgpt-search-unit-key', 'msg-9:user');
+    msg9El.setAttribute('data-chatgpt-search-message-ids', 'msg-9');
+    document.body.appendChild(msg9El);
+
+    const msg10El = document.createElement('div');
+    msg10El.setAttribute('data-chatgpt-search-unit-key', 'msg-10:user');
+    msg10El.setAttribute('data-chatgpt-search-message-ids', 'msg-10');
+    document.body.appendChild(msg10El);
+
+    // Advance frame for step 0
+    await vi.advanceTimersByTimeAsync(20);
+
+    const hit = await promise;
+    expect(hit).toBe(msg9El);
+    // Verifies that step 1 (which would have written scrollTop = 400) was prevented
+    expect(container.scrollTop).toBe(200);
+  });
+
+  it('recomputes direction toward target when current mounted frontier has overshot', async () => {
+    // Initial mounted prompt: #1 (index 0)
+    const msg1El = document.createElement('div');
+    msg1El.setAttribute('data-chatgpt-search-unit-key', 'msg-1:user');
+    msg1El.setAttribute('data-chatgpt-search-message-ids', 'msg-1');
+    document.body.appendChild(msg1El);
+
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 20000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 200,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 200,
+      configurable: true,
+    });
+
+    const prompts = Array.from({ length: 25 }, (_, i) => ({
+      id: `msg-${i + 1}`,
+    }));
+    // Target is prompt #9 (index 8)
+    const promise = loadUntilMountedViaViewport(
+      'msg-9',
+      8,
+      prompts,
+      container
+    );
+
+    // Initial step 0 writes scrollTop = 200 (downward)
+    expect(container.scrollTop).toBe(200);
+
+    // Simulate fast movement where #1 unmounts, and ChatGPT mounts turns #15–#20 (indices 14–19)
+    // while target #9 is not yet resolved
+    msg1El.remove();
+
+    for (let i = 15; i <= 20; i++) {
+      const el = document.createElement('div');
+      el.setAttribute('data-chatgpt-search-unit-key', `msg-${i}:user`);
+      el.setAttribute('data-chatgpt-search-message-ids', `msg-${i}`);
+      document.body.appendChild(el);
+    }
+
+    // Advance frame 0: the loop ingests #15–#20, prunes unmounted #1,
+    // recomputes direction to -1 (upward toward target #9),
+    // and continues because physical movement occurred in step 0.
+    // On the next iteration (step 1), it writes scrollTop in the reversed direction!
+    await vi.advanceTimersByTimeAsync(20);
+
+    // Step 1 should have moved in the reversed direction: 200 + (-1 * 200) = 0!
+    expect(container.scrollTop).toBe(0);
+    expect(container.scrollTop).not.toBe(400); // Did NOT continue downward to 400!
+
+    // Now mount target #9
+    const msg9El = document.createElement('div');
+    msg9El.setAttribute('data-chatgpt-search-unit-key', 'msg-9:user');
+    msg9El.setAttribute('data-chatgpt-search-message-ids', 'msg-9');
+    document.body.appendChild(msg9El);
+
+    await vi.advanceTimersByTimeAsync(20);
+    const hit = await promise;
+    expect(hit).toBe(msg9El);
+  });
+
+  it('terminates immediately and performs zero additional scroll writes when cancelled while awaiting rAF', async () => {
+    document.body.innerHTML = `
+      <div data-chatgpt-search-unit-key="msg-1:user" data-chatgpt-search-message-ids="msg-1">Prompt 1</div>
+    `;
+
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 20000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 200,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 200,
+      configurable: true,
+    });
+
+    let cancelled = false;
+    const prompts = Array.from({ length: 10 }, (_, i) => ({
+      id: `msg-${i + 1}`,
+    }));
+    const promise = loadUntilMountedViaViewport(
+      'msg-9',
+      8,
+      prompts,
+      container,
+      'jump-cancel',
+      () => cancelled
+    );
+
+    // Step 0 performed one write
+    expect(container.scrollTop).toBe(200);
+
+    // Cancel while awaiting rAF
+    cancelled = true;
+
+    // Resume rAF
+    await vi.advanceTimersByTimeAsync(20);
+
+    const hit = await promise;
+    expect(hit).toBeNull();
+    // Zero additional viewport writes performed (scrollTop stays at 200, does not become 400)
+    expect(container.scrollTop).toBe(200);
+  });
 });
