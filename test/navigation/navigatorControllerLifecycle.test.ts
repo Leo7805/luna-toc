@@ -649,4 +649,135 @@ describe('navigatorController lifecycle and coordination', () => {
 
     expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
   });
+
+  it('completes loading immediately on initial attach when opening empty new chat route', async () => {
+    vi.resetModules();
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/',
+      },
+    });
+
+    const { navigatorController: freshController } = await import(
+      '@/navigation/navigatorController'
+    );
+    const { isLoading: freshIsLoading } = await import(
+      '@/navigation/loading/promptLoadingState'
+    );
+
+    freshController.init();
+    freshController.attach();
+
+    const statusElement = document.getElementById('luna-toc-status')!;
+    expect(freshIsLoading()).toBe(false);
+    expect(statusElement.textContent).toBe('No prompts');
+  });
+
+  it('transitions from existing conversation to new chat immediately without waiting for settle timer', async () => {
+    vi.resetModules();
+    const platform = getActivePlatform();
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/existing-conv',
+      },
+    });
+
+    const { navigatorController: freshController } = await import(
+      '@/navigation/navigatorController'
+    );
+    const { isLoading: freshIsLoading } = await import(
+      '@/navigation/loading/promptLoadingState'
+    );
+
+    freshController.init();
+    freshController.attach();
+
+    // Load data and complete loading for existing conversation
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.conversationEnded,
+          routeKey: 'existing-conv',
+        },
+        source: window,
+      })
+    );
+    expect(freshIsLoading()).toBe(false);
+
+    // Switch to new chat
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/',
+      },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.routeChanged,
+        },
+        source: window,
+      })
+    );
+
+    const statusElement = document.getElementById('luna-toc-status')!;
+    expect(freshIsLoading()).toBe(false);
+    expect(statusElement.textContent).toBe('No prompts');
+  });
+
+  it('arms settle timer and sets loading state when transitioning from empty new chat to existing conversation', async () => {
+    vi.resetModules();
+    const platform = getActivePlatform();
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/',
+      },
+    });
+
+    const { navigatorController: freshController } = await import(
+      '@/navigation/navigatorController'
+    );
+    const { isLoading: freshIsLoading } = await import(
+      '@/navigation/loading/promptLoadingState'
+    );
+
+    freshController.init();
+    freshController.attach();
+    expect(freshIsLoading()).toBe(false);
+
+    // Switch to existing conversation
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/target-conv-456',
+      },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.routeChanged,
+        },
+        source: window,
+      })
+    );
+
+    const statusElement = document.getElementById('luna-toc-status')!;
+    expect(freshIsLoading()).toBe(true);
+    expect(statusElement.textContent).toContain('Loading');
+  });
 });

@@ -72,6 +72,27 @@ describe('tocListRenderer', () => {
     expect(hintElement.textContent).toBe('Waiting for prompts...');
   });
 
+  it('renders stable empty state when prompts are empty and loading is false', () => {
+    const statusElement = document.createElement('div');
+    statusElement.id = 'luna-toc-status';
+    document.body.appendChild(statusElement);
+
+    setLoading(false);
+    const renderer = createTocListRenderer({
+      getMessages: () => [],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+
+    // Initial render with completed=true renders empty state
+    renderer.render({ completed: true });
+    expect(statusElement.textContent).toBe('No prompts');
+
+    // Subsequent normal render without completed=true must stay empty, not revert to idle
+    renderer.render();
+    expect(statusElement.textContent).toBe('No prompts');
+  });
+
   it('invokes onItemClick callback when a TOC row is clicked', () => {
     const onItemClick = vi.fn();
     const renderer = createTocListRenderer({

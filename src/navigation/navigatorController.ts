@@ -173,8 +173,18 @@ export const navigatorController = (() => {
 
     initActivePromptTracking();
     isAttached = true;
-    startSettleTimer();
-    render();
+    const currentRouteKey = getCurrentConversationKey();
+    const isInitialNewChat =
+      conversationStore.isNewChatRouteKey(currentRouteKey) &&
+      conversationStore.getMessages().length === 0 &&
+      !conversationStore.getPendingNewChatMessage();
+
+    if (isInitialNewChat) {
+      markLoadingComplete();
+    } else {
+      startSettleTimer();
+      render();
+    }
   }
 
   /**
@@ -326,7 +336,16 @@ export const navigatorController = (() => {
     const transition = conversationStore.syncRouteState(nextConversationKey);
     if (!transition.isTransition) return;
 
-    if (!transition.isNewChatRouteTransition) {
+    const isEnteringNewChat =
+      conversationStore.isNewChatRouteKey(nextConversationKey) &&
+      !transition.shouldPreserveMessages &&
+      transition.cachedMessages.length === 0 &&
+      !conversationStore.getPendingNewChatMessage();
+
+    if (isEnteringNewChat) {
+      setLoading(false);
+      clearSettleTimer();
+    } else if (!transition.shouldPreserveMessages) {
       setLoading(true);
       startSettleTimer();
     }

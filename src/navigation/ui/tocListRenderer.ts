@@ -123,7 +123,7 @@ export function createTocListRenderer(
       return promptCount === 0 ? 'empty' : 'complete';
     }
     if (completed === false) return 'loading';
-    return isLoadingPrompts() ? 'loading' : promptCount === 0 ? 'idle' : 'idle';
+    return isLoadingPrompts() ? 'loading' : promptCount === 0 ? 'empty' : 'idle';
   }
 
   /**
