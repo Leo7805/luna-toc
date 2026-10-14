@@ -780,4 +780,499 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(freshIsLoading()).toBe(true);
     expect(statusElement.textContent).toContain('Loading');
   });
+
+  describe('snapshot completeness and cached restoration lifecycle', () => {
+    it('sets snapshot isComplete=true when conversationEnded carries complete: true', async () => {
+      vi.resetModules();
+      const platform = getActivePlatform('chatgpt.com');
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-ended-complete',
+        },
+      });
+
+      const { navigatorController: freshController } = await import(
+        '@/navigation/navigatorController'
+      );
+      const { isLoading: freshIsLoading } = await import(
+        '@/navigation/loading/promptLoadingState'
+      );
+
+      freshController.init();
+      freshController.attach();
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey: 'test-ended-complete',
+            complete: true,
+          },
+          source: window,
+        })
+      );
+
+      expect(freshIsLoading()).toBe(false);
+
+      // Verify completeness behaviorally upon cached route return:
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/other-route',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+      expect(freshIsLoading()).toBe(true);
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-ended-complete',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+
+      // Complete snapshot restores with loading=false immediately and no settle timer
+      expect(freshIsLoading()).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(freshIsLoading()).toBe(false);
+    });
+
+    it('leaves snapshot incomplete when conversationEnded carries complete: false', async () => {
+      vi.resetModules();
+      const platform = getActivePlatform('chatgpt.com');
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-ended-incomplete',
+        },
+      });
+
+      const { navigatorController: freshController } = await import(
+        '@/navigation/navigatorController'
+      );
+      const { isLoading: freshIsLoading } = await import(
+        '@/navigation/loading/promptLoadingState'
+      );
+
+      freshController.init();
+      freshController.attach();
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey: 'test-ended-incomplete',
+            complete: false,
+          },
+          source: window,
+        })
+      );
+
+      // Loading ends in UI
+      expect(freshIsLoading()).toBe(false);
+
+      // Verify snapshot remains incomplete behaviorally:
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/other-route-2',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+      expect(freshIsLoading()).toBe(true);
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-ended-incomplete',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+
+      // Incomplete snapshot leaves loading=true and arms settle timer upon return
+      expect(freshIsLoading()).toBe(true);
+    });
+
+    it('leaves snapshot incomplete when loading completes via fallback timeout', async () => {
+      vi.resetModules();
+      const platform = getActivePlatform('chatgpt.com');
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-fallback-incomplete',
+        },
+      });
+
+      const { navigatorController: freshController } = await import(
+        '@/navigation/navigatorController'
+      );
+      const { isLoading: freshIsLoading } = await import(
+        '@/navigation/loading/promptLoadingState'
+      );
+
+      freshController.init();
+      freshController.attach();
+
+      expect(freshIsLoading()).toBe(true);
+
+      // Advance through all settle retries (21s fallback)
+      vi.advanceTimersByTime(25000);
+
+      expect(freshIsLoading()).toBe(false);
+
+      // Verify snapshot remains incomplete behaviorally:
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/other-route-3',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+      expect(freshIsLoading()).toBe(true);
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-fallback-incomplete',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+
+      // Fallback timeout did not mark complete; returning arms settle timer
+      expect(freshIsLoading()).toBe(true);
+    });
+
+    it('restores complete cached conversation with immediate render, loading=false, and no settle timer', async () => {
+      vi.resetModules();
+      const platform = getActivePlatform('chatgpt.com');
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-complete-cache',
+        },
+      });
+
+      const { navigatorController: freshController } = await import(
+        '@/navigation/navigatorController'
+      );
+      const { isLoading: freshIsLoading } = await import(
+        '@/navigation/loading/promptLoadingState'
+      );
+
+      freshController.init();
+      freshController.attach();
+
+      // Populate conversation with prompt data and mark complete
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            payload: {
+              messages: [
+                {
+                  id: 'prompt-1',
+                  author: { role: 'user' },
+                  content: { parts: ['Hello complete'] },
+                  create_time: 100,
+                },
+              ],
+            },
+            routeKey: 'conv-complete-cache',
+          },
+          source: window,
+        })
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey: 'conv-complete-cache',
+            complete: true,
+          },
+          source: window,
+        })
+      );
+
+      expect(freshIsLoading()).toBe(false);
+
+      // Navigate away to another conversation
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-other',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      expect(freshIsLoading()).toBe(true);
+
+      // Navigate back to the complete cached conversation
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-complete-cache',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // MUST immediately restore with loading = false and NO settle timer
+      expect(freshIsLoading()).toBe(false);
+      const listElement = document.getElementById('navigator-list')!;
+      expect(listElement.textContent).toContain('Hello complete');
+
+      // Advancing time should not re-trigger loading or settle retries
+      vi.advanceTimersByTime(2000);
+      expect(freshIsLoading()).toBe(false);
+    });
+
+    it('restores incomplete cached conversation with prompts, loading=true, and arms settle timer', async () => {
+      vi.resetModules();
+      const platform = getActivePlatform('chatgpt.com');
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-incomplete-cache',
+        },
+      });
+
+      const { navigatorController: freshController } = await import(
+        '@/navigation/navigatorController'
+      );
+      const { isLoading: freshIsLoading } = await import(
+        '@/navigation/loading/promptLoadingState'
+      );
+
+      freshController.init();
+      freshController.attach();
+
+      // Populate conversation with prompt data but mark incomplete
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            payload: {
+              messages: [
+                {
+                  id: 'prompt-inc-1',
+                  author: { role: 'user' },
+                  content: { parts: ['Hello partial'] },
+                  create_time: 100,
+                },
+              ],
+            },
+            routeKey: 'conv-incomplete-cache',
+          },
+          source: window,
+        })
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey: 'conv-incomplete-cache',
+            complete: false,
+          },
+          source: window,
+        })
+      );
+
+      expect(freshIsLoading()).toBe(false);
+
+      // Navigate away
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-other-2',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // Navigate back to the incomplete cached conversation
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-incomplete-cache',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // Available cached prompts are restored immediately
+      const listElement = document.getElementById('navigator-list')!;
+      expect(listElement.textContent).toContain('Hello partial');
+      // But loading remains true and settle timer is armed
+      expect(freshIsLoading()).toBe(true);
+
+      // Fallback expires after 25s
+      vi.advanceTimersByTime(25000);
+      expect(freshIsLoading()).toBe(false);
+    });
+
+    it('recognizes complete snapshot with zero prompts without requiring cachedMessages.length > 0', async () => {
+      vi.resetModules();
+      const platform = getActivePlatform('chatgpt.com');
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-zero-complete',
+        },
+      });
+
+      const { navigatorController: freshController } = await import(
+        '@/navigation/navigatorController'
+      );
+      const { isLoading: freshIsLoading } = await import(
+        '@/navigation/loading/promptLoadingState'
+      );
+
+      freshController.init();
+      freshController.attach();
+
+      // conversationEnded complete: true with no messages
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey: 'conv-zero-complete',
+            complete: true,
+          },
+          source: window,
+        })
+      );
+
+      expect(freshIsLoading()).toBe(false);
+
+      // Navigate away
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-other-3',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // Navigate back to the zero-prompt complete conversation
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-zero-complete',
+        },
+      });
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // Should be immediately complete with loading = false
+      expect(freshIsLoading()).toBe(false);
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toBe('No prompts');
+    });
+  });
 });

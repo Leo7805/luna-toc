@@ -342,7 +342,12 @@ export const navigatorController = (() => {
       transition.cachedMessages.length === 0 &&
       !conversationStore.getPendingNewChatMessage();
 
-    if (isEnteringNewChat) {
+    const isCompleteCachedConversation =
+      !isEnteringNewChat &&
+      !transition.shouldPreserveMessages &&
+      conversationStore.isConversationComplete(nextConversationKey);
+
+    if (isEnteringNewChat || isCompleteCachedConversation) {
       setLoading(false);
       clearSettleTimer();
     } else if (!transition.shouldPreserveMessages) {
@@ -404,6 +409,9 @@ export const navigatorController = (() => {
       ) {
         const routeKey = event.data.routeKey;
         if (!routeKey || routeKey !== getCurrentConversationKey()) return;
+        if (event.data.complete === true) {
+          conversationStore.markConversationComplete(routeKey);
+        }
         markLoadingComplete();
       }
 

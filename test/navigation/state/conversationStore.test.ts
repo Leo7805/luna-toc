@@ -369,4 +369,93 @@ describe('conversationStore', () => {
     // Conversation B starts empty; prompt-A1 must not migrate
     expect(store.getMessages()).toHaveLength(0);
   });
+
+  it('tracks conversation completeness per route key and reports it via syncRouteState and isConversationComplete', () => {
+    let currentKey = 'conv-1';
+    const store = createConversationStore({
+      getCurrentRouteKey: () => currentKey,
+    });
+
+    store.syncRouteState('conv-1');
+    expect(store.isConversationComplete('conv-1')).toBe(false);
+
+    store.markConversationComplete('conv-1');
+    expect(store.isConversationComplete('conv-1')).toBe(true);
+
+    // Switch to conv-2 (not complete)
+    currentKey = 'conv-2';
+    const transition2 = store.syncRouteState('conv-2');
+    expect(transition2.isComplete).toBe(false);
+    expect(store.isConversationComplete('conv-2')).toBe(false);
+
+    // Switch back to conv-1 (complete)
+    currentKey = 'conv-1';
+    const transition1 = store.syncRouteState('conv-1');
+    expect(transition1.isComplete).toBe(true);
+    expect(store.isConversationComplete('conv-1')).toBe(true);
+  });
+
+  it('preserves completeness across message appending and conversationData merges', () => {
+    let currentKey = 'conv-complete-preserve';
+    const store = createConversationStore({
+      getCurrentRouteKey: () => currentKey,
+    });
+
+    store.syncRouteState('conv-complete-preserve');
+    store.markConversationComplete('conv-complete-preserve');
+    expect(store.isConversationComplete('conv-complete-preserve')).toBe(true);
+
+    // Append new prompt
+    store.appendNavigatorMessage({
+      id: 'prompt-new',
+      author: { role: 'user' },
+      content: { parts: ['New prompt'] },
+    } as ChatMessage);
+
+    expect(store.isConversationComplete('conv-complete-preserve')).toBe(true);
+
+    // Merge background conversationData
+    store.handleConversationData({
+      messages: [
+        {
+          id: 'prompt-merged',
+          author: { role: 'user' },
+          content: { parts: ['Merged prompt'] },
+          create_time: 150,
+        } as ChatMessage,
+      ],
+    });
+
+    expect(store.isConversationComplete('conv-complete-preserve')).toBe(true);
+  });
+
+  it('propagates completeness across route migration stages', () => {
+    let currentKey = 'new-chat:/';
+    const store = createConversationStore({
+      getCurrentRouteKey: () => currentKey,
+    });
+
+    store.syncRouteState('new-chat:/');
+    store.appendNavigatorMessage({
+      id: 'prompt-initial',
+      author: { role: 'user' },
+      content: { parts: ['Initial prompt'] },
+      create_time: 100,
+    } as ChatMessage);
+
+    store.markConversationComplete('new-chat:/');
+    expect(store.isConversationComplete('new-chat:/')).toBe(true);
+
+    // Stage 1: migrate to local
+    currentKey = 'local-migration-key';
+    const transitionLocal = store.syncRouteState('local-migration-key');
+    expect(transitionLocal.isComplete).toBe(true);
+    expect(store.isConversationComplete('local-migration-key')).toBe(true);
+
+    // Stage 2: migrate to permanent
+    currentKey = 'c-perm-migration-key';
+    const transitionPerm = store.syncRouteState('c-perm-migration-key');
+    expect(transitionPerm.isComplete).toBe(true);
+    expect(store.isConversationComplete('c-perm-migration-key')).toBe(true);
+  });
 });

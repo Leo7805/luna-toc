@@ -108,12 +108,9 @@ export function postConversationData(
         // branch above or by an earlier fetch, its `finally` will post
         // ENDED when it terminates, so we must not preempt it.)
         const pageInfo = (data as ConversationPayload | undefined)?.page_info;
-        if (
-          !backfillStarted &&
-          !isBackfilling(routeKey) &&
-          !pageInfo?.has_previous_page
-        ) {
-          postConversationEnded(routeKey, platform);
+        if (!backfillStarted && !isBackfilling(routeKey)) {
+          const isComplete = pageInfo?.has_previous_page === false;
+          postConversationEnded(routeKey, platform, isComplete);
         }
       }
     })

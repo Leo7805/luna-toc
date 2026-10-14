@@ -79,6 +79,7 @@ async function backfillPreviousPages(
 ): Promise<void> {
   const platform = installedPlatform ?? getActivePlatform();
   let cursor = startCursor;
+  let isComplete = false;
 
   try {
     for (let page = 0; page < platform.config.backfillMaxPages; page += 1) {
@@ -105,7 +106,13 @@ async function backfillPreviousPages(
       postConversationPayload(data, conversationId, platform);
 
       const pageInfo = data?.page_info;
-      if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return;
+      if (pageInfo?.has_previous_page === false) {
+        isComplete = true;
+        return;
+      }
+      if (!pageInfo?.start_cursor) {
+        return;
+      }
 
       cursor = pageInfo.start_cursor;
     }
@@ -114,7 +121,7 @@ async function backfillPreviousPages(
     // or hitting `BACKFILL_MAX_PAGES` on a conversation longer than the
     // cap), always tell the navigator this route is done streaming pages.
     // The controller only flips out of `loading` once it sees this signal.
-    postConversationEnded(conversationId, platform);
+    postConversationEnded(conversationId, platform, isComplete);
   }
 }
 
@@ -161,13 +168,15 @@ export function postConversationPayload(
  */
 export function postConversationEnded(
   routeKey: string,
-  platform: Platform = installedPlatform ?? getActivePlatform()
+  platform: Platform = installedPlatform ?? getActivePlatform(),
+  complete = false
 ): void {
   if (!routeKey) return;
   window.postMessage(
     {
       type: platform.pageHook.messages.conversationEnded,
       routeKey,
+      complete,
     },
     '*'
   );

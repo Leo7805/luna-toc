@@ -26,6 +26,7 @@ export interface ConversationTransitionResult {
   isNewChatRouteTransition: boolean;
   shouldPreserveMessages: boolean;
   cachedMessages: NavigatorMessage[];
+  isComplete: boolean;
 }
 
 export interface NewUserMessageResult {
@@ -57,6 +58,8 @@ export interface ConversationStore {
   clearPendingNewChat(): void;
   getCachedConversationMessages(key: string): NavigatorMessage[];
   cacheConversationMessages(key: string): void;
+  isConversationComplete(routeKey?: string): boolean;
+  markConversationComplete(routeKey?: string): void;
   resetForCurrentRoute(options?: {
     preserveMessages?: boolean;
     nextMessages?: NavigatorMessage[];
@@ -129,6 +132,16 @@ export function createConversationStore(
       conversationKey,
       conversationMessages
     );
+  }
+
+  function isConversationComplete(routeKey?: string): boolean {
+    const targetKey = routeKey || getCurrentConversationKey();
+    return navigationSnapshotStore.isComplete(targetKey);
+  }
+
+  function markConversationComplete(routeKey?: string): void {
+    const targetKey = routeKey || getCurrentConversationKey();
+    navigationSnapshotStore.setComplete(targetKey, true);
   }
 
   function getCachedConversationMessages(
@@ -263,6 +276,7 @@ export function createConversationStore(
         isNewChatRouteTransition: false,
         shouldPreserveMessages: false,
         cachedMessages: getCachedConversationMessages(nextConversationKey),
+        isComplete: navigationSnapshotStore.isComplete(nextConversationKey),
       };
     }
 
@@ -274,6 +288,7 @@ export function createConversationStore(
         isNewChatRouteTransition: false,
         shouldPreserveMessages: false,
         cachedMessages: getCachedConversationMessages(nextConversationKey),
+        isComplete: navigationSnapshotStore.isComplete(nextConversationKey),
       };
     }
 
@@ -320,6 +335,7 @@ export function createConversationStore(
       isNewChatRouteTransition,
       shouldPreserveMessages,
       cachedMessages,
+      isComplete: navigationSnapshotStore.isComplete(nextConversationKey),
     };
   }
 
@@ -363,6 +379,8 @@ export function createConversationStore(
     clearPendingNewChat,
     getCachedConversationMessages,
     cacheConversationMessages,
+    isConversationComplete,
+    markConversationComplete,
     resetForCurrentRoute,
     getPendingNewChatRouteKey,
     getPendingNewChatMessage,

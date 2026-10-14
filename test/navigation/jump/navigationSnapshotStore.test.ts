@@ -18,6 +18,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-1', text: 'Prompt' }],
       revision: 1,
+      isComplete: false,
     });
   });
 
@@ -35,6 +36,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-2', text: 'Second' }],
       revision: 2,
+      isComplete: false,
     });
   });
 
@@ -67,6 +69,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-1', text: 'Prompt' }],
       revision: targetRevision,
+      isComplete: false,
     });
 
     // Copying from unknown source returns null
@@ -84,6 +87,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('target')).toEqual({
       prompts: [{ id: 'p1', text: 'Source' }],
       revision: 3,
+      isComplete: false,
     });
   });
 
@@ -95,6 +99,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-empty')).toEqual({
       prompts: [],
       revision: 1,
+      isComplete: false,
     });
   });
 
@@ -112,6 +117,7 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-1', text: 'Original text' }],
       revision,
+      isComplete: false,
     });
 
     // Mutate retrieved snapshot output
@@ -125,6 +131,30 @@ describe('conversation snapshot store', () => {
     expect(store.getSnapshot('conversation-1')).toEqual({
       prompts: [{ id: 'prompt-1', text: 'Original text' }],
       revision,
+      isComplete: false,
     });
+  });
+
+  it('manages and preserves completeness metadata', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    expect(store.isComplete('conv-1')).toBe(false);
+
+    // setComplete before prompts exist
+    store.setComplete('conv-1', true);
+    expect(store.isComplete('conv-1')).toBe(true);
+
+    // replacePrompts preserves existing isComplete=true
+    store.replacePrompts('conv-1', [{ id: 'p-1', text: 'One' }]);
+    expect(store.isComplete('conv-1')).toBe(true);
+    expect(store.getSnapshot('conv-1')?.isComplete).toBe(true);
+
+    // copySnapshot copies isComplete=true
+    store.copySnapshot('conv-1', 'conv-2');
+    expect(store.isComplete('conv-2')).toBe(true);
+    expect(store.getSnapshot('conv-2')?.isComplete).toBe(true);
+
+    // explicit setComplete false
+    store.setComplete('conv-1', false);
+    expect(store.isComplete('conv-1')).toBe(false);
   });
 });

@@ -5,10 +5,17 @@
 export interface ConversationNavigationSnapshot<TPrompt> {
   prompts: TPrompt[];
   revision: number;
+  isComplete: boolean;
 }
 
 export interface NavigationSnapshotStore<TPrompt> {
-  replacePrompts(conversationKey: string, prompts: TPrompt[]): number;
+  replacePrompts(
+    conversationKey: string,
+    prompts: TPrompt[],
+    isComplete?: boolean
+  ): number;
+  setComplete(conversationKey: string, isComplete: boolean): void;
+  isComplete(conversationKey: string): boolean;
   getSnapshot(
     conversationKey: string
   ): ConversationNavigationSnapshot<TPrompt> | null;
@@ -35,17 +42,41 @@ export function createNavigationSnapshotStore<
 
   function replacePrompts(
     conversationKey: string,
-    prompts: TPrompt[]
+    prompts: TPrompt[],
+    isComplete?: boolean
   ): number {
     const previousSnapshot = snapshots.get(conversationKey);
     const revision = (previousSnapshot?.revision ?? 0) + 1;
+    const nextIsComplete =
+      isComplete !== undefined
+        ? isComplete
+        : (previousSnapshot?.isComplete ?? false);
 
     snapshots.set(conversationKey, {
       prompts: structuredClone(prompts),
       revision,
+      isComplete: nextIsComplete,
     });
 
     return revision;
+  }
+
+  function setComplete(conversationKey: string, isComplete: boolean): void {
+    const previousSnapshot = snapshots.get(conversationKey);
+    if (previousSnapshot) {
+      previousSnapshot.isComplete = isComplete;
+    } else {
+      snapshots.set(conversationKey, {
+        prompts: [],
+        revision: 1,
+        isComplete,
+      });
+    }
+  }
+
+  function isComplete(conversationKey: string): boolean {
+    const snapshot = snapshots.get(conversationKey);
+    return snapshot?.isComplete === true;
   }
 
   function getSnapshot(
@@ -73,6 +104,7 @@ export function createNavigationSnapshotStore<
     snapshots.set(targetConversationKey, {
       prompts: structuredClone(sourceSnapshot.prompts),
       revision,
+      isComplete: sourceSnapshot.isComplete ?? false,
     });
 
     return revision;
@@ -80,6 +112,8 @@ export function createNavigationSnapshotStore<
 
   return {
     replacePrompts,
+    setComplete,
+    isComplete,
     getSnapshot,
     copySnapshot,
   };
@@ -94,5 +128,6 @@ function cloneSnapshot<TPrompt>(
   return {
     prompts: structuredClone(snapshot.prompts),
     revision: snapshot.revision,
+    isComplete: snapshot.isComplete ?? false,
   };
 }
