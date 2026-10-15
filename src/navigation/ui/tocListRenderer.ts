@@ -225,8 +225,11 @@ export function createTocListRenderer(
       item.classList.add('navigator-item-custom-title');
     }
     itemMain.className = 'navigator-item-main';
+    const itemIndex = document.createElement('span');
+    itemIndex.className = 'navigator-item-index';
+    itemIndex.textContent = `${index + 1}.`;
     itemText.className = 'navigator-item-text';
-    itemText.textContent = `${index + 1}. ${titleText.replace(/\s+/g, ' ')}`;
+    itemText.textContent = titleText.replace(/\s+/g, ' ');
 
     const markButton = createPromptMarkButton({
       item,
@@ -239,6 +242,7 @@ export function createTocListRenderer(
     });
 
     itemMain.append(
+      itemIndex,
       itemText,
       outlineControls?.outlineIndicator || document.createElement('span'),
       markButton

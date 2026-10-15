@@ -201,11 +201,13 @@ describe('tocListRenderer', () => {
     renderer.render();
 
     const secondItem = listElement.children[1] as HTMLElement;
-    expect(secondItem.textContent).toContain('2. Renamed Step 2');
+    expect(secondItem.querySelector('.navigator-item-index')?.textContent).toBe('2.');
+    expect(secondItem.querySelector('.navigator-item-text')?.textContent).toBe('Renamed Step 2');
     expect(secondItem.classList.contains('navigator-item-custom-title')).toBe(true);
 
     const firstItem = listElement.children[0] as HTMLElement;
-    expect(firstItem.textContent).toContain('1. First user prompt');
+    expect(firstItem.querySelector('.navigator-item-index')?.textContent).toBe('1.');
+    expect(firstItem.querySelector('.navigator-item-text')?.textContent).toBe('First user prompt');
     expect(firstItem.classList.contains('navigator-item-custom-title')).toBe(false);
 
     await removeCustomTitle('msg-2');

@@ -147,7 +147,34 @@ export const navigatorController = (() => {
   function attach(): void {
     if (isAttached) return;
 
-    setOnRender(() => render());
+    setOnRender(() => {
+      const jump = readJumpProgress();
+      const promptCount = conversationStore.getMessages().length;
+      const loading = isLoadingPrompts();
+
+      if (jump?.active) {
+        setSidebarStatus({
+          state: 'jumping',
+          jump,
+          promptCount,
+        });
+      } else if (loading) {
+        setSidebarStatus({
+          state: 'loading',
+          promptCount,
+        });
+      } else if (promptCount === 0) {
+        setSidebarStatus({
+          state: 'empty',
+          promptCount: 0,
+        });
+      } else {
+        setSidebarStatus({
+          state: 'complete',
+          promptCount,
+        });
+      }
+    });
     setOnSettleTimeout(() => markLoadingComplete());
 
     initializeFollow({

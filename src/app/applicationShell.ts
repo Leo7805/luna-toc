@@ -106,12 +106,6 @@ async function createSidebar(): Promise<HTMLElement> {
             </svg>
           </button>
         </div>
-        <div
-          id="luna-toc-status"
-          class="navigator-status"
-          aria-live="polite"
-          role="status"
-        ></div>
         <input
           id="navigator-search"
           type="search"
@@ -120,6 +114,12 @@ async function createSidebar(): Promise<HTMLElement> {
         />
         <div id="myprompts-toolbar-container"></div>
       </div>
+      <div
+        id="luna-toc-status"
+        class="navigator-status"
+        aria-live="polite"
+        role="status"
+      ></div>
       <div class="navigator-jump-controls">
         <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
