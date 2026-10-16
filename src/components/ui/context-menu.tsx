@@ -1,7 +1,7 @@
 /**
  * Provides a reusable floating context menu for LunaTOC feature surfaces.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   BookmarkPlusIcon,
   ClipboardIcon,
@@ -60,6 +60,7 @@ export function ContextMenu({
   onSelect,
 }: ContextMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [resolvedTop, setResolvedTop] = useState<number | null>(null);
 
   useEffect(() => {
     const closeOnPointerDown = (event: PointerEvent): void => {
@@ -80,11 +81,20 @@ export function ContextMenu({
     };
   }, [onClose]);
 
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+
+    const actualHeight = menu.getBoundingClientRect().height;
+    const maxTop = window.innerHeight - actualHeight - MENU_GAP;
+    const clampedTop = Math.max(MENU_GAP, Math.min(position.top, maxTop));
+    setResolvedTop(clampedTop);
+  }, [position.top, items]);
+
   const left = Math.min(
     position.left,
     window.innerWidth - MENU_WIDTH - MENU_GAP
   );
-  const top = Math.min(position.top, window.innerHeight - 52 - MENU_GAP);
 
   return (
     <div
@@ -94,7 +104,8 @@ export function ContextMenu({
       className="fixed z-[var(--ct-z-popover,1020)] w-55 rounded-lg border border-border bg-popover p-1 shadow-xl"
       style={{
         left: Math.max(MENU_GAP, left),
-        top: Math.max(MENU_GAP, top),
+        top: resolvedTop ?? position.top,
+        visibility: resolvedTop === null ? 'hidden' : 'visible',
       }}
     >
       {items.map((item) => {

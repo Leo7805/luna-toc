@@ -93,15 +93,15 @@ export function ContractAlert(): React.ReactElement | null {
     dismissAllMismatches();
   };
 
-  const zClass = `z-[${ALERT_Z_INDEX}]`;
   const portalContainer = getReactPortalContainer();
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) handleDismissAll(); }}>
       <DialogContent
         portalContainer={portalContainer}
-        overlayClassName={zClass}
-        className={`${zClass} sm:max-w-lg`}
+        overlayStyle={{ zIndex: ALERT_Z_INDEX }}
+        style={{ zIndex: ALERT_Z_INDEX }}
+        className="sm:max-w-lg"
         showCloseButton={false}
       >
         <DialogHeader>
