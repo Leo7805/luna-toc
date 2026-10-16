@@ -96,7 +96,7 @@ function PromptEditorDialog({
       >
         <DialogHeader className="shrink-0 gap-0 border-b border-border px-5 py-4 pr-12">
           <DialogTitle className="text-lg text-primary">
-            {isNew ? 'Create Custom Prompt' : 'Edit Custom Prompt'}
+            {isNew ? '创建自定义提示词' : '编辑自定义提示词'}
           </DialogTitle>
         </DialogHeader>
 
@@ -107,13 +107,13 @@ function PromptEditorDialog({
                 htmlFor={titleId}
                 className="text-xs tracking-wide text-muted-foreground uppercase"
               >
-                Title
+                标题
               </Label>
               <Input
                 id={titleId}
                 value={title}
                 onChange={(event) => setTitle(event.currentTarget.value)}
-                placeholder="e.g. Code Review Helper"
+                placeholder="例如：代码审查助手"
                 className="bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 dark:bg-background"
                 autoFocus
                 required
@@ -126,13 +126,13 @@ function PromptEditorDialog({
                 htmlFor={contentId}
                 className="text-xs tracking-wide text-muted-foreground uppercase"
               >
-                Prompt Content
+                提示词内容
               </Label>
               <Textarea
                 id={contentId}
                 value={content}
                 onChange={(event) => setContent(event.currentTarget.value)}
-                placeholder="Type or paste your prompt content here..."
+                placeholder="在此输入或粘贴提示词内容..."
                 className="min-h-[180px] max-h-[50dvh] resize-y overflow-auto bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 dark:bg-background"
                 required
                 disabled={isSubmitting}
@@ -148,14 +148,14 @@ function PromptEditorDialog({
               disabled={isSubmitting}
               className="cursor-pointer border-border bg-secondary text-secondary-foreground hover:border-primary hover:bg-secondary/80 active:translate-y-px dark:bg-secondary dark:hover:bg-secondary/80"
             >
-              Cancel
+              取消
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
               className="w-full cursor-pointer bg-primary text-primary-foreground hover:bg-primary/85 hover:shadow-md active:translate-y-px sm:w-auto sm:min-w-20"
             >
-              {isSubmitting ? 'Saving...' : 'Save'}
+              {isSubmitting ? '保存中...' : '保存'}
             </Button>
           </DialogFooter>
         </form>
