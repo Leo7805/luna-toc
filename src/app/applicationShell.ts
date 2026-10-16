@@ -79,7 +79,7 @@ async function createSidebar(): Promise<HTMLElement> {
             class="navigator-icon-btn navigator-header-icon-btn luna-toc-sidebar-pin-btn"
             id="luna-toc-sidebar-pin-btn"
             type="button"
-            aria-label="Enable sidebar auto-hide"
+            aria-label="启用侧边栏自动隐藏"
             aria-pressed="true"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -89,7 +89,7 @@ async function createSidebar(): Promise<HTMLElement> {
           <button
             id="navigator-title"
             type="button"
-            aria-label="Reset TOC view"
+            aria-label="重置目录视图"
             data-tooltip=""
             data-tooltip-overflow-only="true"
           ></button>
@@ -97,7 +97,7 @@ async function createSidebar(): Promise<HTMLElement> {
             class="navigator-icon-btn navigator-header-icon-btn"
             id="search-toggle-btn"
             type="button"
-            aria-label="Toggle search"
+            aria-label="显示或隐藏搜索框"
             disabled
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -109,7 +109,7 @@ async function createSidebar(): Promise<HTMLElement> {
         <input
           id="navigator-search"
           type="search"
-          placeholder="Search prompts..."
+          placeholder="搜索提示词..."
           autocomplete="off"
         />
         <div id="myprompts-toolbar-container"></div>
@@ -121,7 +121,7 @@ async function createSidebar(): Promise<HTMLElement> {
         role="status"
       ></div>
       <div class="navigator-jump-controls">
-        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
+        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="切换到我的提示词" title="切换到我的提示词">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
           </svg>
