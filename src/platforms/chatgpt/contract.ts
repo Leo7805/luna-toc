@@ -13,67 +13,67 @@ export const CHATGPT_CONTRACT_TABLE: ChatGptContractTable = {
   'api.conversation.path': {
     formal: '/backend-api/conversations/{id}',
     local: '/backend-api/conversations/{id}',
-    label: 'Conversation data API path',
+    label: '对话数据 API 路径',
   },
   'api.conversation.messages-path': {
     formal: '/backend-api/conversations/{id}/messages',
     local: '/backend-api/conversations/{id}/messages',
-    label: 'Conversation messages pagination endpoint',
+    label: '对话消息分页接口',
   },
   'api.send-message.path': {
     formal: '/backend-api/f/conversation',
     local: '/backend-api/f/conversation',
-    label: 'Send-message POST endpoint',
+    label: '发送消息 POST 接口',
   },
   'api.params.num-turns': {
     formal: 'num_turns',
     local: 'num_turns',
-    label: 'Pagination num_turns parameter',
+    label: '分页 num_turns 参数',
   },
   'api.params.before': {
     formal: 'before',
     local: 'before',
-    label: 'Pagination cursor parameter',
+    label: '分页游标参数',
   },
   'api.params.include-has-versions': {
     formal: 'include_has_versions',
     local: 'include_has_versions',
-    label: 'Pagination include_has_versions flag',
+    label: '分页 include_has_versions 标记',
   },
   'dom.selector.user-message': {
     formal: '[data-message-author-role="user"]',
     local: '[data-message-author-role="user"]',
-    label: 'User message DOM marker',
+    label: '用户消息 DOM 标记',
   },
   'dom.selector.message-id': {
     formal: '[data-message-id]',
     local: '[data-message-id]',
-    label: 'Message identifier attribute',
+    label: '消息标识属性',
   },
   'postmessage.channel.conversation-data': {
     formal: 'CHATGPT_CONVERSATION_DATA',
     local: 'CHATGPT_CONVERSATION_DATA',
-    label: 'Page-to-extension conversation data channel',
+    label: '页面到扩展的对话数据通道',
   },
   'postmessage.channel.width-spoof': {
     formal: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
     local: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
-    label: 'Sidebar width-spoof toggle channel',
+    label: '侧边栏宽度模拟切换通道',
   },
   'postmessage.hook-flag': {
     formal: '__conversationNavigatorFetchHookInstalled',
     local: '__conversationNavigatorFetchHookInstalled',
-    label: 'Page-hook installation sentinel',
+    label: '页面钩子安装标记',
   },
   'response.messages-field': {
     formal: 'messages',
     local: 'messages',
-    label: 'Conversation messages field',
+    label: '对话消息字段',
   },
   'behavior.viewport-spoof-width': {
     formal: '1400',
     local: '1400',
-    label: 'Sidebar viewport spoof width',
+    label: '侧边栏视口模拟宽度',
   },
 };
 
