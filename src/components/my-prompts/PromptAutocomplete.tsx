@@ -60,7 +60,7 @@ function PromptAutocompleteMenu({
       ref={menuRef}
       data-luna-toc-autocomplete="true"
       role="listbox"
-      aria-label="My Prompts suggestions"
+      aria-label="我的提示词建议"
       className="fixed max-h-[220px] overflow-y-auto rounded-lg border border-[var(--ct-border-autocomplete)] bg-[var(--ct-bg-autocomplete)] shadow-xl backdrop-blur-xl"
       style={{
         left: state.position.left,
