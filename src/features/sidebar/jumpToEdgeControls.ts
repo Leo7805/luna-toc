@@ -79,7 +79,7 @@ function createJumpButton(edge: ConversationEdge): HTMLButtonElement {
   button.className = 'navigator-icon-btn';
   button.id = isTop ? 'jump-chat-top-btn' : 'jump-chat-bottom-btn';
   button.type = 'button';
-  button.setAttribute('aria-label', isTop ? 'Jump to top' : 'Jump to bottom');
+  button.setAttribute('aria-label', isTop ? '跳转到顶部' : '跳转到底部');
   button.innerHTML = `
     <svg aria-hidden="true" viewBox="0 0 24 24">
       <path d="${isTop ? 'M6 5h12M12 19V9M7 14l5-5 5 5' : 'M6 19h12M12 5v10M7 10l5 5 5-5'}" />
