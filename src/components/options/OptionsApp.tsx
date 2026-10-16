@@ -21,15 +21,15 @@ interface NavigationChoice {
 const NAVIGATION_CHOICES: NavigationChoice[] = [
   {
     value: 'legacy-native',
-    label: 'ChatGPT Native',
+    label: 'ChatGPT 原生导航',
     description:
-      'Uses ChatGPT\'s built-in prompt navigator, which was removed in recent layouts and now falls back to a slow text scan.',
+      '使用 ChatGPT 内置的提示词导航功能；由于新版页面布局已移除该功能，目前会回退到速度较慢的文本扫描。',
   },
   {
     value: 'independent-virtual',
-    label: 'LunaTOC Independent',
+    label: 'LunaTOC 独立导航',
     description:
-      'Deterministic message-ID navigation that targets each prompt turn precisely.',
+      '基于消息 ID 精确定位每轮提示词。',
   },
 ];
 
@@ -97,7 +97,7 @@ export function OptionsApp(): React.JSX.Element {
           LunaTOC
         </p>
         <h1 className="mt-2 mb-0 text-3xl font-semibold text-[var(--o-text)]">
-          Settings
+          设置
         </h1>
       </header>
 
@@ -106,14 +106,14 @@ export function OptionsApp(): React.JSX.Element {
           id="navigation-heading"
           className="m-0 text-lg font-semibold text-[var(--o-text)]"
         >
-          Navigation
+          导航方式
         </h2>
         <p className="mt-1 mb-4 text-sm text-[var(--o-muted)]">
-          Choose how LunaTOC navigates ChatGPT conversations.
+          选择 LunaTOC 在 ChatGPT 对话中使用的导航方式。
         </p>
 
         <fieldset className="m-0 grid gap-3 border-0 p-0">
-          <legend className="sr-only">ChatGPT Navigation</legend>
+          <legend className="sr-only">ChatGPT 导航方式</legend>
           {NAVIGATION_CHOICES.map((choice) => {
             const selected = algorithm === choice.value;
             return (
@@ -138,12 +138,12 @@ export function OptionsApp(): React.JSX.Element {
                     {choice.label}
                     {choice.value === 'legacy-native' && (
                       <span className="ml-1.5 text-xs font-medium text-[var(--o-muted)]">
-                        (Legacy)
+                        （旧版）
                       </span>
                     )}
                     {choice.value === 'independent-virtual' && (
                       <span className="ml-1.5 text-xs font-medium text-[var(--o-accent)]">
-                        (Recommended)
+                        （推荐）
                       </span>
                     )}
                   </span>
@@ -162,14 +162,14 @@ export function OptionsApp(): React.JSX.Element {
           id="compat-heading"
           className="m-0 text-lg font-semibold text-[var(--o-text)]"
         >
-          Compatibility
+          兼容性
         </h2>
         <p className="mt-1 mb-4 text-sm text-[var(--o-muted)]">
-          Developer diagnostics. Off by default so end users are not notified.
+          开发者诊断功能。默认关闭，不会向普通用户显示通知。
         </p>
 
         <fieldset className="m-0 grid gap-3 border-0 p-0">
-          <legend className="sr-only">ChatGPT Compatibility Alert</legend>
+          <legend className="sr-only">ChatGPT 兼容性警告</legend>
           <label
             className={`grid cursor-pointer grid-cols-[18px_minmax(0,1fr)] gap-3 rounded-xl border p-4 transition ${
               runtimeConfig?.showCompatibilityAlert
@@ -187,12 +187,10 @@ export function OptionsApp(): React.JSX.Element {
             />
             <span>
               <span className="block text-sm font-semibold text-[var(--o-text)]">
-                ChatGPT Compatibility Alert
+                ChatGPT 兼容性警告
               </span>
               <span className="mt-1 block text-sm leading-5 text-[var(--o-muted)]">
-                Notify me on this page when ChatGPT&apos;s API or layout changes
-                may affect LunaTOC. (Developer feature — leave off unless
-                you&apos;re maintaining the extension.)
+                当 ChatGPT 的 API 或页面布局发生可能影响 LunaTOC 的变化时，在此页面显示提醒。（开发者功能；除非负责维护扩展，否则请保持关闭。）
               </span>
             </span>
           </label>
