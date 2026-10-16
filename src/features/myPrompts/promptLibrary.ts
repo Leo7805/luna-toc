@@ -155,8 +155,8 @@ function importMyPrompts(onImport: VoidCallback): void {
       const promptsToImport = parseMarkdownPrompts(await file.text());
       if (!promptsToImport.length) {
         await showPromptModal({
-          title: 'Import Prompts',
-          message: 'No valid prompts found in the selected Markdown file.',
+          title: '导入提示词',
+          message: '所选 Markdown 文件中未找到有效的提示词。',
         });
         return;
       }
@@ -174,15 +174,13 @@ function importMyPrompts(onImport: VoidCallback): void {
       await saveMyPrompts([...existingPrompts, ...importedPrompts]);
       onImport();
       await showPromptModal({
-        title: 'Import Prompts',
-        message: `Imported ${importedPrompts.length} prompt${
-          importedPrompts.length === 1 ? '' : 's'
-        }.`,
+        title: '导入提示词',
+        message: `已导入 ${importedPrompts.length} 条提示词。`,
       });
     } catch (error) {
       await showPromptModal({
-        title: 'Import Prompts',
-        message: 'Unable to import prompts from the selected file.',
+        title: '导入提示词',
+        message: '无法从所选文件导入提示词。',
       });
     }
   });
@@ -228,8 +226,8 @@ function showPromptModal({
   title,
   message,
   confirm = false,
-  confirmText = 'OK',
-  cancelText = 'Cancel',
+  confirmText = '确定',
+  cancelText = '取消',
 }: PromptDialogOptions): Promise<boolean> {
   return new Promise((resolve) => {
     let modal = document.getElementById('chat-toc-myprompt-message-modal');
@@ -311,20 +309,20 @@ function createSortBar(
         <line x1="3" y1="18" x2="18" y2="18"></line>
       </svg>
       <select class="my-prompts-sort-select" id="myprompt-sort-select">
-        <option value="updated_desc">Newest Modified</option>
-        <option value="updated_asc">Oldest Modified</option>
-        <option value="name_asc">Title (A-Z)</option>
-        <option value="name_desc">Title (Z-A)</option>
+        <option value="updated_desc">最近修改</option>
+        <option value="updated_asc">最早修改</option>
+        <option value="name_asc">标题（A-Z）</option>
+        <option value="name_desc">标题（Z-A）</option>
       </select>
     </div>
     <div class="my-prompts-toolbar-actions">
-      <button id="myprompt-import-btn" class="myprompt-canvas-btn" type="button" aria-label="Import prompts" title="Import prompts">
+      <button id="myprompt-import-btn" class="myprompt-canvas-btn" type="button" aria-label="导入提示词" title="导入提示词">
         <canvas width="14" height="14" aria-hidden="true"></canvas>
       </button>
-      <button id="myprompt-export-btn" class="myprompt-canvas-btn" type="button" aria-label="Export prompts" title="Export prompts">
+      <button id="myprompt-export-btn" class="myprompt-canvas-btn" type="button" aria-label="导出提示词" title="导出提示词">
         <canvas width="14" height="14" aria-hidden="true"></canvas>
       </button>
-      <button id="myprompt-add-new-btn" type="button" aria-label="Add prompt" title="Add prompt">+</button>
+      <button id="myprompt-add-new-btn" type="button" aria-label="添加提示词" title="添加提示词">+</button>
     </div>
   `;
 
@@ -376,10 +374,10 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   if (!prompts.length) return;
 
   const shouldClear = await showPromptModal({
-    title: 'Clear all My Prompts',
-    message: `Are you sure you want to permanently delete all ${prompts.length} prompts?`,
+    title: '清空我的提示词',
+    message: `确定永久删除全部 ${prompts.length} 条提示词吗？`,
     confirm: true,
-    confirmText: 'Clear all',
+    confirmText: '全部清空',
   });
   if (!shouldClear) return;
 
@@ -389,8 +387,8 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
     onRefresh();
   } catch (error) {
     await showPromptModal({
-      title: 'Clear all My Prompts',
-      message: 'Unable to clear your prompts.',
+      title: '清空我的提示词',
+      message: '无法清空提示词。',
     });
   }
 }
@@ -402,7 +400,7 @@ async function copyPromptText(text: string, title: string): Promise<void> {
   } catch {
     await showPromptModal({
       title,
-      message: 'Unable to copy the prompt text.',
+      message: '无法复制提示词内容。',
     });
   }
 }
@@ -487,8 +485,8 @@ async function savePromptEditorValues(
     await saveMyPrompts(prompts);
   } catch (error) {
     await showPromptModal({
-      title: 'Save Prompt',
-      message: 'Unable to save this prompt.',
+      title: '保存提示词',
+      message: '无法保存此提示词。',
     });
     throw error;
   }
@@ -542,7 +540,7 @@ export async function renderMyPrompts(
       [
         {
           id: 'clear-all',
-          label: 'Clear all My Prompts',
+          label: '清空我的提示词',
           icon: 'trash',
           variant: 'destructive',
         },
@@ -570,8 +568,8 @@ export async function renderMyPrompts(
     const emptyHint = document.createElement('p');
     emptyHint.className = 'navigator-hint';
     emptyHint.textContent = query
-      ? 'No matching prompts.'
-      : 'No prompts saved yet. Click + to add one, or right-click any prompt in the TOC list.';
+      ? '没有匹配的提示词。'
+      : '尚未保存提示词。点击 + 添加，或右键点击目录中的提示词进行保存。';
     container.appendChild(emptyHint);
     return;
   }
@@ -622,10 +620,10 @@ export async function renderMyPrompts(
       e.stopPropagation();
       previewTooltip.hide();
       const shouldDelete = await showPromptModal({
-        title: 'Delete Prompt',
-        message: `Are you sure you want to delete "${item.title}"?`,
+        title: '删除提示词',
+        message: `确定删除「${item.title}」吗？`,
         confirm: true,
-        confirmText: 'Delete',
+        confirmText: '删除',
       });
 
       if (shouldDelete) {
@@ -637,8 +635,8 @@ export async function renderMyPrompts(
           onRefresh();
         } catch (error) {
           await showPromptModal({
-            title: 'Delete Prompt',
-            message: 'Unable to delete this prompt.',
+            title: '删除提示词',
+            message: '无法删除此提示词。',
           });
         }
       }
@@ -663,10 +661,10 @@ export async function renderMyPrompts(
       row.classList.add('my-prompts-item-context-active');
       promptContextMenuController.show(
         { left: event.clientX, top: event.clientY },
-        [{ id: 'copy-prompt', label: 'Copy Prompt', icon: 'copy' }],
+        [{ id: 'copy-prompt', label: '复制提示词', icon: 'copy' }],
         (itemId) => {
           if (itemId === 'copy-prompt') {
-            void copyPromptText(item.content, 'Copy Prompt');
+            void copyPromptText(item.content, '复制提示词');
           }
         },
         () => row.classList.remove('my-prompts-item-context-active')
