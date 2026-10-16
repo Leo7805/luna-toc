@@ -109,7 +109,7 @@ function applyState(
   markButton.setAttribute('aria-pressed', String(isMarked));
   markButton.setAttribute(
     'aria-label',
-    isMarked ? 'Unmark prompt' : 'Mark prompt'
+    isMarked ? '取消标记提示词' : '标记提示词'
   );
 }
 
