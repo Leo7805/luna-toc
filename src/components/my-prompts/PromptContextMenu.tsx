@@ -40,7 +40,7 @@ function PromptContextMenu({ request }: PromptContextMenuProps): React.JSX.Eleme
 
   return (
     <ContextMenu
-      ariaLabel="My Prompts actions"
+      ariaLabel="我的提示词操作"
       items={request.items}
       position={request.position}
       onClose={promptContextMenuController.close}
