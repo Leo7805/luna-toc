@@ -1,9 +1,9 @@
 {
     "manifest_version": 3,
-    "name": "ChatGPT Table of Contents - LunaTOC",
+    "name": "ChatGPT 对话目录 - LunaTOC",
     "short_name": "LunaTOC",
     "version": "1.13.2",
-    "description": "Add a table of contents, prompt navigator, and MyPrompts sidebar to long ChatGPT conversations.",
+    "description": "为 ChatGPT 长对话添加目录、提示词导航和「我的提示词」侧边栏。",
     "icons": {
         "16": "src/icons/icon16.png",
         "32": "src/icons/icon32.png",
