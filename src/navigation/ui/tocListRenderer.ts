@@ -74,7 +74,7 @@ function normalizeText(text: string): string {
 export function createTocListRenderer(
   options: TocListRendererOptions
 ): TocListRenderer {
-  const EMPTY_HINT_TEXT = 'Waiting for prompts...';
+  const EMPTY_HINT_TEXT = '等待提示词...';
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
   let hasScrolledInitialActive = false;
@@ -278,12 +278,12 @@ export function createTocListRenderer(
         [
           {
             id: 'save-prompt',
-            label: 'Add to My Prompts',
+            label: '添加到我的提示词',
             icon: 'bookmark-plus',
           },
           {
             id: 'rename-toc',
-            label: 'Rename TOC Item…',
+            label: '重命名目录项…',
             icon: 'pencil-line',
           },
         ],
@@ -347,7 +347,7 @@ export function createTocListRenderer(
       const hasQuery = normalizedQuery.length > 0;
 
       hint.hidden = hasMessages && (!hasQuery || visibleMessages.length > 0);
-      hint.textContent = hasQuery ? 'No matching prompts.' : EMPTY_HINT_TEXT;
+      hint.textContent = hasQuery ? '没有匹配的提示词。' : EMPTY_HINT_TEXT;
     }
 
     visibleMessages.forEach(({ message, index }) => {
