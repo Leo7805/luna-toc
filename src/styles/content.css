@@ -979,9 +979,9 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0 8px;
-  border-bottom: 1px solid var(--ct-border-sidebar);
-  margin-bottom: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  border-bottom: none;
   color: var(--ct-text-muted);
 }
 
@@ -992,102 +992,100 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 .sort-bar-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .sort-bar-left .sort-icon {
   width: 14px;
   height: 14px;
-  color: var(--ct-text-muted);
+  color: var(--ct-icon-header);
+  flex-shrink: 0;
 }
 
 .my-prompts-sort-select {
-  background: var(--ct-bg-select);
-  color: var(--ct-text-select);
-  border: 1px solid var(--ct-border-select);
-  border-radius: 6px;
-  padding: 3px 8px;
-  font-size: 11px;
+  background: transparent;
+  color: var(--ct-icon-header);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 2px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 20px;
+  height: 22px;
+  max-width: 108px;
+  min-width: 0;
+  text-overflow: ellipsis;
   outline: none;
   cursor: pointer;
   color-scheme: var(--ct-select-color-scheme);
   transition:
-    border-color 150ms ease,
-    color 150ms ease;
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
 .my-prompts-sort-select:hover {
-  border-color: var(--ct-accent);
-  color: var(--ct-text-select-hover);
+  background-color: var(--ct-icon-header-hover-bg);
+  color: var(--ct-text-header-title);
+  border-color: transparent;
 }
 
-.my-prompts-sort-select:focus {
+.my-prompts-sort-select:focus,
+.my-prompts-sort-select:focus-visible {
+  outline: none;
   border-color: var(--ct-accent);
-  color: var(--ct-text-select-hover);
-}
-
-#myprompt-add-new-btn {
-  background: var(--ct-bg-add-btn);
-  border: 1px solid var(--ct-border-select);
-  color: var(--ct-accent-strong);
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  margin: 0;
-  padding: 0;
-  transition: all 150ms ease;
+  color: var(--ct-text-header-title);
 }
 
 .my-prompts-toolbar-actions {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 0 0 auto;
+  flex-shrink: 0;
 }
 
+#myprompt-add-new-btn,
 .myprompt-canvas-btn {
-  background: var(--ct-bg-add-btn);
-  border: 1px solid var(--ct-border-select);
-  color: var(--ct-accent-strong);
-  cursor: pointer;
   width: 22px;
   height: 22px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ct-icon-header);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
   margin: 0;
   padding: 0;
-  transition: all 150ms ease;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 80ms ease;
 }
 
-.myprompt-canvas-btn canvas {
-  display: block;
-}
-
+#myprompt-add-new-btn:hover,
 .myprompt-canvas-btn:hover {
-  background: var(--ct-bg-item-hover);
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-accent);
+  background-color: var(--ct-icon-header-hover-bg);
+  color: var(--ct-text-header-title);
+  border-color: transparent;
 }
 
+#myprompt-add-new-btn:active,
 .myprompt-canvas-btn:active {
-  transform: scale(0.95);
+  background-color: var(--ct-icon-header-hover-bg);
+  color: var(--ct-text-header-title);
+  transform: scale(0.94);
 }
 
-#myprompt-add-new-btn:hover {
-  background: var(--ct-bg-item-hover);
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-accent);
-}
-
-#myprompt-add-new-btn:active {
-  transform: scale(0.95);
+#myprompt-add-new-btn:focus-visible,
+.myprompt-canvas-btn:focus-visible {
+  outline: none;
+  border-color: var(--ct-accent);
 }
 
 /* My Prompts Item Actions */

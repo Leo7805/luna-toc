@@ -319,12 +319,25 @@ function createSortBar(
     </div>
     <div class="my-prompts-toolbar-actions">
       <button id="myprompt-import-btn" class="myprompt-canvas-btn" type="button" aria-label="Import prompts" title="Import prompts">
-        <canvas width="14" height="14" aria-hidden="true"></canvas>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
       </button>
       <button id="myprompt-export-btn" class="myprompt-canvas-btn" type="button" aria-label="Export prompts" title="Export prompts">
-        <canvas width="14" height="14" aria-hidden="true"></canvas>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
       </button>
-      <button id="myprompt-add-new-btn" type="button" aria-label="Add prompt" title="Add prompt">+</button>
+      <button id="myprompt-add-new-btn" type="button" aria-label="Add prompt" title="Add prompt">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
     </div>
   `;
 
@@ -357,15 +370,6 @@ function createSortBar(
   ).addEventListener('click', () => {
     importMyPrompts(onSortChange);
   });
-
-  drawToolbarIcon(
-    getRequiredElement<HTMLCanvasElement>(bar, '#myprompt-import-btn canvas'),
-    'import'
-  );
-  drawToolbarIcon(
-    getRequiredElement<HTMLCanvasElement>(bar, '#myprompt-export-btn canvas'),
-    'export'
-  );
 
   return bar;
 }
@@ -405,39 +409,6 @@ async function copyPromptText(text: string, title: string): Promise<void> {
       message: 'Unable to copy the prompt text.',
     });
   }
-}
-
-/**
- * Draws an import or export arrow icon on a toolbar canvas.
- * @param {HTMLCanvasElement} canvas
- * @param {'import'|'export'} direction
- */
-function drawToolbarIcon(
-  canvas: HTMLCanvasElement,
-  direction: 'import' | 'export'
-): void {
-  const context = canvas.getContext('2d');
-  if (!context) return;
-
-  context.strokeStyle = '#2563eb';
-  context.lineWidth = 1.7;
-  context.lineCap = 'round';
-  context.lineJoin = 'round';
-
-  const arrowPoints =
-    direction === 'import'
-      ? { startY: 11, endY: 5, headY: 7 }
-      : { startY: 3, endY: 9, headY: 7 };
-
-  context.beginPath();
-  context.moveTo(7, arrowPoints.startY);
-  context.lineTo(7, arrowPoints.endY);
-  context.moveTo(4.5, arrowPoints.headY);
-  context.lineTo(7, arrowPoints.endY);
-  context.lineTo(9.5, arrowPoints.headY);
-  context.moveTo(3, direction === 'import' ? 3 : 11);
-  context.lineTo(11, direction === 'import' ? 3 : 11);
-  context.stroke();
 }
 
 /**

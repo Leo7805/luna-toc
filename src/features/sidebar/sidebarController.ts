@@ -123,7 +123,7 @@ export const sidebarController = (() => {
     const title = document.getElementById('navigator-title');
     if (!title) return;
     const titleText =
-      viewMode === 'myPrompts' ? 'MY PROMPTS' : getConversationTitle();
+      viewMode === 'myPrompts' ? 'My Prompts' : getConversationTitle();
 
     title.textContent = titleText;
     title.dataset.tooltip = titleText;
