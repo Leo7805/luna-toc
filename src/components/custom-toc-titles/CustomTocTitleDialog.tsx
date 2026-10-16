@@ -86,8 +86,8 @@ function CustomTocTitleDialog({
         error.message.toLowerCase().includes('extension context invalidated');
       setErrorMessage(
         isContextInvalidated
-          ? 'Extension updated. Refresh ChatGPT to save.'
-          : 'Unable to save custom title. Please try again.'
+          ? '扩展已更新，请刷新 ChatGPT 页面后再保存。'
+          : '无法保存自定义标题，请重试。'
       );
       return;
     } finally {
@@ -124,7 +124,7 @@ function CustomTocTitleDialog({
       >
         <DialogHeader className="shrink-0 gap-0 border-b border-border px-5 py-4 pr-12">
           <DialogTitle className="text-base font-semibold text-foreground">
-            Rename TOC Item
+            重命名目录项
           </DialogTitle>
         </DialogHeader>
 
@@ -132,7 +132,7 @@ function CustomTocTitleDialog({
           <div className="grid gap-3 px-5 py-4">
             <div className="grid gap-1">
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Original Prompt
+                原始提示词
               </span>
               <p className="line-clamp-2 text-xs text-muted-foreground/80 italic wrap-break-word">
                 {request.originalPrompt}
@@ -143,7 +143,7 @@ function CustomTocTitleDialog({
                 htmlFor={inputId}
                 className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
               >
-                TOC Title
+                目录标题
               </Label>
               <Input
                 id={inputId}
@@ -154,7 +154,7 @@ function CustomTocTitleDialog({
                     setErrorMessage(null);
                   }
                 }}
-                placeholder="Enter custom title…"
+                placeholder="输入自定义标题…"
                 className="bg-background text-foreground placeholder:text-muted-foreground/50 dark:bg-background"
                 autoFocus
                 disabled={submitting}
@@ -180,7 +180,7 @@ function CustomTocTitleDialog({
                   disabled={submitting}
                   className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
                 >
-                  Reset to Default
+                  恢复默认
                 </Button>
               ) : null}
             </div>
@@ -191,14 +191,14 @@ function CustomTocTitleDialog({
                 onClick={closeCustomTocTitleDialog}
                 disabled={submitting}
               >
-                Cancel
+                取消
               </Button>
               <Button
                 type="submit"
                 disabled={submitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/85"
               >
-                Save
+                保存
               </Button>
             </div>
           </DialogFooter>
