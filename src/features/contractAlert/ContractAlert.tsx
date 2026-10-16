@@ -108,7 +108,7 @@ export function ContractAlert(): React.ReactElement | null {
           <DialogTitle>{COMPATIBILITY_ALERT_TITLE}</DialogTitle>
           {records.length > 1 ? (
             <DialogDescription>
-              {`${records.length} ChatGPT contracts appear to have changed. Each is listed below.`}
+              {`检测到 ${records.length} 项 ChatGPT 兼容性变化，详情如下。`}
             </DialogDescription>
           ) : (
             <DialogDescription>
@@ -149,7 +149,7 @@ export function ContractAlert(): React.ReactElement | null {
                   className="mt-2 h-auto p-0 text-xs text-primary hover:underline"
                   onClick={() => dismissMismatch(record.contractId)}
                 >
-                  Dismiss this entry
+                  忽略此项
                 </Button>
               </details>
             </li>
