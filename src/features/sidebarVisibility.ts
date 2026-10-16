@@ -179,7 +179,7 @@ function updatePinButtonState(): void {
   pinBtn?.setAttribute('aria-pressed', String(isPinned));
   pinBtn?.setAttribute(
     'aria-label',
-    isPinned ? 'Enable sidebar auto-hide' : 'Pin sidebar open'
+    isPinned ? '启用侧边栏自动隐藏' : '固定侧边栏'
   );
 }
 
