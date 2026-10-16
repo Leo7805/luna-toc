@@ -58,7 +58,8 @@ async function createSidebar(): Promise<HTMLElement> {
   const sidebarConfig = APP_CONFIG.ui.sidebar;
 
   sidebar.id = 'luna-toc-sidebar';
-  sidebar.className = 'luna-toc-navigator-initializing';
+  sidebar.className =
+    'luna-toc-navigator-initializing luna-toc-navigator-hidden';
   sidebar.style.setProperty(
     '--navigator-width',
     `${sidebarConfig.defaultWidthPx}px`
@@ -79,8 +80,8 @@ async function createSidebar(): Promise<HTMLElement> {
             class="navigator-icon-btn navigator-header-icon-btn luna-toc-sidebar-pin-btn"
             id="luna-toc-sidebar-pin-btn"
             type="button"
-            aria-label="启用侧边栏自动隐藏"
-            aria-pressed="true"
+            aria-label="固定侧边栏"
+            aria-pressed="false"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M12 17v5M7 3h10l-1 8 4 4v2H4v-2l4-4-1-8Z" />
