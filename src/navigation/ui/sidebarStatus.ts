@@ -38,7 +38,7 @@ let lastJumpingText = '';
  * @returns {string}
  */
 function pluralizePrompts(count: number): string {
-  return count === 1 ? '1 prompt' : `${count} prompts`;
+  return count === 1 ? '1 条提示词' : `${count} 条提示词`;
 }
 
 /**
@@ -81,8 +81,8 @@ export function setSidebarStatus(options: {
   switch (state) {
     case 'jumping':
       text = jump
-        ? `Jumping to prompt #${jump.targetIndex + 1}`
-        : 'Jumping';
+        ? `正在跳转到第 ${jump.targetIndex + 1} 条提示词`
+        : '正在跳转';
       lastJumpingText = text;
       break;
     case 'loading':
@@ -90,16 +90,16 @@ export function setSidebarStatus(options: {
       // empty chat whose page hook never posted DATA). Once at least
       // one prompt has landed, appending "(N so far)" gives backfill
       // progress for long conversations.
-      text = promptCount > 0 ? `Loading... (${promptCount} so far)` : 'Loading…';
+      text = promptCount > 0 ? `加载中...（已加载 ${promptCount} 条）` : '加载中…';
       break;
     case 'empty':
       // Definitively empty chat: persistent, no linger timer.
-      text = 'No prompts';
+      text = '暂无提示词';
       break;
     case 'failed':
       // A jump could not resolve its target (e.g. the prompt is too far
       // to mount). Show briefly, then retract like `complete`.
-      text = 'Jump failed';
+      text = '跳转失败';
       break;
     case 'complete':
       // Linger on the last jump text when transitioning out of a
