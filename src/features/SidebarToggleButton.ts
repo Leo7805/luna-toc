@@ -18,7 +18,7 @@ export function createSidebarToggleButton(): HTMLButtonElement {
   const toggleBtn = document.createElement('button');
 
   toggleBtn.id = 'luna-toc-toggle-btn';
-  toggleBtn.className = 'luna-toc-sidebar-visible';
+  toggleBtn.className = 'luna-toc-sidebar-hidden';
   toggleBtn.innerHTML = `
       <svg aria-hidden="true" viewBox="0 0 64 64">
         <path
