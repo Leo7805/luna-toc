@@ -18,8 +18,8 @@ function getWidthSpoofMessageType(): string {
 let sidebar: HTMLElement | null = null;
 let toggleBtn: HTMLButtonElement | null = null;
 let pinBtn: HTMLElement | null = null;
-let isPinned = true;
-let isHidden = false;
+let isPinned = false;
+let isHidden = true;
 let hideTimer = 0;
 /**
  * @param {HTMLElement} sidebarElement
@@ -132,7 +132,8 @@ export function setSidebarPinned(
 
 function loadPinnedState(): void {
   const savedPinned = getSavedPinnedState();
-  const nextPinned = typeof savedPinned === 'boolean' ? savedPinned : true;
+  // Start collapsed unless the user explicitly pinned this tab.
+  const nextPinned = typeof savedPinned === 'boolean' ? savedPinned : false;
 
   isPinned = nextPinned;
   clearHideTimer();
