@@ -69,24 +69,23 @@ export function PopupApp(): React.JSX.Element {
           id="tips-heading"
           className="m-0 text-[13px] leading-[1.3] font-semibold text-[var(--p-text-h2)]"
         >
-          Tips
+          使用提示
         </h2>
         <ul className="mt-1 mb-0 pl-[18px] text-xs leading-[1.5] text-[var(--p-text-base)]">
           <li>
-            Type <PromptKey>#</PromptKey> or <PromptKey>//</PromptKey> to insert
-            a saved prompt. Add a space first when typing mid-message.
+            输入 <PromptKey>#</PromptKey> 或 <PromptKey>//</PromptKey> 可插入已保存的提示词。在消息中途输入时，请先输入一个空格。
           </li>
           <li>
             <strong className="font-semibold text-[var(--p-text-strong)]">
-              Right-click
+              右键点击
             </strong>{' '}
-            a prompt to save it to MyPrompts.
+            提示词即可将其保存到「我的提示词」。
           </li>
         </ul>
 
         <aside
           className="mt-2.5 grid grid-cols-[14px_minmax(0,1fr)] gap-[7px] rounded-sm bg-[var(--p-bg-note)] p-2"
-          aria-label="Navigation note"
+          aria-label="目录使用说明"
         >
           <Info
             className="mt-0.5 size-3.5 text-[var(--p-accent)]"
@@ -95,10 +94,9 @@ export function PopupApp(): React.JSX.Element {
           />
           <p className="m-0 text-xs leading-[1.5] text-[var(--p-text-base)]">
             <strong className="font-semibold text-[var(--p-text-strong)]">
-              Note:
+              注意：
             </strong>{' '}
-            If the TOC is missing items or becomes out of sync, refresh the
-            page.
+            如果目录缺少条目或与对话内容不同步，请刷新页面。
           </p>
         </aside>
       </section>
@@ -106,12 +104,12 @@ export function PopupApp(): React.JSX.Element {
       <footer className="mt-2.5 flex items-center justify-between border-t border-(--p-toggle-border) pt-2">
         <button
           type="button"
-          title="Open LunaTOC settings"
+          title="打开 LunaTOC 设置"
           className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) outline-none transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent) active:scale-95 active:bg-(--p-bg-note)"
           onClick={() => void chrome.runtime.openOptionsPage()}
         >
           <Settings className="size-3.5" aria-hidden="true" />
-          Settings
+          设置
         </button>
         <a
           href={WEB_STORE_URL}
@@ -126,7 +124,7 @@ export function PopupApp(): React.JSX.Element {
           >
             <path d="m12 2 3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.74 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2Z" />
           </svg>
-          Rate
+          评分
         </a>
         <a
           href={COFFEE_URL}
@@ -136,12 +134,12 @@ export function PopupApp(): React.JSX.Element {
         >
           <img
             src={coffeeImage}
-            alt="Buy me a coffee"
+            alt="请我喝杯咖啡"
             className="coffee-img-dark h-7 w-auto"
           />
           <img
             src={coffeeImageLight}
-            alt="Buy me a coffee"
+            alt="请我喝杯咖啡"
             className="coffee-img-light hidden h-7 w-auto"
           />
         </a>
