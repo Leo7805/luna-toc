@@ -62,9 +62,9 @@ export function getMessageDisplayText(message: ChatMessage): string {
  * @returns {string}
  */
 function getAttachmentDisplayText(file: ChatAttachment): string {
-  const label = isImageAttachment(file) ? 'Image' : 'File';
+  const label = isImageAttachment(file) ? '图片' : '文件';
 
-  return `[${label}] ${file.name || 'Uploaded file'}`;
+  return `[${label}] ${file.name || '已上传的文件'}`;
 }
 
 /**
@@ -82,14 +82,14 @@ function getContentPartDisplayText(
   }
 
   if (part?.content_type === 'image_asset_pointer') {
-    return hasImageAttachment ? '' : '[Image]';
+    return hasImageAttachment ? '' : '[图片]';
   }
 
   if (part?.content_type) {
     return `[${part.content_type}]`;
   }
 
-  return '[Attachment]';
+  return '[附件]';
 }
 
 /**
