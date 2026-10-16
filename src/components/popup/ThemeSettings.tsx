@@ -37,16 +37,16 @@ export function ThemeSettings({
           id="theme-heading"
           className="m-0 mr-auto text-[10px] font-semibold uppercase tracking-[0.08em] text-(--p-toggle-text)"
         >
-          Theme
+          主题
         </h2>
         <span className="text-[10px] font-medium text-(--p-toggle-text)">
-          Follow ChatGPT
+          跟随 ChatGPT
         </span>
         <button
           type="button"
           role="switch"
           aria-checked={settings.followChatGPT}
-          aria-label="Follow ChatGPT theme"
+          aria-label="跟随 ChatGPT 主题"
           className={`relative h-4.5 w-8 cursor-pointer rounded-full border outline-none transition duration-150 hover:border-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) active:scale-[0.97] ${
             settings.followChatGPT
               ? 'border-(--p-toggle-bg-active) bg-(--p-toggle-bg-active)'
@@ -65,13 +65,13 @@ export function ThemeSettings({
           disabled={settings.followChatGPT}
           aria-label={
             settings.followChatGPT
-              ? `Current theme: ${resolvedTheme}`
-              : `Current theme: ${resolvedTheme}. Click to switch theme`
+              ? `当前主题：${resolvedTheme === 'dark' ? '深色' : '浅色'}`
+              : `当前主题：${resolvedTheme === 'dark' ? '深色' : '浅色'}。点击切换主题`
           }
           title={
             settings.followChatGPT
-              ? `Following ChatGPT: ${resolvedTheme}`
-              : `Current theme: ${resolvedTheme}. Click to switch`
+              ? `跟随 ChatGPT：${resolvedTheme === 'dark' ? '深色' : '浅色'}`
+              : `当前主题：${resolvedTheme === 'dark' ? '深色' : '浅色'}。点击切换`
           }
           className={`inline-flex size-6 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) ${
             settings.followChatGPT
