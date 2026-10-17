@@ -6,6 +6,8 @@ import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
 import { executeViewportWalkerStrategy } from './strategies/viewportWalkerStrategy';
+import { tryVirtualLayoutStrategy } from './strategies/virtualLayoutStrategy';
+import type { JumpStrategyContext } from './strategies/types';
 import { executeAbsoluteEdgeJump } from './edgeNavigation';
 
 function platform() {
@@ -254,17 +256,48 @@ function jumpWithIndependentVirtualNavigation(
     return;
   }
 
-  // Step 2 runs after Step 1 misses. Sequential, never in parallel.
+  // Unmounted target navigation: try virtual-layout fast jump, then fallback to viewport walker.
   void (async () => {
     const myNavVersion = navigationJumpVersion;
-    const loaded = await executeViewportWalkerStrategy({
+    const strategyContext: JumpStrategyContext = {
       targetMessage: message,
       targetIndex: index,
       prompts: context.prompts,
       container,
       jumpId,
       isCancelled: () => myNavVersion !== navigationJumpVersion,
-    });
+    };
+
+    let loaded: HTMLElement | null = null;
+    const virtualAttempt = tryVirtualLayoutStrategy(strategyContext);
+
+    if (virtualAttempt.mode === 'unsupported') {
+      loaded = await executeViewportWalkerStrategy(strategyContext);
+    } else {
+      const outcome = await virtualAttempt.promise;
+      if (myNavVersion !== navigationJumpVersion || outcome.status === 'cancelled') {
+        return;
+      }
+      if (outcome.status === 'mounted') {
+        clearJumpProgress();
+        finishIndependentVirtualJump(outcome.element, message, index);
+        return;
+      }
+      if (outcome.status === 'capability-failure') {
+        loaded = await executeViewportWalkerStrategy(strategyContext);
+      } else {
+        clearJumpProgress();
+        notifyJumpFailed();
+        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+          status: 'not-found',
+          attempts: 'virtual-exhausted',
+        });
+        if (isJumpVizDebugEnabled()) {
+          console.log('[LunaTOC jump] virtual jump exhausted, giving up cleanly');
+        }
+        return;
+      }
+    }
     if (myNavVersion !== navigationJumpVersion) return;
 
     if (loaded) {

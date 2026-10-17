@@ -27,6 +27,7 @@ import {
 import { installConversationBackfill } from './conversationBackfill';
 import { installHistoryHook } from './historyHook';
 import { installTitleObserver } from './titleObserver';
+import { installVirtualLayoutBridge } from './virtualLayoutBridge';
 
 (() => {
   const platform = getActivePlatform();
@@ -47,6 +48,9 @@ import { installTitleObserver } from './titleObserver';
   platform.pageHook.installMatchMediaToggleListener();
   installHistoryHook(platform.pageHook.messages.routeChanged);
   installTitleObserver(platform.pageHook.messages.titleChanged);
+  if (platform.id === 'chatgpt') {
+    installVirtualLayoutBridge();
+  }
 
   window.addEventListener('message', (event: MessageEvent): void => {
     const data = event.data as

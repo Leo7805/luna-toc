@@ -9,6 +9,8 @@ import {
   seedMountQueue,
   type MountQueue,
 } from './mountQueue';
+import { computeDirectionTowardTarget } from './direction';
+import { waitForDomChange, DOM_SETTLE_CONFIG } from './domSettle';
 import { JUMP_STRATEGY_CONFIG } from './strategies/config';
 
 function platform() {
@@ -55,55 +57,6 @@ function nextAnimationFrame(): Promise<void> {
   });
 }
 
-/**
- * One-shot MutationObserver wait: resolves `true` once the DOM has
- * changed within `timeoutMs`, `false` on timeout. Debounced so
- * per-node callbacks fired by React during a batch mount coalesce
- * into one effective signal. If `isCancelled` returns true, resolves `'cancelled'`.
- * Used strictly during physical boundary stalls.
- */
-function waitForDomChange(
-  root: ParentNode,
-  isCancelled: () => boolean,
-  timeoutMs: number,
-  debounceMs: number = 10
-): Promise<boolean | 'cancelled'> {
-  return new Promise<boolean | 'cancelled'>(function (resolve) {
-    let settled = false;
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function finish(result: boolean | 'cancelled'): void {
-      if (settled) return;
-      settled = true;
-      observer.disconnect();
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      if (timeoutTimer !== null) clearTimeout(timeoutTimer);
-      resolve(result);
-    }
-
-    const observer = new MutationObserver(function () {
-      if (isCancelled()) {
-        finish('cancelled');
-        return;
-      }
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(function () {
-        if (isCancelled()) {
-          finish('cancelled');
-          return;
-        }
-        finish(true);
-      }, debounceMs);
-    });
-    observer.observe(root, { childList: true, subtree: true });
-
-    timeoutTimer = setTimeout(function () {
-      if (settled) return;
-      finish(false);
-    }, timeoutMs);
-  });
-}
 
 /**
  * Checks whether the exact target prompt is currently rendered and connected.
@@ -164,12 +117,11 @@ async function handleBoundaryOrBackfillStall(
   const postBatchCheck = findExactTarget(mountQueue, targetId, targetIndex, root);
   if (postBatchCheck) return postBatchCheck;
 
-  const OBSERVER_DEBOUNCE_MS = 10;
   const changed = await waitForDomChange(
     document.body,
     isCancelled,
     Math.max(settleMs, 100),
-    OBSERVER_DEBOUNCE_MS
+    DOM_SETTLE_CONFIG.debounceMs
   );
 
   if (changed === 'cancelled' || isCancelled()) return null;
@@ -186,26 +138,6 @@ async function handleBoundaryOrBackfillStall(
   return null;
 }
 
-/**
- * Returns 1 if the target sits "below" the closest mounted prompt in
- * sidebar-index terms (so we should scroll toward newer turns), and -1
- * if it sits "above" (so we should scroll toward older turns).
- */
-function computeDirectionTowardTarget(
-  targetIndex: number,
-  sidebarIndices: ReadonlyArray<number>
-): 1 | -1 {
-  let nearestIdx = sidebarIndices[0];
-  let currentDist = Math.abs(targetIndex - nearestIdx);
-  for (let j = 1; j < sidebarIndices.length; j++) {
-    const d = Math.abs(targetIndex - sidebarIndices[j]);
-    if (d < currentDist) {
-      currentDist = d;
-      nearestIdx = sidebarIndices[j];
-    }
-  }
-  return targetIndex > nearestIdx ? 1 : -1;
-}
 
 /**
  * Actively loads the target prompt when it is not currently mounted.
@@ -256,10 +188,14 @@ export async function loadUntilMountedViaViewport(
   }
 
   const sidebarIndices = queueSidebarIndices(mountQueue);
-  if (sidebarIndices.length === 0) {
+  const initialDirection = computeDirectionTowardTarget(
+    targetIndex,
+    sidebarIndices
+  );
+  if (initialDirection === null) {
     return null;
   }
-  let direction = computeDirectionTowardTarget(targetIndex, sidebarIndices);
+  let direction = initialDirection;
 
   // Passive exact-target observer for the lifetime of this walk
   let detectedTarget: HTMLElement | null = null;
@@ -336,8 +272,9 @@ export async function loadUntilMountedViaViewport(
 
       // Recompute mounted indices and direction toward target
       const currentIndices = queueSidebarIndices(mountQueue);
-      if (currentIndices.length > 0) {
-        direction = computeDirectionTowardTarget(targetIndex, currentIndices);
+      const nextDir = computeDirectionTowardTarget(targetIndex, currentIndices);
+      if (nextDir !== null) {
+        direction = nextDir;
       }
 
       const afterScrollTop = container.scrollTop;

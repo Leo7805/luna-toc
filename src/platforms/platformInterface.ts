@@ -173,6 +173,25 @@ export interface PlatformRenderedFingerprintCollector {
 }
 
 /**
+ * Result of querying host virtualizer layout for an unmounted prompt jump target.
+ */
+export type VirtualJumpTargetResult =
+  | {
+      readonly status: 'ok';
+      readonly targetIndex: number;
+      readonly topOffsetPx: number;
+      readonly turnCount: number;
+    }
+  | {
+      readonly status: 'target-not-in-layout';
+      readonly turnCount: number;
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason?: string;
+    };
+
+/**
  * Per-platform scroll container / mounted-DOM adapter used by the
  * navigation controller.
  */
@@ -184,6 +203,14 @@ export interface PlatformNavigationAdapter {
    * `getScrollContainer`, which may resolve to an inner overflow wrapper.
    */
   getThreadScrollContainer?(root?: ParentNode): HTMLElement | null;
+  /**
+   * Queries host-managed virtualizer layout for a specific target message ID.
+   * Returns coordinates synchronously, or indicates unmount/unavailability.
+   */
+  queryVirtualJumpTarget?(
+    container: HTMLElement,
+    messageId: string
+  ): VirtualJumpTargetResult;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
   /**
    * Finds a currently mounted user message by normalized text prefix.

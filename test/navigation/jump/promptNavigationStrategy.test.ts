@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   setJumpProgress: vi.fn(),
   clearJumpProgress: vi.fn(),
   notifyJumpFailed: vi.fn(),
+  queryVirtualJumpTarget: vi.fn(),
+  readMountedWithSidebarIdx: vi.fn<() => Array<{ element: HTMLElement; sidebarIdx: number; unitKey?: string }>>(() => []),
 }));
 
 vi.mock('@/platforms', () => ({
@@ -29,7 +31,8 @@ vi.mock('@/platforms', () => ({
       getScrollContainer: mocks.getContainer,
       findRenderedPrompt: mocks.findPrompt,
       findRenderedPromptByText: vi.fn(() => null),
-      readMountedWithSidebarIdx: vi.fn(() => []),
+      readMountedWithSidebarIdx: mocks.readMountedWithSidebarIdx,
+      queryVirtualJumpTarget: mocks.queryVirtualJumpTarget,
       promptTopOffsetPx: 16,
     },
     diagnostics: {
@@ -55,6 +58,7 @@ vi.mock('@/navigation/navigationSettings', () => ({
   getChatGptNavigationAlgorithm: () => mocks.navigationAlgorithm,
 }));
 
+import * as viewportWalker from '@/navigation/jump/viewportWalker';
 import {
   initializePromptNavigation,
   jumpToMessage,
@@ -87,6 +91,8 @@ beforeEach(() => {
     })
   );
   mocks.navigationAlgorithm = 'legacy-native';
+  mocks.queryVirtualJumpTarget.mockReturnValue(undefined);
+  mocks.readMountedWithSidebarIdx.mockReturnValue([]);
 
   initializePromptNavigation({
     getVirtualSearchContext: () => ({
@@ -230,5 +236,55 @@ describe('prompt navigation strategy', () => {
     expect(mocks.notifyJumpFailed).toHaveBeenCalledOnce();
     expect(mocks.clearJumpProgress).toHaveBeenCalled();
     expect(container.scrollTop).toBe(400);
+  });
+
+  it('locks virtual mode for older target and does not fall back to walker on exhaustion', async () => {
+    const walkerSpy = vi.spyOn(viewportWalker, 'loadUntilMountedViaViewport');
+    try {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn();
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+      mocks.findPrompt.mockReturnValue(null);
+
+      // Target not in layout, turnCount 50
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'target-not-in-layout',
+        turnCount: 50,
+      });
+
+      // Mounted element at sidebarIdx 5 -> Target at index 0 => direction -1 (older)
+      mocks.readMountedWithSidebarIdx.mockReturnValue([
+        { element: document.createElement('div'), sidebarIdx: 5, unitKey: 'k-5' },
+      ]);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        0
+      );
+
+      // Fast-forward fake timers beyond 1500ms timeout budget
+      await vi.advanceTimersByTimeAsync(1600);
+
+      // Walker was NEVER invoked
+      expect(walkerSpy).not.toHaveBeenCalled();
+      // Navigation terminated cleanly
+      expect(mocks.notifyJumpFailed).toHaveBeenCalledOnce();
+      expect(mocks.clearJumpProgress).toHaveBeenCalled();
+      expect(mocks.logEvent).toHaveBeenCalledWith(
+        'jump-id-stub',
+        'JUMP_FINISHED',
+        expect.objectContaining({ attempts: 'virtual-exhausted' }),
+        undefined
+      );
+    } finally {
+      walkerSpy.mockRestore();
+    }
   });
 });

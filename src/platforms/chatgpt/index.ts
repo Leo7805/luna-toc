@@ -39,6 +39,7 @@ import {
   getChatGptThreadScrollContainer,
   readMountedWithSidebarIdx,
 } from './virtualSearchAdapter';
+import { queryChatGptVirtualJumpTarget } from './virtualLayoutAdapter';
 import {
   createChatGptNavigationJumpId,
   getChatGptNavigationTestConfig,
@@ -124,6 +125,7 @@ export const chatGptPlatform: Platform = {
   navigation: {
     getScrollContainer: getChatGptScrollContainer,
     getThreadScrollContainer: getChatGptThreadScrollContainer,
+    queryVirtualJumpTarget: queryChatGptVirtualJumpTarget,
     findRenderedPrompt: findRenderedChatGptPrompt,
     findRenderedPromptByText: findRenderedChatGptPromptByText,
     readMountedWithSidebarIdx,

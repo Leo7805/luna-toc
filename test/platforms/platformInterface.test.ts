@@ -46,6 +46,7 @@ describe('platformInterface and registration', () => {
     const { navigation, diagnostics, config } = platform;
     expect(typeof navigation.getScrollContainer).toBe('function');
     expect(typeof navigation.getThreadScrollContainer).toBe('function');
+    expect(typeof navigation.queryVirtualJumpTarget).toBe('function');
     expect(typeof navigation.findRenderedPrompt).toBe('function');
     expect(typeof navigation.findRenderedPromptByText).toBe('function');
     expect(typeof navigation.readMountedWithSidebarIdx).toBe('function');
@@ -83,6 +84,7 @@ describe('platformInterface and registration', () => {
     expect(navigation.readMountedWithSidebarIdx).toBeUndefined();
     expect(navigation.getMessageIdFromElement).toBeUndefined();
     expect(navigation.getPromptUnitKeyFromElement).toBeUndefined();
+    expect(navigation.queryVirtualJumpTarget).toBeUndefined();
     expect(diagnostics.isJumpVizDebugEnabled).toBeUndefined();
   });
 });

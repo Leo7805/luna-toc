@@ -47,12 +47,12 @@ describe('jump strategies', () => {
     loadSpy.mockRestore();
   });
 
-  it('virtualLayoutStrategy scaffold resolves to null in Step 1', async () => {
+  it('tryVirtualLayoutStrategy returns unsupported attempt when platform resolution fails', () => {
     const isCancelled = vi.fn(() => false);
     const container = document.createElement('div');
     const prompts = [{ id: 'p-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 }];
 
-    const result = await tryVirtualLayoutStrategy({
+    const result = tryVirtualLayoutStrategy({
       targetMessage: prompts[0],
       targetIndex: 0,
       prompts,
@@ -61,6 +61,9 @@ describe('jump strategies', () => {
       isCancelled,
     });
 
-    expect(result).toBeNull();
+    expect(result.mode).toBe('unsupported');
+    if (result.mode === 'unsupported') {
+      expect(result.reason).toBe('platform-resolution-failed');
+    }
   });
 });
