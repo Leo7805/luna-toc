@@ -9,6 +9,7 @@ import {
   seedMountQueue,
   type MountQueue,
 } from './mountQueue';
+import { JUMP_STRATEGY_CONFIG } from './strategies/config';
 
 function platform() {
   return getActivePlatform();
@@ -289,7 +290,9 @@ export async function loadUntilMountedViaViewport(
 
       const beforeScrollTop = container.scrollTop;
       const stepDirection = direction;
-      const step = stepDirection * window.innerHeight;
+      const step =
+        stepDirection *
+        (window.innerHeight * JUMP_STRATEGY_CONFIG.viewportWalker.stepViewports);
       const nextScrollTop = beforeScrollTop + step;
       const clampedScrollTop = clampScrollTo(container, nextScrollTop, isReverse);
 

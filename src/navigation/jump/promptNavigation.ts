@@ -5,7 +5,7 @@ import { getChatGptNavigationAlgorithm } from '../navigationSettings';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
-import { loadUntilMountedViaViewport } from './viewportWalker';
+import { executeViewportWalkerStrategy } from './strategies/viewportWalkerStrategy';
 import { executeAbsoluteEdgeJump } from './edgeNavigation';
 
 function platform() {
@@ -257,14 +257,16 @@ function jumpWithIndependentVirtualNavigation(
   // Step 2 runs after Step 1 misses. Sequential, never in parallel.
   void (async () => {
     const myNavVersion = navigationJumpVersion;
-    const loaded = await loadUntilMountedViaViewport(
-      message.id,
-      index,
-      context.prompts,
+    const loaded = await executeViewportWalkerStrategy({
+      targetMessage: message,
+      targetIndex: index,
+      prompts: context.prompts,
       container,
       jumpId,
-      () => myNavVersion !== navigationJumpVersion
-    );
+      isCancelled: () => myNavVersion !== navigationJumpVersion,
+    });
+    if (myNavVersion !== navigationJumpVersion) return;
+
     if (loaded) {
       clearJumpProgress();
       finishIndependentVirtualJump(loaded, message, index);
