@@ -13,6 +13,17 @@ import type {
   VirtualStrategyExecutionResult,
 } from './types';
 
+/**
+ * Logs a `[LunaTOC HISTORY BOUNDARY]` diagnostic event.
+ * All values must be primitive to keep DevTools console clean.
+ */
+function logHistoryBoundary(
+  event: string,
+  fields: Record<string, unknown>
+): void {
+  console.log('[LunaTOC HISTORY BOUNDARY]', { event, ...fields });
+}
+
 
 /**
  * Queries active platform virtual jump target helper defensively.
@@ -80,6 +91,8 @@ export function startDomQuiescenceProgressObserver(params: {
   isCancelled: () => boolean;
   timeoutMs?: number;
   debounceMs?: number;
+  pollIntervalMs?: number;
+  minQuerySpacingMs?: number;
 }): DomQuiescenceProgressSession {
   const {
     root,
@@ -87,15 +100,20 @@ export function startDomQuiescenceProgressObserver(params: {
     targetMessageId,
     previousTurnCount,
     isCancelled,
-    timeoutMs = DOM_SETTLE_CONFIG.settleMs,
+    timeoutMs = JUMP_STRATEGY_CONFIG.virtualLayout.noProgressTimeoutMs,
     debounceMs = DOM_SETTLE_CONFIG.debounceMs,
+    pollIntervalMs = JUMP_STRATEGY_CONFIG.virtualLayout.paginationPollIntervalMs,
+    minQuerySpacingMs = JUMP_STRATEGY_CONFIG.virtualLayout.minQuerySpacingMs,
   } = params;
 
   let settled = false;
   let observer: MutationObserver | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  let scheduledQueryTimer: ReturnType<typeof setTimeout> | null = null;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   let cancelCheckTimer: ReturnType<typeof setInterval> | null = null;
+  let lastQueryTime = -Infinity;
 
   let sessionResolve!: (outcome: VirtualProgressOutcome) => void;
   const promise = new Promise<VirtualProgressOutcome>((resolve) => {
@@ -111,9 +129,17 @@ export function startDomQuiescenceProgressObserver(params: {
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    if (timeoutTimer !== null) {
-      clearTimeout(timeoutTimer);
-      timeoutTimer = null;
+    if (scheduledQueryTimer !== null) {
+      clearTimeout(scheduledQueryTimer);
+      scheduledQueryTimer = null;
+    }
+    if (pollTimer !== null) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    if (watchdogTimer !== null) {
+      clearTimeout(watchdogTimer);
+      watchdogTimer = null;
     }
     if (cancelCheckTimer !== null) {
       clearInterval(cancelCheckTimer);
@@ -136,14 +162,14 @@ export function startDomQuiescenceProgressObserver(params: {
     };
   }
 
-  const onQuiescence = () => {
-    debounceTimer = null;
+  const executeQuery = () => {
     if (settled) return;
-
     if (isCancelled()) {
       settle({ status: 'cancelled' });
       return;
     }
+
+    lastQueryTime = performance.now();
 
     let freshResult: VirtualJumpTargetResult;
     try {
@@ -172,7 +198,29 @@ export function startDomQuiescenceProgressObserver(params: {
     }
 
     // Incidental / premature quiescence: turnCount has not yet increased.
-    // Continue observing later mutation bursts within the same timeout budget.
+    // Continue observing within the same watchdog budget.
+  };
+
+  const scheduleQuery = () => {
+    if (settled || isCancelled()) return;
+
+    // Coalesce repeated wake-ups into an existing pending query probe
+    if (scheduledQueryTimer !== null) {
+      return;
+    }
+
+    const elapsed = performance.now() - lastQueryTime;
+    if (elapsed >= minQuerySpacingMs) {
+      executeQuery();
+    } else {
+      const wait = minQuerySpacingMs - elapsed;
+      scheduledQueryTimer = setTimeout(() => {
+        scheduledQueryTimer = null;
+        if (!settled && !isCancelled()) {
+          executeQuery();
+        }
+      }, wait);
+    }
   };
 
   // Synchronously attach MutationObserver BEFORE returning
@@ -184,7 +232,10 @@ export function startDomQuiescenceProgressObserver(params: {
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);
     }
-    debounceTimer = setTimeout(onQuiescence, debounceMs);
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      scheduleQuery();
+    }, debounceMs);
   });
 
   try {
@@ -197,8 +248,67 @@ export function startDomQuiescenceProgressObserver(params: {
     };
   }
 
-  // Arm overall timeout budget
-  timeoutTimer = setTimeout(() => {
+  // Arm low-frequency fallback polling
+  if (pollIntervalMs > 0) {
+    pollTimer = setInterval(() => {
+      if (settled) return;
+      if (isCancelled()) {
+        settle({ status: 'cancelled' });
+        return;
+      }
+      // If a debounce is already scheduled in <= debounceMs, let that check fire
+      if (debounceTimer !== null) {
+        return;
+      }
+      scheduleQuery();
+    }, pollIntervalMs);
+  }
+
+  // Arm per-batch no-progress watchdog budget
+  watchdogTimer = setTimeout(() => {
+    if (settled) return;
+    if (isCancelled()) {
+      settle({ status: 'cancelled' });
+      return;
+    }
+
+    // Clear any pending throttled or debounced query
+    if (debounceTimer !== null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    if (scheduledQueryTimer !== null) {
+      clearTimeout(scheduledQueryTimer);
+      scheduledQueryTimer = null;
+    }
+
+    // Final read-only timeout-boundary query (bypasses minQuerySpacingMs throttling)
+    let finalResult: VirtualJumpTargetResult | null = null;
+    try {
+      finalResult = queryJumpTarget(container, targetMessageId);
+    } catch {
+      // Bridge throw will result in timeout or capability-failure
+    }
+
+    if (isCancelled()) {
+      settle({ status: 'cancelled' });
+      return;
+    }
+
+    if (finalResult && finalResult.status === 'ok') {
+      settle({ status: 'ok', result: finalResult });
+      return;
+    }
+
+    if (
+      finalResult &&
+      finalResult.status === 'target-not-in-layout' &&
+      finalResult.turnCount > previousTurnCount
+    ) {
+      settle({ status: 'progress', result: finalResult });
+      return;
+    }
+
     settle({ status: 'timeout' });
   }, timeoutMs);
 
@@ -234,8 +344,17 @@ async function paginateOlderVirtualLayout(
   const container = context.container;
   const isCancelled = context.isCancelled;
   const mountTimeoutMs = JUMP_STRATEGY_CONFIG.virtualLayout.mountTimeoutMs;
+  const noProgressTimeoutMs =
+    JUMP_STRATEGY_CONFIG.virtualLayout.noProgressTimeoutMs;
+  const pollIntervalMs =
+    JUMP_STRATEGY_CONFIG.virtualLayout.paginationPollIntervalMs;
+  const minQuerySpacingMs =
+    JUMP_STRATEGY_CONFIG.virtualLayout.minQuerySpacingMs;
+  const jumpId = context.jumpId;
+  const paginateStartMs = performance.now();
 
   let currentResult = initialResult;
+  let cycleIndex = 0;
 
   while (true) {
     const previousTurnCount = currentResult.turnCount;
@@ -244,6 +363,19 @@ async function paginateOlderVirtualLayout(
       return { status: 'cancelled' };
     }
 
+    const scrollTopBefore = container.scrollTop;
+
+    // --- DIAGNOSTIC: OLDER_HISTORY_CYCLE_START ---
+    logHistoryBoundary('OLDER_HISTORY_CYCLE_START', {
+      jumpId,
+      targetIndex: context.targetIndex,
+      cycleIndex,
+      previousTurnCount,
+      containerScrollTop: scrollTopBefore,
+      containerScrollHeight: container.scrollHeight,
+      elapsedMs: Math.round(performance.now() - paginateStartMs),
+    });
+
     // 1. Arm progress observer synchronously before boundary scroll
     const session = startDomQuiescenceProgressObserver({
       root: document.body,
@@ -251,8 +383,10 @@ async function paginateOlderVirtualLayout(
       targetMessageId,
       previousTurnCount,
       isCancelled,
-      timeoutMs: DOM_SETTLE_CONFIG.settleMs,
+      timeoutMs: noProgressTimeoutMs,
       debounceMs: DOM_SETTLE_CONFIG.debounceMs,
+      pollIntervalMs,
+      minQuerySpacingMs,
     });
 
     // 2. Exactly one top-boundary scroll
@@ -266,8 +400,75 @@ async function paginateOlderVirtualLayout(
       return { status: 'exhausted', reason: 'scroll-to-top-threw' };
     }
 
+    const scrollTopAfter = container.scrollTop;
+
+    // --- DIAGNOSTIC: BOUNDARY_SCROLL ---
+    logHistoryBoundary('BOUNDARY_SCROLL', {
+      jumpId,
+      targetIndex: context.targetIndex,
+      cycleIndex,
+      turnCountBefore: previousTurnCount,
+      scrollTopBefore,
+      scrollTopAfter,
+      elapsedMs: Math.round(performance.now() - paginateStartMs),
+    });
+
     // 3. Await progress outcome
+    const observeStartMs = performance.now();
     const outcome = await session.promise;
+    const observeWaitMs = Math.round(performance.now() - observeStartMs);
+
+    // --- DIAGNOSTIC: PROGRESS_WAIT_END ---
+    // Captures wait duration and whether the observer fired at all.
+    // NOTE: 'timeout' alone cannot distinguish "zero DOM mutations" from
+    // "mutations seen but turnCount never advanced" — the observer does not
+    // expose a mutation-fire counter without a behavioral change.
+    logHistoryBoundary('PROGRESS_WAIT_END', {
+      jumpId,
+      targetIndex: context.targetIndex,
+      cycleIndex,
+      outcomeStatus: outcome.status,
+      turnCountBefore: previousTurnCount,
+      waitMs: observeWaitMs,
+      elapsedMs: Math.round(performance.now() - paginateStartMs),
+    });
+
+    // --- DIAGNOSTIC: FRESH_VIRTUAL_QUERY ---
+    // Records the actual bridge query result that resolved this cycle's
+    // observation. For 'ok': target found, topOffsetPx available.
+    // For 'progress': layout grew but target still not in layout.
+    // For 'timeout': observer timed out — mutation/progress distinction
+    //   unavailable without adding a counter inside the observer (behavioral change).
+    // For 'cancelled'/'capability-failure': no fresh query result available.
+    logHistoryBoundary('FRESH_VIRTUAL_QUERY', {
+      jumpId,
+      cycle: cycleIndex,
+      queryStatus:
+        outcome.status === 'ok'
+          ? 'ok'
+          : outcome.status === 'progress'
+            ? 'target-not-in-layout'
+            : outcome.status === 'timeout'
+              ? 'timeout'
+              : outcome.status === 'capability-failure'
+                ? 'capability-failure'
+                : 'cancelled',
+      turnCountBefore: previousTurnCount,
+      turnCountAfter:
+        outcome.status === 'ok'
+          ? outcome.result.turnCount
+          : outcome.status === 'progress'
+            ? outcome.result.turnCount
+            : null,
+      turnCountDelta:
+        outcome.status === 'ok'
+          ? outcome.result.turnCount - previousTurnCount
+          : outcome.status === 'progress'
+            ? outcome.result.turnCount - previousTurnCount
+            : null,
+      targetFound: outcome.status === 'ok',
+      elapsedMs: Math.round(performance.now() - paginateStartMs),
+    });
 
     if (isCancelled() || outcome.status === 'cancelled') {
       return { status: 'cancelled' };
@@ -278,7 +479,7 @@ async function paginateOlderVirtualLayout(
     }
 
     if (outcome.status === 'timeout') {
-      return { status: 'exhausted', reason: 'pagination-timeout' };
+      return { status: 'exhausted', reason: 'no-progress-timeout' };
     }
 
     if (outcome.status === 'ok') {
@@ -290,6 +491,15 @@ async function paginateOlderVirtualLayout(
       ) {
         return { status: 'exhausted', reason: 'target-offset-invalid' };
       }
+
+      // --- DIAGNOSTIC: TARGET_OFFSET_FOUND ---
+      logHistoryBoundary('TARGET_OFFSET_FOUND', {
+        jumpId,
+        targetIndex: context.targetIndex,
+        cycleIndex,
+        topOffsetPx,
+        elapsedMs: Math.round(performance.now() - paginateStartMs),
+      });
 
       if (isCancelled()) {
         return { status: 'cancelled' };
@@ -311,6 +521,15 @@ async function paginateOlderVirtualLayout(
         mountTimeoutMs
       );
 
+      // --- DIAGNOSTIC: TARGET_MOUNT_WAIT_END ---
+      logHistoryBoundary('TARGET_MOUNT_WAIT_END', {
+        jumpId,
+        targetIndex: context.targetIndex,
+        cycleIndex,
+        mounted: mountedElement !== null,
+        elapsedMs: Math.round(performance.now() - paginateStartMs),
+      });
+
       if (isCancelled()) {
         return { status: 'cancelled' };
       }
@@ -323,7 +542,18 @@ async function paginateOlderVirtualLayout(
     }
 
     if (outcome.status === 'progress') {
+      // --- DIAGNOSTIC: NEXT_CYCLE ---
+      logHistoryBoundary('NEXT_CYCLE', {
+        jumpId,
+        targetIndex: context.targetIndex,
+        cycleIndex,
+        turnCountBefore: previousTurnCount,
+        turnCountAfter: outcome.result.turnCount,
+        scrollTop: container.scrollTop,
+        elapsedMs: Math.round(performance.now() - paginateStartMs),
+      });
       currentResult = outcome.result;
+      cycleIndex += 1;
       continue;
     }
   }
@@ -529,6 +759,21 @@ export function tryVirtualLayoutStrategy(
     return { mode: 'unsupported', reason: 'bridge-result-invalid' };
   }
 
+  // --- DIAGNOSTIC: INITIAL_VIRTUAL_QUERY ---
+  // Logs the raw bridge query result before any branching.
+  // This is the ground-truth status and turnCount from the host virtualizer.
+  logHistoryBoundary('INITIAL_VIRTUAL_QUERY', {
+    jumpId: context.jumpId,
+    targetIndex: context.targetIndex,
+    queryStatus: result.status,
+    turnCount:
+      result.status === 'ok' || result.status === 'target-not-in-layout'
+        ? result.turnCount
+        : null,
+    topOffsetPx: result.status === 'ok' ? result.topOffsetPx : null,
+    targetInLayout: result.status === 'ok',
+  });
+
   if (result.status === 'unavailable') {
     return { mode: 'unsupported', reason: 'bridge-unavailable' };
   }
@@ -555,6 +800,17 @@ export function tryVirtualLayoutStrategy(
     );
 
     if (direction === 1) {
+      // --- DIAGNOSTIC: DIRECTION ---
+      logHistoryBoundary('DIRECTION', {
+        jumpId: context.jumpId,
+        targetIndex: context.targetIndex,
+        direction,
+        sidebarIndicesMin: sidebarIndices.length > 0 ? Math.min(...sidebarIndices) : null,
+        sidebarIndicesMax: sidebarIndices.length > 0 ? Math.max(...sidebarIndices) : null,
+        sidebarIndicesCount: sidebarIndices.length,
+        selectedMode: 'unsupported',
+        unsupportedReason: 'downward-virtual-pagination-unimplemented',
+      });
       return {
         mode: 'unsupported',
         reason: 'downward-virtual-pagination-unimplemented',
@@ -562,10 +818,32 @@ export function tryVirtualLayoutStrategy(
     }
 
     if (direction === null) {
+      // --- DIAGNOSTIC: DIRECTION ---
+      logHistoryBoundary('DIRECTION', {
+        jumpId: context.jumpId,
+        targetIndex: context.targetIndex,
+        direction: null,
+        sidebarIndicesMin: null,
+        sidebarIndicesMax: null,
+        sidebarIndicesCount: sidebarIndices.length,
+        selectedMode: 'unsupported',
+        unsupportedReason: 'unknown-direction',
+      });
       return { mode: 'unsupported', reason: 'unknown-direction' };
     }
 
     // direction === -1: Older history supported by Phase 2B
+    // --- DIAGNOSTIC: DIRECTION ---
+    logHistoryBoundary('DIRECTION', {
+      jumpId: context.jumpId,
+      targetIndex: context.targetIndex,
+      direction,
+      sidebarIndicesMin: sidebarIndices.length > 0 ? Math.min(...sidebarIndices) : null,
+      sidebarIndicesMax: sidebarIndices.length > 0 ? Math.max(...sidebarIndices) : null,
+      sidebarIndicesCount: sidebarIndices.length,
+      selectedMode: 'virtual',
+      unsupportedReason: null,
+    });
     return {
       mode: 'virtual',
       promise: paginateOlderVirtualLayout(context, result),

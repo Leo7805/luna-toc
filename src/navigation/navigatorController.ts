@@ -15,7 +15,7 @@ import type {
   NavigatorMessage,
 } from '@/features/conversationPrompts/message';
 import { initializePromptMark } from '@/features/conversationPrompts/promptMark';
-import { initializeFollow } from './follow/follow';
+import { initializeFollow, keepFollowing } from './follow/follow';
 import {
   isLoading as isLoadingPrompts,
   setLoading,
@@ -24,15 +24,19 @@ import {
   clearSettleTimer,
 } from './loading/promptLoadingState';
 import {
-  getJumpProgress as readJumpProgress,
-  setOnRender,
-  setJumpProgress as writeJumpProgress,
-  clearJumpProgress as resetJumpProgress,
+  getNavigationState,
+  setNavigationJumping,
+  setNavigationLanded,
+  setNavigationFailed,
+  setNavigationIdle,
+  onNavigationStateChange,
+  type NavigationState,
 } from './loading/jumpProgressState';
 import {
   initializePromptNavigation,
   jumpToAbsoluteEdge as jumpToPageEdge,
   jumpToMessage,
+  cancelActiveNavigationSearch,
 } from './jump/promptNavigation';
 import {
   handlePromptNavigation,
@@ -67,6 +71,7 @@ export const navigatorController = (() => {
   let onRouteChanged = () => {};
   let onSavePrompt: (message: NavigatorMessage) => void = () => {};
   let onTitleChanged = () => {};
+  let unsubscribeNavigationState: (() => void) | null = null;
 
   /**
    * Returns the route key shared with prompt marking and page-hook messages.
@@ -81,16 +86,65 @@ export const navigatorController = (() => {
     getCurrentRouteKey: () => getCurrentConversationKey(),
   });
 
+  /**
+   * Derives presentation display index: explicit navigation target while jumping/landed,
+   * otherwise passive viewport index.
+   */
+  function getDisplayIndex(): number | null {
+    const nav = getNavigationState();
+    if (nav.state === 'jumping' || nav.state === 'landed') {
+      return nav.targetIndex;
+    }
+    return activePromptTracker.getActiveIndex();
+  }
+
+  /**
+   * Single controller-owned projection path to the presentation layer.
+   *
+   * @param changed True if active item index changed.
+   */
+  function projectDisplayIndex(changed = true): void {
+    const index = getDisplayIndex();
+    if (index === null) return;
+    tocListRenderer.updateActiveItemUI(index, changed);
+  }
+
+  /**
+   * Coordinates user browse intent (wheel/touch inside active chat).
+   */
+  function handleUserBrowseIntent(): void {
+    const nav = getNavigationState();
+    if (nav.state === 'jumping') {
+      cancelActiveNavigationSearch();
+      setNavigationIdle();
+      projectDisplayIndex(true);
+    } else if (nav.state === 'landed') {
+      setNavigationIdle();
+      projectDisplayIndex(true);
+    } else if (nav.state === 'failed') {
+      setNavigationIdle();
+    }
+  }
+
   const activePromptTracker = createActivePromptTracker({
     getMessages: () => conversationStore.getMessages(),
-    onActiveIndexChange: (index, changed) => {
-      tocListRenderer.updateActiveItemUI(index, changed);
+    onActiveIndexChange: (_index, changed) => {
+      const nav = getNavigationState();
+      if (nav.state === 'jumping' || nav.state === 'landed') {
+        // Raw viewport updates update internal tracker state,
+        // but are suppressed from the presentation UI.
+        return;
+      }
+      projectDisplayIndex(changed);
+    },
+    onUserBrowseIntent: () => {
+      handleUserBrowseIntent();
     },
   });
 
   const tocListRenderer = createTocListRenderer({
     getMessages: () => conversationStore.getMessages(),
-    getActiveIndex: () => activePromptTracker.getActiveIndex(),
+    getActiveIndex: () => getDisplayIndex(),
     onItemClick: (message, index) => {
       handleNavigatorItemClick(message, index);
     },
@@ -107,8 +161,46 @@ export const navigatorController = (() => {
         activePromptTracker.checkActivePrompt();
       }
     },
-    getJumpProgress: () => readJumpProgress(),
   });
+
+  /**
+   * Maps NavigationState transitions to sidebar status updates and display projection.
+   */
+  function handleNavigationStateTransition(
+    previous: NavigationState,
+    current: NavigationState
+  ): void {
+    const promptCount = conversationStore.getMessages().length;
+
+    // 1. Navigation status presentation
+    if (current.state === 'jumping') {
+      setSidebarStatus({
+        state: 'jumping',
+        jump: { active: true, targetIndex: current.targetIndex },
+        promptCount,
+      });
+    } else if (previous.state === 'jumping' && current.state === 'landed') {
+      setSidebarStatus({
+        state: isLoadingPrompts() ? 'loading' : 'complete',
+        promptCount,
+      });
+    } else if (previous.state === 'jumping' && current.state === 'failed') {
+      setSidebarStatus({ state: 'failed', promptCount });
+    } else if (current.state === 'idle') {
+      if (previous.state === 'jumping') {
+        setSidebarStatus({ state: 'idle', promptCount });
+      }
+    }
+
+    // 2. Display projection
+    if (current.state === 'jumping') {
+      projectDisplayIndex(true);
+    } else if (previous.state === 'jumping' && current.state === 'landed') {
+      // Target did not change; do not issue redundant row scroll
+    } else if (current.state === 'failed' || current.state === 'idle') {
+      projectDisplayIndex(true);
+    }
+  }
 
   /**
    * Marks prompts loading as finished for the active conversation and re-renders
@@ -147,34 +239,14 @@ export const navigatorController = (() => {
   function attach(): void {
     if (isAttached) return;
 
-    setOnRender(() => {
-      const jump = readJumpProgress();
-      const promptCount = conversationStore.getMessages().length;
-      const loading = isLoadingPrompts();
+    if (unsubscribeNavigationState) {
+      unsubscribeNavigationState();
+      unsubscribeNavigationState = null;
+    }
+    unsubscribeNavigationState = onNavigationStateChange(
+      handleNavigationStateTransition
+    );
 
-      if (jump?.active) {
-        setSidebarStatus({
-          state: 'jumping',
-          jump,
-          promptCount,
-        });
-      } else if (loading) {
-        setSidebarStatus({
-          state: 'loading',
-          promptCount,
-        });
-      } else if (promptCount === 0) {
-        setSidebarStatus({
-          state: 'empty',
-          promptCount: 0,
-        });
-      } else {
-        setSidebarStatus({
-          state: 'complete',
-          promptCount,
-        });
-      }
-    });
     setOnSettleTimeout(() => markLoadingComplete());
 
     initializeFollow({
@@ -188,13 +260,33 @@ export const navigatorController = (() => {
         conversationKey: getCurrentConversationKey(),
         prompts: conversationStore.getMessages(),
       }),
-      setJumpProgress,
-      clearJumpProgress,
+      onJumpStart: (targetIndex) => {
+        keepFollowing(15_000);
+        setNavigationJumping(targetIndex);
+      },
+      onJumpComplete: (targetIndex) => {
+        activePromptTracker.syncViewportIndex(targetIndex);
+        setNavigationLanded(targetIndex);
+      },
+      onJumpFailed: (targetIndex) => {
+        setNavigationFailed(targetIndex);
+      },
+      setJumpProgress: (progress) => {
+        if (progress.active) {
+          setNavigationJumping(progress.targetIndex);
+        }
+      },
+      clearJumpProgress: () => {
+        const nav = getNavigationState();
+        if (nav.state === 'jumping') {
+          setNavigationIdle();
+        }
+      },
       notifyJumpFailed: () => {
-        setSidebarStatus({
-          state: 'failed',
-          promptCount: conversationStore.getMessages().length,
-        });
+        const nav = getNavigationState();
+        if (nav.state === 'jumping') {
+          setNavigationFailed(nav.targetIndex);
+        }
       },
     });
 
@@ -212,6 +304,19 @@ export const navigatorController = (() => {
       startSettleTimer();
       render();
     }
+  }
+
+  /**
+   * Detaches listeners and resets active attachment state.
+   */
+  function detach(): void {
+    if (!isAttached) return;
+    if (unsubscribeNavigationState) {
+      unsubscribeNavigationState();
+      unsubscribeNavigationState = null;
+    }
+    activePromptTracker.disconnect();
+    isAttached = false;
   }
 
   /**
@@ -277,6 +382,10 @@ export const navigatorController = (() => {
     index: number
   ): void {
     previewTooltip.hide();
+    cancelActiveNavigationSearch();
+    keepFollowing(15_000);
+    setNavigationJumping(index);
+
     const outlineAction = handlePromptNavigation(
       index,
       activePromptTracker.getActiveIndex()
@@ -289,28 +398,42 @@ export const navigatorController = (() => {
   }
 
   /**
-   * Returns the current jump progress snapshot, or null when no jump is
-   * active. Consumed by the sidebar status element.
+   * Returns backward-compatible jump progress snapshot, or null when idle.
    */
-  function getJumpProgress(): ReturnType<typeof readJumpProgress> {
-    return readJumpProgress();
+  function getJumpProgress(): {
+    active: boolean;
+    targetIndex: number;
+    remainingSteps: number;
+  } | null {
+    const nav = getNavigationState();
+    return nav.state === 'jumping'
+      ? { active: true, targetIndex: nav.targetIndex, remainingSteps: 50 }
+      : null;
   }
 
   /**
-   * Marks a jump as active and records the target index plus the remaining
-   * slide-loop step budget.
+   * Backward-compatible setter for jump progress.
    */
-  function setJumpProgress(
-    next: NonNullable<ReturnType<typeof readJumpProgress>>
-  ): void {
-    writeJumpProgress(next);
+  function setJumpProgress(next: {
+    active: boolean;
+    targetIndex: number;
+    remainingSteps?: number;
+  }): void {
+    if (next.active) {
+      setNavigationJumping(next.targetIndex);
+    }
   }
 
   /**
-   * Clears any active jump progress.
+   * Backward-compatible clearer for jump progress.
    */
   function clearJumpProgress(): void {
-    resetJumpProgress();
+    const nav = getNavigationState();
+    if (nav.state === 'jumping') {
+      setNavigationLanded(nav.targetIndex);
+    } else {
+      setNavigationIdle();
+    }
   }
 
   function initActivePromptTracking(): void {
@@ -341,6 +464,10 @@ export const navigatorController = (() => {
     preserveMessages = false,
     nextMessages = [],
   }: ResetRouteOptions = {}): void {
+    cancelActiveNavigationSearch();
+    setNavigationIdle();
+    setSidebarStatus({ state: 'idle' });
+
     conversationStore.resetForCurrentRoute({
       preserveMessages,
       nextMessages,
@@ -476,16 +603,24 @@ export const navigatorController = (() => {
 
   return {
     attach,
+    detach,
     clearJumpProgress,
     getCurrentConversationKey,
+    getDisplayIndex,
     getJumpProgress,
+    getNavigationState,
     init,
     jumpToAbsoluteEdge,
     jumpToEdge,
     jumpToLastPrompt,
+    projectDisplayIndex,
     render,
     resetView,
     setJumpProgress,
+    setNavigationJumping,
+    setNavigationLanded,
+    setNavigationFailed,
+    setNavigationIdle,
     setSearchQuery,
   };
 })();

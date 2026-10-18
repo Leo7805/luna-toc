@@ -26,7 +26,7 @@ import {
   setLoading,
   startSettleTimer,
 } from '@/navigation/loading/promptLoadingState';
-import { getJumpProgress as readJumpProgress } from '@/navigation/loading/jumpProgressState';
+import { getNavigationState } from '@/navigation/loading/jumpProgressState';
 
 export interface RenderOptions {
   refreshObservers?: boolean;
@@ -40,7 +40,7 @@ export interface TocListRendererOptions {
   onSavePrompt?: (message: NavigatorMessage) => void;
   onPromptCountReported?: (count: number) => void;
   onRefreshObservers?: () => void;
-  getJumpProgress?: () => ReturnType<typeof readJumpProgress>;
+  getJumpProgress?: () => any;
   isFollowingMode?: () => boolean;
 }
 
@@ -116,8 +116,6 @@ export function createTocListRenderer(
   }
 
   function pickStatusBandState(completed: boolean | null): SidebarStatusState {
-    const jump = options.getJumpProgress ? options.getJumpProgress() : readJumpProgress();
-    if (jump && jump.active) return 'jumping';
     const promptCount = options.getMessages().length;
     if (completed === true) {
       return promptCount === 0 ? 'empty' : 'complete';
@@ -362,11 +360,13 @@ export function createTocListRenderer(
 
     ensureActiveItemVisible();
 
-    setSidebarStatus({
-      state: pickStatusBandState(completed),
-      jump: options.getJumpProgress ? options.getJumpProgress() : readJumpProgress(),
-      promptCount: conversationMessages.length,
-    });
+    const navState = getNavigationState();
+    if (navState.state === 'idle') {
+      setSidebarStatus({
+        state: pickStatusBandState(completed),
+        promptCount: conversationMessages.length,
+      });
+    }
   }
 
   return {

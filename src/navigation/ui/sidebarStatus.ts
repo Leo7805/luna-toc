@@ -69,7 +69,7 @@ function pluralizePrompts(count: number): string {
  */
 export function setSidebarStatus(options: {
   state: SidebarStatusState;
-  jump?: { active: boolean; targetIndex: number; remainingSteps: number } | null;
+  jump?: { active: boolean; targetIndex: number; remainingSteps?: number } | null;
   promptCount?: number;
 }): void {
   const { state, jump, promptCount = 0 } = options;

@@ -12,6 +12,9 @@ export interface JumpStrategyConfig {
   virtualLayout: {
     readonly enabled: boolean;
     readonly mountTimeoutMs: number;
+    readonly noProgressTimeoutMs: number;
+    readonly paginationPollIntervalMs: number;
+    readonly minQuerySpacingMs: number;
   };
 }
 
@@ -25,5 +28,8 @@ export const JUMP_STRATEGY_CONFIG: JumpStrategyConfig = {
   virtualLayout: {
     enabled: true,
     mountTimeoutMs: 1000,
+    noProgressTimeoutMs: 8000,
+    paginationPollIntervalMs: 2000,
+    minQuerySpacingMs: 250,
   },
 };

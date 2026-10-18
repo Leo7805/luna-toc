@@ -25,9 +25,13 @@ describe('navigatorController lifecycle and coordination', () => {
       <div id="sidebar-status-band"></div>
       <div id="luna-toc-status"></div>
     `;
+    navigatorController.detach();
+    navigatorController.setNavigationIdle();
   });
 
   afterEach(() => {
+    navigatorController.detach();
+    navigatorController.setNavigationIdle();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -1425,6 +1429,582 @@ describe('navigatorController lifecycle and coordination', () => {
       vi.advanceTimersByTime(105);
       expect(statusElement.textContent).toBe('');
       expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+    });
+  });
+
+  describe('Follow / Active synchronization via onJumpComplete', () => {
+    it('wires onJumpComplete to activePromptTracker.syncActiveIndex and updates sidebar active item', async () => {
+      const { navigatorController: controller } = await import(
+        '@/navigation/navigatorController'
+      );
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const platform = getActivePlatform();
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-follow-active',
+        },
+      });
+
+      controller.init();
+      controller.attach();
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // Populate 2 prompts
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey: 'test-follow-active',
+            payload: {
+              messages: [
+                { id: 'p-0', author: { role: 'user' }, content: { parts: ['P0'] }, create_time: 1 },
+                { id: 'a-0', author: { role: 'assistant' }, content: { parts: ['A0'] }, create_time: 2 },
+                { id: 'p-1', author: { role: 'user' }, content: { parts: ['P1'] }, create_time: 3 },
+                { id: 'a-1', author: { role: 'assistant' }, content: { parts: ['A1'] }, create_time: 4 },
+              ],
+            },
+          },
+          source: window,
+        })
+      );
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items.length).toBe(2);
+
+      // Mount thread container and target prompt in DOM
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      const targetEl = document.createElement('div');
+      targetEl.setAttribute('data-chatgpt-search-message-ids', 'p-1');
+      targetEl.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      container.appendChild(targetEl);
+      document.body.appendChild(container);
+
+      // Complete navigation via promptNavigation
+      promptNavModule.jumpToMessage(
+        { id: 'p-1', text: 'P1', canMatchByText: true, createTime: 3 },
+        1
+      );
+
+      // Query items after jump
+      const updatedItems = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(updatedItems[1].classList.contains('navigator-item-active')).toBe(true);
+      expect(updatedItems[0].classList.contains('navigator-item-active')).toBe(false);
+
+      // Existing Follow window: sidebar item was scrolled into view through existing pipeline
+      expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+    });
+
+    it('rapid sequential jumps: only newest successful jump syncs active', async () => {
+      const { navigatorController: controller } = await import(
+        '@/navigation/navigatorController'
+      );
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const platform = getActivePlatform();
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-rapid-jumps',
+        },
+      });
+
+      controller.init();
+      controller.attach();
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      // Populate 3 prompts
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey: 'test-rapid-jumps',
+            payload: {
+              messages: [
+                { id: 'p-0', author: { role: 'user' }, content: { parts: ['P0'] }, create_time: 1 },
+                { id: 'a-0', author: { role: 'assistant' }, content: { parts: ['A0'] }, create_time: 2 },
+                { id: 'p-1', author: { role: 'user' }, content: { parts: ['P1'] }, create_time: 3 },
+                { id: 'a-1', author: { role: 'assistant' }, content: { parts: ['A1'] }, create_time: 4 },
+                { id: 'p-2', author: { role: 'user' }, content: { parts: ['P2'] }, create_time: 5 },
+                { id: 'a-2', author: { role: 'assistant' }, content: { parts: ['A2'] }, create_time: 6 },
+              ],
+            },
+          },
+          source: window,
+        })
+      );
+
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      const el0 = document.createElement('div');
+      el0.setAttribute('data-chatgpt-search-message-ids', 'p-0');
+      el0.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      const el2 = document.createElement('div');
+      el2.setAttribute('data-chatgpt-search-message-ids', 'p-2');
+      el2.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      container.appendChild(el0);
+      container.appendChild(el2);
+      document.body.appendChild(container);
+
+      // Jump 0 then immediately jump 2 (supersedes jump 0)
+      promptNavModule.jumpToMessage(
+        { id: 'p-0', text: 'P0', canMatchByText: true, createTime: 1 },
+        0
+      );
+      promptNavModule.jumpToMessage(
+        { id: 'p-2', text: 'P2', canMatchByText: true, createTime: 5 },
+        2
+      );
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[2].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[0].classList.contains('navigator-item-active')).toBe(false);
+      expect(items[1].classList.contains('navigator-item-active')).toBe(false);
+    });
+
+    it('background render after explicit sync keeps target row active', async () => {
+      const { navigatorController: controller } = await import(
+        '@/navigation/navigatorController'
+      );
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const platform = getActivePlatform();
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-bg-render',
+        },
+      });
+
+      controller.init();
+      controller.attach();
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.routeChanged,
+          },
+          source: window,
+        })
+      );
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey: 'test-bg-render',
+            payload: {
+              messages: [
+                { id: 'p-0', author: { role: 'user' }, content: { parts: ['P0'] }, create_time: 1 },
+                { id: 'a-0', author: { role: 'assistant' }, content: { parts: ['A0'] }, create_time: 2 },
+                { id: 'p-1', author: { role: 'user' }, content: { parts: ['P1'] }, create_time: 3 },
+                { id: 'a-1', author: { role: 'assistant' }, content: { parts: ['A1'] }, create_time: 4 },
+              ],
+            },
+          },
+          source: window,
+        })
+      );
+
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      const targetEl = document.createElement('div');
+      targetEl.setAttribute('data-chatgpt-search-message-ids', 'p-1');
+      targetEl.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      container.appendChild(targetEl);
+      document.body.appendChild(container);
+
+      promptNavModule.jumpToMessage(
+        { id: 'p-1', text: 'P1', canMatchByText: true, createTime: 3 },
+        1
+      );
+
+      let items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[1].classList.contains('navigator-item-active')).toBe(true);
+
+      // Trigger background re-render
+      controller.render();
+
+      items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[1].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[0].classList.contains('navigator-item-active')).toBe(false);
+    });
+
+    it('clears explicit authority on route change', async () => {
+      const { navigatorController: controller } = await import(
+        '@/navigation/navigatorController'
+      );
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const platform = getActivePlatform();
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/route-a',
+        },
+      });
+
+      controller.init();
+      controller.attach();
+
+      // Complete navigation on route A
+      promptNavModule.jumpToMessage(
+        { id: 'p-1', text: 'P1', canMatchByText: true, createTime: 2 },
+        1
+      );
+
+      // Navigate to route B
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/route-b',
+        },
+      });
+
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      // Route change triggers reset, clearing state cleanly
+      expect(controller.getCurrentConversationKey()).toBe('route-b');
+    });
+  });
+
+  describe('NavigationState model, display projection, and status transitions', () => {
+    let controller: typeof navigatorController;
+
+    beforeEach(async () => {
+      const mod = await import('@/navigation/navigatorController');
+      controller = mod.navigatorController;
+      controller.detach();
+      controller.setNavigationIdle();
+    });
+
+    afterEach(() => {
+      if (controller) {
+        controller.detach();
+        controller.setNavigationIdle();
+      }
+    });
+
+    function setupConversationWithPrompts(count: number, routeKey = 'test-state-model') {
+      const platform = getActivePlatform();
+      controller.detach();
+      setLoading(false);
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: `/c/${routeKey}`,
+        },
+      });
+
+      controller.init();
+      controller.attach();
+
+      const messages: Array<{
+        id: string;
+        author: { role: string };
+        content: { parts: string[] };
+        create_time: number;
+      }> = [];
+
+      for (let i = 0; i < count; i += 1) {
+        messages.push({
+          id: `p-${i}`,
+          author: { role: 'user' },
+          content: { parts: [`Prompt ${i + 1}`] },
+          create_time: i * 2,
+        });
+        messages.push({
+          id: `a-${i}`,
+          author: { role: 'assistant' },
+          content: { parts: [`Answer ${i + 1}`] },
+          create_time: i * 2 + 1,
+        });
+      }
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey,
+            payload: { messages },
+          },
+          source: window,
+        })
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey,
+            complete: true,
+          },
+          source: window,
+        })
+      );
+    }
+
+    it('idle viewportIndex=2 -> jumping(199) -> visible Prompt 200 active immediately without tracker callback', () => {
+      setupConversationWithPrompts(200, 'test-jumping-start');
+
+      // Set jumping to targetIndex 199 (Prompt 200)
+      controller.setNavigationJumping(199);
+
+      // getDisplayIndex is synchronously 199
+      expect(controller.getDisplayIndex()).toBe(199);
+
+      // TOC active row is row 199
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[199].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[2].classList.contains('navigator-item-active')).toBe(false);
+
+      // Status text shows 1-based prompt 200
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+    });
+
+    it('jumping(199) suppresses raw viewport updates and preserves Prompt 200 active', () => {
+      setupConversationWithPrompts(200, 'test-jumping-suppress');
+      controller.setNavigationJumping(199);
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[199].classList.contains('navigator-item-active')).toBe(true);
+
+      // Trigger scroll event on container
+      document.dispatchEvent(new Event('scroll'));
+      vi.runAllTimers();
+
+      // Displayed active item MUST still be 199
+      expect(controller.getDisplayIndex()).toBe(199);
+      expect(items[199].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[2].classList.contains('navigator-item-active')).toBe(false);
+    });
+
+    it('jumping -> landed transition does not jitter or re-scroll identical target', () => {
+      setupConversationWithPrompts(200, 'test-jumping-landed');
+      controller.setNavigationJumping(199);
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[199].classList.contains('navigator-item-active')).toBe(true);
+
+      const scrollSpy = vi.spyOn(items[199], 'scrollIntoView');
+
+      // Transition jumping(199) -> landed(199)
+      controller.setNavigationLanded(199);
+
+      // Display remains 199
+      expect(controller.getDisplayIndex()).toBe(199);
+      expect(items[199].classList.contains('navigator-item-active')).toBe(true);
+
+      // Target row did not issue redundant scroll
+      expect(scrollSpy).not.toHaveBeenCalled();
+    });
+
+    it('landed authority survives mutations and background renders', () => {
+      setupConversationWithPrompts(200, 'test-landed-authority');
+      controller.setNavigationJumping(199);
+      controller.setNavigationLanded(199);
+
+      expect(controller.getDisplayIndex()).toBe(199);
+
+      // Background re-render while landed
+      controller.render();
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(controller.getDisplayIndex()).toBe(199);
+      expect(items[199].classList.contains('navigator-item-active')).toBe(true);
+    });
+
+    it('wheel/touch in active chat releases landed state to idle and restores viewport tracking', () => {
+      setupConversationWithPrompts(200, 'test-browse-intent');
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      document.body.appendChild(container);
+
+      controller.setNavigationJumping(199);
+      controller.setNavigationLanded(199);
+      expect(controller.getNavigationState().state).toBe('landed');
+
+      // User wheels inside active chat
+      container.dispatchEvent(new Event('wheel', { bubbles: true }));
+
+      // State transitions to idle
+      expect(controller.getNavigationState().state).toBe('idle');
+    });
+
+    it('wheel/touch while jumping cancels search, transitions to idle, and returns to viewport', () => {
+      setupConversationWithPrompts(200, 'test-cancel-jump');
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      document.body.appendChild(container);
+
+      controller.setNavigationJumping(199);
+      expect(controller.getNavigationState().state).toBe('jumping');
+
+      // User touchmove inside active chat
+      container.dispatchEvent(new Event('touchmove', { bubbles: true }));
+
+      expect(controller.getNavigationState().state).toBe('idle');
+    });
+
+    it('jumping -> failed immediately returns display to viewport and displays failure once', () => {
+      setupConversationWithPrompts(200, 'test-jump-failed');
+      const statusElement = document.getElementById('luna-toc-status')!;
+
+      controller.setNavigationJumping(199);
+      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+
+      controller.setNavigationFailed(199);
+
+      expect(controller.getNavigationState().state).toBe('failed');
+      expect(statusElement.textContent).toBe('Jump failed');
+      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+
+      // Display returns to viewport index (or null if no viewport item active)
+      expect(controller.getDisplayIndex()).not.toBe(199);
+    });
+
+    it('completion status is emitted once and does not replay on subsequent render after linger', () => {
+      setupConversationWithPrompts(200, 'test-completion-no-replay');
+      setLoading(false);
+      const statusElement = document.getElementById('luna-toc-status')!;
+
+      controller.setNavigationJumping(199);
+      controller.setNavigationLanded(199);
+
+      expect(statusElement.textContent).toBe('Jumping to prompt #200');
+      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+
+      // Advance past linger timer (500ms)
+      vi.advanceTimersByTime(505);
+      expect(statusElement.textContent).toBe('');
+      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+
+      // Unrelated full render while still landed
+      controller.render();
+
+      // Completion MUST NOT replay
+      expect(statusElement.textContent).toBe('');
+      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+    });
+
+    it('render during failure linger preserves failure status and does not replay after expire', () => {
+      setupConversationWithPrompts(200, 'test-failure-linger');
+      const statusElement = document.getElementById('luna-toc-status')!;
+
+      controller.setNavigationJumping(199);
+      controller.setNavigationFailed(199);
+      expect(statusElement.textContent).toBe('Jump failed');
+
+      // 200ms into linger: render does not overwrite failure status
+      vi.advanceTimersByTime(200);
+      controller.render();
+      expect(statusElement.textContent).toBe('Jump failed');
+      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+
+      // Past 500ms: failure clears
+      vi.advanceTimersByTime(305);
+      expect(statusElement.textContent).toBe('');
+
+      // Subsequent render while still failed does not replay failure
+      controller.render();
+      expect(statusElement.textContent).toBe('');
+    });
+
+    it('rapid supersession 199 -> 149 projects new target directly with no idle frame', () => {
+      setupConversationWithPrompts(200, 'test-supersession');
+      const statusElement = document.getElementById('luna-toc-status')!;
+
+      controller.setNavigationJumping(199);
+      expect(controller.getDisplayIndex()).toBe(199);
+      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+
+      controller.setNavigationJumping(149);
+      expect(controller.getDisplayIndex()).toBe(149);
+      expect(statusElement.textContent).toContain('Jumping to prompt #150');
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      expect(items[149].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[199].classList.contains('navigator-item-active')).toBe(false);
+    });
+
+    it('repeated attach and detach does not leak or duplicate transition listeners', () => {
+      setupConversationWithPrompts(200, 'test-listener-cleanup');
+      const statusElement = document.getElementById('luna-toc-status')!;
+
+      // Multiple detach / attach cycles
+      controller.detach();
+      controller.attach();
+      controller.detach();
+      controller.attach();
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: getActivePlatform().pageHook.messages.conversationEnded,
+            routeKey: 'test-listener-cleanup',
+            complete: true,
+          },
+          source: window,
+        })
+      );
+
+      controller.setNavigationJumping(10);
+      expect(statusElement.textContent).toContain('Jumping to prompt #11');
+
+      controller.setNavigationLanded(10);
+      expect(statusElement.textContent).toBe('Jumping to prompt #11');
+    });
+
+    it('route reset from jumping/landed/failed clears state to idle and resets visual status', () => {
+      setupConversationWithPrompts(200, 'test-route-reset-nav');
+      const statusElement = document.getElementById('luna-toc-status')!;
+
+      controller.setNavigationJumping(199);
+      expect(controller.getNavigationState().state).toBe('jumping');
+      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+
+      // Trigger route change
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/new-route-after-reset',
+        },
+      });
+      window.dispatchEvent(new PopStateEvent('popstate'));
+
+      expect(controller.getNavigationState().state).toBe('idle');
+      expect(statusElement.textContent).not.toContain('Jumping');
     });
   });
 });

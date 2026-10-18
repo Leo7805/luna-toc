@@ -1,55 +1,118 @@
 /** @vitest-environment jsdom */
-/** Tests the active-jump progress store. */
+/** Tests the authoritative NavigationState lifecycle store. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  getJumpProgress,
-  setJumpProgress,
-  clearJumpProgress,
-  setOnRender,
+  getNavigationState,
+  setNavigationJumping,
+  setNavigationLanded,
+  setNavigationFailed,
+  setNavigationIdle,
+  onNavigationStateChange,
+  resetNavigationStateForTest,
 } from '@/navigation/loading/jumpProgressState';
 
-describe('jumpProgressState', () => {
+describe('NavigationState store (jumpProgressState)', () => {
   beforeEach(() => {
-    clearJumpProgress();
-    setOnRender(() => {});
+    resetNavigationStateForTest();
   });
 
-  it('starts null', () => {
-    expect(getJumpProgress()).toBeNull();
+  it('starts in idle state', () => {
+    expect(getNavigationState()).toEqual({ state: 'idle' });
   });
 
-  it('setJumpProgress stores the snapshot and notifies render', () => {
-    const onRender = vi.fn();
-    setOnRender(onRender);
+  it('setNavigationJumping stores jumping state and notifies transition listener', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
 
-    setJumpProgress({ active: true, targetIndex: 3, remainingSteps: 10 });
+    setNavigationJumping(199);
 
-    expect(getJumpProgress()).toEqual({
-      active: true,
-      targetIndex: 3,
-      remainingSteps: 10,
+    expect(getNavigationState()).toEqual({
+      state: 'jumping',
+      targetIndex: 199,
     });
-    expect(onRender).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(
+      { state: 'idle' },
+      { state: 'jumping', targetIndex: 199 }
+    );
   });
 
-  it('clearJumpProgress clears and notifies render', () => {
-    const onRender = vi.fn();
-    setOnRender(onRender);
+  it('setNavigationLanded transitions to landed state upon verified completion', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
 
-    setJumpProgress({ active: true, targetIndex: 3, remainingSteps: 10 });
-    clearJumpProgress();
+    setNavigationJumping(199);
+    setNavigationLanded(199);
 
-    expect(getJumpProgress()).toBeNull();
-    expect(onRender).toHaveBeenCalledTimes(2); // set + clear
+    expect(getNavigationState()).toEqual({
+      state: 'landed',
+      targetIndex: 199,
+    });
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith(
+      { state: 'jumping', targetIndex: 199 },
+      { state: 'landed', targetIndex: 199 }
+    );
   });
 
-  it('clearJumpProgress is a no-op when already null', () => {
-    const onRender = vi.fn();
-    setOnRender(onRender);
+  it('setNavigationFailed transitions to terminal failed state without UI timers', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
 
-    clearJumpProgress();
+    setNavigationJumping(199);
+    setNavigationFailed(199);
 
-    expect(getJumpProgress()).toBeNull();
-    expect(onRender).not.toHaveBeenCalled();
+    expect(getNavigationState()).toEqual({
+      state: 'failed',
+      targetIndex: 199,
+    });
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith(
+      { state: 'jumping', targetIndex: 199 },
+      { state: 'failed', targetIndex: 199 }
+    );
+  });
+
+  it('setNavigationIdle resets to idle', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
+
+    setNavigationJumping(199);
+    setNavigationIdle();
+
+    expect(getNavigationState()).toEqual({ state: 'idle' });
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith(
+      { state: 'jumping', targetIndex: 199 },
+      { state: 'idle' }
+    );
+  });
+
+  it('suppresses identical duplicate state writes', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
+
+    setNavigationJumping(199);
+    setNavigationJumping(199); // Duplicate write
+
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setNavigationIdle();
+    setNavigationIdle(); // Duplicate write
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows unsubscribing from state transitions cleanly', () => {
+    const listener = vi.fn();
+    const unsubscribe = onNavigationStateChange(listener);
+
+    setNavigationJumping(199);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+
+    setNavigationLanded(199);
+    expect(listener).toHaveBeenCalledTimes(1); // Not called after unsubscribe
   });
 });

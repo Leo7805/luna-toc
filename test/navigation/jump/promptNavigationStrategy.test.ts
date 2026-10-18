@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   setJumpProgress: vi.fn(),
   clearJumpProgress: vi.fn(),
   notifyJumpFailed: vi.fn(),
+  onJumpComplete: vi.fn(),
   queryVirtualJumpTarget: vi.fn(),
   readMountedWithSidebarIdx: vi.fn<() => Array<{ element: HTMLElement; sidebarIdx: number; unitKey?: string }>>(() => []),
 }));
@@ -58,6 +59,7 @@ vi.mock('@/navigation/navigationSettings', () => ({
   getChatGptNavigationAlgorithm: () => mocks.navigationAlgorithm,
 }));
 
+import { keepFollowing } from '@/navigation/follow/follow';
 import * as viewportWalker from '@/navigation/jump/viewportWalker';
 import {
   initializePromptNavigation,
@@ -109,6 +111,7 @@ beforeEach(() => {
     setJumpProgress: mocks.setJumpProgress,
     clearJumpProgress: mocks.clearJumpProgress,
     notifyJumpFailed: mocks.notifyJumpFailed,
+    onJumpComplete: mocks.onJumpComplete,
   });
 });
 
@@ -172,7 +175,7 @@ describe('prompt navigation strategy', () => {
       block: 'start',
     });
     expect(target.style.outline).toBe('2px solid #60a5fa');
-    expect(mocks.clearJumpProgress).toHaveBeenCalled();
+    expect(mocks.onJumpComplete).toHaveBeenCalledWith(0);
     expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1200);
@@ -269,8 +272,8 @@ describe('prompt navigation strategy', () => {
         0
       );
 
-      // Fast-forward fake timers beyond 1500ms timeout budget
-      await vi.advanceTimersByTimeAsync(1600);
+      // Fast-forward fake timers beyond 8000ms no-progress watchdog budget
+      await vi.advanceTimersByTimeAsync(8100);
 
       // Walker was NEVER invoked
       expect(walkerSpy).not.toHaveBeenCalled();
@@ -286,5 +289,200 @@ describe('prompt navigation strategy', () => {
     } finally {
       walkerSpy.mockRestore();
     }
+  });
+
+  describe('jump completion ordering & onJumpComplete hook', () => {
+    it('primary success: scroll success -> keepFollowing(1800) -> onJumpComplete', () => {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      const target = document.createElement('div');
+      document.body.append(container, target);
+      target.scrollIntoView = vi.fn();
+      mocks.getContainer.mockReturnValue(container);
+      mocks.findPrompt.mockReturnValue(target);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        3
+      );
+
+      expect(target.scrollIntoView).toHaveBeenCalledOnce();
+      expect(keepFollowing).toHaveBeenCalledWith(1800);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(3);
+    });
+
+    it('primary scroll failure (target disconnected): no Follow refresh, no completion', () => {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      const target = document.createElement('div');
+      // target not appended to DOM -> isConnected === false
+      mocks.getContainer.mockReturnValue(container);
+      mocks.findPrompt.mockReturnValue(target);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        3
+      );
+
+      // keepFollowing was called with 15000 on jump start, but NOT refreshed with 1800
+      expect(keepFollowing).not.toHaveBeenCalledWith(1800);
+      expect(mocks.onJumpComplete).not.toHaveBeenCalled();
+    });
+
+    it('primary superseded jump: no Follow refresh, no completion', () => {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      const target1 = document.createElement('div');
+      const target2 = document.createElement('div');
+      document.body.append(container, target1, target2);
+
+      // Custom scrollIntoView that triggers a second jump synchronously during the scroll of jump 1
+      target1.scrollIntoView = vi.fn(() => {
+        jumpToMessage(
+          {
+            id: 'prompt-2',
+            text: 'Prompt 2',
+            canMatchByText: true,
+            createTime: 0,
+          },
+          4
+        );
+      });
+      target2.scrollIntoView = vi.fn();
+
+      mocks.getContainer.mockReturnValue(container);
+      mocks.findPrompt.mockReturnValueOnce(target1).mockReturnValueOnce(target2);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt 1',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        3
+      );
+
+      // Only the winning jump 2 (index 4) completes; jump 1 (index 3) was superseded
+      expect(mocks.onJumpComplete).toHaveBeenCalledTimes(1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(4);
+    });
+
+    it('600ms re-poll success: scroll success -> Follow refresh -> completion exactly once', async () => {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      document.body.append(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      // Initially disconnected target -> primary scrollTargetIntoView returns false
+      const targetDisconnected = document.createElement('div');
+      mocks.findPrompt.mockReturnValueOnce(targetDisconnected);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        2
+      );
+
+      expect(mocks.onJumpComplete).not.toHaveBeenCalled();
+
+      // Later, re-poll finds connected target
+      const targetConnected = document.createElement('div');
+      document.body.appendChild(targetConnected);
+      targetConnected.scrollIntoView = vi.fn();
+      mocks.findPrompt.mockReturnValue(targetConnected);
+
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(targetConnected.scrollIntoView).toHaveBeenCalled();
+      expect(keepFollowing).toHaveBeenCalledWith(1800);
+      expect(mocks.onJumpComplete).toHaveBeenCalledOnce();
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(2);
+    });
+
+    it('600ms re-poll failure: no Follow refresh, no completion', async () => {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      document.body.append(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetDisconnected = document.createElement('div');
+      mocks.findPrompt.mockReturnValue(targetDisconnected);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        2
+      );
+
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(keepFollowing).not.toHaveBeenCalledWith(1800);
+      expect(mocks.onJumpComplete).not.toHaveBeenCalled();
+    });
+
+    it('600ms re-poll superseded: no Follow refresh, no completion', async () => {
+      mocks.navigationAlgorithm = 'independent-virtual';
+      const container = document.createElement('div');
+      document.body.append(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetDisconnected = document.createElement('div');
+      mocks.findPrompt.mockReturnValueOnce(targetDisconnected);
+
+      jumpToMessage(
+        {
+          id: 'prompt-1',
+          text: 'Prompt',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        2
+      );
+
+      // Supersede with a second jump at t=300ms
+      await vi.advanceTimersByTimeAsync(300);
+      const target2 = document.createElement('div');
+      document.body.appendChild(target2);
+      target2.scrollIntoView = vi.fn();
+      mocks.findPrompt.mockReturnValue(target2);
+
+      jumpToMessage(
+        {
+          id: 'prompt-2',
+          text: 'Prompt 2',
+          canMatchByText: true,
+          createTime: 0,
+        },
+        5
+      );
+
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(5);
+      mocks.onJumpComplete.mockClear();
+
+      // Advance to 600ms when jump 1 re-poll would fire
+      await vi.advanceTimersByTimeAsync(300);
+
+      // Jump 1 re-poll sees jumpVersion !== navigationJumpVersion and does not complete
+      expect(mocks.onJumpComplete).not.toHaveBeenCalled();
+    });
   });
 });

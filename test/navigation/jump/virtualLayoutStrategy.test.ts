@@ -582,6 +582,11 @@ describe('startDomQuiescenceProgressObserver', () => {
     // Debounce window (10ms) expires at t = 210ms
     await vi.advanceTimersByTimeAsync(10);
 
+    // Because minQuerySpacingMs is 250ms and Burst 1 ran at 53ms,
+    // Burst 2 query is scheduled for t = 303ms (250ms after Query 1).
+    // Advance timers past minQuerySpacingMs window
+    await vi.advanceTimersByTimeAsync(100);
+
     // Bridge query 2 ran, reported 50 -> 100. Session now resolves progress!
     const outcome = await session.promise;
     expect(outcome.status).toBe('progress');
@@ -619,7 +624,7 @@ describe('startDomQuiescenceProgressObserver', () => {
     container.remove();
   });
 
-  it('resolves timeout when 1500ms budget expires without progress', async () => {
+  it('resolves timeout when 8000ms no-progress watchdog budget expires without progress', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
 
@@ -636,12 +641,185 @@ describe('startDomQuiescenceProgressObserver', () => {
       isCancelled: () => false,
     });
 
-    // Advance 1500ms total budget
-    await vi.advanceTimersByTimeAsync(1500);
+    // Advance beyond 8000ms total watchdog budget
+    await vi.advanceTimersByTimeAsync(8100);
 
     const outcome = await session.promise;
     expect(outcome.status).toBe('timeout');
 
+    container.remove();
+  });
+
+  it('observes past 1500ms and resolves progress when growth occurs at 4000ms', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'target-not-in-layout',
+      turnCount: 100,
+    });
+
+    const session = startDomQuiescenceProgressObserver({
+      root: document.body,
+      container,
+      targetMessageId: 'msg-0',
+      previousTurnCount: 50,
+      isCancelled: () => false,
+      pollIntervalMs: 0, // disable poll to test mutation trigger specifically
+    });
+
+    // No activity at 1500ms (legacy timeout threshold)
+    await vi.advanceTimersByTimeAsync(1500);
+
+    // Mutation occurs at 4000ms
+    await vi.advanceTimersByTimeAsync(2500);
+    document.body.appendChild(document.createElement('div'));
+    await vi.advanceTimersByTimeAsync(10);
+
+    const outcome = await session.promise;
+    expect(outcome.status).toBe('progress');
+    if (outcome.status === 'progress') {
+      expect(outcome.result.turnCount).toBe(100);
+    }
+
+    container.remove();
+  });
+
+  it('detects growth via 2000ms fallback polling when DOM mutations are completely absent', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    mocks.queryVirtualJumpTarget
+      .mockReturnValueOnce({
+        status: 'target-not-in-layout',
+        turnCount: 50,
+      })
+      .mockReturnValue({
+        status: 'target-not-in-layout',
+        turnCount: 100,
+      });
+
+    const session = startDomQuiescenceProgressObserver({
+      root: document.body,
+      container,
+      targetMessageId: 'msg-0',
+      previousTurnCount: 50,
+      isCancelled: () => false,
+      pollIntervalMs: 2000,
+    });
+
+    // No DOM mutations occur at all.
+    // Poll 1 fires at 2000ms -> turnCount 50 (no progress)
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledOnce();
+
+    // Poll 2 fires at 4000ms -> turnCount 100 (progress!)
+    await vi.advanceTimersByTimeAsync(2000);
+
+    const outcome = await session.promise;
+    expect(outcome.status).toBe('progress');
+    if (outcome.status === 'progress') {
+      expect(outcome.result.turnCount).toBe(100);
+    }
+
+    container.remove();
+  });
+
+  it('final query at 8000ms watchdog deadline resolves progress if layout expanded right at boundary', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    mocks.queryVirtualJumpTarget.mockImplementation(() => ({
+      status: 'target-not-in-layout',
+      turnCount: 100,
+    }));
+
+    const session = startDomQuiescenceProgressObserver({
+      root: document.body,
+      container,
+      targetMessageId: 'msg-0',
+      previousTurnCount: 50,
+      isCancelled: () => false,
+      pollIntervalMs: 0,
+    });
+
+    // Fast-forward to 8000ms watchdog deadline
+    await vi.advanceTimersByTimeAsync(8000);
+
+    const outcome = await session.promise;
+    expect(outcome.status).toBe('progress');
+    if (outcome.status === 'progress') {
+      expect(outcome.result.turnCount).toBe(100);
+    }
+
+    container.remove();
+  });
+
+  it('final query at 8000ms watchdog deadline resolves ok if target appeared in layout', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'ok',
+      targetIndex: 0,
+      topOffsetPx: 600,
+      turnCount: 100,
+    });
+
+    const session = startDomQuiescenceProgressObserver({
+      root: document.body,
+      container,
+      targetMessageId: 'msg-0',
+      previousTurnCount: 50,
+      isCancelled: () => false,
+      pollIntervalMs: 0,
+    });
+
+    // Fast-forward to 8000ms watchdog deadline
+    await vi.advanceTimersByTimeAsync(8000);
+
+    const outcome = await session.promise;
+    expect(outcome.status).toBe('ok');
+
+    container.remove();
+  });
+
+  it('throttles rapid mutation bursts to minQuerySpacingMs and preserves pending check', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'target-not-in-layout',
+      turnCount: 50,
+    });
+
+    const session = startDomQuiescenceProgressObserver({
+      root: document.body,
+      container,
+      targetMessageId: 'msg-0',
+      previousTurnCount: 50,
+      isCancelled: () => false,
+      pollIntervalMs: 0,
+      minQuerySpacingMs: 250,
+    });
+
+    // Burst 1 at 0ms, settles at 10ms -> Query 1 runs immediately
+    document.body.appendChild(document.createElement('div'));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(1);
+
+    // Burst 2 at 50ms, settles at 60ms (only 50ms since Query 1 < 250ms spacing)
+    await vi.advanceTimersByTimeAsync(40);
+    document.body.appendChild(document.createElement('span'));
+    await vi.advanceTimersByTimeAsync(10);
+    // Must NOT have run query 2 yet (throttled)
+    expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(1);
+
+    // Advance to 260ms (250ms after Query 1) -> Query 2 runs!
+    await vi.advanceTimersByTimeAsync(200);
+    expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(2);
+
+    session.dispose();
     container.remove();
   });
 
@@ -802,7 +980,7 @@ describe('Sticky Older-History Virtual Pagination', () => {
     container.remove();
   });
 
-  it('resolves exhausted without walker fallback when 1500ms expires without turnCount growth', async () => {
+  it('resolves exhausted without walker fallback when 8000ms expires without turnCount growth', async () => {
     const container = document.createElement('div');
     container.className = 'thread-scroll-container';
     document.body.appendChild(container);
@@ -830,10 +1008,80 @@ describe('Sticky Older-History Virtual Pagination', () => {
     });
 
     assertVirtual(attempt);
-    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(8100);
 
     const outcome = await attempt.promise;
     expect(outcome.status).toBe('exhausted');
+    if (outcome.status === 'exhausted') {
+      expect(outcome.reason).toBe('no-progress-timeout');
+    }
+
+    container.remove();
+  });
+
+  it('completes multi-batch pagination exceeding 6000ms total without timing out', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+    container.scrollTo = vi.fn();
+
+    mocks.readMountedWithSidebarIdx.mockReturnValue([
+      { element: document.createElement('div'), sidebarIdx: 30, unitKey: 'k-30' },
+    ]);
+
+    // Initial query at t = 0: turnCount 50
+    // Batch 1: at t = 3000ms, turnCount 100
+    // Batch 2: at t = 6000ms, turnCount 150 (target found!)
+    let turnCount = 50;
+    mocks.queryVirtualJumpTarget.mockImplementation(() => {
+      if (turnCount >= 150) {
+        return {
+          status: 'ok',
+          targetIndex: 0,
+          topOffsetPx: 500,
+          turnCount: 150,
+        };
+      }
+      return {
+        status: 'target-not-in-layout',
+        turnCount,
+      };
+    });
+
+    const targetElement = document.createElement('div');
+    mocks.findRenderedPrompt.mockReturnValue(targetElement);
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-0', text: '', canMatchByText: true, createTime: 0 },
+      targetIndex: 0,
+      prompts: [
+        { id: 'msg-0', text: '', canMatchByText: true, createTime: 0 },
+        { id: 'msg-30', text: '', canMatchByText: true, createTime: 0 },
+      ],
+      container,
+      jumpId: 'test-jump',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+
+    // Batch 1: 3000ms elapses (past legacy 1500ms!), then layout grows to 100
+    await vi.advanceTimersByTimeAsync(3000);
+    turnCount = 100;
+    document.body.appendChild(document.createElement('div'));
+    await vi.advanceTimersByTimeAsync(10);
+
+    // Batch 2: another 3000ms elapses (total 6010ms!), then target appears
+    await vi.advanceTimersByTimeAsync(3000);
+    turnCount = 150;
+    document.body.appendChild(document.createElement('div'));
+    await vi.advanceTimersByTimeAsync(10);
+
+    const outcome = await attempt.promise;
+    expect(outcome.status).toBe('mounted');
+    if (outcome.status === 'mounted') {
+      expect(outcome.element).toBe(targetElement);
+    }
 
     container.remove();
   });

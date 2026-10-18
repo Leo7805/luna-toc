@@ -95,26 +95,34 @@ export interface VirtualSearchContext {
 
 export interface PromptNavigationOptions {
   getVirtualSearchContext: () => VirtualSearchContext;
-  setJumpProgress: (progress: {
+  onJumpStart?: (targetIndex: number) => void;
+  onJumpComplete?: (targetIndex: number) => void;
+  onJumpFailed?: (targetIndex: number) => void;
+  setJumpProgress?: (progress: {
     active: boolean;
     targetIndex: number;
-    remainingSteps: number;
+    remainingSteps?: number;
   }) => void;
-  clearJumpProgress: () => void;
-  notifyJumpFailed: () => void;
+  clearJumpProgress?: () => void;
+  notifyJumpFailed?: () => void;
 }
 
 let getVirtualSearchContext: () => VirtualSearchContext = () => ({
   conversationKey: '',
   prompts: [],
 });
-let setJumpProgress: (progress: {
-  active: boolean;
-  targetIndex: number;
-  remainingSteps: number;
-}) => void = () => {};
-let clearJumpProgress: () => void = () => {};
-let notifyJumpFailed: () => void = () => {};
+let onJumpStart: ((targetIndex: number) => void) | undefined;
+let onJumpComplete: ((targetIndex: number) => void) | undefined;
+let onJumpFailed: ((targetIndex: number) => void) | undefined;
+let setJumpProgress:
+  | ((progress: {
+      active: boolean;
+      targetIndex: number;
+      remainingSteps?: number;
+    }) => void)
+  | undefined;
+let clearJumpProgress: (() => void) | undefined;
+let notifyJumpFailed: (() => void) | undefined;
 let navigationJumpVersion = 0;
 
 /**
@@ -126,6 +134,9 @@ export function initializePromptNavigation(
   options: PromptNavigationOptions
 ): void {
   getVirtualSearchContext = options.getVirtualSearchContext;
+  onJumpStart = options.onJumpStart;
+  onJumpComplete = options.onJumpComplete;
+  onJumpFailed = options.onJumpFailed;
   setJumpProgress = options.setJumpProgress;
   clearJumpProgress = options.clearJumpProgress;
   notifyJumpFailed = options.notifyJumpFailed;
@@ -197,6 +208,17 @@ export function jumpToMessage(message: NavigatorMessage, index: number): void {
 }
 
 /**
+ * Logs a `[LunaTOC HISTORY BOUNDARY]` diagnostic event.
+ * All values must be primitive to keep DevTools console clean.
+ */
+function logHistoryBoundary(
+  event: string,
+  fields: Record<string, unknown>
+): void {
+  console.log('[LunaTOC HISTORY BOUNDARY]', { event, ...fields });
+}
+
+/**
  * Uses only LunaTOC anchors, response fingerprints, and virtual search.
  */
 function jumpWithIndependentVirtualNavigation(
@@ -204,6 +226,7 @@ function jumpWithIndependentVirtualNavigation(
   index: number
 ): void {
   const jumpId = createChatGptNavigationJumpId();
+  const jumpStartMs = performance.now();
   const context = getVirtualSearchContext();
   const container = getChatGptScrollContainer();
 
@@ -218,14 +241,22 @@ function jumpWithIndependentVirtualNavigation(
   // sidebar follow window open for the slide duration so the sidebar list can
   // scroll to track the target once it reaches the viewport.
   keepFollowing(15_000);
-  setJumpProgress({
-    active: true,
-    targetIndex: index,
-    remainingSteps: 50,
-  });
+  if (onJumpStart) {
+    onJumpStart(index);
+  } else {
+    setJumpProgress?.({
+      active: true,
+      targetIndex: index,
+      remainingSteps: 50,
+    });
+  }
 
   if (!container || !context.conversationKey) {
-    clearJumpProgress();
+    if (onJumpFailed) {
+      onJumpFailed(index);
+    } else {
+      clearJumpProgress?.();
+    }
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'missing-context',
       hasContainer: Boolean(container),
@@ -243,7 +274,6 @@ function jumpWithIndependentVirtualNavigation(
   const renderedTarget = idHit ?? textHit;
 
   if (renderedTarget) {
-    clearJumpProgress();
     logChatGptNavigationEvent(jumpId, 'JUMP_FAST_PATH_RESULT', {
       idHit: Boolean(idHit),
       textHit: Boolean(textHit),
@@ -252,7 +282,7 @@ function jumpWithIndependentVirtualNavigation(
     if (isJumpVizDebugEnabled()) {
       logMountedPromptViz('fast-path');
     }
-    finishIndependentVirtualJump(renderedTarget, message, index);
+    finishIndependentVirtualJump(renderedTarget, message, index, jumpId);
     return;
   }
 
@@ -268,26 +298,68 @@ function jumpWithIndependentVirtualNavigation(
       isCancelled: () => myNavVersion !== navigationJumpVersion,
     };
 
+    // --- DIAGNOSTIC: START (fast-path miss, entering async strategy) ---
+    logHistoryBoundary('START', {
+      jumpId,
+      targetIndex: index,
+      targetVisibleNumber: index + 1,
+      targetMessageId: message.id,
+      promptCount: context.prompts.length,
+      containerScrollTop: container.scrollTop,
+      elapsedMs: Math.round(performance.now() - jumpStartMs),
+    });
+
     let loaded: HTMLElement | null = null;
     const virtualAttempt = tryVirtualLayoutStrategy(strategyContext);
+
+    // --- DIAGNOSTIC: STRATEGY_MODE_SELECTED (mode decided by tryVirtualLayoutStrategy) ---
+    // Note: the raw bridge query result is logged as INITIAL_VIRTUAL_QUERY
+    // inside tryVirtualLayoutStrategy itself.
+    logHistoryBoundary('STRATEGY_MODE_SELECTED', {
+      jumpId,
+      targetIndex: index,
+      selectedMode: virtualAttempt.mode,
+      unsupportedReason:
+        virtualAttempt.mode === 'unsupported' ? virtualAttempt.reason : null,
+      elapsedMs: Math.round(performance.now() - jumpStartMs),
+    });
 
     if (virtualAttempt.mode === 'unsupported') {
       loaded = await executeViewportWalkerStrategy(strategyContext);
     } else {
       const outcome = await virtualAttempt.promise;
       if (myNavVersion !== navigationJumpVersion || outcome.status === 'cancelled') {
+        // --- DIAGNOSTIC: CANCELLED ---
+        logHistoryBoundary('CANCELLED', {
+          jumpId,
+          targetIndex: index,
+          reason: outcome.status === 'cancelled' ? 'virtual-promise-cancelled' : 'nav-version-mismatch',
+          elapsedMs: Math.round(performance.now() - jumpStartMs),
+        });
         return;
       }
       if (outcome.status === 'mounted') {
-        clearJumpProgress();
-        finishIndependentVirtualJump(outcome.element, message, index);
+        // SUCCESS is logged inside finishIndependentVirtualJump
+        finishIndependentVirtualJump(outcome.element, message, index, jumpId);
         return;
       }
       if (outcome.status === 'capability-failure') {
         loaded = await executeViewportWalkerStrategy(strategyContext);
       } else {
-        clearJumpProgress();
-        notifyJumpFailed();
+        // --- DIAGNOSTIC: FAIL (virtual exhausted) ---
+        logHistoryBoundary('FAIL', {
+          jumpId,
+          targetIndex: index,
+          reason: 'virtual-exhausted',
+          outcomeStatus: outcome.status,
+          elapsedMs: Math.round(performance.now() - jumpStartMs),
+        });
+        if (onJumpFailed) {
+          onJumpFailed(index);
+        } else {
+          clearJumpProgress?.();
+          notifyJumpFailed?.();
+        }
         logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
           status: 'not-found',
           attempts: 'virtual-exhausted',
@@ -298,16 +370,36 @@ function jumpWithIndependentVirtualNavigation(
         return;
       }
     }
-    if (myNavVersion !== navigationJumpVersion) return;
-
-    if (loaded) {
-      clearJumpProgress();
-      finishIndependentVirtualJump(loaded, message, index);
+    if (myNavVersion !== navigationJumpVersion) {
+      // --- DIAGNOSTIC: CANCELLED (superseded after walker) ---
+      logHistoryBoundary('CANCELLED', {
+        jumpId,
+        targetIndex: index,
+        reason: 'nav-version-mismatch-post-walker',
+        elapsedMs: Math.round(performance.now() - jumpStartMs),
+      });
       return;
     }
 
-    clearJumpProgress();
-    notifyJumpFailed();
+    if (loaded) {
+      // SUCCESS is logged inside finishIndependentVirtualJump
+      finishIndependentVirtualJump(loaded, message, index, jumpId);
+      return;
+    }
+
+    // --- DIAGNOSTIC: FAIL (walker exhausted or virtual capability-failure) ---
+    logHistoryBoundary('FAIL', {
+      jumpId,
+      targetIndex: index,
+      reason: 'step-2-exhausted',
+      elapsedMs: Math.round(performance.now() - jumpStartMs),
+    });
+    if (onJumpFailed) {
+      onJumpFailed(index);
+    } else {
+      clearJumpProgress?.();
+      notifyJumpFailed?.();
+    }
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'not-found',
       attempts: 'step-2-exhausted',
@@ -327,11 +419,11 @@ function jumpWithIndependentVirtualNavigation(
 function finishIndependentVirtualJump(
   target: HTMLElement,
   message: NavigatorMessage,
-  index: number
+  index: number,
+  jumpId?: string
 ): void {
   const jumpVersion = ++navigationJumpVersion;
   const targetAttempts = 8;
-  keepFollowing(1800);
 
   // Scroll the target to the top of the chat viewport (with the
   // configured top padding so it doesn't sit flush against the edge),
@@ -348,11 +440,24 @@ function finishIndependentVirtualJump(
   };
 
   if (scrollTargetIntoView(target)) {
+    if (jumpVersion !== navigationJumpVersion) return;
+
+    keepFollowing(1800);
+
+    // --- DIAGNOSTIC: SUCCESS ---
+    logHistoryBoundary('SUCCESS', {
+      jumpId: jumpId ?? null,
+      targetIndex: index,
+      phase: 'direct-scroll',
+    });
+
     logChatGptNavigationEvent(
       createChatGptNavigationJumpId(),
       'JUMP_FINISHED',
       { status: 'found', attempts: targetAttempts }
     );
+
+    onJumpComplete?.(index);
     return;
   }
 
@@ -362,12 +467,31 @@ function finishIndependentVirtualJump(
     if (jumpVersion !== navigationJumpVersion) return;
     const latest = findRenderedChatGptPrompt(message.id);
     if (latest && latest.isConnected) {
-      scrollTargetIntoView(latest);
+      if (!scrollTargetIntoView(latest)) {
+        if (jumpVersion === navigationJumpVersion) {
+          onJumpFailed?.(index);
+        }
+        return;
+      }
+
+      if (jumpVersion !== navigationJumpVersion) return;
+
+      keepFollowing(1800);
+
+      // --- DIAGNOSTIC: SUCCESS (after repoll) ---
+      logHistoryBoundary('SUCCESS', {
+        jumpId: jumpId ?? null,
+        targetIndex: index,
+        phase: 'repoll',
+      });
+
       logChatGptNavigationEvent(
         createChatGptNavigationJumpId(),
         'JUMP_FINISHED',
         { status: 'found-after-repoll', attempts: targetAttempts }
       );
+
+      onJumpComplete?.(index);
       return;
     }
     logChatGptNavigationEvent(
@@ -375,6 +499,9 @@ function finishIndependentVirtualJump(
       'JUMP_FINISHED',
       { status: 'target-disappeared-after-search' }
     );
+    if (jumpVersion === navigationJumpVersion) {
+      onJumpFailed?.(index);
+    }
   }, 600);
 }
 
@@ -404,7 +531,7 @@ export function jumpToPromptIndex(
 /**
  * Cancels active independent and legacy virtual scans before a new jump.
  */
-function cancelActiveNavigationSearch(): void {
+export function cancelActiveNavigationSearch(): void {
   navigationJumpVersion += 1;
 }
 
@@ -433,7 +560,7 @@ export function jumpToAbsoluteEdge(
   // A new absolute-edge jump supersedes any in-flight independent virtual
   // jump; otherwise the highlight from a previous TOC click would linger.
   cancelActiveNavigationSearch();
-  clearJumpProgress();
+  clearJumpProgress?.();
 
   const navVersionAtStart = navigationJumpVersion;
   const firstPromptId =

@@ -1,46 +1,110 @@
 /**
- * Owns the active-jump progress snapshot consumed by the sidebar status
- * band ("Jumping to prompt #N"). A thin object store plus the re-render
- * notification the status band needs to reflect changes.
+ * Authoritative navigation lifecycle state store.
+ * Coordinates destination targets, presentation display authority, and status
+ * lifecycle transitions without visual linger timers.
+ */
+
+export type NavigationState =
+  | { state: 'idle' }
+  | { state: 'jumping'; targetIndex: number }
+  | { state: 'landed'; targetIndex: number }
+  | { state: 'failed'; targetIndex: number };
+
+export type NavigationStateListener = (
+  previous: NavigationState,
+  current: NavigationState
+) => void;
+
+let currentState: NavigationState = { state: 'idle' };
+const listeners = new Set<NavigationStateListener>();
+
+/**
+ * Checks structural equality between two NavigationStates to suppress duplicate writes.
+ */
+function areStatesEqual(a: NavigationState, b: NavigationState): boolean {
+  if (a.state !== b.state) return false;
+  if ('targetIndex' in a && 'targetIndex' in b) {
+    return a.targetIndex === b.targetIndex;
+  }
+  return true;
+}
+
+/**
+ * Updates navigation lifecycle state and notifies subscribers if state changed.
+ */
+function updateState(next: NavigationState): void {
+  if (areStatesEqual(currentState, next)) return;
+  const previous = currentState;
+  currentState = next;
+  listeners.forEach((listener) => {
+    try {
+      listener(previous, next);
+    } catch (error) {
+      console.error('[LunaTOC] navigation state listener error:', error);
+    }
+  });
+}
+
+/**
+ * Returns the current navigation lifecycle state snapshot.
+ */
+export function getNavigationState(): NavigationState {
+  return currentState;
+}
+
+/**
+ * Transitions lifecycle state to 'jumping' toward targetIndex.
  *
- * Kept free of DOM / controller imports so it can be unit-tested directly.
+ * @param targetIndex 0-indexed position of target prompt.
  */
-export type JumpProgress =
-  | { active: boolean; targetIndex: number; remainingSteps: number }
-  | null;
-
-let progress: JumpProgress = null;
-let onRender: (() => void) | null = null;
-
-/**
- * Returns the current jump progress snapshot, or null when no jump is
- * active.
- */
-export function getJumpProgress(): JumpProgress {
-  return progress;
+export function setNavigationJumping(targetIndex: number): void {
+  updateState({ state: 'jumping', targetIndex });
 }
 
 /**
- * Injects the callback fired after `setJumpProgress` / `clearJumpProgress`
- * so the controller can re-render the status band.
+ * Transitions lifecycle state to 'landed' at targetIndex upon verified completion.
+ *
+ * @param targetIndex 0-indexed position of landed prompt.
  */
-export function setOnRender(callback: () => void): void {
-  onRender = callback;
+export function setNavigationLanded(targetIndex: number): void {
+  updateState({ state: 'landed', targetIndex });
 }
 
 /**
- * Marks a jump as active and notifies the renderer.
+ * Transitions lifecycle state to terminal 'failed' for targetIndex.
+ *
+ * @param targetIndex 0-indexed position of prompt that failed to land.
  */
-export function setJumpProgress(next: NonNullable<JumpProgress>): void {
-  progress = next;
-  onRender?.();
+export function setNavigationFailed(targetIndex: number): void {
+  updateState({ state: 'failed', targetIndex });
 }
 
 /**
- * Clears any active jump progress and notifies the renderer.
+ * Transitions lifecycle state to 'idle'.
  */
-export function clearJumpProgress(): void {
-  if (progress === null) return;
-  progress = null;
-  onRender?.();
+export function setNavigationIdle(): void {
+  updateState({ state: 'idle' });
+}
+
+/**
+ * Subscribes to navigation lifecycle state transitions.
+ *
+ * @param listener Callback receiving (previous, current) state transition pairs.
+ * @returns Unsubscribe function to detach listener.
+ */
+export function onNavigationStateChange(
+  listener: NavigationStateListener
+): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
+ * Resets navigation state store for test isolation.
+ */
+export function resetNavigationStateForTest(): void {
+  currentState = { state: 'idle' };
+  listeners.clear();
 }
