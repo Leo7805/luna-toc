@@ -15,6 +15,9 @@ html[data-theme='dark'] {
   --ct-bg-icon-btn-active: #1d2c50;
   --ct-bg-jump-controls: rgba(16, 24, 39, 0.45);
   --ct-bg-jump-btn-hover: rgba(255, 255, 255, 0.08);
+  --ct-jump-icon-color: #9ab0d3;
+  --ct-jump-icon-hover-color: #3b82f6;
+  --ct-jump-icon-active-color: #60a5fa;
   --ct-bg-input: #0b111d;
   --ct-bg-select: #162033;
   --ct-bg-add-btn: #162033;
@@ -116,6 +119,9 @@ html[data-theme='light'] {
   --ct-bg-icon-btn-active: #dce9ff;
   --ct-bg-jump-controls: rgba(238, 245, 255, 0.65);
   --ct-bg-jump-btn-hover: rgba(82, 110, 245, 0.08);
+  --ct-jump-icon-color: #9ab0d3;
+  --ct-jump-icon-hover-color: #2563eb;
+  --ct-jump-icon-active-color: #1d4ed8;
   --ct-bg-input: #e4eefc;
   --ct-bg-select: #e4eefc;
   --ct-bg-add-btn: #e4eefc;
@@ -329,17 +335,17 @@ html[data-theme='light'] {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 6px;
-  border-radius: 18px;
-  background: var(--ct-bg-jump-controls);
-  border: 1px solid var(--ct-border-jump-controls);
-  box-shadow:
-    var(--ct-sidebar-box-shadow-jump),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  overflow: hidden;
+  align-items: center;
+  gap: 8px;
+  width: 30px;
+  padding: 4px 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
   cursor: ns-resize;
   touch-action: none;
   user-select: none;
@@ -367,24 +373,65 @@ html[data-theme='light'] {
 }
 
 .navigator-jump-controls .navigator-icon-btn {
-  background: var(--ct-bg-jump-btn-hover);
-  color: var(--ct-text-muted);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ct-jump-icon-color, #9ab0d3);
+  box-shadow: none;
   justify-self: auto;
   transform: none;
+  cursor: pointer;
+  outline: none;
   transition:
-    color 120ms ease,
-    transform 80ms ease;
+    color 180ms ease,
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.navigator-jump-controls .navigator-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  display: block;
+  transform-origin: center center;
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 180ms ease;
 }
 
 .navigator-jump-controls .navigator-icon-btn:hover {
-  background: var(--ct-bg-jump-btn-hover);
-  color: var(--ct-accent-hover);
+  background: transparent;
+  color: var(--ct-jump-icon-hover-color, #2563eb);
+  transform: scale(1.08);
+}
+
+.navigator-jump-controls .navigator-icon-btn:hover svg {
+  filter: drop-shadow(0 0 2px rgba(37, 99, 235, 0.35));
 }
 
 .navigator-jump-controls .navigator-icon-btn:active {
-  background: var(--ct-bg-jump-btn-hover);
-  color: var(--ct-accent-active);
-  transform: translateY(1px) scale(0.94);
+  background: transparent;
+  color: var(--ct-jump-icon-active-color, #1d4ed8);
+  transform: scale(0.96);
+}
+
+.navigator-jump-controls .navigator-icon-btn:focus-visible {
+  outline: 2px solid var(--ct-jump-icon-hover-color, #2563eb);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigator-jump-controls .navigator-icon-btn,
+  .navigator-jump-controls .navigator-icon-btn svg {
+    transition: none;
+    transform: none;
+  }
 }
 
 .navigator-icon-btn:hover {
