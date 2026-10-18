@@ -686,6 +686,18 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   color: var(--ct-text-custom-title-active);
 }
 
+/* When marked, favourite text colour takes precedence over custom title */
+.navigator-item.navigator-item-marked .navigator-item-text,
+.navigator-item.navigator-item-marked.navigator-item-custom-title .navigator-item-text {
+  color: var(--ct-text-item-marked);
+}
+
+/* Active navigation state preserves high-visibility active text */
+.navigator-item.navigator-item-active.navigator-item-marked .navigator-item-text,
+.navigator-item.navigator-item-active.navigator-item-marked.navigator-item-custom-title .navigator-item-text {
+  color: var(--ct-text-item-active);
+}
+
 .navigator-outline-indicator {
   flex: 0 0 14px;
   color: var(--ct-accent-outline-indicator);

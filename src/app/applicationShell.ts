@@ -18,6 +18,12 @@ import {
   type ResolvedTheme,
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
+import {
+  applyPromptColorStyles,
+  readPromptColorSettings,
+  subscribePromptColorSettings,
+  type PromptColorSettings,
+} from '@/features/theme/promptColorSettings';
 import { APP_CONFIG } from '@/config/config';
 import { initializeNavigationSettings } from '@/navigation/navigationSettings';
 import { initializeCustomTocTitles } from '@/features/customTocTitles/customTocTitleStore';
@@ -189,6 +195,43 @@ function initTheme(): void {
   });
 }
 
+function initPromptColors(): void {
+  const currentSettings: PromptColorSettings = {
+    favouriteColor: 'original',
+    renamedColor: 'original',
+  };
+
+  let hasLiveFavUpdate = false;
+  let hasLiveRenamedUpdate = false;
+
+  subscribePromptColorSettings((patch) => {
+    if (patch.favouriteColor !== undefined) {
+      hasLiveFavUpdate = true;
+      currentSettings.favouriteColor = patch.favouriteColor;
+    }
+    if (patch.renamedColor !== undefined) {
+      hasLiveRenamedUpdate = true;
+      currentSettings.renamedColor = patch.renamedColor;
+    }
+    applyPromptColorStyles(currentSettings);
+  });
+
+  void readPromptColorSettings().then((stored) => {
+    let shouldApply = false;
+    if (!hasLiveFavUpdate) {
+      currentSettings.favouriteColor = stored.favouriteColor;
+      shouldApply = true;
+    }
+    if (!hasLiveRenamedUpdate) {
+      currentSettings.renamedColor = stored.renamedColor;
+      shouldApply = true;
+    }
+    if (shouldApply) {
+      applyPromptColorStyles(currentSettings);
+    }
+  });
+}
+
 /**
  * Publishes semantic global layers as CSS variables shared by legacy and
  * Shadow DOM interfaces.
@@ -217,6 +260,7 @@ export async function initializeApplication(): Promise<void> {
   await initializeNavigationSettings();
   await initializeCustomTocTitles();
   initTheme();
+  initPromptColors();
   navigatorController.init({
     onPromptCountChanged: sidebarController.setPromptCount,
     onPromptAdded: () => sidebarController.setViewMode('toc'),
