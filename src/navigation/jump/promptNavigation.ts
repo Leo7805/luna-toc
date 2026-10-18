@@ -34,59 +34,6 @@ const logChatGptNavigationEvent = (
   details: Record<string, unknown> = {},
   storage?: Storage
 ): void => platform().diagnostics.logEvent(jumpId, eventName, details, storage);
-const isJumpVizDebugEnabled = (
-  storage?: Pick<Storage, 'getItem'>
-): boolean =>
-  platform().diagnostics.isJumpVizDebugEnabled?.(storage) ?? false;
-
-/**
- * Prints the currently-mounted and currently-visible user messages to the
- * console, tagged with the given label so callers can distinguish which
- * phase emitted the dump (e.g. `'fast-path'`, `'pre-search'`,
- * `'post-search'`). Active only when the `chatTocDebugJumpViz` toggle is
- * `1` in `localStorage`; default off.
- *
- * @param label Phase identifier prepended to the dump.
- */
-function logMountedPromptViz(label: string): void {
-  const userSelector = platform().config.selectors.userMessage;
-  const all = Array.from(
-    document.querySelectorAll<HTMLElement>(userSelector)
-  );
-  const visible = all.filter(function (el) {
-    const r = el.getBoundingClientRect();
-    return r.top < window.innerHeight && r.bottom > 0;
-  });
-  const hidden = all.filter(function (el) {
-    const r = el.getBoundingClientRect();
-    return !(r.top < window.innerHeight && r.bottom > 0);
-  });
-  function truncate(s: string, n: number): string {
-    const oneLine = s.replace(/\s+/g, ' ').trim();
-    return oneLine.length > n ? oneLine.slice(0, n) + '…' : oneLine;
-  }
-  function dump(list: HTMLElement[], header: string): void {
-    console.log(`  ${header} (n=${list.length}):`);
-    list.forEach(function (el, i) {
-      const r = el.getBoundingClientRect();
-      const id =
-        platform().navigation.getMessageIdFromElement?.(el) ||
-        (platform().config.selectors.messageId
-          ? el.getAttribute(platform().config.selectors.messageId)
-          : null) ||
-        '(none)';
-      const text = truncate(el.textContent || '', 40);
-      console.log(
-        `    ${i + 1}. ${id.slice(0, 8)} "${text}"` +
-          `  top=${Math.round(r.top)} bot=${Math.round(r.bottom)}`
-      );
-    });
-  }
-  console.log(`[🚩LunaTOC viz][${label}] viewport=${window.innerHeight}px`);
-  console.log(`  mounted total = ${all.length}`);
-  dump(visible, 'visible (in viewport)');
-  dump(hidden, 'mounted but not in viewport');
-}
 
 export interface VirtualSearchContext {
   conversationKey: string;
@@ -267,9 +214,6 @@ function jumpWithIndependentVirtualNavigation(
       textHit: Boolean(textHit),
       finalElement: renderedTarget.tagName,
     });
-    if (isJumpVizDebugEnabled()) {
-      logMountedPromptViz('fast-path');
-    }
     finishIndependentVirtualJump(renderedTarget, message, index);
     return;
   }
@@ -313,9 +257,6 @@ function jumpWithIndependentVirtualNavigation(
           status: 'not-found',
           attempts: 'virtual-exhausted',
         });
-        if (isJumpVizDebugEnabled()) {
-          console.log('[LunaTOC jump] virtual jump exhausted, giving up cleanly');
-        }
         return;
       }
     }
@@ -338,9 +279,6 @@ function jumpWithIndependentVirtualNavigation(
       status: 'not-found',
       attempts: 'step-2-exhausted',
     });
-    if (isJumpVizDebugEnabled()) {
-      console.log('[LunaTOC jump] target not mounted, giving up silently');
-    }
   })();
 }
 

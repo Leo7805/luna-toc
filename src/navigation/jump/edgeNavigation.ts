@@ -73,39 +73,21 @@ async function retryEdgeUntilSettled(
   isCancelled?: () => boolean,
   onFirstPromptVisible?: (element: HTMLElement) => void
 ): Promise<void> {
-  const logEdgeSettle = (details: Record<string, unknown>): void => {
-    if (platform().diagnostics.isJumpVizDebugEnabled?.()) {
-      console.log('[LunaTOC edge-settle]', details);
-    }
-  };
-
   for (let attempt = 0; attempt < EDGE_JUMP_HARD_CAP; attempt++) {
     if (
       jumpVersion !== activeEdgeJumpVersion ||
       isCancelled?.()
     ) {
-      logEdgeSettle({ attempt, phase: 'cancelled' });
       return;
     }
 
     const beforeHeight = container.scrollHeight;
-    const beforeScrollTop = container.scrollTop;
     const maxScrollTop = beforeHeight - container.clientHeight;
     const targetTop = edge === 'top'
       ? (isReverse ? -maxScrollTop : 0)
       : (isReverse ? 0 : maxScrollTop);
 
     container.scrollTop = targetTop;
-
-    logEdgeSettle({
-      attempt,
-      edge,
-      isReverse,
-      maxScrollTop,
-      targetTop,
-      beforeScrollTop,
-      beforeHeight,
-    });
 
     await new Promise<void>(function (resolve) {
       setTimeout(resolve, EDGE_JUMP_SETTLE_MS);
@@ -114,7 +96,6 @@ async function retryEdgeUntilSettled(
       jumpVersion !== activeEdgeJumpVersion ||
       isCancelled?.()
     ) {
-      logEdgeSettle({ attempt, phase: 'cancelled-after-sleep' });
       return;
     }
 
@@ -125,7 +106,6 @@ async function retryEdgeUntilSettled(
       : null;
     if (firstPromptInView) {
       onFirstPromptVisible?.(firstPromptInView);
-      logEdgeSettle({ attempt, phase: 'first-prompt-visible' });
       return;
     }
 
@@ -136,32 +116,17 @@ async function retryEdgeUntilSettled(
       const isAtBottom =
         Math.abs(container.scrollTop - currentBottomTarget) <=
         EDGE_JUMP_BOTTOM_TOLERANCE_PX;
-      logEdgeSettle({
-        attempt,
-        phase: isAtBottom ? 'bottom-settled' : 'bottom-displaced',
-        scrollTop: container.scrollTop,
-        currentBottomTarget,
-        isAtBottom,
-      });
       if (isAtBottom) return;
       continue;
     }
 
     const afterHeight = container.scrollHeight;
     const grown = afterHeight > beforeHeight + EDGE_JUMP_HEIGHT_GROWTH_EPSILON;
-    logEdgeSettle({
-      attempt,
-      phase: 'settled',
-      afterScrollTop: container.scrollTop,
-      afterHeight,
-      grown,
-    });
     // Convergence signal 2: scrollHeight stopped growing, meaning
     // ChatGPT's mount window has stabilised at whatever boundary it
     // is willing to expose.
     if (!grown) return;
   }
-  logEdgeSettle({ phase: 'hard-cap-reached' });
 }
 
 /**
