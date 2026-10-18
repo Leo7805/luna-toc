@@ -151,7 +151,6 @@ export const chatGptPlatform: Platform = {
     composerTextareaSelector: '.ProseMirror[contenteditable="true"]',
   },
   config: {
-    navigationAlgorithm: APP_CONFIG.platforms.chatgpt.navigationAlgorithm,
     promptTopOffsetPx: APP_CONFIG.platforms.chatgpt.promptTopOffsetPx,
     settleAttempts: APP_CONFIG.platforms.chatgpt.settleAttempts,
     backfillMaxPages: APP_CONFIG.platforms.chatgpt.backfillMaxPages,
@@ -160,7 +159,6 @@ export const chatGptPlatform: Platform = {
       initialLoad: APP_CONFIG.platforms.chatgpt.interceptChatGptInitialLoadNumTurns,
     },
     useLocalConfig: APP_CONFIG.platforms.chatgpt.useLocalConfig,
-    showCompatibilityAlert: APP_CONFIG.platforms.chatgpt.showCompatibilityAlert,
     selectors: {
       userMessage: '[data-chatgpt-search-unit-key$=":user"]',
       assistantMessage: '[data-chatgpt-search-unit-key$=":assistant"]',

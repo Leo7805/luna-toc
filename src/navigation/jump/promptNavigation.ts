@@ -1,7 +1,6 @@
 /**
  * Handles main prompt navigation coordinator, fast-path resolution, and public facade for LunaTOC.
  */
-import { getChatGptNavigationAlgorithm } from '../navigationSettings';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
@@ -90,28 +89,14 @@ export function initializePromptNavigation(
 }
 
 /**
- * Jumps to the first or last prompt using ChatGPT's native TOC when available.
+ * Jumps to the first or last prompt using absolute edge navigation.
  *
  * @param edge Target edge: 'top' or 'bottom'.
  */
 export function jumpToConversationEdge(edge: 'top' | 'bottom'): void {
-  if (usesIndependentVirtualNavigation()) {
-    cancelActiveNavigationSearch();
-    jumpToAbsoluteEdge(edge, 'auto');
-    return;
-  }
-
-  // Legacy ChatGPT-native-TOC path intentionally removed. LunaTOC runs on
-  // `independent-virtual` everywhere; on the new ChatGPT web the native
-  // TOC buttons are gone, so the old branch below would always mis-route.
-  logChatGptNavigationEvent(
-    createChatGptNavigationJumpId(),
-    'JUMP_FALLBACK_LEGACY_NATIVE',
-    { edge }
-  );
-  jumpToAbsoluteEdge(edge, 'smooth');
+  cancelActiveNavigationSearch();
+  jumpToAbsoluteEdge(edge, 'auto');
 }
-
 
 /**
  * Applies a temporary highlight effect to a rendered prompt element.
@@ -127,31 +112,14 @@ function highlightMatchedElement(element: HTMLElement): void {
 }
 
 /**
- * Jumps to a prompt. Prefer ChatGPT's built-in prompt navigator because it can
- * scroll virtualized conversations; DOM text/index fallbacks only work for
- * messages currently rendered in the page.
+ * Jumps to a prompt using independent virtual navigation.
  *
  * @param message Target message representation.
  * @param index 0-indexed position in the conversation.
  */
 export function jumpToMessage(message: NavigatorMessage, index: number): void {
   cancelActiveNavigationSearch();
-
-  if (usesIndependentVirtualNavigation()) {
-    jumpWithIndependentVirtualNavigation(message, index);
-    return;
-  }
-
-  // Legacy native path intentionally removed — LunaTOC runs on
-  // `independent-virtual` everywhere; this branch is unreachable in
-  // practice. The fall-through log keeps a trail if configuration ever
-  // changes.
-  logChatGptNavigationEvent(
-    createChatGptNavigationJumpId(),
-    'JUMP_FALLBACK_LEGACY',
-    { index }
-  );
-  jumpToAbsoluteEdge('top', 'auto');
+  jumpWithIndependentVirtualNavigation(message, index);
 }
 
 /**
@@ -390,13 +358,6 @@ export function jumpToPromptIndex(
  */
 export function cancelActiveNavigationSearch(): void {
   navigationJumpVersion += 1;
-}
-
-/**
- * Returns whether ChatGPT navigation must avoid all native TOC behavior.
- */
-function usesIndependentVirtualNavigation(): boolean {
-  return getChatGptNavigationAlgorithm() === 'independent-virtual';
 }
 
 /**

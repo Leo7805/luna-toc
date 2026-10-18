@@ -84,13 +84,11 @@ export const copilotPlatform: Platform = {
     composerTextareaSelector: '',
   },
   config: {
-    navigationAlgorithm: 'legacy-native',
     promptTopOffsetPx: 16,
     settleAttempts: 3,
     backfillMaxPages: 5,
     interceptFetchNumTurns: { pagination: null, initialLoad: null },
     useLocalConfig: false,
-    showCompatibilityAlert: false,
     selectors: {
       userMessage: '',
       assistantMessage: '',

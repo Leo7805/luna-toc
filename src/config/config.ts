@@ -1,9 +1,5 @@
 /** Centralizes project-level values intended for deliberate tuning. */
 
-export type ChatGptNavigationAlgorithm =
-  | 'legacy-native'
-  | 'independent-virtual';
-
 /** Identifies one ChatGPT external-contract value (API path, selector, channel, etc.). */
 export type ChatGptContractId =
   | 'api.conversation.path'
@@ -70,7 +66,6 @@ export const APP_CONFIG = {
   },
   platforms: {
     chatgpt: {
-      navigationAlgorithm: 'independent-virtual' as ChatGptNavigationAlgorithm,
       promptTopOffsetPx: 16,
       settleAttempts: 3,
       backfillMaxPages: 10,
@@ -157,10 +152,6 @@ export const APP_CONFIG = {
       // When true, getActiveContractValue() returns the `local` slot instead of
       // `formal`. Flipped by the developer during local debugging/testing.
       useLocalConfig: false,
-      // When true, the content-script compatibility alert renders a topmost
-      // portal modal on chatgpt.com when the detector observes a mismatch.
-      // Exposed in the Options page; defaults OFF so end users are unaffected.
-      showCompatibilityAlert: false,
     },
   },
   navigation: {
@@ -241,7 +232,6 @@ export function platformRuntimeConfigKey(platformId: string): string {
 /** Runtime overrides for ChatGPT config flags, loaded from `chrome.storage.local`. */
 export interface ChatGptRuntimeConfig {
   useLocalConfig: boolean;
-  showCompatibilityAlert: boolean;
 }
 
 /**
@@ -259,11 +249,10 @@ export async function loadPlatformRuntimeConfig(
   storage: Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'> = chrome.storage.local
 ): Promise<ChatGptRuntimeConfig> {
   const block = (
-    APP_CONFIG as { platforms: Record<string, { useLocalConfig: boolean; showCompatibilityAlert: boolean }> }
+    APP_CONFIG as { platforms: Record<string, { useLocalConfig: boolean }> }
   ).platforms[platformId];
   const defaults: ChatGptRuntimeConfig = {
     useLocalConfig: block?.useLocalConfig ?? false,
-    showCompatibilityAlert: block?.showCompatibilityAlert ?? false,
   };
 
   const newKey = platformRuntimeConfigKey(platformId);
@@ -277,10 +266,6 @@ export async function loadPlatformRuntimeConfig(
           typeof overrides.useLocalConfig === 'boolean'
             ? overrides.useLocalConfig
             : defaults.useLocalConfig,
-        showCompatibilityAlert:
-          typeof overrides.showCompatibilityAlert === 'boolean'
-            ? overrides.showCompatibilityAlert
-            : defaults.showCompatibilityAlert,
       };
     }
 
@@ -293,10 +278,6 @@ export async function loadPlatformRuntimeConfig(
           typeof overrides.useLocalConfig === 'boolean'
             ? overrides.useLocalConfig
             : defaults.useLocalConfig,
-        showCompatibilityAlert:
-          typeof overrides.showCompatibilityAlert === 'boolean'
-            ? overrides.showCompatibilityAlert
-            : defaults.showCompatibilityAlert,
       };
       try {
         await storage.set({ [newKey]: migrated });
@@ -336,10 +317,6 @@ export async function savePlatformRuntimeConfig(
       overrides.useLocalConfig !== undefined
         ? overrides.useLocalConfig
         : current.useLocalConfig,
-    showCompatibilityAlert:
-      overrides.showCompatibilityAlert !== undefined
-        ? overrides.showCompatibilityAlert
-        : current.showCompatibilityAlert,
   };
 
   try {
@@ -363,7 +340,6 @@ export async function loadChatGptRuntimeConfig(
 ): Promise<ChatGptRuntimeConfig> {
   const defaults: ChatGptRuntimeConfig = {
     useLocalConfig: APP_CONFIG.platforms.chatgpt.useLocalConfig,
-    showCompatibilityAlert: APP_CONFIG.platforms.chatgpt.showCompatibilityAlert,
   };
 
   try {
@@ -377,10 +353,6 @@ export async function loadChatGptRuntimeConfig(
         typeof overrides.useLocalConfig === 'boolean'
           ? overrides.useLocalConfig
           : defaults.useLocalConfig,
-      showCompatibilityAlert:
-        typeof overrides.showCompatibilityAlert === 'boolean'
-          ? overrides.showCompatibilityAlert
-          : defaults.showCompatibilityAlert,
     };
   } catch {
     return defaults;
@@ -407,10 +379,6 @@ export async function saveChatGptRuntimeConfig(
       overrides.useLocalConfig !== undefined
         ? overrides.useLocalConfig
         : current.useLocalConfig,
-    showCompatibilityAlert:
-      overrides.showCompatibilityAlert !== undefined
-        ? overrides.showCompatibilityAlert
-        : current.showCompatibilityAlert,
   };
 
   try {

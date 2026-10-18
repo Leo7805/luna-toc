@@ -296,7 +296,6 @@ export interface PlatformNavigationDiagnostics {
  */
 export interface PlatformRuntimeConfig {
   useLocalConfig: boolean;
-  showCompatibilityAlert: boolean;
 }
 
 /**
@@ -316,7 +315,6 @@ export interface PlatformContractTable<Id extends string> {
  * chatgpt block; new platforms copy it.
  */
 export interface PlatformConfigBlock {
-  navigationAlgorithm: 'legacy-native' | 'independent-virtual';
   promptTopOffsetPx: number;
   settleAttempts: number;
   backfillMaxPages: number;
@@ -325,7 +323,6 @@ export interface PlatformConfigBlock {
     initialLoad: number | null;
   };
   useLocalConfig: boolean;
-  showCompatibilityAlert: boolean;
   /** Default DOM selectors used by the navigation controller. */
   selectors: {
     userMessage: string;

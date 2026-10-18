@@ -8,7 +8,6 @@ import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomple
 import { PromptContextMenuHost } from '@/components/my-prompts/PromptContextMenu';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
 import { CustomTocTitleDialogHost } from '@/components/custom-toc-titles/CustomTocTitleDialog';
-import { ContractAlert } from '@/features/contractAlert/ContractAlert';
 import {
   setReactPortalContainer,
   getReactPortalContainer,
@@ -60,7 +59,6 @@ export async function initializeReactHost(): Promise<void> {
       <PromptContextMenuHost />
       <PromptEditorDialogHost />
       <CustomTocTitleDialogHost />
-      <ContractAlert />
     </>
   );
 }

@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-/** Tests configuration-based routing between ChatGPT navigation strategies. */
+/** Tests independent virtual navigation strategy and regressions. */
 import {
   afterEach,
   beforeEach,
@@ -8,10 +8,8 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { ChatGptNavigationAlgorithm } from '@/config/config';
 
 const mocks = vi.hoisted(() => ({
-  navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
   findPrompt: vi.fn(),
   getContainer: vi.fn(),
   createJumpId: vi.fn(() => 'jump-id-stub'),
@@ -55,14 +53,11 @@ vi.mock('@/navigation/follow/follow', () => ({
   keepFollowing: vi.fn(),
 }));
 
-vi.mock('@/navigation/navigationSettings', () => ({
-  getChatGptNavigationAlgorithm: () => mocks.navigationAlgorithm,
-}));
-
 import { keepFollowing } from '@/navigation/follow/follow';
 import * as viewportWalker from '@/navigation/jump/viewportWalker';
 import {
   initializePromptNavigation,
+  jumpToConversationEdge,
   jumpToMessage,
 } from '@/navigation/jump/promptNavigation';
 
@@ -92,7 +87,6 @@ beforeEach(() => {
       return 1;
     })
   );
-  mocks.navigationAlgorithm = 'legacy-native';
   mocks.queryVirtualJumpTarget.mockReturnValue(undefined);
   mocks.readMountedWithSidebarIdx.mockReturnValue([]);
 
@@ -121,19 +115,18 @@ afterEach(() => {
 });
 
 describe('prompt navigation strategy', () => {
-  it('falls back to legacy navigation in the default legacy strategy', () => {
+  it('always uses independent navigation for jumpToMessage and ignores any legacy navigation preference', () => {
+    localStorage.setItem(
+      'chatToc:navigationSettings',
+      JSON.stringify({ chatgpt: 'legacy-native' })
+    );
+
     const container = document.createElement('div');
-    Object.defineProperty(container, 'scrollHeight', {
-      value: 1000,
-      configurable: true,
-    });
-    Object.defineProperty(container, 'clientHeight', {
-      value: 600,
-      configurable: true,
-    });
-    container.scrollTop = 400;
-    document.body.appendChild(container);
+    const target = document.createElement('div');
+    document.body.append(container, target);
+    target.scrollIntoView = vi.fn();
     mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(target);
 
     jumpToMessage(
       {
@@ -145,13 +138,34 @@ describe('prompt navigation strategy', () => {
       0
     );
 
+    expect(target.scrollIntoView).toHaveBeenCalledOnce();
+    expect(target.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'auto',
+      block: 'start',
+    });
+    expect(mocks.onJumpComplete).toHaveBeenCalledWith(0);
+  });
+
+  it('navigates directly to absolute edge in jumpToConversationEdge', () => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 2000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 600,
+      configurable: true,
+    });
+    container.scrollTop = 500;
+    document.body.appendChild(container);
+    mocks.getContainer.mockReturnValue(container);
+
+    jumpToConversationEdge('top');
+
     expect(container.scrollTop).toBe(0);
-    expect(mocks.findPrompt).not.toHaveBeenCalled();
-    expect(mocks.setJumpProgress).not.toHaveBeenCalled();
   });
 
   it('navigates directly via fast-path when target is rendered in independent-virtual strategy', async () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     const target = document.createElement('div');
     document.body.append(container, target);
@@ -183,7 +197,6 @@ describe('prompt navigation strategy', () => {
   });
 
   it('initiates virtual step-loading when target is not rendered in the DOM', () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     document.body.appendChild(container);
     mocks.getContainer.mockReturnValue(container);
@@ -207,7 +220,6 @@ describe('prompt navigation strategy', () => {
   });
 
   it('starts independent virtual search without calling the legacy path', async () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     Object.defineProperty(container, 'scrollHeight', {
       value: 1000,
@@ -244,7 +256,6 @@ describe('prompt navigation strategy', () => {
   it('locks virtual mode for older target and does not fall back to walker on exhaustion', async () => {
     const walkerSpy = vi.spyOn(viewportWalker, 'loadUntilMountedViaViewport');
     try {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       container.scrollTo = vi.fn();
       document.body.appendChild(container);
@@ -293,7 +304,6 @@ describe('prompt navigation strategy', () => {
 
   describe('jump completion ordering & onJumpComplete hook', () => {
     it('primary success: scroll success -> keepFollowing(1800) -> onJumpComplete', () => {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       const target = document.createElement('div');
       document.body.append(container, target);
@@ -317,7 +327,6 @@ describe('prompt navigation strategy', () => {
     });
 
     it('primary scroll failure (target disconnected): no Follow refresh, no completion', () => {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       const target = document.createElement('div');
       // target not appended to DOM -> isConnected === false
@@ -340,7 +349,6 @@ describe('prompt navigation strategy', () => {
     });
 
     it('primary superseded jump: no Follow refresh, no completion', () => {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       const target1 = document.createElement('div');
       const target2 = document.createElement('div');
@@ -379,7 +387,6 @@ describe('prompt navigation strategy', () => {
     });
 
     it('600ms re-poll success: scroll success -> Follow refresh -> completion exactly once', async () => {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       document.body.append(container);
       mocks.getContainer.mockReturnValue(container);
@@ -415,7 +422,6 @@ describe('prompt navigation strategy', () => {
     });
 
     it('600ms re-poll failure: no Follow refresh, no completion', async () => {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       document.body.append(container);
       mocks.getContainer.mockReturnValue(container);
@@ -440,7 +446,6 @@ describe('prompt navigation strategy', () => {
     });
 
     it('600ms re-poll superseded: no Follow refresh, no completion', async () => {
-      mocks.navigationAlgorithm = 'independent-virtual';
       const container = document.createElement('div');
       document.body.append(container);
       mocks.getContainer.mockReturnValue(container);

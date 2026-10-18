@@ -28,7 +28,7 @@ export const JUMP_STRATEGY_CONFIG: JumpStrategyConfig = {
   virtualLayout: {
     enabled: true,
     mountTimeoutMs: 1000,
-    noProgressTimeoutMs: 8000,
+    noProgressTimeoutMs: 20000,
     paginationPollIntervalMs: 2000,
     minQuerySpacingMs: 250,
   },

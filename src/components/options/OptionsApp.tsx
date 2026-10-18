@@ -1,17 +1,6 @@
 /** Renders LunaTOC's full-page extension settings. */
 import { useEffect, useState } from 'react';
 import {
-  loadPlatformRuntimeConfig,
-  savePlatformRuntimeConfig,
-  type ChatGptRuntimeConfig,
-  type ChatGptNavigationAlgorithm,
-} from '@/config/config';
-import {
-  readNavigationSettings,
-  subscribeNavigationSettings,
-  writeNavigationSettings,
-} from '@/navigation/navigationSettings';
-import {
   FAVOURITE_COLOR_PRESETS,
   RENAMED_COLOR_PRESETS,
   readFavouriteColor,
@@ -24,34 +13,8 @@ import {
   type RenamedColorPreset,
 } from '@/features/theme/promptColorSettings';
 
-interface NavigationChoice {
-  value: ChatGptNavigationAlgorithm;
-  label: string;
-  description: string;
-}
-
-const NAVIGATION_CHOICES: NavigationChoice[] = [
-  {
-    value: 'legacy-native',
-    label: 'ChatGPT Native',
-    description:
-      'Uses ChatGPT\'s built-in prompt navigator, which was removed in recent layouts and now falls back to a slow text scan.',
-  },
-  {
-    value: 'independent-virtual',
-    label: 'LunaTOC Independent',
-    description:
-      'Deterministic message-ID navigation that targets each prompt turn precisely.',
-  },
-];
-
-/** Displays the available ChatGPT navigation strategies and prompt colour options. */
+/** Displays prompt colour options for LunaTOC. */
 export function OptionsApp(): React.JSX.Element {
-  const [algorithm, setAlgorithm] =
-    useState<ChatGptNavigationAlgorithm>('legacy-native');
-  const [runtimeConfig, setRuntimeConfig] =
-    useState<ChatGptRuntimeConfig | null>(null);
-
   const [favouriteColor, setFavouriteColor] =
     useState<FavouriteColorPreset>('original');
   const [renamedColor, setRenamedColor] =
@@ -70,15 +33,6 @@ export function OptionsApp(): React.JSX.Element {
     };
     media.addEventListener('change', listener);
     return () => media.removeEventListener('change', listener);
-  }, []);
-
-  useEffect(() => {
-    void readNavigationSettings().then(({ chatgpt }) => {
-      setAlgorithm(chatgpt);
-    });
-    return subscribeNavigationSettings(({ chatgpt }) => {
-      setAlgorithm(chatgpt);
-    });
   }, []);
 
   useEffect(() => {
@@ -109,38 +63,6 @@ export function OptionsApp(): React.JSX.Element {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    void loadPlatformRuntimeConfig('chatgpt').then((cfg) => {
-      if (!cancelled) setRuntimeConfig(cfg);
-    });
-
-    const handleChange = (
-      changes: Record<string, chrome.storage.StorageChange>,
-      areaName: chrome.storage.AreaName
-    ): void => {
-      if (areaName !== 'local') return;
-      if (!('luna:chatgpt:runtimeConfig' in changes)) return;
-      void loadPlatformRuntimeConfig('chatgpt').then((cfg) => {
-        if (!cancelled) setRuntimeConfig(cfg);
-      });
-    };
-
-    chrome.storage.onChanged.addListener(handleChange);
-
-    return () => {
-      cancelled = true;
-      chrome.storage.onChanged.removeListener(handleChange);
-    };
-  }, []);
-
-  const selectAlgorithm = (
-    nextAlgorithm: ChatGptNavigationAlgorithm
-  ): void => {
-    setAlgorithm(nextAlgorithm);
-    void writeNavigationSettings({ chatgpt: nextAlgorithm });
-  };
-
   const selectFavouriteColor = (nextColor: FavouriteColorPreset): void => {
     setFavouriteColor(nextColor);
     void writeFavouriteColor(nextColor);
@@ -149,15 +71,6 @@ export function OptionsApp(): React.JSX.Element {
   const selectRenamedColor = (nextColor: RenamedColorPreset): void => {
     setRenamedColor(nextColor);
     void writeRenamedColor(nextColor);
-  };
-
-  const toggleCompatibilityAlert = (next: boolean): void => {
-    setRuntimeConfig((prev) =>
-      prev
-        ? { ...prev, showCompatibilityAlert: next }
-        : { useLocalConfig: false, showCompatibilityAlert: next }
-    );
-    void savePlatformRuntimeConfig('chatgpt', { showCompatibilityAlert: next });
   };
 
   return (
@@ -171,63 +84,7 @@ export function OptionsApp(): React.JSX.Element {
         </h1>
       </header>
 
-      <section aria-labelledby="navigation-heading">
-        <h2
-          id="navigation-heading"
-          className="m-0 text-lg font-semibold text-[var(--o-text)]"
-        >
-          Navigation
-        </h2>
-        <p className="mt-1 mb-4 text-sm text-[var(--o-muted)]">
-          Choose how LunaTOC navigates ChatGPT conversations.
-        </p>
-
-        <fieldset className="m-0 grid gap-3 border-0 p-0">
-          <legend className="sr-only">ChatGPT Navigation</legend>
-          {NAVIGATION_CHOICES.map((choice) => {
-            const selected = algorithm === choice.value;
-            return (
-              <label
-                key={choice.value}
-                className={`grid cursor-pointer grid-cols-[18px_minmax(0,1fr)] gap-3 rounded-xl border p-4 transition ${
-                  selected
-                    ? 'border-[var(--o-accent)] bg-[var(--o-accent-soft)]'
-                    : 'border-[var(--o-border)] bg-[var(--o-surface)] hover:border-[var(--o-accent)]'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="chatgpt-navigation"
-                  value={choice.value}
-                  checked={selected}
-                  className="mt-0.5 size-4 accent-[var(--o-accent)]"
-                  onChange={() => selectAlgorithm(choice.value)}
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-[var(--o-text)]">
-                    {choice.label}
-                    {choice.value === 'legacy-native' && (
-                      <span className="ml-1.5 text-xs font-medium text-[var(--o-muted)]">
-                        (Legacy)
-                      </span>
-                    )}
-                    {choice.value === 'independent-virtual' && (
-                      <span className="ml-1.5 text-xs font-medium text-[var(--o-accent)]">
-                        (Recommended)
-                      </span>
-                    )}
-                  </span>
-                  <span className="mt-1 block text-sm leading-5 text-[var(--o-muted)]">
-                    {choice.description}
-                  </span>
-                </span>
-              </label>
-            );
-          })}
-        </fieldset>
-      </section>
-
-      <section aria-labelledby="prompt-colours-heading" className="mt-10">
+      <section aria-labelledby="prompt-colours-heading">
         <h2
           id="prompt-colours-heading"
           className="m-0 text-lg font-semibold text-[var(--o-text)]"
@@ -329,48 +186,6 @@ export function OptionsApp(): React.JSX.Element {
             </div>
           </div>
         </div>
-      </section>
-
-      <section aria-labelledby="compat-heading" className="mt-10">
-        <h2
-          id="compat-heading"
-          className="m-0 text-lg font-semibold text-[var(--o-text)]"
-        >
-          Compatibility
-        </h2>
-        <p className="mt-1 mb-4 text-sm text-[var(--o-muted)]">
-          Developer diagnostics. Off by default so end users are not notified.
-        </p>
-
-        <fieldset className="m-0 grid gap-3 border-0 p-0">
-          <legend className="sr-only">ChatGPT Compatibility Alert</legend>
-          <label
-            className={`grid cursor-pointer grid-cols-[18px_minmax(0,1fr)] gap-3 rounded-xl border p-4 transition ${
-              runtimeConfig?.showCompatibilityAlert
-                ? 'border-[var(--o-accent)] bg-[var(--o-accent-soft)]'
-                : 'border-[var(--o-border)] bg-[var(--o-surface)] hover:border-[var(--o-accent)]'
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={runtimeConfig?.showCompatibilityAlert ?? false}
-              onChange={(event) =>
-                toggleCompatibilityAlert(event.currentTarget.checked)
-              }
-              className="mt-0.5 size-4 accent-[var(--o-accent)]"
-            />
-            <span>
-              <span className="block text-sm font-semibold text-[var(--o-text)]">
-                ChatGPT Compatibility Alert
-              </span>
-              <span className="mt-1 block text-sm leading-5 text-[var(--o-muted)]">
-                Notify me on this page when ChatGPT&apos;s API or layout changes
-                may affect LunaTOC. (Developer feature — leave off unless
-                you&apos;re maintaining the extension.)
-              </span>
-            </span>
-          </label>
-        </fieldset>
       </section>
     </main>
   );
