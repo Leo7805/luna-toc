@@ -2006,5 +2006,102 @@ describe('navigatorController lifecycle and coordination', () => {
       expect(controller.getNavigationState().state).toBe('idle');
       expect(statusElement.textContent).not.toContain('Jumping');
     });
+
+    it('previous landed target releases landed state to idle and restores viewport tracking on jumpToEdge("top")', async () => {
+      setupConversationWithPrompts(100, 'test-landed-to-top');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      // Simulate previously landed target at prompt 50 (targetIndex 49)
+      controller.setNavigationLanded(49);
+      expect(controller.getNavigationState()).toEqual({
+        state: 'landed',
+        targetIndex: 49,
+      });
+      expect(controller.getDisplayIndex()).toBe(49);
+
+      // Act: Click ToTop
+      controller.jumpToEdge('top');
+
+      // 1. Previous landed ownership released, state returns to idle
+      expect(controller.getNavigationState().state).toBe('idle');
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
+
+      // 2. Display index is no longer locked to 49
+      expect(controller.getDisplayIndex()).not.toBe(49);
+
+      // Mount prompt 0 in DOM inside thread container and verify tracker updates display index to 0
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      const el0 = document.createElement('div');
+      el0.setAttribute('data-chatgpt-search-message-ids', 'p-0');
+      el0.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      container.appendChild(el0);
+      document.body.appendChild(container);
+
+      document.dispatchEvent(new Event('scroll'));
+      vi.runAllTimers();
+
+      expect(controller.getDisplayIndex()).toBe(0);
+    });
+
+    it('previous landed target releases landed state to idle on jumpToEdge("bottom")', async () => {
+      setupConversationWithPrompts(100, 'test-landed-to-bottom');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      controller.setNavigationLanded(49);
+      expect(controller.getNavigationState()).toEqual({
+        state: 'landed',
+        targetIndex: 49,
+      });
+
+      // Act: Click ToBottom
+      controller.jumpToEdge('bottom');
+
+      expect(controller.getNavigationState().state).toBe('idle');
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
+    });
+
+    it('edge jump supersedes an ongoing jump, returning state to idle and cancelling active search', async () => {
+      setupConversationWithPrompts(100, 'test-edge-supersede-jump');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      // Ongoing jump
+      controller.setNavigationJumping(49);
+      expect(controller.getNavigationState()).toEqual({
+        state: 'jumping',
+        targetIndex: 49,
+      });
+
+      // Edge jump initiated
+      controller.jumpToEdge('top');
+
+      expect(controller.getNavigationState().state).toBe('idle');
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
+    });
+
+    it('jumpToAbsoluteEdge releases landed state to idle', async () => {
+      setupConversationWithPrompts(100, 'test-landed-to-absolute-edge');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      controller.setNavigationLanded(49);
+      expect(controller.getNavigationState().state).toBe('landed');
+
+      controller.jumpToAbsoluteEdge('top');
+
+      expect(controller.getNavigationState().state).toBe('idle');
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
+    });
   });
 });

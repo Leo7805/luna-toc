@@ -278,7 +278,7 @@ export const navigatorController = (() => {
       },
       clearJumpProgress: () => {
         const nav = getNavigationState();
-        if (nav.state === 'jumping') {
+        if (nav.state === 'jumping' || nav.state === 'landed') {
           setNavigationIdle();
         }
       },
@@ -339,6 +339,8 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToEdge(edge: 'top' | 'bottom'): void {
+    cancelActiveNavigationSearch();
+    setNavigationIdle();
     jumpToPageEdge(edge, 'auto');
   }
 
@@ -361,6 +363,8 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToAbsoluteEdge(edge: 'top' | 'bottom'): void {
+    cancelActiveNavigationSearch();
+    setNavigationIdle();
     jumpToPageEdge(edge, 'auto');
   }
 

@@ -17,17 +17,6 @@ function platform() {
   return getActivePlatform();
 }
 
-/**
- * Logs a `[LunaTOC HISTORY BOUNDARY]` diagnostic event.
- * All values must be primitive to keep DevTools console clean.
- */
-function logHistoryBoundary(
-  event: string,
-  fields: Record<string, unknown>
-): void {
-  console.log('[LunaTOC HISTORY BOUNDARY]', { event, ...fields });
-}
-
 const isJumpVizDebugEnabled = (
   storage?: Pick<Storage, 'getItem'>
 ): boolean =>
@@ -174,7 +163,6 @@ export async function loadUntilMountedViaViewport(
 ): Promise<HTMLElement | null> {
   const LOAD_SETTLE_MS = 1500;
   const root = document;
-  const walkerStartMs = performance.now();
 
   function logLoadStep(details: Record<string, unknown>): void {
     if (isJumpVizDebugEnabled()) {
@@ -208,23 +196,6 @@ export async function loadUntilMountedViaViewport(
     return null;
   }
   let direction = initialDirection;
-
-  // --- DIAGNOSTIC: WALKER_ENTER ---
-  logHistoryBoundary('WALKER_ENTER', {
-    jumpId: jumpId ?? null,
-    targetIndex,
-    targetId,
-    initialDirection,
-    sidebarIndicesMin: sidebarIndices.length > 0 ? Math.min(...sidebarIndices) : null,
-    sidebarIndicesMax: sidebarIndices.length > 0 ? Math.max(...sidebarIndices) : null,
-    sidebarIndicesCount: sidebarIndices.length,
-    mountQueueSize: mountQueue.size,
-    isReverse,
-    containerScrollTop: container.scrollTop,
-    containerScrollHeight: container.scrollHeight,
-    elapsedMs: Math.round(performance.now() - walkerStartMs),
-  });
-
 
   // Passive exact-target observer for the lifetime of this walk
   let detectedTarget: HTMLElement | null = null;
@@ -316,18 +287,6 @@ export async function loadUntilMountedViaViewport(
       }
 
       // Physical stall: hit boundary without target. Enter boundary/backfill wait.
-      // --- DIAGNOSTIC: WALKER_BOUNDARY ---
-      logHistoryBoundary('WALKER_BOUNDARY', {
-        jumpId: jumpId ?? null,
-        targetIndex,
-        stepIndex: currentStep,
-        direction,
-        beforeScrollTop,
-        afterScrollTop: container.scrollTop,
-        containerScrollHeight: container.scrollHeight,
-        elapsedMs: Math.round(performance.now() - walkerStartMs),
-      });
-
       const stallOutcome = await handleBoundaryOrBackfillStall(
         container,
         mountQueue,
@@ -339,15 +298,6 @@ export async function loadUntilMountedViaViewport(
         LOAD_SETTLE_MS,
         root
       );
-
-      // --- DIAGNOSTIC: WALKER_BOUNDARY_WAIT_END ---
-      logHistoryBoundary('WALKER_BOUNDARY_WAIT_END', {
-        jumpId: jumpId ?? null,
-        targetIndex,
-        stepIndex: currentStep,
-        stallOutcome: stallOutcome === null ? 'null' : stallOutcome === 'resumed' ? 'resumed' : 'found',
-        elapsedMs: Math.round(performance.now() - walkerStartMs),
-      });
 
       if (isCancelled()) return null;
 
