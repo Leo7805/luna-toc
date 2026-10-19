@@ -283,8 +283,8 @@ describe('prompt navigation strategy', () => {
         0
       );
 
-      // Fast-forward fake timers beyond 8000ms no-progress watchdog budget
-      await vi.advanceTimersByTimeAsync(8100);
+      // Fast-forward fake timers beyond 20000ms no-progress watchdog budget
+      await vi.advanceTimersByTimeAsync(20100);
 
       // Walker was NEVER invoked
       expect(walkerSpy).not.toHaveBeenCalled();

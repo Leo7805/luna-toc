@@ -639,6 +639,7 @@ describe('startDomQuiescenceProgressObserver', () => {
       targetMessageId: 'msg-0',
       previousTurnCount: 50,
       isCancelled: () => false,
+      timeoutMs: 8000,
     });
 
     // Advance beyond 8000ms total watchdog budget
@@ -741,6 +742,7 @@ describe('startDomQuiescenceProgressObserver', () => {
       previousTurnCount: 50,
       isCancelled: () => false,
       pollIntervalMs: 0,
+      timeoutMs: 8000,
     });
 
     // Fast-forward to 8000ms watchdog deadline
@@ -773,6 +775,7 @@ describe('startDomQuiescenceProgressObserver', () => {
       previousTurnCount: 50,
       isCancelled: () => false,
       pollIntervalMs: 0,
+      timeoutMs: 8000,
     });
 
     // Fast-forward to 8000ms watchdog deadline
@@ -1008,7 +1011,7 @@ describe('Sticky Older-History Virtual Pagination', () => {
     });
 
     assertVirtual(attempt);
-    await vi.advanceTimersByTimeAsync(8100);
+    await vi.advanceTimersByTimeAsync(20100);
 
     const outcome = await attempt.promise;
     expect(outcome.status).toBe('exhausted');

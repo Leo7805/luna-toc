@@ -458,4 +458,94 @@ describe('conversationStore', () => {
     expect(transitionPerm.isComplete).toBe(true);
     expect(store.isConversationComplete('c-perm-migration-key')).toBe(true);
   });
+
+  it('preserves optimistic message with real event payload shape (createTime, missing author) across delayed conversationData', () => {
+    const store = createConversationStore({
+      getCurrentRouteKey: () => 'conv-real-shape',
+    });
+
+    // Real event payload shape emitted by pageHook/conversationStream.ts
+    const optimisticPayload = {
+      id: 'msg-opt-hi8',
+      content: { parts: ['hi8 real prompt'] },
+      metadata: { attachments: [] },
+      createTime: 1712345690,
+    } as unknown as ChatMessage;
+
+    store.handleNewUserMessage(optimisticPayload, 'conv-real-shape');
+    expect(store.getMessages().map((m) => m.id)).toEqual(['msg-opt-hi8']);
+
+    // Delayed background pagination / backfill arrives with older history
+    store.handleConversationData(
+      {
+        messages: [
+          {
+            id: 'msg-older-hi7',
+            author: { role: 'user' },
+            content: { parts: ['hi7 older prompt'] },
+            create_time: 1712345600,
+          } as ChatMessage,
+          {
+            id: 'asst-older-hi7',
+            author: { role: 'assistant' },
+            content: { parts: ['hi7 reply'] },
+            create_time: 1712345650,
+          } as ChatMessage,
+        ],
+      },
+      'conv-real-shape'
+    );
+
+    // Optimistic prompt must NOT be discarded by extractUserMessages
+    expect(store.getMessages().map((m) => m.id)).toEqual([
+      'msg-older-hi7',
+      'msg-opt-hi8',
+    ]);
+  });
+
+  it('reconciles confirmed server message with optimistic message without creating duplicates', () => {
+    const store = createConversationStore({
+      getCurrentRouteKey: () => 'conv-reconcile-dup',
+    });
+
+    // 1. Optimistic message appended
+    store.handleNewUserMessage(
+      {
+        id: 'msg-opt-hi8',
+        content: { parts: ['hi8 pending'] },
+        createTime: 1712345690,
+      } as ChatMessage,
+      'conv-reconcile-dup'
+    );
+
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('msg-opt-hi8');
+
+    // 2. Server response arrives with confirmed message (same ID, server create_time, metadata) and assistant turn
+    store.handleConversationData(
+      {
+        messages: [
+          {
+            id: 'msg-opt-hi8',
+            author: { role: 'user' },
+            content: { parts: ['hi8 confirmed'] },
+            metadata: { finish_details: { type: 'stop' } },
+            create_time: 1712345690,
+          } as ChatMessage,
+          {
+            id: 'asst-reply-hi8',
+            author: { role: 'assistant' },
+            content: { parts: ['hi8 answer'] },
+            create_time: 1712345700,
+          } as ChatMessage,
+        ],
+      },
+      'conv-reconcile-dup'
+    );
+
+    // Replaces in-place without producing duplicate TOC entries
+    expect(store.getMessages()).toHaveLength(1);
+    expect(store.getMessages()[0].id).toBe('msg-opt-hi8');
+    expect(store.getMessages()[0].text).toBe('hi8 confirmed');
+  });
 });

@@ -48,6 +48,7 @@ export function extractOutgoingMessage(
             routeKey,
             payload: {
               id: userMessage.id,
+              author: { role: 'user' },
               content: userMessage.content,
               metadata: userMessage.metadata,
               createTime: userMessage.create_time || Date.now(),
@@ -144,6 +145,7 @@ function processStreamLine(
           routeKey,
           payload: {
             id: message.id,
+            author: { role: 'user' },
             content: message.content,
             metadata: message.metadata,
             createTime: message.create_time || Date.now(),

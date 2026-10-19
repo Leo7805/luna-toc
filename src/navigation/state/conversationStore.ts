@@ -155,17 +155,32 @@ export function createConversationStore(
     routeKey?: string
   ): boolean {
     const targetConversationKey = routeKey || getCurrentConversationKey();
-    if (newMessage?.id) {
+    const normalizedMessage: ChatMessage =
+      newMessage?.author?.role === 'user'
+        ? newMessage
+        : {
+            ...newMessage,
+            author: {
+              ...newMessage?.author,
+              role: 'user',
+            },
+          };
+
+    if (normalizedMessage?.id) {
       getAccumulatedMessageMap(targetConversationKey).set(
-        newMessage.id,
-        newMessage
+        normalizedMessage.id,
+        normalizedMessage
       );
     }
 
-    if (conversationMessages.some((message) => message.id === newMessage.id)) {
+    if (
+      conversationMessages.some(
+        (message) => message.id === normalizedMessage.id
+      )
+    ) {
       return false;
     }
-    conversationMessages.push(createNavigatorMessage(newMessage));
+    conversationMessages.push(createNavigatorMessage(normalizedMessage));
     cacheConversationMessages(targetConversationKey);
     return true;
   }
