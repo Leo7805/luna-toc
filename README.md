@@ -2,7 +2,7 @@
 
 一个面向 ChatGPT 长对话的 Chrome 浏览器扩展：将用户提问整理成可搜索的侧边栏目录，支持定位问题、浏览回答标题，以及在编辑历史问题后主动同步当前对话。
 
-本仓库 **`PyRookie1/luna-toc-sc`** 基于开源项目 [Leo7805/luna-toc](https://github.com/Leo7805/luna-toc) 进行修改与维护。它是个人衍生版本，**不是原项目的官方发行版**；请勿将原项目的 Chrome 应用商店页面、Release 或演示视为本仓库的发布内容。
+本仓库 **`PyRookie1/luna-toc-sc`** 基于开源项目 [Leo7805/luna-toc](https://github.com/Leo7805/luna-toc) 进行修改与维护。
 
 ## 这个版本做了哪些改动？
 
