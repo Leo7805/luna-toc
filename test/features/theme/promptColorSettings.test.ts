@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // @ts-ignore
 import fs from 'node:fs';
 // @ts-ignore
@@ -365,28 +365,116 @@ describe('preset configuration schema integrity', () => {
 });
 
 describe('content.css precedence verification', () => {
-  it('contains the approved Favourite over Renamed and Active precedence rules', () => {
+  let styleEl: HTMLStyleElement | null = null;
+  let sheet: CSSStyleSheet;
+
+  beforeEach(() => {
     // @ts-ignore
     const cssPath = path.resolve(process.cwd(), 'src/styles/content.css');
     // @ts-ignore
     const content = fs.readFileSync(cssPath, 'utf8');
 
-    // Favourite over Renamed rule
-    expect(content).toContain(
-      '.navigator-item.navigator-item-marked .navigator-item-text'
-    );
-    expect(content).toContain(
-      '.navigator-item.navigator-item-marked.navigator-item-custom-title .navigator-item-text'
-    );
-    expect(content).toContain('color: var(--ct-text-item-marked);');
+    styleEl = document.createElement('style');
+    styleEl.textContent = content;
+    document.head.appendChild(styleEl);
+    sheet = styleEl.sheet as CSSStyleSheet;
+  });
 
-    // Active over Marked Custom Title rule
-    expect(content).toContain(
-      '.navigator-item.navigator-item-active.navigator-item-marked .navigator-item-text'
+  afterEach(() => {
+    styleEl?.remove();
+    styleEl = null;
+  });
+
+  function getRule(selector: string): CSSStyleRule | undefined {
+    const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
+    const target = normalize(selector);
+    for (let i = 0; i < sheet.cssRules.length; i++) {
+      const rule = sheet.cssRules[i];
+      if (rule instanceof CSSStyleRule && normalize(rule.selectorText) === target) {
+        return rule;
+      }
+    }
+    return undefined;
+  }
+
+  function hasRule(selector: string): boolean {
+    return getRule(selector) !== undefined;
+  }
+
+  it('verifies Default Active sets background without changing text or number colour', () => {
+    const activeRowRule = getRule('.navigator-item.navigator-item-active');
+    expect(activeRowRule).toBeDefined();
+    expect(activeRowRule?.style.background).toBe('var(--ct-bg-item-active)');
+    expect(activeRowRule?.style.color).toBe('');
+
+    expect(hasRule('.navigator-item.navigator-item-active .navigator-item-index')).toBe(false);
+    expect(hasRule('.navigator-item.navigator-item-active .navigator-item-text')).toBe(false);
+  });
+
+  it('verifies Renamed prompt colours both text and number with softer opacity', () => {
+    const textRule = getRule('.navigator-item.navigator-item-custom-title .navigator-item-text');
+    expect(textRule).toBeDefined();
+    expect(textRule?.style.color).toBe('var(--ct-text-custom-title)');
+
+    const indexRule = getRule('.navigator-item.navigator-item-custom-title .navigator-item-index');
+    expect(indexRule).toBeDefined();
+    expect(indexRule?.style.color).toBe('var(--ct-text-custom-title)');
+    expect(indexRule?.style.opacity).toBe('0.85');
+  });
+
+  it('verifies Active does not override Renamed text or number colour', () => {
+    expect(
+      hasRule('.navigator-item.navigator-item-active.navigator-item-custom-title .navigator-item-text')
+    ).toBe(false);
+    expect(
+      hasRule('.navigator-item.navigator-item-active.navigator-item-custom-title .navigator-item-index')
+    ).toBe(false);
+  });
+
+  it('verifies Favourite colours both text and number, taking precedence over Renamed', () => {
+    const textRule = getRule(
+      '.navigator-item.navigator-item-marked .navigator-item-text, .navigator-item.navigator-item-marked.navigator-item-custom-title .navigator-item-text'
     );
-    expect(content).toContain(
-      '.navigator-item.navigator-item-active.navigator-item-marked.navigator-item-custom-title .navigator-item-text'
+    expect(textRule).toBeDefined();
+    expect(textRule?.style.color).toBe('var(--ct-text-item-marked)');
+
+    const indexRule = getRule(
+      '.navigator-item.navigator-item-marked .navigator-item-index, .navigator-item.navigator-item-marked.navigator-item-custom-title .navigator-item-index'
     );
-    expect(content).toContain('color: var(--ct-text-item-active);');
+    expect(indexRule).toBeDefined();
+    expect(indexRule?.style.color).toBe('var(--ct-text-item-marked)');
+    expect(indexRule?.style.opacity).toBe('0.85');
+  });
+
+  it('verifies Active + Favourite applies Active background, left border, and default text/number colours', () => {
+    const rowRule = getRule('.navigator-item.navigator-item-active.navigator-item-marked');
+    expect(rowRule).toBeDefined();
+    expect(rowRule?.style.background).toBe('var(--ct-bg-item-active)');
+    expect(rowRule?.style.boxShadow).toBe('var(--ct-active-item-box-shadow-mark)');
+    expect(rowRule?.style.color).toBe('');
+
+    const textRule = getRule(
+      '.navigator-item.navigator-item-active.navigator-item-marked .navigator-item-text, .navigator-item.navigator-item-active.navigator-item-marked.navigator-item-custom-title .navigator-item-text'
+    );
+    expect(textRule).toBeDefined();
+    expect(textRule?.style.color).toBe('var(--ct-text-item)');
+
+    const indexRule = getRule(
+      '.navigator-item.navigator-item-active.navigator-item-marked .navigator-item-index, .navigator-item.navigator-item-active.navigator-item-marked.navigator-item-custom-title .navigator-item-index'
+    );
+    expect(indexRule).toBeDefined();
+    expect(indexRule?.style.color).toBe('var(--ct-text-item-index)');
+    expect(indexRule?.style.opacity).toBe('1');
+  });
+
+  it('verifies Favourite left indicator uses dynamic var(--ct-flag-color) in both themes', () => {
+    // @ts-ignore
+    const cssPath = path.resolve(process.cwd(), 'src/styles/content.css');
+    // @ts-ignore
+    const content = fs.readFileSync(cssPath, 'utf8');
+
+    expect(content).not.toContain('inset 3px 0 0 #facc15');
+    expect(content).not.toContain('inset 3px 0 0 #d9a514');
+    expect(content).toContain('--ct-active-item-box-shadow-mark: inset 3px 0 0 var(--ct-flag-color);');
   });
 });

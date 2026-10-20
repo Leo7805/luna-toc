@@ -96,7 +96,7 @@ html[data-theme='dark'] {
   --ct-sidebar-shadow: none;
   --ct-select-color-scheme: dark;
   --ct-modal-overlay-bg: rgba(0, 0, 0, 0.65);
-  --ct-active-item-box-shadow-mark: inset 3px 0 0 #facc15;
+  --ct-active-item-box-shadow-mark: inset 3px 0 0 var(--ct-flag-color);
   --ct-active-item-box-shadow-outline:
     inset 0 0 0 1px #7f91ff, inset 3px 0 0 #7f91ff;
 
@@ -199,7 +199,7 @@ html[data-theme='light'] {
   --ct-sidebar-box-shadow-jump: 0 10px 30px rgba(82, 110, 245, 0.1);
   --ct-sidebar-shadow: -4px 0 24px rgba(35, 69, 111, 0.08);
   --ct-modal-overlay-bg: rgba(0, 0, 0, 0.4);
-  --ct-active-item-box-shadow-mark: inset 3px 0 0 #d9a514;
+  --ct-active-item-box-shadow-mark: inset 3px 0 0 var(--ct-flag-color);
   --ct-active-item-box-shadow-outline:
     inset 0 0 0 1px #526ef5, inset 3px 0 0 #526ef5;
   --ct-select-color-scheme: light;
@@ -661,11 +661,6 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   white-space: nowrap;
 }
 
-.navigator-item.navigator-item-active .navigator-item-index {
-  color: var(--ct-text-item-index-active);
-  font-weight: 600;
-}
-
 .navigator-item-text {
   display: block;
   flex: 1 1 0;
@@ -681,21 +676,33 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   color: var(--ct-text-custom-title);
 }
 
-.navigator-item.navigator-item-active.navigator-item-custom-title
-  .navigator-item-text {
-  color: var(--ct-text-custom-title-active);
+.navigator-item.navigator-item-custom-title .navigator-item-index {
+  color: var(--ct-text-custom-title);
+  opacity: 0.85;
 }
 
-/* When marked, favourite text colour takes precedence over custom title */
+/* Favourite colours both text and number, taking precedence over custom title */
 .navigator-item.navigator-item-marked .navigator-item-text,
 .navigator-item.navigator-item-marked.navigator-item-custom-title .navigator-item-text {
   color: var(--ct-text-item-marked);
 }
 
-/* Active navigation state preserves high-visibility active text */
+.navigator-item.navigator-item-marked .navigator-item-index,
+.navigator-item.navigator-item-marked.navigator-item-custom-title .navigator-item-index {
+  color: var(--ct-text-item-marked);
+  opacity: 0.85;
+}
+
+/* Active + Favourite applies Active background, left border, and default text/number colours */
 .navigator-item.navigator-item-active.navigator-item-marked .navigator-item-text,
 .navigator-item.navigator-item-active.navigator-item-marked.navigator-item-custom-title .navigator-item-text {
-  color: var(--ct-text-item-active);
+  color: var(--ct-text-item);
+}
+
+.navigator-item.navigator-item-active.navigator-item-marked .navigator-item-index,
+.navigator-item.navigator-item-active.navigator-item-marked.navigator-item-custom-title .navigator-item-index {
+  color: var(--ct-text-item-index);
+  opacity: 1;
 }
 
 .navigator-outline-indicator {
@@ -739,7 +746,6 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 .navigator-item.navigator-item-active.navigator-item-marked {
   background: var(--ct-bg-item-active);
   box-shadow: var(--ct-active-item-box-shadow-mark);
-  color: var(--ct-text-item-active);
 }
 
 .navigator-item.navigator-item-active.navigator-item-outline-expanded {
@@ -926,7 +932,6 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 
 .navigator-item.navigator-item-active {
   background: var(--ct-bg-item-active);
-  color: var(--ct-text-item-active);
 }
 
 #navigator-search {
