@@ -9,3 +9,6 @@ dist/
 .dev-stamp.json
 
 docs/context.md
+
+# Upstream editor and AI-workspace metadata; not part of the extension.
+.czaza/

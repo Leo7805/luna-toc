@@ -1,5 +1,5 @@
 /**
- * Shared tooltips for ChatTOC:
+ * Shared tooltips for LunaTOC:
  * 1. Preview tooltip: For viewing truncated prompt text in the sidebar.
  * 2. Button tooltip: For showing fast, custom floating tooltips on buttons and icons.
  */

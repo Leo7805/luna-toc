@@ -1,5 +1,8 @@
 # Luna TOC — Codebase Audit and Refactoring Plan
 
+> **Historical audit document.** This report describes an earlier revision and may mention modules, behaviors or line numbers that have since changed. Original developer-machine `file://` links were converted to repository-relative paths; moved or removed files may no longer resolve. See the current [README](../README.md) for supported behavior.
+
+
 **Document Version:** 1.0.0  
 **Target Project:** LunaTOC Chrome Extension (`luna-toc` v1.11.5)  
 **Date of Audit:** October 2026  
@@ -19,14 +22,14 @@ This audit evaluated the complete codebase for structural complexity, module cou
 1. **Navigation Architecture Duality and Background Resource Waste (P0):**
    The codebase contains two competing navigation engines. Approximately **1,850+ lines of code** across `virtualSearchController.ts`, `virtualSearchPlanner.ts`, `virtualSearchMachine.ts`, `relativeSearchPlanner.ts`, `visiblePositionResolver.ts`, and fingerprint matchers implement an adaptive virtual search algorithm that is **completely disconnected** from live navigation. Live prompt jumps actually execute through `loadUntilMountedViaViewport` in `promptNavigation.ts` using `mountQueue.ts`. Despite this disconnection, `navigatorController.ts` and `renderedFingerprintCollector.ts` continue to run asynchronous SHA-256 fingerprint generation and a continuous `MutationObserver` on `document.body`, consuming CPU and memory on every page mutation for data that is never used.
 2. **Platform Abstraction Breach (P0):**
-   Although Architectural Decision Record 11 ([ADR 11](file:///Users/leo/Projects/chrome-plugins/luna-toc/docs/DECISIONS.md#adr-11-platform-abstraction-interface)) introduced a `Platform` interface to decouple host-specific selectors and communication, supposedly generic navigation modules (`src/navigation/jump/outline.ts`, `src/navigation/jump/promptNavigation.ts`, `src/navigation/jump/mountQueue.ts`, and `src/navigation/navigatorController.ts`) contain hardcoded ChatGPT-specific selectors such as `[data-chatgpt-search-unit-key$=":user"]` and `data-chatgpt-search-message-ids`.
+   Although Architectural Decision Record 11 ([ADR 11](../docs/DECISIONS.md#adr-11-platform-abstraction-interface)) introduced a `Platform` interface to decouple host-specific selectors and communication, supposedly generic navigation modules (`src/navigation/jump/outline.ts`, `src/navigation/jump/promptNavigation.ts`, `src/navigation/jump/mountQueue.ts`, and `src/navigation/navigatorController.ts`) contain hardcoded ChatGPT-specific selectors such as `[data-chatgpt-search-unit-key$=":user"]` and `data-chatgpt-search-message-ids`.
 3. **Monolithic "God Objects" Exceeding 1,000 Lines (P1):**
-   - [`src/styles/content.css`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/styles/content.css) (1,119 lines): A single global stylesheet combining theme tokens, sidebar chrome, tooltips, modals, toggle buttons, and search inputs.
-   - [`src/navigation/jump/promptNavigation.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/promptNavigation.ts) (1,097 lines): Mixes scroll clamping, MutationObserver debouncing, multi-attempt viewport walking, fast-path checks, edge jumps, settling loops, and debug console visualization.
-   - [`src/navigation/navigatorController.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/navigatorController.ts) (1,074 lines): A monolithic stateful singleton coordinating conversation fetching, history routes, fingerprint indexing, IntersectionObserver visibility, DOM list rendering, item click handling, and status badges.
-   - Sibling modules [`outline.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/outline.ts) (919 lines) and [`promptLibrary.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/myPrompts/promptLibrary.ts) (786 lines) exhibit similar multi-responsibility sprawl.
+   - [`src/styles/content.css`](../src/styles/content.css) (1,119 lines): A single global stylesheet combining theme tokens, sidebar chrome, tooltips, modals, toggle buttons, and search inputs.
+   - [`src/navigation/jump/promptNavigation.ts`](../src/navigation/jump/promptNavigation.ts) (1,097 lines): Mixes scroll clamping, MutationObserver debouncing, multi-attempt viewport walking, fast-path checks, edge jumps, settling loops, and debug console visualization.
+   - [`src/navigation/navigatorController.ts`](../src/navigation/navigatorController.ts) (1,074 lines): A monolithic stateful singleton coordinating conversation fetching, history routes, fingerprint indexing, IntersectionObserver visibility, DOM list rendering, item click handling, and status badges.
+   - Sibling modules [`outline.ts`](../src/navigation/jump/outline.ts) (919 lines) and [`promptLibrary.ts`](../src/features/myPrompts/promptLibrary.ts) (786 lines) exhibit similar multi-responsibility sprawl.
 4. **Fragile Module Evaluation and Circular Dependencies (P0):**
-   - Top-level evaluation of `getActivePlatform()` at module import time in [`sidebarVisibility.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/sidebarVisibility.ts) and [`navigatorController.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/navigatorController.ts) crashes test environments and non-host origins.
+   - Top-level evaluation of `getActivePlatform()` at module import time in [`sidebarVisibility.ts`](../src/features/sidebarVisibility.ts) and [`navigatorController.ts`](../src/navigation/navigatorController.ts) crashes test environments and non-host origins.
    - Confirmed circular dependencies exist between `reactHost.tsx` <-> `PromptEditorDialog.tsx` and `reactHost.tsx` <-> `ContractAlert.tsx`.
 5. **Test Suite Drift and Typecheck Failures (P0):**
    - `npm run typecheck` fails with 8 errors in `test/navigation/jump/promptNavigationStrategy.test.ts`.
@@ -90,8 +93,8 @@ graph TB
 ### 2.2 Host Abstraction (`src/platforms/`)
 
 Introduced in ADR 11:
-- [`Platform`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/platforms/platformInterface.ts): Contract defining `pageHook`, `navigation`, `routing`, `contentCapture`, `diagnostics`, `config`, and `messages`.
-- [`getActivePlatform(host)`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/platforms/index.ts): Host detection function checking `window.location.host` against registered platform URL patterns.
+- [`Platform`](../src/platforms/platformInterface.ts): Contract defining `pageHook`, `navigation`, `routing`, `contentCapture`, `diagnostics`, `config`, and `messages`.
+- [`getActivePlatform(host)`](../src/platforms/index.ts): Host detection function checking `window.location.host` against registered platform URL patterns.
 - `src/platforms/chatgpt/`: Concrete implementation wrapping ChatGPT modules.
 - `src/platforms/copilot/`: Stub implementation throwing placeholder errors.
 
@@ -111,15 +114,15 @@ Introduced in ADR 11:
 
 ### 3.2 High-Complexity Functions and Classes
 
-1. **`navigatorController` singleton closure** ([`navigatorController.ts#L97-L1061`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/navigatorController.ts#L97-L1061)):
+1. **`navigatorController` singleton closure** ([`navigatorController.ts#L97-L1061`](../src/navigation/navigatorController.ts#L97-L1061)):
    Encapsulates 20+ pieces of mutable module-level state, 35 internal functions, postMessage event listeners, route reset coordinators, and complex DOM rendering routines (`render()` and `createNavigatorItem()`).
-2. **`loadUntilMountedViaViewport()`** ([`promptNavigation.ts#L189-L373`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/promptNavigation.ts#L189-L373)):
+2. **`loadUntilMountedViaViewport()`** ([`promptNavigation.ts#L189-L373`](../src/navigation/jump/promptNavigation.ts#L189-L373)):
    184-line asynchronous loop orchestrating DOM inspection, viewport distance calculations, `scrollTop` manipulation, and MutationObserver synchronization with multiple heuristics.
-3. **`renderMyPrompts()`** ([`promptLibrary.ts#L594-L786`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/myPrompts/promptLibrary.ts#L594-L786)):
+3. **`renderMyPrompts()`** ([`promptLibrary.ts#L594-L786`](../src/features/myPrompts/promptLibrary.ts#L594-L786)):
    192 lines of raw imperative string concatenation (`innerHTML`), manual event binding, empty state handling, and inline SVG injection.
-4. **`extractHeadingOutline()`** ([`outline.ts#L733-L775`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/outline.ts#L733-L775)):
+4. **`extractHeadingOutline()`** ([`outline.ts#L733-L775`](../src/navigation/jump/outline.ts#L733-L775)):
    Deeply nested DOM traversal inspecting Markdown containers, computing occurrence indices, and filtering out code block headings.
-5. **`handleTextareaInput()` and caret range math** ([`promptAutocomplete.ts#L171-L470`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/myPrompts/promptAutocomplete.ts#L171-L470)):
+5. **`handleTextareaInput()` and caret range math** ([`promptAutocomplete.ts#L171-L470`](../src/features/myPrompts/promptAutocomplete.ts#L171-L470)):
    Direct manipulation of browser `Selection` and `Range` objects to measure pixel coordinates of trigger symbols (`//` or `#`) within a contenteditable element.
 
 ### 3.3 Circular Dependencies
@@ -143,13 +146,13 @@ graph LR
 ### 3.4 Disconnected Code / Architecture Mismatch
 
 A critical finding of this audit is that **~1,850+ lines of navigation code are completely bypassed in production**:
-- [`virtualSearchController.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/virtualSearchController.ts) (704 lines)
-- [`virtualSearchPlanner.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/virtualSearchPlanner.ts) (285 lines)
-- [`visiblePositionResolver.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/visiblePositionResolver.ts) (269 lines)
-- [`matcher.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/fingerprint/matcher.ts) (220 lines)
-- [`relativeSearchPlanner.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/relativeSearchPlanner.ts) (162 lines)
-- [`segmentMatcher.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/fingerprint/segmentMatcher.ts) (115 lines)
-- [`virtualSearchMachine.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/virtualSearchMachine.ts) (101 lines)
+- [`virtualSearchController.ts`](../src/navigation/jump/virtualSearchController.ts) (704 lines)
+- [`virtualSearchPlanner.ts`](../src/navigation/jump/virtualSearchPlanner.ts) (285 lines)
+- [`visiblePositionResolver.ts`](../src/navigation/jump/visiblePositionResolver.ts) (269 lines)
+- [`matcher.ts`](../src/navigation/fingerprint/matcher.ts) (220 lines)
+- [`relativeSearchPlanner.ts`](../src/navigation/jump/relativeSearchPlanner.ts) (162 lines)
+- [`segmentMatcher.ts`](../src/navigation/fingerprint/segmentMatcher.ts) (115 lines)
+- [`virtualSearchMachine.ts`](../src/navigation/jump/virtualSearchMachine.ts) (101 lines)
 
 *Evidence:* In `promptNavigation.ts#L684-L770`, `jumpToMessage()` routes directly to `jumpWithIndependentVirtualNavigation()`. That function performs a fast-path check (`findRenderedChatGptPrompt`) and, if unmounted, executes `loadUntilMountedViaViewport()`. The function `searchVirtualPrompt` from `virtualSearchController.ts` is **never imported or called** anywhere in `src/`. It is only referenced in unit tests and unused type declarations.
 
@@ -197,7 +200,7 @@ Running automated test commands produced the following verified results:
 - **Structural Problems:**
   - Violates Single Responsibility Principle: coordinates low-level DOM mutation observation, scrolling animation, mathematical step heuristics, and high-level navigation entry points.
   - Contains hardcoded host selectors (`[data-chatgpt-search-unit-key$=":user"]`), breaking the platform abstraction.
-  - Contains commented-out/dead legacy branches ([`promptNavigation.ts#L692-L701`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/promptNavigation.ts#L692-L701)).
+  - Contains commented-out/dead legacy branches ([`promptNavigation.ts#L692-L701`](../src/navigation/jump/promptNavigation.ts#L692-L701)).
 
 ### 4.3 `src/navigation/navigatorController.ts` (1,074 lines)
 - **Current Responsibilities:**
@@ -334,61 +337,61 @@ graph TD
 ### 7.1 `src/navigation/jump/promptNavigation.ts` (1,097 LOC -> Split into 3 modules)
 - **Problem:** Combines viewport walking loops, scroll math, fast-path resolution, edge jumping, and console diagnostics.
 - **Proposed Split:**
-  1. [`src/navigation/jump/viewportWalker.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/viewportWalker.ts) (~250 LOC):
+  1. [`src/navigation/jump/viewportWalker.ts`](../src/navigation/jump/viewportWalker.ts) (~250 LOC):
      - Contains `loadUntilMountedViaViewport`, `computeDirectionTowardTarget`, `nearestMountedTo`, `waitForDomChange`, and `clampScrollTo`.
      - Pure focus: walking the scroll container step-by-step until an element mounts.
-  2. [`src/navigation/jump/edgeNavigation.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/edgeNavigation.ts) (~150 LOC):
+  2. [`src/navigation/jump/edgeNavigation.ts`](../src/navigation/jump/edgeNavigation.ts) (~150 LOC):
      - Contains `jumpToConversationEdge`, `jumpToAbsoluteEdge`, `retryEdgeUntilSettled`, and `findFirstPromptInTopBand`.
-  3. [`src/navigation/jump/promptNavigation.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/jump/promptNavigation.ts) (reduced to ~200 LOC):
+  3. [`src/navigation/jump/promptNavigation.ts`](../src/navigation/jump/promptNavigation.ts) (reduced to ~200 LOC):
      - High-level coordinator: `jumpToMessage()`, `jumpToPromptIndex()`, lock management, fast-path resolution, and visual highlight triggering.
 - **Communication:** `promptNavigation.ts` delegates to `viewportWalker.ts` and `edgeNavigation.ts`. All host selectors are read via `platform.config.selectors`.
 
 ### 7.2 `src/navigation/navigatorController.ts` (1,074 LOC -> Split into 4 modules)
 - **Problem:** God object combining conversation state, route listening, fingerprint triggering, IntersectionObserver, and TOC DOM rendering.
 - **Proposed Split:**
-  1. [`src/navigation/state/conversationStore.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/state/conversationStore.ts) (~200 LOC):
+  1. [`src/navigation/state/conversationStore.ts`](../src/navigation/state/conversationStore.ts) (~200 LOC):
      - Holds active messages, caches per conversation key, and message normalization.
      - Subscribable store pattern (`subscribe(callback)`).
-  2. [`src/navigation/tracking/activePromptTracker.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/tracking/activePromptTracker.ts) (~180 LOC):
+  2. [`src/navigation/tracking/activePromptTracker.ts`](../src/navigation/tracking/activePromptTracker.ts) (~180 LOC):
      - Owns `IntersectionObserver` on mounted user messages and active prompt index calculations.
      - Emits `onActivePromptChanged(index)`.
-  3. [`src/navigation/ui/tocListRenderer.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/ui/tocListRenderer.ts) (~300 LOC):
+  3. [`src/navigation/ui/tocListRenderer.ts`](../src/navigation/ui/tocListRenderer.ts) (~300 LOC):
      - Manages item element creation, truncation checking, tooltip wiring, and list updates.
-  4. [`src/navigation/navigatorController.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/navigatorController.ts) (reduced to ~250 LOC):
+  4. [`src/navigation/navigatorController.ts`](../src/navigation/navigatorController.ts) (reduced to ~250 LOC):
      - Orchestrator listening to platform postMessage events and delegating to stores and renderers.
 - **Elimination of Resource Leak:** Disconnect `renderedFingerprintCollector` and `buildFingerprintIndex` from the default navigation path, saving significant idle CPU and memory.
 
 ### 7.3 `src/navigation/jump/outline.ts` (919 LOC -> Split into 3 modules)
 - **Problem:** Mixes Markdown heading DOM extraction, cache invalidation, sidebar status indicators (jumping dots), prompt item UI, and click handling.
 - **Proposed Split:**
-  1. [`src/navigation/outline/headingExtractor.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/outline/headingExtractor.ts) (~180 LOC):
+  1. [`src/navigation/outline/headingExtractor.ts`](../src/navigation/outline/headingExtractor.ts) (~180 LOC):
      - Pure extraction: parses Markdown containers into `OutlineEntry[]`.
-  2. [`src/navigation/outline/outlineCache.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/outline/outlineCache.ts) (~150 LOC):
+  2. [`src/navigation/outline/outlineCache.ts`](../src/navigation/outline/outlineCache.ts) (~150 LOC):
      - Manages cached outline descriptors and invalidation rules.
-  3. [`src/navigation/outline/outlineView.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/outline/outlineView.ts) (~250 LOC):
+  3. [`src/navigation/outline/outlineView.ts`](../src/navigation/outline/outlineView.ts) (~250 LOC):
      - Renders outline accordion lists, toggle buttons, and handles outline item clicks.
-  4. [`src/navigation/ui/sidebarStatus.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/ui/sidebarStatus.ts) (~100 LOC):
+  4. [`src/navigation/ui/sidebarStatus.ts`](../src/navigation/ui/sidebarStatus.ts) (~100 LOC):
      - Owns `setSidebarStatus()`, status drawer animations, and jumping dots.
 
 ### 7.4 `src/features/myPrompts/promptLibrary.ts` (786 LOC -> Split into 3 modules)
 - **Problem:** Mixes persistence, Markdown serialization, sorting, clipboard actions, modal dialogs, and imperative DOM list rendering.
 - **Proposed Split:**
-  1. [`src/features/myPrompts/promptSerializer.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/myPrompts/promptSerializer.ts) (~120 LOC):
+  1. [`src/features/myPrompts/promptSerializer.ts`](../src/features/myPrompts/promptSerializer.ts) (~120 LOC):
      - Pure Markdown parser and formatter for import/export (`formatPromptsAsMarkdown`, `parseMarkdownPrompts`).
-  2. [`src/features/myPrompts/promptSorter.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/myPrompts/promptSorter.ts) (~60 LOC):
+  2. [`src/features/myPrompts/promptSorter.ts`](../src/features/myPrompts/promptSorter.ts) (~60 LOC):
      - Pure sorting logic (`sortMyPrompts`, sort modes).
-  3. [`src/features/myPrompts/promptLibrary.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/myPrompts/promptLibrary.ts) (reduced to ~250 LOC):
+  3. [`src/features/myPrompts/promptLibrary.ts`](../src/features/myPrompts/promptLibrary.ts) (reduced to ~250 LOC):
      - Manages storage operations, export/import file prompts, and clipboard actions.
 
 ### 7.5 `src/reactHost/reactHost.tsx` (Break Circular Dependencies)
 - **Problem:** Circular imports between `reactHost.tsx` and child dialogs.
 - **Proposed Refactor:**
-  - Create [`src/reactHost/portalContainer.ts`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/reactHost/portalContainer.ts) (~30 LOC).
+  - Create [`src/reactHost/portalContainer.ts`](../src/reactHost/portalContainer.ts) (~30 LOC).
   - Holds `let portalContainer: HTMLDivElement | null = null;` and exports `getReactPortalContainer()` and `setReactPortalContainer()`.
   - Both `reactHost.tsx` and child components (`PromptEditorDialog.tsx`, `ContractAlert.tsx`) import from `portalContainer.ts`, breaking the cycle.
 
 ### 7.6 Top-Level `getActivePlatform()` Elimination
-- **Problem:** [`sidebarVisibility.ts#L8`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/features/sidebarVisibility.ts#L8) and [`navigatorController.ts#L101`](file:///Users/leo/Projects/chrome-plugins/luna-toc/src/navigation/navigatorController.ts#L101) evaluate `getActivePlatform()` at module import time.
+- **Problem:** [`sidebarVisibility.ts#L8`](../src/features/sidebarVisibility.ts#L8) and [`navigatorController.ts#L101`](../src/navigation/navigatorController.ts#L101) evaluate `getActivePlatform()` at module import time.
 - **Proposed Refactor:**
   - In `sidebarVisibility.ts`: read `getActivePlatform().pageHook.messages.setWidthSpoof` lazily inside `initializeSidebarVisibility()`.
   - In `navigatorController.ts`: instantiate collectors lazily inside `init()` or `attach()`.

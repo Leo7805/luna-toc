@@ -1,6 +1,6 @@
 # Architectural Decisions Log
 
-This document records the key architectural decisions, rationale, and consequences for ChatTOC.
+This document records architectural decisions carried over from the upstream project and subsequent LunaTOC development. Historical names and persistence keys are preserved when they document actual compatibility requirements.
 
 ---
 

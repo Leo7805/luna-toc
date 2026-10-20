@@ -23,7 +23,7 @@ function platform() {
 
 /**
  * Extracts the two-level heading outline from a rendered prompt answer.
- * @param {number} index Prompt index in the main ChatTOC navigator.
+ * @param {number} index Prompt index in the main LunaTOC navigator.
  * @param {string | null} [messageId] Expected prompt message ID, if known.
  * @returns {Array<OutlineEntry>} List of extracted heading descriptors.
  */

@@ -1,5 +1,5 @@
 /**
- * Manages marked ChatTOC prompts, including per-conversation persistence and
+ * Manages marked LunaTOC prompts, including per-conversation persistence and
  * mark button UI state.
  */
 const STORAGE_PREFIX = 'chatToc:marks:';

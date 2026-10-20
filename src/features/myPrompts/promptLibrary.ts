@@ -127,7 +127,7 @@ async function exportMyPrompts(): Promise<void> {
   const link = document.createElement('a');
 
   link.href = downloadUrl;
-  link.download = `chat-toc-prompts-${new Date().toISOString().slice(0, 10)}.md`;
+  link.download = `luna-toc-prompts-${new Date().toISOString().slice(0, 10)}.md`;
   document.body.appendChild(link);
   link.click();
   link.remove();

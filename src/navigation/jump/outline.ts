@@ -45,7 +45,7 @@ let outlineBuildVersion = 0;
 
 /**
  * Extracts the two-level heading outline from a rendered prompt answer.
- * @param {number} index Prompt index in the main ChatTOC navigator.
+ * @param {number} index Prompt index in the main LunaTOC navigator.
  * @returns {Array<OutlineEntry>}
  */
 export function getPromptOutline(index: number): OutlineEntry[] {
@@ -183,7 +183,7 @@ export function handlePromptNavigation(
 }
 
 /**
- * Syncs outline UI when ChatTOC's active prompt changes outside a prompt-row
+ * Syncs outline UI when LunaTOC's active prompt changes outside a prompt-row
  * click, such as native/chat scroll activation.
  * @param {number} index Active prompt index.
  */

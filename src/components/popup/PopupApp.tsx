@@ -13,12 +13,7 @@ import {
   type ThemeSettings as ThemeSettingsValue,
 } from '@/features/theme/themeSettings';
 import { ThemeSettings } from './ThemeSettings';
-import coffeeImage from './black-button.png';
-import coffeeImageLight from './yellow-button.png';
-
-const WEB_STORE_URL =
-  'https://chromewebstore.google.com/detail/chatgpt-table-of-contents/ibfdglfgljonajofiiaonlimoiolkcpa';
-const COFFEE_URL = 'https://buymeacoffee.com/jinleo';
+const PROJECT_URL = 'https://github.com/PyRookie1/luna-toc-sc';
 
 const INITIAL_SETTINGS: ThemeSettingsValue = {
   followChatGPT: true,
@@ -96,7 +91,7 @@ export function PopupApp(): React.JSX.Element {
             <strong className="font-semibold text-[var(--p-text-strong)]">
               注意：
             </strong>{' '}
-            如果目录缺少条目或与对话内容不同步，请刷新页面。
+            如果目录与对话不同步，可先收起侧边栏再悬停展开，尝试同步当前对话；若仍未更新，请刷新 ChatGPT 页面。
           </p>
         </aside>
       </section>
@@ -105,43 +100,20 @@ export function PopupApp(): React.JSX.Element {
         <button
           type="button"
           title="打开 LunaTOC 设置"
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) outline-none transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent) active:scale-95 active:bg-(--p-bg-note)"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) outline-none transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent)"
           onClick={() => void chrome.runtime.openOptionsPage()}
         >
           <Settings className="size-3.5" aria-hidden="true" />
           设置
         </button>
         <a
-          href={WEB_STORE_URL}
+          href={PROJECT_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="rate-link inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) no-underline transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-rate-hover-color)"
+          className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) no-underline hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent)"
+          title="打开 LunaTOC 的 GitHub 项目页面"
         >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="size-3.5 fill-none stroke-current stroke-2"
-          >
-            <path d="m12 2 3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.74 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2Z" />
-          </svg>
-          评分
-        </a>
-        <a
-          href={COFFEE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="coffee-link inline-flex items-center rounded-md px-1.5 py-1 transition duration-150 hover:bg-(--p-toggle-bg) hover:scale-105 active:scale-95"
-        >
-          <img
-            src={coffeeImage}
-            alt="请我喝杯咖啡"
-            className="coffee-img-dark h-7 w-auto"
-          />
-          <img
-            src={coffeeImageLight}
-            alt="请我喝杯咖啡"
-            className="coffee-img-light hidden h-7 w-auto"
-          />
+          项目源码
         </a>
       </footer>
     </main>
