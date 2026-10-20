@@ -13,6 +13,7 @@ import {
   writeResolvedChatGPTTheme,
 } from '@/features/theme/chatGptTheme';
 import {
+  applyTheme,
   readThemeSettings,
   subscribeThemeSettings,
   type ResolvedTheme,
@@ -171,9 +172,6 @@ function initSidebarResize(sidebar: HTMLElement): void {
 function initTheme(): void {
   let settings: ThemeSettings | null = null;
 
-  const applyTheme = (theme: ResolvedTheme): void => {
-    document.documentElement.dataset.theme = theme;
-  };
   const handleChatGPTTheme = (theme: ResolvedTheme): void => {
     void writeResolvedChatGPTTheme(theme);
     if (settings?.followChatGPT) applyTheme(theme);

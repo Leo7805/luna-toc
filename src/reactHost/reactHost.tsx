@@ -88,12 +88,12 @@ function waitForBody(): Promise<HTMLElement> {
 function synchronizeTheme(host: HTMLElement): void {
   const updateTheme = (): void => {
     host.dataset.theme =
-      document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.lunatocTheme === 'light' ? 'light' : 'dark';
   };
 
   updateTheme();
   new MutationObserver(updateTheme).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme'],
+    attributeFilter: ['data-lunatoc-theme'],
   });
 }

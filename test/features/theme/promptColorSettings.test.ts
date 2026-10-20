@@ -281,12 +281,12 @@ describe('dynamic colour CSS generation and injection', () => {
       renamedColor: 'original',
     });
 
-    expect(css).toContain("html[data-theme='light']");
+    expect(css).toContain("html[data-lunatoc-theme='light']");
     expect(css).toContain('--ct-bg-item-marked: #fff3d9;');
     expect(css).toContain('--ct-text-item-marked: #8a5a05;');
     expect(css).toContain('--ct-flag-color: #dea500;');
 
-    expect(css).toContain("html[data-theme='dark']");
+    expect(css).toContain("html[data-lunatoc-theme='dark']");
     expect(css).toContain('--ct-bg-item-marked: #2a1d08;');
     expect(css).toContain('--ct-text-item-marked: #fde68a;');
     expect(css).toContain('--ct-flag-color: #f59e0b;');
@@ -298,9 +298,9 @@ describe('dynamic colour CSS generation and injection', () => {
       renamedColor: 'coral',
     });
 
-    expect(css).toContain("html[data-theme='light']");
+    expect(css).toContain("html[data-lunatoc-theme='light']");
     expect(css).toContain('--ct-text-custom-title: #bc5147;');
-    expect(css).toContain("html[data-theme='dark']");
+    expect(css).toContain("html[data-lunatoc-theme='dark']");
     expect(css).toContain('--ct-text-custom-title: #f87171;');
   });
 
@@ -476,5 +476,24 @@ describe('content.css precedence verification', () => {
     expect(content).not.toContain('inset 3px 0 0 #facc15');
     expect(content).not.toContain('inset 3px 0 0 #d9a514');
     expect(content).toContain('--ct-active-item-box-shadow-mark: inset 3px 0 0 var(--ct-flag-color);');
+
+    const darkRule = getRule(":root, html[data-lunatoc-theme='dark']");
+    expect(darkRule).toBeDefined();
+    expect(
+      darkRule?.style
+        .getPropertyValue('--ct-active-item-box-shadow-mark')
+        .trim()
+    ).toBe('inset 3px 0 0 var(--ct-flag-color)');
+
+    const lightRule = getRule("html[data-lunatoc-theme='light']");
+    expect(lightRule).toBeDefined();
+    expect(
+      lightRule?.style
+        .getPropertyValue('--ct-active-item-box-shadow-mark')
+        .trim()
+    ).toBe('inset 3px 0 0 var(--ct-flag-color)');
+
+    expect(getRule(":root, html[data-theme='dark']")).toBeUndefined();
+    expect(getRule("html[data-theme='light']")).toBeUndefined();
   });
 });

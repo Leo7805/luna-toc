@@ -399,13 +399,13 @@ export function generatePromptColorCss(settings: PromptColorSettings): string {
 
   if (fav && fav.id !== 'original') {
     rules.push(`
-html[data-theme='light'] {
+html[data-lunatoc-theme='light'] {
   --ct-bg-item-marked: ${fav.light.bgItemMarked};
   --ct-text-item-marked: ${fav.light.textItemMarked};
   --ct-flag-color: ${fav.light.flagColor};
   --ct-flag-hover: ${fav.light.flagHover};
 }
-html[data-theme='dark'] {
+html[data-lunatoc-theme='dark'] {
   --ct-bg-item-marked: ${fav.dark.bgItemMarked};
   --ct-text-item-marked: ${fav.dark.textItemMarked};
   --ct-flag-color: ${fav.dark.flagColor};
@@ -415,11 +415,11 @@ html[data-theme='dark'] {
 
   if (ren && ren.id !== 'original') {
     rules.push(`
-html[data-theme='light'] {
+html[data-lunatoc-theme='light'] {
   --ct-text-custom-title: ${ren.light.textCustomTitle};
   --ct-text-custom-title-active: ${ren.light.textCustomTitleActive};
 }
-html[data-theme='dark'] {
+html[data-lunatoc-theme='dark'] {
   --ct-text-custom-title: ${ren.dark.textCustomTitle};
   --ct-text-custom-title-active: ${ren.dark.textCustomTitleActive};
 }`);

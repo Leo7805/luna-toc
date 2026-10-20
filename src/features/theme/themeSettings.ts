@@ -14,6 +14,19 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   manualTheme: 'dark',
 };
 
+/**
+ * Applies the resolved theme to LunaTOC's namespaced attribute.
+ * Uses `data-lunatoc-theme` to guarantee complete isolation from ChatGPT's
+ * host stylesheets (which key off `data-theme`). Never modifies or deletes
+ * host attributes (`class`, `data-theme`).
+ */
+export function applyTheme(
+  theme: ResolvedTheme,
+  target: HTMLElement = document.documentElement
+): void {
+  target.dataset.lunatocTheme = theme;
+}
+
 /** Reads theme settings and migrates the previous string preference. */
 export async function readThemeSettings(): Promise<ThemeSettings> {
   const result = await chrome.storage.local.get([
