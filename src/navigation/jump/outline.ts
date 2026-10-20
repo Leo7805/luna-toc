@@ -19,7 +19,7 @@ export type { OutlineEntry };
 
 interface PromptItemEntry {
   item: HTMLElement;
-  outlineIndicator: HTMLSpanElement;
+  outlineIndicator: HTMLButtonElement;
   outlineList: HTMLDivElement;
 }
 
@@ -27,6 +27,7 @@ interface CreatePromptItemOptions {
   item: HTMLElement;
   index: number;
   messageId: string;
+  onToggle?: () => void;
 }
 
 interface PromptNavigationAction {
@@ -34,11 +35,12 @@ interface PromptNavigationAction {
 }
 
 const OUTLINE_BUILD_RETRY_DELAY_MS = 300;
-const OUTLINE_BUILD_MAX_ATTEMPTS = 15;
+const OUTLINE_BUILD_MAX_ATTEMPTS = 40;
 
 const expandedPromptOutlines = new Set<number>();
 const promptItems = new Map<number, PromptItemEntry>();
 let currentPromptIndex: number | null = null;
+let pendingOutlineIndex: number | null = null;
 let outlineBuildVersion = 0;
 
 /**
@@ -60,6 +62,7 @@ export function resetOutline(): void {
   expandedPromptOutlines.clear();
   resetPromptItems();
   currentPromptIndex = null;
+  pendingOutlineIndex = null;
 }
 
 /**
@@ -90,15 +93,22 @@ function handleInvalidatedOutline(index: number): void {
 export function createPromptItem({
   item,
   index,
+  onToggle,
 }: CreatePromptItemOptions): {
-  outlineIndicator: HTMLSpanElement;
+  outlineIndicator: HTMLButtonElement;
   outlineList: HTMLDivElement;
 } {
-  const outlineIndicator = document.createElement('span');
+  const outlineIndicator = document.createElement('button');
   const outlineList = document.createElement('div');
 
+  outlineIndicator.type = 'button';
   outlineIndicator.className = 'navigator-outline-indicator';
-  outlineIndicator.setAttribute('aria-hidden', 'true');
+  outlineIndicator.innerHTML = getOutlineIndicatorIcon();
+  outlineIndicator.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onToggle?.();
+  });
 
   const entry = {
     item,
@@ -123,16 +133,13 @@ export function createPromptItem({
  */
 export function handlePromptNavigation(
   index: number,
-  activeIndex: number | null
+  _activeIndex: number | null
 ): PromptNavigationAction {
   cancelOutlineNavigation();
 
-  const cachedOutline =
-    index === activeIndex
-      ? outlineCache.getReusablePromptOutline(index, () =>
-          getPromptOutline(index)
-        )
-      : null;
+  const cachedOutline = outlineCache.getReusablePromptOutline(index, () =>
+    getPromptOutline(index)
+  );
 
   if (cachedOutline) {
     logOutlineDiagnostic('OUTLINE_CACHE_REUSED', {
@@ -148,6 +155,7 @@ export function handlePromptNavigation(
         })
       ),
     });
+    pendingOutlineIndex = null;
     currentPromptIndex = index;
     togglePromptOutline(index);
     updateAllPromptItems();
@@ -157,11 +165,21 @@ export function handlePromptNavigation(
     };
   }
 
+  // First click requests expansion even before the answer has been mounted.
+  // A second click while still loading collapses it and cancels the build.
+  const shouldBuild = !expandedPromptOutlines.has(index);
   setCurrentPrompt(index);
+  if (shouldBuild) {
+    pendingOutlineIndex = index;
+    expandedPromptOutlines.add(index);
+  } else {
+    if (pendingOutlineIndex === index) pendingOutlineIndex = null;
+    expandedPromptOutlines.delete(index);
+    outlineBuildVersion += 1;
+  }
+  updatePromptItemByIndex(index);
 
-  return {
-    shouldBuild: true,
-  };
+  return { shouldBuild };
 }
 
 /**
@@ -171,6 +189,9 @@ export function handlePromptNavigation(
  */
 export function syncActivePrompt(index: number): void {
   if (index === currentPromptIndex) return;
+  // A virtualized answer is being mounted for an explicit triangle click.
+  // Intermediate active-prompt updates must not collapse the requested outline.
+  if (pendingOutlineIndex !== null && index !== pendingOutlineIndex) return;
 
   cancelOutlineNavigation();
   setCurrentPrompt(index);
@@ -258,7 +279,14 @@ function runBuild(index: number, attempts: number, buildVersion: number): void {
   const outline = getPromptOutline(index);
 
   if (!outline.length) {
-    if (attempts <= 1) return;
+    if (attempts <= 1) {
+      if (pendingOutlineIndex === index) {
+        pendingOutlineIndex = null;
+        expandedPromptOutlines.delete(index);
+        updatePromptItemByIndex(index);
+      }
+      return;
+    }
 
     setTimeout(() => {
       runBuild(index, attempts - 1, buildVersion);
@@ -273,6 +301,7 @@ function runBuild(index: number, attempts: number, buildVersion: number): void {
   const cached = outlineCache.cachePromptOutline(index, outline);
   if (!cached) return;
 
+  if (pendingOutlineIndex === index) pendingOutlineIndex = null;
   currentPromptIndex = index;
   updatePromptItemByIndex(index);
 }
@@ -323,9 +352,11 @@ function updatePromptItemState(entry: PromptItemEntry, index: number): void {
   entry.item.classList.toggle('navigator-item-outline-expanded', isExpanded);
 
   entry.outlineIndicator.dataset.expanded = String(isExpanded);
-  entry.outlineIndicator.innerHTML = hasVisibleOutline
-    ? getOutlineIndicatorIcon()
-    : '';
+  entry.outlineIndicator.setAttribute('aria-expanded', String(isExpanded));
+  entry.outlineIndicator.setAttribute(
+    'aria-label',
+    isExpanded ? '收起回答标题' : '展开回答标题'
+  );
 
   renderOutlineList(entry.outlineList, outline, isExpanded, index);
 }
@@ -337,7 +368,7 @@ function updatePromptItemState(entry: PromptItemEntry, index: number): void {
 function getOutlineIndicatorIcon(): string {
   return `
       <svg aria-hidden="true" viewBox="0 0 16 16">
-        <path d="M4 6l4 4 4-4" />
+        <path d="M3 5h10L8 11Z" />
       </svg>
     `;
 }
@@ -380,8 +411,11 @@ function handleOutlineItemClick(
 ): void {
   event.stopPropagation();
 
-  currentPromptIndex = promptIndex;
-  updateAllPromptItems();
+  if (currentPromptIndex !== promptIndex) {
+    currentPromptIndex = promptIndex;
+    collapseAllExcept(promptIndex);
+    updateAllPromptItems();
+  }
   jumpToOutlineEntry(entry, promptIndex, () =>
     resolveCurrentOutlineHeading(promptIndex, entry)
   );

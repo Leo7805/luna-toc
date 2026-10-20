@@ -36,12 +36,15 @@ import {
 } from './jump/promptNavigation';
 import {
   handlePromptNavigation,
+  getPromptOutline,
   resetOutline,
   scheduleBuild,
   syncMarkState,
 } from './jump/outline';
 import { setSidebarStatus } from './ui/sidebarStatus';
 import { previewTooltip } from '@/features/tooltip';
+import { TOC_REFRESH_REQUEST, TOC_REFRESH_RESULT } from './refresh/refreshProtocol';
+import type { ConversationSnapshot } from './state/activeBranch';
 
 export type { RenderOptions };
 
@@ -61,6 +64,9 @@ interface ResetRouteOptions {
 export const navigatorController = (() => {
   let isInitialized = false;
   let isAttached = false;
+  let refreshSequence = 0;
+  let refreshPending = false;
+  let lastRefreshRequestedAt = 0;
   let reportedPromptCount = -1;
   let onPromptCountChanged = (_count: number) => {};
   let onPromptAdded = () => {};
@@ -94,6 +100,9 @@ export const navigatorController = (() => {
     onItemClick: (message, index) => {
       handleNavigatorItemClick(message, index);
     },
+    onOutlineToggle: (message, index) => {
+      handleNavigatorOutlineToggle(message, index);
+    },
     onSavePrompt: (message) => {
       onSavePrompt(message);
     },
@@ -125,6 +134,24 @@ export const navigatorController = (() => {
    * Initializes data and route listeners before the page hook starts emitting.
    * @param {Object} [options]
    */
+  /** Refreshes the current active branch when the user opens the sidebar. */
+  function refreshCurrentConversation(): void {
+    if (!isInitialized || !isAttached || getActivePlatform().id !== 'chatgpt') return;
+    syncRouteState();
+    const routeKey = getCurrentConversationKey();
+    if (conversationStore.isNewChatRouteKey(routeKey)) return;
+    const now = Date.now();
+    // Coalesce repeated pointer transitions and existing requests.
+    if (refreshPending || now - lastRefreshRequestedAt < 500) return;
+    refreshPending = true;
+    lastRefreshRequestedAt = now;
+    const requestId = ++refreshSequence;
+    window.postMessage({ type: TOC_REFRESH_REQUEST, routeKey, requestId }, location.origin);
+    window.setTimeout(() => {
+      if (refreshSequence === requestId) refreshPending = false;
+    }, 15000);
+  }
+
   function init(options: NavigatorControllerOptions = {}): void {
     if (isInitialized) return;
 
@@ -277,15 +304,29 @@ export const navigatorController = (() => {
     index: number
   ): void {
     previewTooltip.hide();
-    const outlineAction = handlePromptNavigation(
+    // The prompt row navigates only; its chevron handles outline expansion.
+    jumpToMessage(message, index);
+  }
+
+  /**
+   * Expands or collapses an answer outline without firing the prompt row's
+   * click handler. Unmounted responses require a prompt jump before extraction.
+   */
+  function handleNavigatorOutlineToggle(
+    message: NavigatorMessage,
+    index: number
+  ): void {
+    previewTooltip.hide();
+    const action = handlePromptNavigation(
       index,
       activePromptTracker.getActiveIndex()
     );
+    if (!action.shouldBuild) return;
 
-    jumpToMessage(message, index);
-    if (outlineAction?.shouldBuild) {
-      scheduleBuild(index);
+    if (getPromptOutline(index).length === 0) {
+      jumpToMessage(message, index);
     }
+    scheduleBuild(index);
   }
 
   /**
@@ -362,6 +403,8 @@ export const navigatorController = (() => {
     const nextConversationKey = getCurrentConversationKey();
     const transition = conversationStore.syncRouteState(nextConversationKey);
     if (!transition.isTransition) return;
+    refreshSequence += 1;
+    refreshPending = false;
 
     const isEnteringNewChat =
       conversationStore.isNewChatRouteKey(nextConversationKey) &&
@@ -419,6 +462,20 @@ export const navigatorController = (() => {
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
       syncRouteState();
+
+      if (event.data?.type === TOC_REFRESH_RESULT) {
+        if (event.origin !== location.origin) return;
+        const { requestId, routeKey, payload } = event.data;
+        if (requestId !== refreshSequence || routeKey !== getCurrentConversationKey()) return;
+        refreshPending = false;
+        if (!payload || !Array.isArray((payload as ConversationSnapshot).messages)) return;
+        const changed = conversationStore.replaceWithFreshSnapshot(payload, routeKey);
+        if (changed) {
+          resetOutline();
+          render({ refreshObservers: true });
+        }
+        return;
+      }
 
       if (
         event.data?.type ===
@@ -484,6 +541,7 @@ export const navigatorController = (() => {
     jumpToEdge,
     jumpToLastPrompt,
     render,
+    refreshCurrentConversation,
     resetView,
     setJumpProgress,
     setSearchQuery,

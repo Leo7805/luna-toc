@@ -169,7 +169,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
     const statusElement = document.getElementById('luna-toc-status')!;
     expect(isLoading()).toBe(true);
-    expect(statusElement.textContent).toContain('Loading');
+    expect(statusElement.textContent).toContain('加载');
 
     // Mismatched routeKey must be ignored
     window.dispatchEvent(
@@ -182,7 +182,7 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
     expect(isLoading()).toBe(true);
-    expect(statusElement.textContent).toContain('Loading');
+    expect(statusElement.textContent).toContain('加载');
 
     // Matching routeKey completes loading
     window.dispatchEvent(
@@ -195,7 +195,7 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
     expect(isLoading()).toBe(false);
-    expect(statusElement.textContent).not.toContain('Loading');
+    expect(statusElement.textContent).not.toContain('加载');
   });
 
   it('processes newUserMessage using payload and updates the TOC list', () => {
@@ -673,7 +673,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
     const statusElement = document.getElementById('luna-toc-status')!;
     expect(freshIsLoading()).toBe(false);
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(statusElement.textContent).toBe('暂无提示词');
   });
 
   it('transitions from existing conversation to new chat immediately without waiting for settle timer', async () => {
@@ -731,7 +731,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
     const statusElement = document.getElementById('luna-toc-status')!;
     expect(freshIsLoading()).toBe(false);
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(statusElement.textContent).toBe('暂无提示词');
   });
 
   it('arms settle timer and sets loading state when transitioning from empty new chat to existing conversation', async () => {
@@ -778,7 +778,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
     const statusElement = document.getElementById('luna-toc-status')!;
     expect(freshIsLoading()).toBe(true);
-    expect(statusElement.textContent).toContain('Loading');
+    expect(statusElement.textContent).toContain('加载');
   });
 
   describe('snapshot completeness and cached restoration lifecycle', () => {
@@ -1272,159 +1272,82 @@ describe('navigatorController lifecycle and coordination', () => {
       // Should be immediately complete with loading = false
       expect(freshIsLoading()).toBe(false);
       const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('No prompts');
+      expect(statusElement.textContent).toBe('暂无提示词');
     });
   });
 
-  describe('jump status lifecycle and decoupled rendering', () => {
-    it('Case A: setJumpProgress activates jumping status without rebuilding #navigator-list', () => {
+  describe('silent jump status and decoupled rendering', () => {
+    it('does not show a status band or rebuild the TOC when a prompt jump starts', () => {
       const platform = getActivePlatform();
       navigatorController.init();
       navigatorController.attach();
 
-      // Populate one prompt so navigator-list has DOM children
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            type: platform.pageHook.messages.conversationData,
-            routeKey: 'test-conv',
-            payload: {
-              messages: [
-                {
-                  id: 'p-1',
-                  author: { role: 'user' },
-                  content: { parts: ['Hello step'] },
-                  create_time: 100,
-                },
-              ],
-            },
-          },
-          source: window,
-        })
-      );
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          type: platform.pageHook.messages.conversationData,
+          routeKey: 'test-conv',
+          payload: { messages: [{
+            id: 'p-1',
+            author: { role: 'user' },
+            content: { parts: ['Hello step'] },
+            create_time: 100,
+          }] },
+        },
+        source: window,
+      }));
 
       const list = document.getElementById('navigator-list')!;
-      expect(list.children.length).toBe(1);
-      const originalItem = list.firstElementChild as HTMLElement;
-      originalItem.dataset.testMarker = 'persistent-node';
+      const originalItem = list.firstElementChild;
+      expect(originalItem).not.toBeNull();
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
-      // Act: Jump starts
       navigatorController.setJumpProgress({
         active: true,
         targetIndex: 0,
         remainingSteps: 10,
       });
 
-      // Status updates immediately to jumping
-      expect(statusElement.textContent).toContain('Jumping to prompt #1');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
-
-      // CRITICAL: #navigator-list must NOT have been wiped or rebuilt
-      expect(list.children.length).toBe(1);
+      const status = document.getElementById('luna-toc-status')!;
+      expect(status.textContent).toBe('');
+      expect(status.classList.contains('navigator-status-active')).toBe(false);
       expect(list.firstElementChild).toBe(originalItem);
-      expect((list.firstElementChild as HTMLElement).dataset.testMarker).toBe('persistent-node');
     });
 
-    it('Case B: clearJumpProgress transitions to complete and lingers before hiding when not loading', () => {
+    it('keeps both jump completion and rapid successive jumps silent', () => {
       navigatorController.init();
       navigatorController.attach();
       setLoading(false);
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
-      navigatorController.setJumpProgress({
-        active: true,
-        targetIndex: 2,
-        remainingSteps: 10,
-      });
-      expect(statusElement.textContent).toContain('Jumping to prompt #3');
-
-      // Act: Jump finishes
-      navigatorController.clearJumpProgress();
-
-      // Retains destination text during linger
-      expect(statusElement.textContent).toBe('Jumping to prompt #3');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
-
-      // Still visible before linger expires (499ms)
-      vi.advanceTimersByTime(499);
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
-
-      // Retracts after 500ms linger
-      vi.advanceTimersByTime(2);
-      expect(statusElement.textContent).toBe('');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+      const status = document.getElementById('luna-toc-status')!;
+      for (const index of [2, 7, 0]) {
+        navigatorController.setJumpProgress({
+          active: true,
+          targetIndex: index,
+          remainingSteps: 10,
+        });
+        expect(status.textContent).toBe('');
+        navigatorController.clearJumpProgress();
+        expect(status.textContent).toBe('');
+        expect(status.classList.contains('navigator-status-active')).toBe(false);
+      }
+      vi.advanceTimersByTime(1000);
+      expect(status.textContent).toBe('');
     });
 
-    it('Case C: clearJumpProgress restores loading status if conversation is still loading', () => {
+    it('restores loading feedback after a jump if the conversation is still loading', () => {
       navigatorController.init();
       navigatorController.attach();
       setLoading(true);
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
+      const status = document.getElementById('luna-toc-status')!;
       navigatorController.setJumpProgress({
         active: true,
         targetIndex: 1,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('Jumping to prompt #2');
-
-      // Act: Jump finishes while conversation is still loading
+      expect(status.textContent).toBe('');
       navigatorController.clearJumpProgress();
-
-      // Restores Loading instead of complete/idle
-      expect(statusElement.textContent).toContain('Loading');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
-    });
-
-    it('Case D: rapid repeated jumps replace target cleanly and cancel previous linger timer', () => {
-      navigatorController.init();
-      navigatorController.attach();
-      setLoading(false);
-
-      const statusElement = document.getElementById('luna-toc-status')!;
-
-      // First jump to prompt #3
-      navigatorController.setJumpProgress({
-        active: true,
-        targetIndex: 2,
-        remainingSteps: 10,
-      });
-      expect(statusElement.textContent).toContain('Jumping to prompt #3');
-
-      // Jump #3 clears and begins 500ms linger
-      navigatorController.clearJumpProgress();
-      expect(statusElement.textContent).toBe('Jumping to prompt #3');
-
-      // Advance 200ms into the linger
-      vi.advanceTimersByTime(200);
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
-
-      // Second jump to prompt #8 before first linger finishes
-      navigatorController.setJumpProgress({
-        active: true,
-        targetIndex: 7,
-        remainingSteps: 10,
-      });
-      expect(statusElement.textContent).toContain('Jumping to prompt #8');
-
-      // Jump #8 clears
-      navigatorController.clearJumpProgress();
-      expect(statusElement.textContent).toBe('Jumping to prompt #8');
-
-      // Advance 400ms: total 600ms since jump #3 cleared, but only 400ms since jump #8 cleared.
-      // If jump #3's linger timer wasn't cancelled, status would have cleared at 500ms.
-      vi.advanceTimersByTime(400);
-      expect(statusElement.textContent).toBe('Jumping to prompt #8');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
-
-      // Advance past jump #8's linger (>500ms total for jump #8)
-      vi.advanceTimersByTime(105);
-      expect(statusElement.textContent).toBe('');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+      expect(status.textContent).toContain('加载');
+      expect(status.classList.contains('navigator-status-active')).toBe(true);
     });
   });
 });

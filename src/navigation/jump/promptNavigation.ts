@@ -265,6 +265,9 @@ function jumpWithIndependentVirtualNavigation(
       jumpId,
       () => myNavVersion !== navigationJumpVersion
     );
+    // A heading jump may cancel the older viewport scan. Do not report
+    // a spurious jump failure or move the page after cancellation.
+    if (myNavVersion !== navigationJumpVersion) return;
     if (loaded) {
       clearJumpProgress();
       finishIndependentVirtualJump(loaded, message, index);
@@ -371,6 +374,12 @@ export function jumpToPromptIndex(
  */
 function cancelActiveNavigationSearch(): void {
   navigationJumpVersion += 1;
+}
+
+/** Cancels a pending parent-prompt walk before a child-heading landing. */
+export function cancelPromptNavigation(): void {
+  cancelActiveNavigationSearch();
+  clearJumpProgress();
 }
 
 /**

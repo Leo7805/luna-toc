@@ -235,7 +235,13 @@ export async function initializeApplication(): Promise<void> {
   initFloatingPanel();
 
   const toggleButton = createSidebarToggleButton();
-  initializeSidebarVisibility(sidebar, toggleButton);
+  initializeSidebarVisibility(sidebar, toggleButton, {
+    onOpened: () => {
+      if (!sidebarController.isMyPromptsView()) {
+        navigatorController.refreshCurrentConversation();
+      }
+    },
+  });
   previewTooltip.init({ anchorSelector: '#navigator-list' });
   buttonTooltip.init();
   myPrompts.initAutocomplete();
