@@ -218,8 +218,8 @@ function jumpWithIndependentVirtualNavigation(
         if (onJumpFailed) {
           onJumpFailed(index);
         } else {
-          clearJumpProgress?.();
           notifyJumpFailed?.();
+          clearJumpProgress?.();
         }
         logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
           status: 'not-found',
@@ -240,8 +240,8 @@ function jumpWithIndependentVirtualNavigation(
     if (onJumpFailed) {
       onJumpFailed(index);
     } else {
-      clearJumpProgress?.();
       notifyJumpFailed?.();
+      clearJumpProgress?.();
     }
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'not-found',
@@ -409,8 +409,8 @@ function finishIndependentVirtualJump(
         if (onJumpFailed) {
           onJumpFailed(index);
         } else {
-          clearJumpProgress?.();
           notifyJumpFailed?.();
+          clearJumpProgress?.();
         }
         return;
       }
@@ -431,8 +431,8 @@ function finishIndependentVirtualJump(
         if (onJumpFailed) {
           onJumpFailed(index);
         } else {
-          clearJumpProgress?.();
           notifyJumpFailed?.();
+          clearJumpProgress?.();
         }
         return;
       }
@@ -461,8 +461,8 @@ function finishIndependentVirtualJump(
         if (onJumpFailed) {
           onJumpFailed(index);
         } else {
-          clearJumpProgress?.();
           notifyJumpFailed?.();
+          clearJumpProgress?.();
         }
       }
     };
