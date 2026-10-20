@@ -7,8 +7,11 @@ import {
   startDomQuiescenceProgressObserver,
   tryVirtualLayoutStrategy,
   waitForTargetMount,
+  stimulateTopBoundary,
+  getLowestMountedConnectedIndex,
 } from '@/navigation/jump/strategies/virtualLayoutStrategy';
 import { JUMP_STRATEGY_CONFIG } from '@/navigation/jump/strategies/config';
+import { DOM_SETTLE_CONFIG } from '@/navigation/jump/domSettle';
 import type { VirtualJumpTargetResult } from '@/platforms/platformInterface';
 import type {
   VirtualStrategyAttempt,
@@ -842,6 +845,144 @@ describe('startDomQuiescenceProgressObserver', () => {
     const outcome = await session.promise;
     expect(outcome.status).toBe('cancelled');
 
+    container.remove();
+  });
+
+  it('recognizes progress when turnCount is constant but connected DOM elements move closer to target with exact debounce timing', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    const promptEl = document.createElement('div');
+    promptEl.setAttribute('data-chatgpt-search-message-ids', 'msg-10');
+    promptEl.setAttribute('data-chatgpt-search-unit-key', 'msg-10:user');
+    container.appendChild(promptEl);
+
+    mocks.readMountedWithSidebarIdx.mockReturnValue([
+      { element: promptEl, sidebarIdx: 10, unitKey: 'msg-10:user' },
+    ]);
+
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'target-not-in-layout',
+      turnCount: 50, // Constant turn count!
+    });
+
+    const session = startDomQuiescenceProgressObserver({
+      root: document.body,
+      container,
+      targetMessageId: 'msg-1',
+      prompts: [{ id: 'msg-1' }, { id: 'msg-10' }, { id: 'msg-20' }],
+      previousLowestIndex: 20,
+      previousTurnCount: 50,
+      isCancelled: () => false,
+      minQuerySpacingMs: 0,
+    });
+
+    // Trigger MutationObserver
+    container.appendChild(document.createElement('span'));
+
+    // Before debounceMs, session remains pending and query has not fired
+    await vi.advanceTimersByTimeAsync(DOM_SETTLE_CONFIG.debounceMs - 2);
+    expect(mocks.queryVirtualJumpTarget).not.toHaveBeenCalled();
+
+    // Exactly at debounceMs, query executes and resolves progress
+    await vi.advanceTimersByTimeAsync(2);
+    expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledOnce();
+
+    const outcome = await session.promise;
+    expect(outcome.status).toBe('progress');
+
+    container.remove();
+  });
+
+  it('ignores disconnected DOM elements when calculating lowest mounted index', () => {
+    const detachedEl = document.createElement('div');
+    mocks.readMountedWithSidebarIdx.mockReturnValue([
+      { element: detachedEl, sidebarIdx: 5, unitKey: 'msg-5:user' },
+    ]);
+
+    const lowest = getLowestMountedConnectedIndex(
+      [{ id: 'msg-1' }, { id: 'msg-5' }],
+      document
+    );
+    expect(lowest).toBeNull();
+  });
+
+  it('stimulates boundary with non-zero pulse and frame wait when scrollTop is at 0', async () => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollHeight', { value: 10000, configurable: true });
+    Object.defineProperty(container, 'clientHeight', { value: 800, configurable: true });
+    container.scrollTop = 0;
+    document.body.appendChild(container);
+
+    const scrollHistory: Array<{ value: number; time: number }> = [];
+    Object.defineProperty(container, 'scrollTop', {
+      get: () => (scrollHistory.length > 0 ? scrollHistory[scrollHistory.length - 1].value : 0),
+      set: (val: number) => {
+        scrollHistory.push({ value: val, time: performance.now() });
+      },
+      configurable: true,
+    });
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number, _y?: number) => {
+      const top = typeof opts === 'number' ? opts : (opts?.top ?? 0);
+      scrollHistory.push({ value: top, time: performance.now() });
+    }) as unknown as HTMLElement['scrollTo'];
+
+    const originalRaf = window.requestAnimationFrame;
+    window.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
+      return setTimeout(() => cb(performance.now()), 16) as unknown as number;
+    });
+
+    const pulsePromise = stimulateTopBoundary(container, () => false);
+
+    // Advance timers past both double-rAF frame cycles
+    await vi.advanceTimersByTimeAsync(200);
+    await pulsePromise;
+
+    // Verify sequence: pulse to 32, then return to 0 asynchronously
+    expect(scrollHistory).toHaveLength(2);
+    expect(scrollHistory[0].value).toBe(32);
+    expect(scrollHistory[1].value).toBe(0);
+    expect(scrollHistory[1].time).toBeGreaterThan(scrollHistory[0].time);
+
+    window.requestAnimationFrame = originalRaf;
+    container.remove();
+  });
+
+  it('aborts boundary stimulation early if cancelled during frame wait', async () => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollHeight', { value: 10000, configurable: true });
+    Object.defineProperty(container, 'clientHeight', { value: 800, configurable: true });
+    container.scrollTop = 0;
+    document.body.appendChild(container);
+
+    let cancelled = false;
+    const scrollHistory: number[] = [];
+    Object.defineProperty(container, 'scrollTop', {
+      get: () => 0,
+      set: (val: number) => scrollHistory.push(val),
+      configurable: true,
+    });
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number, _y?: number) => {
+      const top = typeof opts === 'number' ? opts : (opts?.top ?? 0);
+      scrollHistory.push(top);
+    }) as unknown as HTMLElement['scrollTo'];
+
+    const originalRaf = window.requestAnimationFrame;
+    window.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
+      return setTimeout(() => cb(performance.now()), 16) as unknown as number;
+    });
+
+    const promise = stimulateTopBoundary(container, () => cancelled);
+
+    // Cancel while waiting for first frame
+    cancelled = true;
+    await vi.advanceTimersByTimeAsync(200);
+    await promise;
+
+    // Pulse write happened, but return-to-zero scroll was aborted due to cancellation
+    expect(scrollHistory).toEqual([32]);
+
+    window.requestAnimationFrame = originalRaf;
     container.remove();
   });
 });

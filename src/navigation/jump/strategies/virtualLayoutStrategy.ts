@@ -66,6 +66,98 @@ export interface DomQuiescenceProgressSession {
 const CANCELLATION_POLL_INTERVAL_MS = 100;
 
 /**
+ * Yields two animation frames to ensure geometry changes are committed and painted
+ * before the next DOM modification. In background tabs or throttled environments where
+ * requestAnimationFrame is suspended, falls back to a timer (50ms) as a best-effort
+ * safeguard against indefinite hangs.
+ *
+ * @param isCancelled Optional cancellation check predicate.
+ */
+function waitForRenderedFrame(isCancelled?: () => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let raf1Id: number | null = null;
+    let raf2Id: number | null = null;
+
+    const cleanup = () => {
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+      if (raf1Id !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(raf1Id);
+        raf1Id = null;
+      }
+      if (raf2Id !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(raf2Id);
+        raf2Id = null;
+      }
+    };
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    timerId = setTimeout(done, 50);
+
+    if (typeof requestAnimationFrame === 'function') {
+      raf1Id = requestAnimationFrame(() => {
+        if (settled || isCancelled?.()) {
+          done();
+          return;
+        }
+        raf2Id = requestAnimationFrame(() => {
+          done();
+        });
+      });
+    }
+  });
+}
+
+/**
+ * Stimulates top-boundary pagination listeners.
+ * When container.scrollTop > 1, scrolling to 0 creates an observable transition.
+ * When scrollTop is already clamped at 0, writing 0 produces zero delta, which suppresses
+ * scroll events and IntersectionObserver recalculation in Chromium.
+ * We displace by a small offset, wait for the frame to render, then restore to 0.
+ *
+ * @param container Active scroll container.
+ * @param isCancelled Callback returning true if navigation was superseded or cancelled.
+ */
+export async function stimulateTopBoundary(
+  container: HTMLElement,
+  isCancelled: () => boolean
+): Promise<void> {
+  const maxScroll = Math.max(
+    0,
+    container.scrollHeight - container.clientHeight
+  );
+
+  // Normal / non-boundary or unscrollable path:
+  // When scrolled down (scrollTop > 1) or when container has no scrollable overflow (maxScroll <= 0),
+  // scroll directly to 0 without pulse or frame waits, keeping scrollTo side effect synchronous.
+  if (container.scrollTop > 1 || maxScroll <= 0) {
+    container.scrollTo({ top: 0, behavior: 'auto' });
+    return;
+  }
+
+  // Actual boundary pulse path (scrollTop <= 1 && maxScroll > 0):
+  const PULSE_OFFSET_PX = 32;
+  const pulseTarget = Math.min(PULSE_OFFSET_PX, maxScroll);
+  if (pulseTarget > 0) {
+    container.scrollTop = pulseTarget;
+    await waitForRenderedFrame(isCancelled);
+    if (isCancelled()) return;
+  }
+  container.scrollTo({ top: 0, behavior: 'auto' });
+  await waitForRenderedFrame(isCancelled);
+}
+
+/**
  * Synchronously attaches a MutationObserver to observe DOM mutation bursts until
  * host layout growth is detected or the overall timeout budget expires.
  *
@@ -76,6 +168,8 @@ export function startDomQuiescenceProgressObserver(params: {
   root: ParentNode;
   container: HTMLElement;
   targetMessageId: string;
+  prompts?: ReadonlyArray<{ id: string }>;
+  previousLowestIndex?: number | null;
   previousTurnCount: number;
   isCancelled: () => boolean;
   timeoutMs?: number;
@@ -87,6 +181,8 @@ export function startDomQuiescenceProgressObserver(params: {
     root,
     container,
     targetMessageId,
+    prompts,
+    previousLowestIndex,
     previousTurnCount,
     isCancelled,
     timeoutMs = JUMP_STRATEGY_CONFIG.virtualLayout.noProgressTimeoutMs,
@@ -143,6 +239,22 @@ export function startDomQuiescenceProgressObserver(params: {
     sessionResolve(outcome);
   };
 
+  const checkProgress = (result: VirtualJumpTargetResult): boolean => {
+    if (result.status !== 'target-not-in-layout') return false;
+    if (result.turnCount > previousTurnCount) return true;
+    if (
+      previousLowestIndex !== null &&
+      previousLowestIndex !== undefined &&
+      prompts
+    ) {
+      const currentLowest = getLowestMountedConnectedIndex(prompts, root);
+      if (currentLowest !== null && currentLowest < previousLowestIndex) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   if (isCancelled()) {
     settle({ status: 'cancelled' });
     return {
@@ -178,11 +290,14 @@ export function startDomQuiescenceProgressObserver(params: {
       return;
     }
 
-    if (
-      freshResult.status === 'target-not-in-layout' &&
-      freshResult.turnCount > previousTurnCount
-    ) {
-      settle({ status: 'progress', result: freshResult });
+    if (checkProgress(freshResult)) {
+      settle({
+        status: 'progress',
+        result: freshResult as Extract<
+          VirtualJumpTargetResult,
+          { status: 'target-not-in-layout' }
+        >,
+      });
       return;
     }
 
@@ -291,10 +406,15 @@ export function startDomQuiescenceProgressObserver(params: {
 
     if (
       finalResult &&
-      finalResult.status === 'target-not-in-layout' &&
-      finalResult.turnCount > previousTurnCount
+      checkProgress(finalResult)
     ) {
-      settle({ status: 'progress', result: finalResult });
+      settle({
+        status: 'progress',
+        result: finalResult as Extract<
+          VirtualJumpTargetResult,
+          { status: 'target-not-in-layout' }
+        >,
+      });
       return;
     }
 
@@ -312,6 +432,31 @@ export function startDomQuiescenceProgressObserver(params: {
     promise,
     dispose: () => settle({ status: 'cancelled' }),
   };
+}
+
+/**
+ * Inspects currently mounted and connected prompt elements to find the lowest sidebar index.
+ *
+ * @param prompts Readonly list of conversation prompts.
+ * @param root Document or parent node to inspect.
+ * @returns The minimum sidebar index of mounted connected prompts, or null if none found.
+ */
+export function getLowestMountedConnectedIndex(
+  prompts: ReadonlyArray<{ id: string }>,
+  root: ParentNode = document
+): number | null {
+  try {
+    const queue = seedMountQueue(prompts, root);
+    const indices: number[] = [];
+    for (const entry of queue.values()) {
+      if (entry.element && entry.element.isConnected) {
+        indices.push(entry.sidebarIdx);
+      }
+    }
+    return indices.length > 0 ? Math.min(...indices) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -344,6 +489,10 @@ async function paginateOlderVirtualLayout(
 
   while (true) {
     const previousTurnCount = currentResult.turnCount;
+    const previousLowestIndex = getLowestMountedConnectedIndex(
+      context.prompts,
+      document
+    );
 
     if (isCancelled()) {
       return { status: 'cancelled' };
@@ -354,6 +503,8 @@ async function paginateOlderVirtualLayout(
       root: document.body,
       container,
       targetMessageId,
+      prompts: context.prompts,
+      previousLowestIndex,
       previousTurnCount,
       isCancelled,
       timeoutMs: noProgressTimeoutMs,
@@ -362,15 +513,17 @@ async function paginateOlderVirtualLayout(
       minQuerySpacingMs,
     });
 
-    // 2. Exactly one top-boundary scroll
+    // 2. Stimulate top boundary across frame boundaries
     try {
-      container.scrollTo({
-        top: 0,
-        behavior: 'auto',
-      });
+      await stimulateTopBoundary(container, isCancelled);
     } catch {
       session.dispose();
       return { status: 'exhausted', reason: 'scroll-to-top-threw' };
+    }
+
+    if (isCancelled()) {
+      session.dispose();
+      return { status: 'cancelled' };
     }
 
     // 3. Await progress outcome
