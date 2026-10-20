@@ -21,14 +21,17 @@ let pinBtn: HTMLElement | null = null;
 let isPinned = false;
 let isHidden = true;
 let hideTimer = 0;
+let onOpened: (() => void) | null = null;
 /**
  * @param {HTMLElement} sidebarElement
  * @param {HTMLButtonElement} toggleButton
  */
 export function initializeSidebarVisibility(
   sidebarElement: HTMLElement,
-  toggleButton: HTMLButtonElement
+  toggleButton: HTMLButtonElement,
+  options: { onOpened?: () => void } = {}
 ): void {
+  onOpened = options.onOpened ?? null;
   sidebar = sidebarElement;
   toggleBtn = toggleButton;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
@@ -196,6 +199,7 @@ function finishInitializing(): void {
  * @param {boolean} hidden
  */
 export function setSidebarHidden(hidden: boolean): void {
+  const justOpened = isHidden && !hidden;
   isHidden = hidden;
 
   sidebar?.classList.toggle('luna-toc-navigator-hidden', isHidden);
@@ -206,6 +210,7 @@ export function setSidebarHidden(hidden: boolean): void {
   toggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
   toggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
   setWideViewportSpoofEnabled(!isHidden);
+  if (justOpened) onOpened?.();
 }
 
 function clearHideTimer(): void {

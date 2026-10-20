@@ -25,6 +25,7 @@ import {
   postConversationData,
 } from './conversationCapture';
 import { installConversationBackfill } from './conversationBackfill';
+import { installConversationRefresh } from './conversationRefresh';
 import { installHistoryHook } from './historyHook';
 import { installTitleObserver } from './titleObserver';
 
@@ -43,6 +44,7 @@ import { installTitleObserver } from './titleObserver';
 
   installConversationCapture({ originalFetch });
   installConversationBackfill({ originalFetch, platform });
+  const observeRefreshHeaders = installConversationRefresh(originalFetch, platform);
   platform.pageHook.installMatchMediaSpoof();
   platform.pageHook.installMatchMediaToggleListener();
   installHistoryHook(platform.pageHook.messages.routeChanged);
@@ -126,6 +128,8 @@ import { installTitleObserver } from './titleObserver';
         const authHeaders = requestMeta.isInitialConversationLoad
           ? getRequestHeaders(args[0], args[1])
           : null;
+
+        if (authHeaders) observeRefreshHeaders(requestMeta.routeKey, authHeaders);
 
         postConversationData(
           response,

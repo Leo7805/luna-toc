@@ -10,6 +10,7 @@ import {
   type NavigatorMessage,
 } from '@/features/conversationPrompts/message';
 import { createNavigationSnapshotStore } from '@/navigation/jump/navigationSnapshotStore';
+import { extractActiveBranchMessages, type ConversationSnapshot } from './activeBranch';
 
 export interface ConversationStoreOptions {
   /**
@@ -41,6 +42,7 @@ export interface ConversationStore {
   isNewChatRouteKey(routeKey: string): boolean;
   getMessages(): NavigatorMessage[];
   setMessages(messages: NavigatorMessage[]): void;
+  replaceWithFreshSnapshot(data: ConversationSnapshot, routeKey: string): boolean;
   appendNavigatorMessage(newMessage: ChatMessage, routeKey?: string): boolean;
   handleConversationData(
     data: ConversationData,
@@ -218,6 +220,25 @@ export function createConversationStore(
     return conversationMessages;
   }
 
+  /** Replaces the selected branch, rather than unioning abandoned branches. */
+  function replaceWithFreshSnapshot(data: ConversationSnapshot, routeKey: string): boolean {
+    if (routeKey !== getCurrentConversationKey()) return false;
+    const branch = extractActiveBranchMessages(data);
+    if (branch === null) return false;
+    const next = extractUserMessages({ messages: branch });
+    const previous = conversationMessages;
+    const changed = previous.length !== next.length || previous.some((m, i) =>
+      m.id !== next[i]?.id || m.text !== next[i]?.text ||
+      m.createTime !== next[i]?.createTime || m.canMatchByText !== next[i]?.canMatchByText
+    );
+    const map = new Map<string, ChatMessage>();
+    for (const message of branch) if (message.id) map.set(message.id, message);
+    accumulatedConversationMessages.set(routeKey, map);
+    conversationMessages = next;
+    if (changed) cacheConversationMessages(routeKey);
+    return changed;
+  }
+
   function handleNewUserMessage(
     newMessage: ChatMessage,
     routeKey?: string
@@ -371,6 +392,7 @@ export function createConversationStore(
     isNewChatRouteKey,
     getMessages,
     setMessages,
+    replaceWithFreshSnapshot,
     appendNavigatorMessage,
     handleConversationData,
     handleNewUserMessage,
