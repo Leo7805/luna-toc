@@ -1,16 +1,16 @@
-# ChatTOC Architecture
+# LunaTOC Architecture (Historical Reference)
 
-This document describes the design, context boundaries, and module coordination of the ChatTOC Chrome extension.
+This document records the project's earlier architecture and design decisions. Some diagrams and module paths are historical and may not match the current codebase. Consult [README](../README.md) and the current `src/` tree for supported features and runtime behavior.
 
 ## Overview
 
-ChatTOC is a Chrome Extension that inserts a table-of-contents sidebar into ChatGPT's chat interface, helping users navigate long conversations and keep track of prompts.
+LunaTOC is a Chrome Extension that inserts a table-of-contents sidebar into ChatGPT's chat interface, helping users navigate long conversations and keep track of prompts.
 
 ---
 
 ## 1. Context Boundaries & Injection Model
 
-Because Chrome Extensions run content scripts in an **Isolated World** (preventing direct access to the page's Javascript variables and window functions), ChatTOC splits its logic into two execution worlds:
+Because Chrome Extensions run content scripts in an **Isolated World** (preventing direct access to the page's Javascript variables and window functions), LunaTOC splits its logic into two execution worlds:
 
 ```mermaid
 graph TD

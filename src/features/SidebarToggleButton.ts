@@ -1,5 +1,5 @@
 /**
- * Builds and manages the floating ChatTOC sidebar toggle button.
+ * Builds and manages the floating LunaTOC sidebar toggle button.
  */
 interface ToggleButtonPosition {
   left: number;

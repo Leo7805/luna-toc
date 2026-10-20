@@ -29,8 +29,7 @@
         {
             "matches": [
                 "https://chatgpt.com/*",
-                "https://chat.openai.com/*",
-                "https://copilot.microsoft.com/*"
+                "https://chat.openai.com/*"
             ],
             "js": [
                 "src/pageHook/pageHook.iife.ts"
@@ -41,8 +40,7 @@
         {
             "matches": [
                 "https://chatgpt.com/*",
-                "https://chat.openai.com/*",
-                "https://copilot.microsoft.com/*"
+                "https://chat.openai.com/*"
             ],
             "js": [
                 "src/content.ts"

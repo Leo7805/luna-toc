@@ -1,7 +1,7 @@
 /**
  * Injected page-context hook. Captures ChatGPT conversation fetch payloads,
  * streams newly submitted user prompts, and spoofs width media queries while
- * the ChatTOC sidebar is visible.
+ * the LunaTOC sidebar is visible.
  *
  * This entry is a thin per-platform orchestrator: the heavy lifting lives
  * in the focused modules under `src/pageHook/` (platform-agnostic) and the

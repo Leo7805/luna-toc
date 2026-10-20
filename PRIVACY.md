@@ -1,11 +1,22 @@
-# Privacy Policy
+# LunaTOC 隐私说明 / Privacy
 
-ChatTOC does not collect, store, transmit, sell, or share any user data.
+LunaTOC 是一个以 ChatGPT 为主要支持平台的 Chrome 浏览器扩展。本说明针对 [PyRookie1/luna-toc-sc](https://github.com/PyRookie1/luna-toc-sc) 的源码版本，不代表上游项目的隐私政策。
 
-The extension operates entirely within the user's browser and only reads visible ChatGPT conversation content to generate a local table of contents and navigation sidebar.
+## 处理的信息
 
-No conversation content is transmitted to external servers.
+- 为生成提问目录和回答标题索引，扩展会读取 ChatGPT 页面中已经渲染的对话内容，并处理 ChatGPT 页面请求返回的会话消息数据。处理过程主要发生在浏览器内。
+- 为了在编辑历史问题、切换回答分支后更新目录，当侧边栏由隐藏变为展开时，扩展可以通过浏览器现有登录会话，向 **ChatGPT 站点自身的同源会话接口** 发起请求并读取响应。此操作需要网络连接，不应描述为完全离线。
+- “我的提示词”、自定义目录标题、主题、标记等数据会使用 Chrome 的本地存储能力保存。部分界面位置及会话状态也可能使用当前标签页的 Web Storage。
+- 用户手动导出的提示词会保存为本地文件；用户选择导入文件时，扩展会在浏览器中解析文件内容。
 
-No analytics, tracking, advertising, or third-party services are used.
+## 不包含的功能
 
-If you have any questions, please open an issue on the GitHub repository.
+当前项目未实现向项目维护者自有服务器上传对话的功能，也未集成项目自有的分析、广告追踪或遥测服务。扩展所依赖的 ChatGPT 网页和接口由 ChatGPT 服务方提供，并遵循该服务自身的隐私政策。
+
+## 权限及范围
+
+`manifest.json` 使用 Chrome 的 `storage` 权限，并在 `chatgpt.com`、`chat.openai.com` 页面注入运行所需脚本。扩展不会在 Microsoft Copilot 页面自动注入脚本；Copilot 适配代码尚未实现。
+
+## 联系方式
+
+问题反馈请使用本仓库的 [GitHub Issues](https://github.com/PyRookie1/luna-toc-sc/issues)。

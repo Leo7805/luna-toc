@@ -1,5 +1,5 @@
 /**
- * Owns ChatTOC sidebar visibility, pinning, and auto-hide behavior.
+ * Owns LunaTOC sidebar visibility, pinning, and auto-hide behavior.
  */
 import { getActivePlatform } from '@/platforms';
 
@@ -272,7 +272,7 @@ function isSidebarExtensionSurfaceEvent(event: Event): boolean {
 }
 
 /**
- * Enables the page-context width spoof only while the ChatTOC sidebar is open.
+ * Enables the page-context width spoof only while the LunaTOC sidebar is open.
  * @param {boolean} enabled
  */
 function setWideViewportSpoofEnabled(enabled: boolean): void {

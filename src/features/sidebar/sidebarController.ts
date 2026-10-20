@@ -210,7 +210,7 @@ export const sidebarController = (() => {
       document.title
         .replace(/\s*[-–]\s*ChatGPT$/i, '')
         .replace(/^ChatGPT\s*[-–]\s*/i, '')
-        .trim() || 'ChatTOC'
+        .trim() || 'LunaTOC'
     );
   }
 

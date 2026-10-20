@@ -1,5 +1,5 @@
 /**
- * Converts ChatGPT conversation payloads into ChatTOC's compact message model.
+ * Converts ChatGPT conversation payloads into LunaTOC's compact message model.
  */
 export interface ChatAttachment {
   name?: string;
@@ -154,7 +154,7 @@ function isTextMatchableMessage(message: ChatMessage): boolean {
 }
 
 /**
- * Converts a ChatGPT message into the compact model used by ChatTOC.
+ * Converts a ChatGPT message into the compact model used by LunaTOC.
  * @param {Object} message
  * @returns {{ id: string, text: string, canMatchByText: boolean, createTime: number }}
  */

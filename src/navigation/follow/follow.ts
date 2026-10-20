@@ -57,7 +57,7 @@ export function keepFollowing(duration = FOLLOW_AFTER_JUMP_MS): void {
 }
 
 /**
- * Cancels automatic sidebar follow when the user starts browsing ChatTOC
+ * Cancels automatic sidebar follow when the user starts browsing LunaTOC
  * directly.
  */
 export function stopFollowing(): void {
@@ -81,7 +81,7 @@ function initNavigatorBrowseTracking(listSelector: string): void {
 }
 
 /**
- * Returns true for scroll events from ChatTOC UI instead of the chat page.
+ * Returns true for scroll events from LunaTOC UI instead of the chat page.
  * @param {Event} event
  * @returns {boolean}
  */
