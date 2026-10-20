@@ -182,7 +182,7 @@ function jumpWithIndependentVirtualNavigation(
       textHit: Boolean(textHit),
       finalElement: renderedTarget.tagName,
     });
-    finishIndependentVirtualJump(renderedTarget, message, index);
+    finishIndependentVirtualJump(renderedTarget, message, index, false);
     return;
   }
 
@@ -209,7 +209,7 @@ function jumpWithIndependentVirtualNavigation(
         return;
       }
       if (outcome.status === 'mounted') {
-        finishIndependentVirtualJump(outcome.element, message, index);
+        finishIndependentVirtualJump(outcome.element, message, index, true);
         return;
       }
       if (outcome.status === 'capability-failure') {
@@ -233,7 +233,7 @@ function jumpWithIndependentVirtualNavigation(
     }
 
     if (loaded) {
-      finishIndependentVirtualJump(loaded, message, index);
+      finishIndependentVirtualJump(loaded, message, index, true);
       return;
     }
 
@@ -252,17 +252,25 @@ function jumpWithIndependentVirtualNavigation(
 
 /**
  * Completes an independent jump by highlighting the target and waiting for
- * ChatGPT's virtual rendering to settle. Highlights the target as soon
- * as it scrolls into the viewport, with a short fallback in case the
- * settle never triggers a visible change.
+ * ChatGPT's virtual rendering to settle.
+ *
+ * For already-mounted targets (fast path), completes immediately and synchronously.
+ * For targets mounted after virtual pagination or walker loading, stabilizes
+ * alignment across animation frames to absorb TanStack Virtual height measurements.
  */
 function finishIndependentVirtualJump(
   target: HTMLElement,
   message: NavigatorMessage,
-  index: number
+  index: number,
+  requiresStabilization = false
 ): void {
   const jumpVersion = ++navigationJumpVersion;
   const targetAttempts = 8;
+  const SUBPIXEL_TOLERANCE_PX = 2;
+  const MAX_REALIGN_ATTEMPTS = 3;
+  const REQUIRED_STABLE_FRAMES = 3;
+  const MAX_TOTAL_CHECKS = 8;
+  const FRAME_TIMEOUT_MS = 50;
 
   // Scroll the target to the top of the chat viewport (with the
   // configured top padding so it doesn't sit flush against the edge),
@@ -278,18 +286,188 @@ function finishIndependentVirtualJump(
     return true;
   };
 
+  type AlignmentEvaluation = 'aligned' | 'bounded' | 'correctable' | 'disconnected';
+
+  const evaluateAlignment = (el: HTMLElement): AlignmentEvaluation => {
+    if (!el.isConnected) return 'disconnected';
+
+    const container = platform().navigation.getScrollContainer();
+    const containerTop = container ? container.getBoundingClientRect().top : 0;
+    const rect = el.getBoundingClientRect();
+
+    // Preserve compatibility with headless test environments lacking layout engines
+    if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.bottom === 0) {
+      return 'aligned';
+    }
+
+    const currentOffset = rect.top - containerTop;
+    const targetOffset = platform().navigation.promptTopOffsetPx ?? 16;
+    let scrollPaddingTop = 0;
+    if (typeof window !== 'undefined' && container && typeof window.getComputedStyle === 'function') {
+      try {
+        const style = window.getComputedStyle(container);
+        scrollPaddingTop = parseFloat(style.scrollPaddingTop || '0') || 0;
+      } catch {
+        scrollPaddingTop = 0;
+      }
+    }
+    const expectedOffset = targetOffset + scrollPaddingTop;
+    const diff = currentOffset - expectedOffset;
+
+    if (Math.abs(diff) <= SUBPIXEL_TOLERANCE_PX) {
+      return 'aligned';
+    }
+
+    if (container) {
+      const scrollTop = container.scrollTop;
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+
+      // Target is above expected offset but container is clamped at minimum scroll boundary
+      if (diff < -SUBPIXEL_TOLERANCE_PX && scrollTop <= SUBPIXEL_TOLERANCE_PX) {
+        return 'bounded';
+      }
+
+      // Target is below expected offset but container is clamped at maximum scroll ceiling
+      if (maxScrollTop > 0 && diff > SUBPIXEL_TOLERANCE_PX && scrollTop >= maxScrollTop - SUBPIXEL_TOLERANCE_PX) {
+        return 'bounded';
+      }
+    }
+
+    return 'correctable';
+  };
+
+  const scheduleFrame = (callback: () => void): (() => void) => {
+    let settled = false;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let rafId: number | null = null;
+
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+      if (rafId !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    };
+
+    const run = () => {
+      if (settled) return;
+      cleanup();
+      callback();
+    };
+
+    timerId = setTimeout(run, FRAME_TIMEOUT_MS);
+    if (typeof requestAnimationFrame === 'function') {
+      rafId = requestAnimationFrame(run);
+    }
+
+    return cleanup;
+  };
+
   if (scrollTargetIntoView(target)) {
     if (jumpVersion !== navigationJumpVersion) return;
 
     keepFollowing(1800);
 
-    logChatGptNavigationEvent(
-      createChatGptNavigationJumpId(),
-      'JUMP_FINISHED',
-      { status: 'found', attempts: targetAttempts }
-    );
+    // Fast path: already-mounted targets complete synchronously with zero delay
+    if (!requiresStabilization) {
+      logChatGptNavigationEvent(
+        createChatGptNavigationJumpId(),
+        'JUMP_FINISHED',
+        { status: 'found', attempts: targetAttempts }
+      );
+      onJumpComplete?.(index);
+      return;
+    }
 
-    onJumpComplete?.(index);
+    // Initially unmounted path: verify alignment against post-mount layout shifts
+    let realignAttempts = 0;
+    let consecutiveAlignedFrames = 0;
+    let totalChecks = 0;
+
+    const stabilizeStep = () => {
+      if (jumpVersion !== navigationJumpVersion) return;
+
+      totalChecks += 1;
+      const liveTarget = findRenderedChatGptPrompt(message.id) ?? target;
+      const evalResult = evaluateAlignment(liveTarget);
+
+      if (evalResult === 'disconnected') {
+        if (totalChecks < MAX_TOTAL_CHECKS) {
+          scheduleFrame(stabilizeStep);
+          return;
+        }
+        logChatGptNavigationEvent(
+          createChatGptNavigationJumpId(),
+          'JUMP_FINISHED',
+          { status: 'target-disconnected' }
+        );
+        if (onJumpFailed) {
+          onJumpFailed(index);
+        } else {
+          clearJumpProgress?.();
+          notifyJumpFailed?.();
+        }
+        return;
+      }
+
+      if (evalResult === 'correctable') {
+        consecutiveAlignedFrames = 0;
+        if (realignAttempts < MAX_REALIGN_ATTEMPTS && totalChecks < MAX_TOTAL_CHECKS) {
+          realignAttempts += 1;
+          scrollTargetIntoView(liveTarget);
+          scheduleFrame(stabilizeStep);
+          return;
+        }
+        logChatGptNavigationEvent(
+          createChatGptNavigationJumpId(),
+          'JUMP_FINISHED',
+          { status: 'alignment-unstable' }
+        );
+        if (onJumpFailed) {
+          onJumpFailed(index);
+        } else {
+          clearJumpProgress?.();
+          notifyJumpFailed?.();
+        }
+        return;
+      }
+
+      // evalResult is 'aligned' or 'bounded'
+      consecutiveAlignedFrames += 1;
+      if (consecutiveAlignedFrames >= REQUIRED_STABLE_FRAMES) {
+        logChatGptNavigationEvent(
+          createChatGptNavigationJumpId(),
+          'JUMP_FINISHED',
+          { status: 'found', attempts: targetAttempts }
+        );
+        onJumpComplete?.(index);
+        return;
+      }
+
+      if (totalChecks < MAX_TOTAL_CHECKS) {
+        scheduleFrame(stabilizeStep);
+      } else {
+        // Upper bound reached without satisfying continuous stability requirements
+        logChatGptNavigationEvent(
+          createChatGptNavigationJumpId(),
+          'JUMP_FINISHED',
+          { status: 'alignment-unstable' }
+        );
+        if (onJumpFailed) {
+          onJumpFailed(index);
+        } else {
+          clearJumpProgress?.();
+          notifyJumpFailed?.();
+        }
+      }
+    };
+
+    scheduleFrame(stabilizeStep);
     return;
   }
 
