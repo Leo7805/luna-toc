@@ -36,6 +36,7 @@ import {
 } from './jump/promptNavigation';
 import {
   handlePromptNavigation,
+  getPromptOutline,
   resetOutline,
   scheduleBuild,
   syncMarkState,
@@ -93,6 +94,9 @@ export const navigatorController = (() => {
     getActiveIndex: () => activePromptTracker.getActiveIndex(),
     onItemClick: (message, index) => {
       handleNavigatorItemClick(message, index);
+    },
+    onOutlineToggle: (message, index) => {
+      handleNavigatorOutlineToggle(message, index);
     },
     onSavePrompt: (message) => {
       onSavePrompt(message);
@@ -277,15 +281,31 @@ export const navigatorController = (() => {
     index: number
   ): void {
     previewTooltip.hide();
-    const outlineAction = handlePromptNavigation(
+    // Prompt-text clicks navigate only. The adjacent triangle owns outline
+    // expansion, so navigation itself cannot unexpectedly open an accordion.
+    jumpToMessage(message, index);
+  }
+
+  /**
+   * Expands/collapses an answer outline without bubbling into the prompt
+   * row's click handler. A virtualized answer must be mounted first.
+   */
+  function handleNavigatorOutlineToggle(
+    message: NavigatorMessage,
+    index: number
+  ): void {
+    previewTooltip.hide();
+    const action = handlePromptNavigation(
       index,
       activePromptTracker.getActiveIndex()
     );
+    if (!action.shouldBuild) return;
 
-    jumpToMessage(message, index);
-    if (outlineAction?.shouldBuild) {
-      scheduleBuild(index);
+    const headingAlreadyMounted = getPromptOutline(index).length > 0;
+    if (!headingAlreadyMounted) {
+      jumpToMessage(message, index);
     }
+    scheduleBuild(index);
   }
 
   /**

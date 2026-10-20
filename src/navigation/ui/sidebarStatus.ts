@@ -1,6 +1,6 @@
 /**
  * Manages the sidebar status banner between the sidebar header and prompt list.
- * Controls visual status states, count pluralization, jumping dots animation,
+ * Controls visual status states, count pluralization, silent jumping,
  * and linger timeouts.
  */
 import { APP_CONFIG } from '@/config/config';
@@ -22,13 +22,6 @@ export type SidebarStatusState =
 
 let currentStatusMode: SidebarStatusState = 'idle';
 let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * Last text rendered while in `jumping` mode. Reused as the lingering
- * text after a jump finishes so the user sees the final target instead of
- * an empty band.
- */
-let lastJumpingText = '';
 
 /**
  * Formats a prompt count with the correct singular/plural form for the
@@ -72,18 +65,29 @@ export function setSidebarStatus(options: {
   jump?: { active: boolean; targetIndex: number; remainingSteps: number } | null;
   promptCount?: number;
 }): void {
-  const { state, jump, promptCount = 0 } = options;
+  const { state, promptCount = 0 } = options;
   const element = document.getElementById('luna-toc-status');
   if (!element) return;
+
+  // Keep the jump state for virtual navigation, but do not flash an animated
+  // progress band or a completion count on every TOC click.
+  if (state === 'jumping' || (state === 'complete' && currentStatusMode === 'jumping')) {
+    if (statusLingerTimer !== null) {
+      clearTimeout(statusLingerTimer);
+      statusLingerTimer = null;
+    }
+    currentStatusMode = state === 'jumping' ? 'jumping' : 'idle';
+    element.replaceChildren();
+    element.classList.remove('navigator-status-active');
+    return;
+  }
 
   let text: string;
 
   switch (state) {
     case 'jumping':
-      text = jump
-        ? `正在跳转到第 ${jump.targetIndex + 1} 条提示词`
-        : '正在跳转';
-      lastJumpingText = text;
+      // Handled above, so the banner stays collapsed.
+      text = '';
       break;
     case 'loading':
       // Bare "Loading…" covers the `promptCount === 0` case (e.g. an
@@ -102,13 +106,7 @@ export function setSidebarStatus(options: {
       text = '跳转失败';
       break;
     case 'complete':
-      // Linger on the last jump text when transitioning out of a
-      // jump so the user sees the destination they were scrolled to,
-      // not a count that may have shifted by the time the band retracts.
-      text =
-        currentStatusMode === 'jumping'
-          ? lastJumpingText
-          : pluralizePrompts(promptCount);
+      text = pluralizePrompts(promptCount);
       break;
     case 'idle':
     default:
@@ -120,23 +118,6 @@ export function setSidebarStatus(options: {
   }
 
   currentStatusMode = state;
-
-  if (state === 'jumping') {
-    // The CSS `.jumping-dots .dot` keyframe animation owns the motion.
-    // Build the DOM once on entry; subsequent calls during the same
-    // jump hit the early-return above (textContent matches the prefix)
-    // and leave the dots structure intact.
-    element.replaceChildren(
-      document.createTextNode(text),
-      buildJumpingDotsElement()
-    );
-    element.classList.add('navigator-status-active');
-    if (statusLingerTimer !== null) {
-      clearTimeout(statusLingerTimer);
-      statusLingerTimer = null;
-    }
-    return;
-  }
 
   element.textContent = text;
   element.classList.toggle('navigator-status-active', state !== 'idle');
@@ -153,20 +134,4 @@ export function setSidebarStatus(options: {
       statusLingerTimer = null;
     }, STATUS_LINGER_MS);
   }
-}
-
-/**
- * Builds the three-dot span cluster that the CSS keyframe animation drives.
- * Returned element: <span class="jumping-dots"><span class="dot"></span>...
- */
-function buildJumpingDotsElement(): HTMLSpanElement {
-  const container = document.createElement('span');
-  container.className = 'jumping-dots';
-  container.setAttribute('aria-hidden', 'true');
-  for (let i = 0; i < 3; i += 1) {
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    container.appendChild(dot);
-  }
-  return container;
 }

@@ -56,7 +56,7 @@ describe('tocListRenderer', () => {
     renderer.setSearchQuery('nonexistent keyword');
     expect(listElement.children.length).toBe(0);
     expect(hintElement.hidden).toBe(false);
-    expect(hintElement.textContent).toBe('No matching prompts.');
+    expect(hintElement.textContent).toBe('没有匹配的提示词。');
   });
 
   it('shows empty hint when message list is empty', () => {
@@ -69,7 +69,7 @@ describe('tocListRenderer', () => {
     renderer.render();
     expect(listElement.children.length).toBe(0);
     expect(hintElement.hidden).toBe(false);
-    expect(hintElement.textContent).toBe('Waiting for prompts...');
+    expect(hintElement.textContent).toBe('等待提示词...');
   });
 
   it('renders stable empty state when prompts are empty and loading is false', () => {
@@ -86,11 +86,11 @@ describe('tocListRenderer', () => {
 
     // Initial render with completed=true renders empty state
     renderer.render({ completed: true });
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(statusElement.textContent).toBe('暂无提示词');
 
     // Subsequent normal render without completed=true must stay empty, not revert to idle
     renderer.render();
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(statusElement.textContent).toBe('暂无提示词');
   });
 
   it('invokes onItemClick callback when a TOC row is clicked', () => {
@@ -106,6 +106,28 @@ describe('tocListRenderer', () => {
     secondItem.click();
 
     expect(onItemClick).toHaveBeenCalledWith(mockMessages[1], 1);
+  });
+
+  it('always shows a separate triangle toggle without activating prompt navigation', () => {
+    const onItemClick = vi.fn();
+    const onOutlineToggle = vi.fn();
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick,
+      onOutlineToggle,
+    });
+
+    renderer.render();
+    const item = listElement.children[1] as HTMLElement;
+    const triangle = item.querySelector<HTMLButtonElement>('.navigator-outline-indicator');
+    expect(triangle?.tagName).toBe('BUTTON');
+    expect(triangle?.getAttribute('aria-expanded')).toBe('false');
+    expect(triangle?.querySelector('svg')).not.toBeNull();
+
+    triangle!.click();
+    expect(onOutlineToggle).toHaveBeenCalledWith(mockMessages[1], 1);
+    expect(onItemClick).not.toHaveBeenCalled();
   });
 
   it('updates active item UI and toggles active class', () => {

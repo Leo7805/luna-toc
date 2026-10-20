@@ -1,7 +1,9 @@
 /**
- * Navigates from a visible LunaTOC child-outline item to its ChatGPT heading.
+ * Scrolls a selected answer heading into the ChatGPT thread scroll container.
+ * Parent-prompt virtual loading is cancelled before the final heading landing.
  */
-import { jumpToPromptIndex } from './promptNavigation';
+import { getActivePlatform } from '@/platforms';
+import { cancelPromptNavigation, jumpToPromptIndex } from './promptNavigation';
 import { keepFollowing } from '../follow/follow';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
 
@@ -11,28 +13,23 @@ export interface OutlineNavigationEntry {
   text?: string;
 }
 
-/** Resolves the current DOM node for a cached Outline heading descriptor. */
 export type OutlineHeadingResolver = () => HTMLElement | null;
 
 const HEADING_HIGHLIGHT_CLASS = 'chat-toc-outline-heading-highlight';
 const OUTLINE_JUMP_RETRY_DELAY_MS = 250;
-const OUTLINE_JUMP_MAX_ATTEMPTS = 16;
+const OUTLINE_JUMP_MAX_ATTEMPTS = 40;
+const HEADING_TOP_OFFSET_PX = 72;
+const POSITION_TOLERANCE_PX = 10;
 
 let highlightedHeadingElement: HTMLElement | null = null;
 let outlineJumpVersion = 0;
 
-/**
- * Navigates to an already displayed outline entry, restoring its parent
- * prompt first when ChatGPT has virtualized the heading.
- */
 export function jumpToOutlineEntry(
   entry: OutlineNavigationEntry,
   promptIndex: number,
   resolveCurrentHeading: OutlineHeadingResolver
 ): void {
-  const jumpVersion = outlineJumpVersion + 1;
-  outlineJumpVersion = jumpVersion;
-
+  const jumpVersion = ++outlineJumpVersion;
   logOutlineDiagnostic('OUTLINE_JUMP_STARTED', {
     promptIndex,
     text: entry.text || null,
@@ -40,16 +37,22 @@ export function jumpToOutlineEntry(
     cachedElementConnected: entry.element?.isConnected ?? false,
     jumpVersion,
   });
-  const heading = resolveOutlineHeading(entry, resolveCurrentHeading);
-  if (heading) {
-    finishOutlineEntryJump(heading, promptIndex, jumpVersion);
+
+  // A connected cached node can still belong to an abandoned answer branch.
+  // Always resolve the heading against the current prompt/answer DOM.
+  const heading = resolveCurrentHeading();
+  if (heading?.isConnected) {
+    finishOutlineEntryJump(heading, promptIndex, jumpVersion, resolveCurrentHeading);
     return;
   }
 
-  jumpToPromptIndex(
+  // The assistant answer may be virtualized. Mount its parent first and
+  // retry the *current* heading rather than jumping to a stale cached node.
+  if (!jumpToPromptIndex(
     promptIndex,
     OUTLINE_JUMP_MAX_ATTEMPTS * OUTLINE_JUMP_RETRY_DELAY_MS
-  );
+  )) return;
+
   retryOutlineEntryJump(
     entry,
     promptIndex,
@@ -59,7 +62,6 @@ export function jumpToOutlineEntry(
   );
 }
 
-/** Cancels pending child-outline navigation and clears its heading highlight. */
 export function cancelOutlineNavigation(): void {
   outlineJumpVersion += 1;
   clearHighlightedHeading();
@@ -74,9 +76,9 @@ function retryOutlineEntryJump(
 ): void {
   if (jumpVersion !== outlineJumpVersion) return;
 
-  const heading = resolveOutlineHeading(entry, resolveCurrentHeading);
-  if (heading) {
-    finishOutlineEntryJump(heading, promptIndex, jumpVersion);
+  const heading = resolveCurrentHeading();
+  if (heading?.isConnected) {
+    finishOutlineEntryJump(heading, promptIndex, jumpVersion, resolveCurrentHeading);
     return;
   }
   if (attempts <= 1) {
@@ -84,50 +86,87 @@ function retryOutlineEntryJump(
       promptIndex,
       text: entry.text || null,
       sectionId: entry.sectionId || null,
-      cachedElementConnected: entry.element?.isConnected ?? false,
       jumpVersion,
     });
     return;
   }
-
-  setTimeout(() => {
-    retryOutlineEntryJump(
-      entry,
-      promptIndex,
-      attempts - 1,
-      jumpVersion,
-      resolveCurrentHeading
-    );
-  }, OUTLINE_JUMP_RETRY_DELAY_MS);
+  window.setTimeout(() => retryOutlineEntryJump(
+    entry,
+    promptIndex,
+    attempts - 1,
+    jumpVersion,
+    resolveCurrentHeading
+  ), OUTLINE_JUMP_RETRY_DELAY_MS);
 }
 
 function finishOutlineEntryJump(
   heading: HTMLElement,
   promptIndex: number,
-  jumpVersion: number
+  jumpVersion: number,
+  resolveCurrentHeading: OutlineHeadingResolver
 ): void {
   if (jumpVersion !== outlineJumpVersion) return;
+
+  // The parent navigation may still be walking the virtual viewport.
+  // Cancelling it before positioning avoids its later scroll overriding us.
+  cancelPromptNavigation();
+  keepFollowing();
+  highlightHeading(heading);
+  positionHeading(heading);
 
   logOutlineDiagnostic('OUTLINE_JUMP_RESOLVED', {
     promptIndex,
     headingText: heading.textContent?.trim() || null,
     sectionId: heading.dataset.sectionId || null,
-    headingConnected: heading.isConnected,
     jumpVersion,
   });
-  keepFollowing();
-  highlightHeading(heading);
-  heading.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center',
-  });
+
+  // ChatGPT can reflow or remount the answer immediately after landing.
+  // Make one guarded, next-frame correction against the live heading.
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      if (jumpVersion !== outlineJumpVersion) return;
+      const freshHeading = resolveCurrentHeading();
+      if (!freshHeading?.isConnected) return;
+      const container = findHeadingContainer(freshHeading);
+      if (!container) return;
+      const offset = freshHeading.getBoundingClientRect().top -
+        container.getBoundingClientRect().top - HEADING_TOP_OFFSET_PX;
+      if (Math.abs(offset) > POSITION_TOLERANCE_PX) {
+        positionHeading(freshHeading);
+      }
+    });
+  }
 }
 
-function resolveOutlineHeading(
-  entry: OutlineNavigationEntry,
-  resolveCurrentHeading: OutlineHeadingResolver
-): HTMLElement | null {
-  return entry.element?.isConnected ? entry.element : resolveCurrentHeading();
+function findHeadingContainer(heading: HTMLElement): HTMLElement | null {
+  const nav = getActivePlatform().navigation;
+  const candidates = [
+    nav.getThreadScrollContainer?.(),
+    nav.getScrollContainer(),
+  ];
+  return candidates.find((candidate): candidate is HTMLElement =>
+    !!candidate?.isConnected && candidate.contains(heading)
+  ) ?? null;
+}
+
+function positionHeading(heading: HTMLElement): void {
+  const container = findHeadingContainer(heading);
+  if (!container) {
+    // Fallback for host DOM revisions where the scroll container is unknown.
+    heading.scrollIntoView?.({ behavior: 'auto', block: 'start' });
+    return;
+  }
+
+  const targetTop = container.scrollTop +
+    heading.getBoundingClientRect().top -
+    container.getBoundingClientRect().top -
+    HEADING_TOP_OFFSET_PX;
+  const scrollRange = Math.max(0, container.scrollHeight - container.clientHeight);
+  const reverse = window.getComputedStyle(container).flexDirection === 'column-reverse';
+  container.scrollTop = reverse
+    ? Math.max(-scrollRange, Math.min(0, targetTop))
+    : Math.max(0, Math.min(scrollRange, targetTop));
 }
 
 function highlightHeading(heading: HTMLElement): void {

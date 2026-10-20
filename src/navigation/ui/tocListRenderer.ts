@@ -37,6 +37,7 @@ export interface TocListRendererOptions {
   getMessages: () => NavigatorMessage[];
   getActiveIndex: () => number | null;
   onItemClick: (message: NavigatorMessage, index: number) => void;
+  onOutlineToggle?: (message: NavigatorMessage, index: number) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   onPromptCountReported?: (count: number) => void;
   onRefreshObservers?: () => void;
@@ -239,6 +240,7 @@ export function createTocListRenderer(
       item,
       index,
       messageId: message.id,
+      onToggle: () => options.onOutlineToggle?.(message, index),
     });
 
     itemMain.append(

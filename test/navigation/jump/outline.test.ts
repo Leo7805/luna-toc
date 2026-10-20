@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   getPromptOutline,
   handlePromptNavigation,
+  createPromptItem,
   resetOutline,
   scheduleBuild,
   setPromptMessages,
@@ -66,6 +67,33 @@ describe('prompt outlines', () => {
     setPromptMessages([createMessage('prompt-b')]);
 
     expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: true });
+  });
+
+  it('shows a triangle before headings are cached and expands on first build', () => {
+    setPromptMessages([createMessage('prompt-a')]);
+    renderConversation('prompt-a', [['h2', 'First heading']]);
+
+    const item = document.createElement('div');
+    document.body.appendChild(item);
+    const { outlineIndicator, outlineList } = createPromptItem({
+      item,
+      index: 0,
+      messageId: 'prompt-a',
+    });
+    item.append(outlineIndicator, outlineList);
+
+    expect(outlineIndicator.querySelector('svg')).not.toBeNull();
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+    expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: true });
+    scheduleBuild(0, 1);
+
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+    expect(outlineList.hidden).toBe(false);
+    expect(outlineList.textContent).toContain('First heading');
+
+    expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: false });
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+    expect(outlineList.hidden).toBe(true);
   });
 
   it('rejects a disconnected cache when the current Assistant has no headings', () => {
