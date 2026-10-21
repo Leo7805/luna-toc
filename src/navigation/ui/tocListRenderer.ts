@@ -5,8 +5,6 @@
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { isPromptMarked, togglePromptMark } from '@/features/conversationPrompts/promptMark';
 import { copyPromptText } from '@/features/conversationPrompts/copyPrompt';
-import { findAddedPrompt } from '@/features/conversationPrompts/addedPrompt';
-import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
@@ -39,8 +37,6 @@ export interface TocListRendererOptions {
   getActiveIndex: () => number | null;
   onItemClick: (message: NavigatorMessage, index: number) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
-  getSavedPrompts?: () => Promise<SavedPrompt[]>;
-  onRemoveSavedPrompt?: (savedPromptId: string) => Promise<void>;
   onPromptCountReported?: (count: number) => void;
   onRefreshObservers?: () => void;
   getJumpProgress?: () => ReturnType<typeof readJumpProgress>;
@@ -81,7 +77,6 @@ export function createTocListRenderer(
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
   let hasScrolledInitialActive = false;
-  let contextMenuSequence = 0;
 
   function getSearchQuery(): string {
     return searchQuery;
@@ -97,7 +92,6 @@ export function createTocListRenderer(
   }
 
   function resetList(): void {
-    contextMenuSequence++;
     navigatorItems = [];
     searchQuery = '';
     hasScrolledInitialActive = false;
@@ -257,52 +251,28 @@ export function createTocListRenderer(
      * Opens prompt actions exclusively from the native right-click gesture.
      * Long titles use CSS text-overflow ellipsis instead of an action button.
      */
-    const showItemMenu = async (left: number, top: number): Promise<void> => {
-      const menuSequence = ++contextMenuSequence;
+    const showItemMenu = (left: number, top: number): void => {
       previewTooltip.hide();
-      let savedPrompts: SavedPrompt[];
-      try {
-        savedPrompts = await (options.getSavedPrompts?.() ?? Promise.resolve([]));
-      } catch (error) {
-        console.warn('[LunaTOC] Failed to read saved prompts for menu', error);
-        return;
-      }
-      // Prevent a delayed storage read from reopening a menu for an old route.
-      if (menuSequence !== contextMenuSequence || !item.isConnected ||
-          document.getElementById('luna-toc-sidebar')?.getAttribute('aria-hidden') === 'true') {
-        return;
-      }
-      const added = findAddedPrompt(message, options.getMessages(), savedPrompts);
       promptContextMenuController.show(
         { left, top },
         [
           { id: 'copy-prompt', label: '复制', icon: 'copy' },
+          { id: 'save-prompt', label: '添加', icon: 'bookmark-plus' },
           {
             id: 'mark-prompt',
             label: isPromptMarked(message.id) ? '取消收藏' : '收藏',
             icon: 'bookmark-plus',
           },
-          {
-            id: 'save-prompt',
-            label: added ? '取消添加' : '添加',
-            icon: 'bookmark-plus',
-          },
         ],
         (itemId) => {
-          if (itemId === 'copy-prompt') {
+          if (itemId === 'mark-prompt') {
+            togglePromptMark(item, message.id);
+          } else if (itemId === 'copy-prompt') {
             void copyPromptText(message.text).catch((error: unknown) => {
               console.warn('[LunaTOC] Failed to copy prompt text', error);
             });
-          } else if (itemId === 'mark-prompt') {
-            togglePromptMark(item, message.id);
           } else if (itemId === 'save-prompt') {
-            if (added) {
-              void options.onRemoveSavedPrompt?.(added.id).catch((error: unknown) => {
-                console.warn('[LunaTOC] Failed to remove saved prompt', error);
-              });
-            } else {
-              options.onSavePrompt?.(message);
-            }
+            options.onSavePrompt?.(message);
           }
         }
       );
@@ -311,7 +281,7 @@ export function createTocListRenderer(
     item.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      void showItemMenu(event.clientX, event.clientY);
+      showItemMenu(event.clientX, event.clientY);
     });
 
     item.addEventListener('mouseenter', showTooltip);

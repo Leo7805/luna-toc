@@ -15,7 +15,6 @@ import type {
   NavigatorMessage,
 } from '@/features/conversationPrompts/message';
 import { initializePromptMark } from '@/features/conversationPrompts/promptMark';
-import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 import { initializeFollow } from './follow/follow';
 import {
   isLoading as isLoadingPrompts,
@@ -53,8 +52,6 @@ interface NavigatorControllerOptions {
   onPromptAdded?: () => void;
   onRouteChanged?: () => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
-  getSavedPrompts?: () => Promise<SavedPrompt[]>;
-  onRemoveSavedPrompt?: (savedPromptId: string) => Promise<void>;
   onTitleChanged?: () => void;
 }
 
@@ -74,8 +71,6 @@ export const navigatorController = (() => {
   let onPromptAdded = () => {};
   let onRouteChanged = () => {};
   let onSavePrompt: (message: NavigatorMessage) => void = () => {};
-  let getSavedPrompts: () => Promise<SavedPrompt[]> = async () => [];
-  let onRemoveSavedPrompt: (savedPromptId: string) => Promise<void> = async () => {};
   let onTitleChanged = () => {};
 
   /**
@@ -106,8 +101,6 @@ export const navigatorController = (() => {
     onSavePrompt: (message) => {
       onSavePrompt(message);
     },
-    getSavedPrompts: () => getSavedPrompts(),
-    onRemoveSavedPrompt: (savedPromptId) => onRemoveSavedPrompt(savedPromptId),
     onPromptCountReported: (count) => {
       if (count === reportedPromptCount) return;
       reportedPromptCount = count;
@@ -165,8 +158,6 @@ export const navigatorController = (() => {
     onPromptAdded = options.onPromptAdded || onPromptAdded;
     onRouteChanged = options.onRouteChanged || onRouteChanged;
     onSavePrompt = options.onSavePrompt || onSavePrompt;
-    getSavedPrompts = options.getSavedPrompts || getSavedPrompts;
-    onRemoveSavedPrompt = options.onRemoveSavedPrompt || onRemoveSavedPrompt;
     onTitleChanged = options.onTitleChanged || onTitleChanged;
     conversationStore.setCurrentConversationKey(getCurrentConversationKey());
     initMarkedPrompts();

@@ -13,8 +13,6 @@ export interface SavedPrompt {
   content: string;
   createdAt: number;
   updatedAt: number;
-  /** ChatGPT message ID when created from a TOC entry, absent on manual/legacy prompts. */
-  sourceMessageId?: string;
 }
 
 export type PromptsChangedListener = (prompts: SavedPrompt[]) => void;

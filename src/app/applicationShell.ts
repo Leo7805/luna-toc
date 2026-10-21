@@ -243,8 +243,6 @@ export async function initializeApplication(): Promise<void> {
       sidebarController.setNavigatorTitle();
     },
     onSavePrompt: sidebarController.handleSavePrompt,
-    getSavedPrompts: myPrompts.getMyPrompts,
-    onRemoveSavedPrompt: myPrompts.removeMyPrompt,
     onTitleChanged: sidebarController.setNavigatorTitle,
   });
   const sidebar = await createSidebar();
