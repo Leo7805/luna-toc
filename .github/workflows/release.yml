@@ -123,7 +123,45 @@ jobs:
               luna-toc-sc-chrome.zip \
               luna-toc-sc-chrome.zip.sha256 \
               --target "$COMMIT_SHA" \
-              --title "LunaTOC Chrome v${version} (${COMMIT_SHA:0:12})" \
+              --title "LunaTOC-SC v${version} (${COMMIT_SHA:0:12})" \
               --prerelease \
               --notes "Unpacked Chrome extension built from the default branch at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). Automated typecheck, tests, and build checks passed. This is a development preview, not a Chrome Web Store package."
           fi
+
+      # Retain exactly one publicly listed installable version on main.
+      - name: Remove superseded releases and tags
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json', 'utf8')).version")"
+          keep_tag="v${version}-preview.${COMMIT_SHA:0:12}"
+          gh release view "$keep_tag" >/dev/null
+
+          while IFS= read -r old_tag; do
+            if [[ -n "$old_tag" && "$old_tag" != "$keep_tag" ]]; then
+              echo "Removing superseded release: $old_tag"
+              gh release delete "$old_tag" --cleanup-tag --yes
+            fi
+          done < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
+
+          # Releases and bare Git tags are distinct objects in GitHub.
+          while IFS= read -r old_ref; do
+            if [[ -n "$old_ref" && "$old_ref" != "refs/tags/$keep_tag" ]]; then
+              echo "Removing orphaned tag: $old_ref"
+              gh api --method DELETE "repos/$GH_REPO/git/$old_ref"
+            fi
+          done < <(gh api "repos/$GH_REPO/git/matching-refs/tags" --jq '.[].ref')
+
+      - name: Delete merged temporary fix branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api --method DELETE \
+            "repos/$GH_REPO/git/refs/heads/fix/runtime-integrity-and-project-text"
