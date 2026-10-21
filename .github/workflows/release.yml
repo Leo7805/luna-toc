@@ -1,0 +1,124 @@
+# Build and publish unpacked Chrome extensions from the cleanup branch.
+name: Build and publish Chrome extension
+
+on:
+  push:
+    branches:
+      - chore/remove-upstream-residue
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chrome-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Verify, package and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Chrome extension
+        run: npm run build
+
+      - name: Verify built extension files
+        run: |
+          node --input-type=module <<'NODE'
+          import { existsSync, readFileSync, statSync } from 'node:fs';
+          import { resolve, relative, isAbsolute } from 'node:path';
+
+          const dist = resolve('dist');
+          const manifestPath = resolve(dist, 'manifest.json');
+          if (!existsSync(manifestPath)) {
+            throw new Error('dist/manifest.json is missing');
+          }
+          const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+          if (manifest.manifest_version !== 3) {
+            throw new Error('Expected a Manifest V3 extension');
+          }
+
+          const files = [
+            ...Object.values(manifest.icons ?? {}),
+            ...Object.values(manifest.action?.default_icon ?? {}),
+            manifest.action?.default_popup,
+            manifest.options_ui?.page,
+            manifest.background?.service_worker,
+            manifest.side_panel?.default_path,
+            ...(manifest.content_scripts ?? []).flatMap((script) => [
+              ...(script.js ?? []),
+              ...(script.css ?? []),
+            ]),
+          ].filter(Boolean);
+
+          if (files.length === 0) {
+            throw new Error('No extension assets were declared');
+          }
+          for (const file of files) {
+            const target = resolve(dist, file);
+            const pathFromDist = relative(dist, target);
+            if (pathFromDist.startsWith('..') || isAbsolute(pathFromDist) ||
+                !existsSync(target) || !statSync(target).isFile()) {
+              throw new Error(`Missing or invalid extension asset: ${file}`);
+            }
+          }
+          console.log(`Manifest V3 validated with ${files.length} referenced assets`);
+          NODE
+
+      - name: Create ready-to-load ZIP
+        run: |
+          (cd dist && zip -q -r ../luna-toc-sc-chrome.zip .)
+          unzip -tq luna-toc-sc-chrome.zip
+          unzip -Z1 luna-toc-sc-chrome.zip | grep -Fxq manifest.json
+          sha256sum luna-toc-sc-chrome.zip > luna-toc-sc-chrome.zip.sha256
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luna-toc-sc-chrome
+          path: |
+            luna-toc-sc-chrome.zip
+            luna-toc-sc-chrome.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          tag="preview-chore-remove-upstream-residue-${COMMIT_SHA:0:12}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" luna-toc-sc-chrome.zip luna-toc-sc-chrome.zip.sha256 --clobber
+          else
+            gh release create "$tag" \
+              luna-toc-sc-chrome.zip \
+              luna-toc-sc-chrome.zip.sha256 \
+              --target "$COMMIT_SHA" \
+              --title "LunaTOC Chrome preview (${COMMIT_SHA:0:12})" \
+              --prerelease \
+              --notes "Unpacked Chrome extension built from chore/remove-upstream-residue at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). This is a development preview, not a Chrome Web Store package."
+          fi
