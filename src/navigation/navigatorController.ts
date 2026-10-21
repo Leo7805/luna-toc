@@ -20,6 +20,9 @@ import {
   isLoading as isLoadingPrompts,
   setLoading,
   setOnSettleTimeout,
+  setBackfillInProgress,
+  isBackfillActive,
+  restartSettleTimer,
   startSettleTimer,
   clearSettleTimer,
 } from './loading/promptLoadingState';
@@ -219,11 +222,12 @@ export const navigatorController = (() => {
    * Marks prompts loading as finished for the active conversation and re-renders
    * the sidebar so the status band leaves `loading` mode.
    */
-  function markLoadingComplete(): void {
+  function markLoadingComplete(options: { isComplete?: boolean } = {}): void {
     if (!isLoadingPrompts()) return;
+    setBackfillInProgress(false);
     setLoading(false);
     clearSettleTimer();
-    render({ completed: true });
+    render({ completed: options.isComplete ? true : null });
   }
 
   /**
@@ -260,7 +264,9 @@ export const navigatorController = (() => {
       handleNavigationStateTransition
     );
 
-    setOnSettleTimeout(() => markLoadingComplete());
+    setOnSettleTimeout(() => {
+      markLoadingComplete({ isComplete: false });
+    });
 
     initializeFollow({
       listSelector: '#navigator-list',
@@ -339,7 +345,7 @@ export const navigatorController = (() => {
       !conversationStore.getPendingNewChatMessage();
 
     if (isInitialNewChat) {
-      markLoadingComplete();
+      markLoadingComplete({ isComplete: true });
     } else {
       startSettleTimer();
       render();
@@ -535,6 +541,7 @@ export const navigatorController = (() => {
     cancelActiveNavigationSearch();
     setNavigationIdle();
     setSidebarStatus({ state: 'idle' });
+    setBackfillInProgress(false);
 
     conversationStore.resetForCurrentRoute({
       preserveMessages,
@@ -622,6 +629,12 @@ export const navigatorController = (() => {
         const routeKey = event.data.routeKey;
         if (routeKey && routeKey !== getCurrentConversationKey()) return;
         conversationStore.clearPendingNewChat();
+        const isBackfillStreaming =
+          event.data.isBackfill === true || event.data.backfillStarted === true;
+        if (isBackfillStreaming) {
+          setBackfillInProgress(true);
+        }
+        restartSettleTimer();
         handleConversationData(event.data.payload);
       }
 
@@ -631,10 +644,11 @@ export const navigatorController = (() => {
       ) {
         const routeKey = event.data.routeKey;
         if (!routeKey || routeKey !== getCurrentConversationKey()) return;
-        if (event.data.complete === true) {
+        const isComplete = event.data.complete === true;
+        if (isComplete) {
           conversationStore.markConversationComplete(routeKey);
         }
-        markLoadingComplete();
+        markLoadingComplete({ isComplete });
       }
 
       if (
@@ -656,7 +670,9 @@ export const navigatorController = (() => {
           onPromptAdded();
         }
 
-        if (isLoadingPrompts()) markLoadingComplete();
+        if (isLoadingPrompts() && !isBackfillActive()) {
+          markLoadingComplete({ isComplete: false });
+        }
         render({ refreshObservers: true });
       }
 

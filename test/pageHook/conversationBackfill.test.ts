@@ -40,6 +40,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-exhaustion');
     const started = startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'test-exhaustion',
@@ -95,6 +96,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-multi-page');
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'test-multi-page',
@@ -135,6 +137,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-missing-cursor');
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'test-missing-cursor',
@@ -171,6 +174,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-http-failure');
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'test-http-failure',
@@ -204,6 +208,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-fetch-exception');
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'test-fetch-exception',
@@ -228,15 +233,25 @@ describe('conversationBackfill signal exhaustiveness', () => {
     expect(endedMsg.complete).toBe(false);
   });
 
-  it('6. backfillMaxPages reached while history remains terminates with complete: false', async () => {
+  it('6. backfills 500+ prompts (11 pages) without stopping at an arbitrary page cap', async () => {
     const platform = getActivePlatform('chatgpt.com');
-    // Always returns has_previous_page: true with a valid cursor
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        messages: [{ id: 'older' }],
-        page_info: { has_previous_page: true, start_cursor: 'next-cursor' },
-      }),
+    let pageCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      pageCount += 1;
+      const hasPrevious = pageCount < 11;
+      return {
+        ok: true,
+        json: async () => ({
+          messages: Array.from({ length: 50 }, (_, i) => ({
+            id: `p${pageCount}-m${i}`,
+            author: { role: 'user' },
+          })),
+          page_info: {
+            has_previous_page: hasPrevious,
+            start_cursor: hasPrevious ? `cursor-p${pageCount + 1}` : null,
+          },
+        }),
+      };
     });
 
     installConversationBackfill({
@@ -244,9 +259,10 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-500-prompts');
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
-      'test-max-pages-cap',
+      'test-500-prompts',
       null
     );
 
@@ -255,22 +271,167 @@ describe('conversationBackfill signal exhaustiveness', () => {
         postedMessages.some(
           (m) =>
             m.type === platform.pageHook.messages.conversationEnded &&
-            m.routeKey === 'test-max-pages-cap'
+            m.routeKey === 'test-500-prompts'
         )
       ).toBe(true);
     });
 
-    expect(mockFetch).toHaveBeenCalledTimes(platform.config.backfillMaxPages);
-
+    expect(mockFetch).toHaveBeenCalledTimes(11);
     const endedMsg = postedMessages.find(
       (m) =>
         m.type === platform.pageHook.messages.conversationEnded &&
-        m.routeKey === 'test-max-pages-cap'
+        m.routeKey === 'test-500-prompts'
+    );
+    expect(endedMsg.complete).toBe(true);
+  });
+
+  it('7. backfills 1,000+ prompts (21 pages) until full history complete: true', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    let pageCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      pageCount += 1;
+      const hasPrevious = pageCount < 21;
+      return {
+        ok: true,
+        json: async () => ({
+          messages: Array.from({ length: 50 }, (_, i) => ({
+            id: `p${pageCount}-m${i}`,
+            author: { role: 'user' },
+          })),
+          page_info: {
+            has_previous_page: hasPrevious,
+            start_cursor: hasPrevious ? `cursor-p${pageCount + 1}` : null,
+          },
+        }),
+      };
+    });
+
+    installConversationBackfill({
+      originalFetch: mockFetch as unknown as typeof fetch,
+      platform,
+    });
+
+    window.history.replaceState({}, '', '/c/test-1000-prompts');
+    startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'test-1000-prompts',
+      null
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        postedMessages.some(
+          (m) =>
+            m.type === platform.pageHook.messages.conversationEnded &&
+            m.routeKey === 'test-1000-prompts'
+        )
+      ).toBe(true);
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(21);
+    const endedMsg = postedMessages.find(
+      (m) =>
+        m.type === platform.pageHook.messages.conversationEnded &&
+        m.routeKey === 'test-1000-prompts'
+    );
+    expect(endedMsg.complete).toBe(true);
+  });
+
+  it('8. stops immediately with complete: false when route changes during backfill', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    let pageCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      pageCount += 1;
+      if (pageCount === 1) {
+        window.history.replaceState({}, '', '/c/other-route');
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          messages: [{ id: `msg-${pageCount}` }],
+          page_info: { has_previous_page: true, start_cursor: `cursor-p${pageCount + 1}` },
+        }),
+      };
+    });
+
+    installConversationBackfill({
+      originalFetch: mockFetch as unknown as typeof fetch,
+      platform,
+    });
+
+    window.history.replaceState({}, '', '/c/test-route-cancel');
+    startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'test-route-cancel',
+      null
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        postedMessages.some(
+          (m) =>
+            m.type === platform.pageHook.messages.conversationEnded &&
+            m.routeKey === 'test-route-cancel'
+        )
+      ).toBe(true);
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const endedMsg = postedMessages.find(
+      (m) =>
+        m.type === platform.pageHook.messages.conversationEnded &&
+        m.routeKey === 'test-route-cancel'
     );
     expect(endedMsg.complete).toBe(false);
   });
 
-  it('7. missing page_info terminates with complete: false', async () => {
+  it('9. terminates cleanly with complete: false when cursor loop occurs', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    let callCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      callCount += 1;
+      const nextCursor = callCount % 2 === 1 ? 'cursor-loop-b' : 'cursor-loop-a';
+      return {
+        ok: true,
+        json: async () => ({
+          messages: [{ id: `loop-${callCount}` }],
+          page_info: { has_previous_page: true, start_cursor: nextCursor },
+        }),
+      };
+    });
+
+    installConversationBackfill({
+      originalFetch: mockFetch as unknown as typeof fetch,
+      platform,
+    });
+
+    window.history.replaceState({}, '', '/c/test-cursor-loop');
+    startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-loop-a' } },
+      'test-cursor-loop',
+      null
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        postedMessages.some(
+          (m) =>
+            m.type === platform.pageHook.messages.conversationEnded &&
+            m.routeKey === 'test-cursor-loop'
+        )
+      ).toBe(true);
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const endedMsg = postedMessages.find(
+      (m) =>
+        m.type === platform.pageHook.messages.conversationEnded &&
+        m.routeKey === 'test-cursor-loop'
+    );
+    expect(endedMsg.complete).toBe(false);
+  });
+
+  it('10. missing page_info terminates with complete: false', async () => {
     const platform = getActivePlatform('chatgpt.com');
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -285,6 +446,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
       platform,
     });
 
+    window.history.replaceState({}, '', '/c/test-missing-page-info-backfill');
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'test-missing-page-info-backfill',

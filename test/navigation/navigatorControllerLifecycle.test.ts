@@ -896,6 +896,10 @@ describe('navigatorController lifecycle and coordination', () => {
       // Loading ends in UI
       expect(freshIsLoading()).toBe(false);
 
+      // Status band transitions cleanly to idle with no visible class
+      const statusElement = document.getElementById('luna-toc-status');
+      expect(statusElement?.classList.contains('visible')).toBe(false);
+
       // Verify snapshot remains incomplete behaviorally:
       Object.defineProperty(window, 'location', {
         writable: true,
@@ -930,6 +934,66 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // Incomplete snapshot leaves loading=true and arms settle timer upon return
       expect(freshIsLoading()).toBe(true);
+    });
+
+    it('active history backfill is not terminated by fallback settle timer during long network request', async () => {
+      vi.useFakeTimers();
+      try {
+        const platform = getActivePlatform('chatgpt.com');
+        Object.defineProperty(window, 'location', {
+          writable: true,
+          value: {
+            ...window.location,
+            host: 'chatgpt.com',
+            pathname: '/c/test-active-streaming',
+          },
+        });
+
+        const { navigatorController: freshController } = await import(
+          '@/navigation/navigatorController'
+        );
+        const { isLoading: freshIsLoading } = await import(
+          '@/navigation/loading/promptLoadingState'
+        );
+
+        freshController.init();
+        freshController.attach();
+
+        // Conversation data arrives with actual backfillStarted: true
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              type: platform.pageHook.messages.conversationData,
+              routeKey: 'test-active-streaming',
+              backfillStarted: true,
+              payload: { messages: [{ id: 'm1', author: { role: 'user' } }] },
+            },
+            source: window,
+          })
+        );
+
+        // Advance 5,000ms (exceeding standard fallback timeout)
+        vi.advanceTimersByTime(5000);
+
+        // Loading must remain ACTIVE because backfill was latched as in-progress
+        expect(freshIsLoading()).toBe(true);
+
+        // Authoritative completion event terminates loading
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              type: platform.pageHook.messages.conversationEnded,
+              routeKey: 'test-active-streaming',
+              complete: true,
+            },
+            source: window,
+          })
+        );
+
+        expect(freshIsLoading()).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('leaves snapshot incomplete when loading completes via fallback timeout', async () => {

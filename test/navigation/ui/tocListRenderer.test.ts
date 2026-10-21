@@ -402,5 +402,145 @@ describe('tocListRenderer', () => {
       expect(items[2].classList.contains('navigator-item-active')).toBe(true);
       expect(items[1].classList.contains('navigator-item-active')).toBe(false);
     });
+
+    it('preserves exact message ID, relative offset, and adjusts scrollTop when 128 older rows are prepended to a 380-row list', () => {
+      const ROW_HEIGHT = 40;
+      const CONTAINER_HEIGHT = 500;
+
+      const initialMessages: NavigatorMessage[] = Array.from({ length: 380 }, (_, i) => ({
+        id: `msg-${i}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      let activeIndex: number | null = 379;
+      let currentMessages = initialMessages;
+
+      const prevGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+      try {
+        window.HTMLElement.prototype.getBoundingClientRect = function () {
+          if (this === listElement) {
+            return { top: 0, bottom: CONTAINER_HEIGHT, height: CONTAINER_HEIGHT, left: 0, right: 200, width: 200 } as DOMRect;
+          }
+          const index = Number((this as HTMLElement).dataset?.messageIndex ?? 0);
+          const top = index * ROW_HEIGHT - listElement.scrollTop;
+          return { top, bottom: top + ROW_HEIGHT, height: ROW_HEIGHT, left: 0, right: 200, width: 200 } as DOMRect;
+        };
+
+        const renderer = createTocListRenderer({
+          getMessages: () => currentMessages,
+          getActiveIndex: () => activeIndex,
+          onItemClick: vi.fn(),
+          isFollowingMode: () => false,
+        });
+
+        // Render 380 items
+        renderer.render({ completed: true });
+        expect(scrollToMock).toHaveBeenCalledTimes(1);
+        scrollToMock.mockClear();
+
+        // User or viewport is at msg-200 with an exact 15px top offset
+        listElement.scrollTop = 200 * ROW_HEIGHT - 15;
+
+        // Prepend 128 older items (total 508 items)
+        const olderMessages: NavigatorMessage[] = Array.from({ length: 128 }, (_, i) => ({
+          id: `older-${i}`,
+          text: `Older Prompt ${i + 1}`,
+          canMatchByText: true,
+          createTime: i * 1000,
+        }));
+        currentMessages = [...olderMessages, ...initialMessages];
+        activeIndex = 507;
+
+        renderer.render();
+
+        // msg-200 is shifted by 128 * 40 = 5120px; scrollTop must increase by exactly 5120px
+        const expectedScrollTop = 200 * ROW_HEIGHT - 15 + 128 * ROW_HEIGHT;
+        expect(listElement.scrollTop).toBe(expectedScrollTop);
+
+        // The visible row matches dataset.messageId msg-200, not older-72
+        const items = renderer.getNavigatorItems();
+        expect(items.length).toBe(508);
+        expect(items[328].dataset.messageId).toBe('msg-200');
+        expect(scrollToMock).not.toHaveBeenCalled();
+      } finally {
+        window.HTMLElement.prototype.getBoundingClientRect = prevGetBCR;
+      }
+    });
+
+    it('performs initial active alignment once loading finishes on a partially rendered TOC with existing scroll anchor', () => {
+      mockLayout(600);
+      const partialMessages: NavigatorMessage[] = Array.from({ length: 50 }, (_, i) => ({
+        id: `partial-${i}`,
+        text: `Partial ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      let activeIndex: number | null = 49;
+      let currentMessages = partialMessages;
+
+      const renderer = createTocListRenderer({
+        getMessages: () => currentMessages,
+        getActiveIndex: () => activeIndex,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      // 1. Partial render while loading: anchor exists, but loading suppresses active scroll
+      renderer.render();
+      expect(scrollToMock).not.toHaveBeenCalled();
+
+      // 2. Loading finishes: Priority 2 triggers initial active alignment despite existing anchor
+      renderer.render({ completed: true });
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+      expect(scrollToMock).toHaveBeenCalledWith({ top: expect.any(Number), behavior: 'auto' });
+      scrollToMock.mockClear();
+
+      // 3. Subsequent ordinary render: Priority 3 preserves anchor without force-scrolling
+      renderer.render();
+      expect(scrollToMock).not.toHaveBeenCalled();
+    });
+
+    it('preserves click prompt target navigation and prevents subsequent backfill prepends from force-scrolling away', () => {
+      mockLayout(600);
+      let activeIndex: number | null = 10;
+      let currentMessages: NavigatorMessage[] = Array.from({ length: 50 }, (_, i) => ({
+        id: `init-${i}`,
+        text: `Init ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      const renderer = createTocListRenderer({
+        getMessages: () => currentMessages,
+        getActiveIndex: () => activeIndex,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => false,
+      });
+
+      renderer.render();
+
+      // User clicks prompt #5 during loading
+      const items = renderer.getNavigatorItems();
+      items[5].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      scrollToMock.mockClear();
+
+      // Next backfill chunk arrives and prepends 50 older messages
+      const olderMessages: NavigatorMessage[] = Array.from({ length: 50 }, (_, i) => ({
+        id: `old-${i}`,
+        text: `Old ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+      currentMessages = [...olderMessages, ...currentMessages];
+      activeIndex = 60; // target shifted
+
+      renderer.render();
+
+      // Target-lock must NOT be overridden by forced scroll to active bottom
+      expect(scrollToMock).not.toHaveBeenCalled();
+    });
   });
 });

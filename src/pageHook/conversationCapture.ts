@@ -74,8 +74,6 @@ export function postConversationData(
     .clone()
     .json()
     .then((data) => {
-      postConversationPayload(data, routeKey, platform);
-
       const messages = (data as { messages?: unknown } | null)?.messages;
       if (!Array.isArray(messages)) {
         reportContractMismatch(
@@ -84,8 +82,9 @@ export function postConversationData(
         );
       }
 
+      let backfillStarted = false;
       if (isInitialConversationLoad) {
-        const backfillStarted = startBackfillIfNeeded(
+        backfillStarted = startBackfillIfNeeded(
           data,
           routeKey,
           authHeaders
@@ -101,12 +100,11 @@ export function postConversationData(
           void probeNumTurnsBehavior(routeKey, authHeaders);
         }
         probeDomSelectors();
-        // If the initial response already represents the whole conversation
-        // and no backfill is currently in flight for this route, the
-        // backfill branch above won't fire the ENDED signal — do it here.
-        // (If backfill already started for this route, either via the
-        // branch above or by an earlier fetch, its `finally` will post
-        // ENDED when it terminates, so we must not preempt it.)
+      }
+
+      postConversationPayload(data, routeKey, platform, { backfillStarted });
+
+      if (isInitialConversationLoad) {
         const pageInfo = (data as ConversationPayload | undefined)?.page_info;
         if (!backfillStarted && !isBackfilling(routeKey)) {
           const isComplete = pageInfo?.has_previous_page === false;

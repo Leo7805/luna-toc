@@ -317,7 +317,7 @@ export interface PlatformContractTable<Id extends string> {
 export interface PlatformConfigBlock {
   promptTopOffsetPx: number;
   settleAttempts: number;
-  backfillMaxPages: number;
+  backfillMaxPages?: number;
   interceptFetchNumTurns: {
     pagination: number | null;
     initialLoad: number | null;

@@ -77,7 +77,77 @@ export function createTocListRenderer(
   const EMPTY_HINT_TEXT = 'Waiting for prompts...';
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
-  let hasScrolledInitialActive = false;
+  let hasAlignedInitialActive = false;
+  let userScrolledSidebar = false;
+  let hasBoundUserInteractions = false;
+
+  interface ScrollAnchor {
+    messageId: string;
+    offsetTop: number;
+  }
+
+  function bindUserInteractions(list: HTMLElement): void {
+    if (hasBoundUserInteractions) return;
+    hasBoundUserInteractions = true;
+    ['wheel', 'pointerdown', 'touchstart', 'keydown'].forEach((eventName) => {
+      list.addEventListener(
+        eventName,
+        () => {
+          userScrolledSidebar = true;
+        },
+        { passive: true }
+      );
+    });
+  }
+
+  function findItemByMessageId(list: HTMLElement, messageId: string): HTMLElement | null {
+    const items = list.getElementsByClassName('navigator-item');
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i] as HTMLElement;
+      if (item.dataset.messageId === messageId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  function captureScrollAnchor(list: HTMLElement): ScrollAnchor | null {
+    const containerRect = list.getBoundingClientRect();
+    if (containerRect.height === 0) return null;
+
+    const items = list.getElementsByClassName('navigator-item');
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i] as HTMLElement;
+      const rect = item.getBoundingClientRect();
+      if (rect.bottom > containerRect.top) {
+        const messageId = item.dataset.messageId;
+        if (messageId) {
+          return {
+            messageId,
+            offsetTop: rect.top - containerRect.top,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function restoreScrollAnchor(list: HTMLElement, anchor: ScrollAnchor): boolean {
+    const containerRect = list.getBoundingClientRect();
+    if (containerRect.height === 0) return false;
+
+    const item = findItemByMessageId(list, anchor.messageId);
+    if (item) {
+      const itemRect = item.getBoundingClientRect();
+      const currentOffsetTop = itemRect.top - containerRect.top;
+      const delta = currentOffsetTop - anchor.offsetTop;
+      if (Math.abs(delta) > 0.5) {
+        list.scrollTop += delta;
+      }
+      return true;
+    }
+    return false;
+  }
 
   function getSearchQuery(): string {
     return searchQuery;
@@ -95,7 +165,8 @@ export function createTocListRenderer(
   function resetList(): void {
     navigatorItems = [];
     searchQuery = '';
-    hasScrolledInitialActive = false;
+    hasAlignedInitialActive = false;
+    userScrolledSidebar = false;
   }
 
   function resetView(): void {
@@ -103,7 +174,8 @@ export function createTocListRenderer(
     previewTooltip.hide();
     stopFollowing();
     collapseAll();
-    hasScrolledInitialActive = true;
+    hasAlignedInitialActive = true;
+    userScrolledSidebar = false;
     render();
 
     const scrollTarget = document.getElementById('navigator-list');
@@ -166,7 +238,7 @@ export function createTocListRenderer(
    * Ensures the active TOC item is visible on initial load.
    */
   function ensureActiveItemVisible(): boolean {
-    if (hasScrolledInitialActive) return true;
+    if (userScrolledSidebar || hasAlignedInitialActive) return true;
     if (isLoadingPrompts()) return false;
 
     const activeIndex = options.getActiveIndex();
@@ -177,7 +249,7 @@ export function createTocListRenderer(
       force: true,
       behavior: 'auto',
     });
-    if (handled) hasScrolledInitialActive = true;
+    if (handled) hasAlignedInitialActive = true;
     return handled;
   }
 
@@ -194,7 +266,7 @@ export function createTocListRenderer(
       syncActivePrompt(index);
     }
 
-    if (!hasScrolledInitialActive) {
+    if (!hasAlignedInitialActive) {
       ensureActiveItemVisible();
     } else {
       scrollNavigatorItemIntoView(item);
@@ -214,6 +286,7 @@ export function createTocListRenderer(
     const titleText = hasCustomTitle ? customTitle! : message.text;
 
     item.dataset.messageIndex = String(index);
+    item.dataset.messageId = message.id;
     item.className = 'navigator-item';
     item.classList.toggle(
       'navigator-item-active',
@@ -264,6 +337,8 @@ export function createTocListRenderer(
     };
 
     item.addEventListener('click', (event) => {
+      userScrolledSidebar = true;
+      hasAlignedInitialActive = true;
       options.onItemClick(message, index);
       if (item.matches(':hover')) showTooltip(event);
     });
@@ -314,6 +389,7 @@ export function createTocListRenderer(
     const hint = document.querySelector<HTMLElement>('.navigator-hint');
 
     if (!list) return;
+    bindUserInteractions(list);
 
     if (completed === true) {
       setLoading(false);
@@ -322,6 +398,8 @@ export function createTocListRenderer(
       setLoading(true);
       startSettleTimer();
     }
+
+    const previousAnchor = captureScrollAnchor(list);
 
     list.innerHTML = '';
     navigatorItems = [];
@@ -358,7 +436,15 @@ export function createTocListRenderer(
       options.onRefreshObservers?.();
     }
 
-    ensureActiveItemVisible();
+    if (userScrolledSidebar) {
+      if (previousAnchor) {
+        restoreScrollAnchor(list, previousAnchor);
+      }
+    } else if (!hasAlignedInitialActive && !isLoadingPrompts() && !normalizedQuery) {
+      ensureActiveItemVisible();
+    } else if (previousAnchor) {
+      restoreScrollAnchor(list, previousAnchor);
+    }
 
     const navState = getNavigationState();
     if (navState.state === 'idle') {

@@ -153,7 +153,6 @@ export const chatGptPlatform: Platform = {
   config: {
     promptTopOffsetPx: APP_CONFIG.platforms.chatgpt.promptTopOffsetPx,
     settleAttempts: APP_CONFIG.platforms.chatgpt.settleAttempts,
-    backfillMaxPages: APP_CONFIG.platforms.chatgpt.backfillMaxPages,
     interceptFetchNumTurns: {
       pagination: APP_CONFIG.platforms.chatgpt.interceptChatGptPaginationNumTurns,
       initialLoad: APP_CONFIG.platforms.chatgpt.interceptChatGptInitialLoadNumTurns,
