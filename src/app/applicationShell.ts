@@ -228,9 +228,8 @@ export async function initializeApplication(): Promise<void> {
   sidebarController.init();
   initSidebarResize(sidebar);
   createJumpToEdgeControls(() => sidebarController.isMyPromptsView());
-  initFloatingPanel();
-
   const toggleButton = createSidebarToggleButton();
+  initFloatingPanel();
   initializeSidebarVisibility(sidebar, toggleButton, {
     onOpened: () => {
       if (!sidebarController.isMyPromptsView()) {

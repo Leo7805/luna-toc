@@ -309,10 +309,10 @@ html[data-theme='light'] {
 }
 
 .navigator-jump-controls {
-  position: fixed;
-  right: var(--navigator-width, 300px);
-  top: clamp(120px, 30vh, 280px);
-  z-index: var(--ct-z-toggle, 1010);
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -332,7 +332,7 @@ html[data-theme='light'] {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateX(8px);
+  transform: translate(8px, -50%);
   transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
 }
 
@@ -340,7 +340,7 @@ html[data-theme='light'] {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translateX(0);
+  transform: translate(0, -50%);
 }
 
 .navigator-jump-controls.navigator-jump-controls-dragging {
@@ -462,7 +462,7 @@ html[data-theme='light'] {
 }
 
 html.luna-toc-external-overlay-open #luna-toc-sidebar,
-html.luna-toc-external-overlay-open #luna-toc-toggle-btn,
+html.luna-toc-external-overlay-open #luna-toc-floating-dock,
 html.luna-toc-external-overlay-open #luna-toc-preview-tooltip,
 html.luna-toc-external-overlay-open #luna-toc-button-tooltip,
 html.luna-toc-external-overlay-open #luna-toc-react-host,
@@ -471,51 +471,72 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   pointer-events: none;
 }
 
-/* A narrow full-height reveal rail stays docked to the browser's right edge. */
-#luna-toc-toggle-btn {
+/* The compact moon and its toolbar share one vertically draggable dock. */
+#luna-toc-floating-dock {
   position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 14px;
-  height: 100vh;
-  height: 100dvh;
+  right: -26px;
+  top: calc(50% - 21px);
+  width: 42px;
+  height: 42px;
   z-index: var(--ct-z-toggle, 1010);
+  overflow: visible;
+  transition: right 160ms ease;
+}
+
+#luna-toc-floating-dock:hover,
+#luna-toc-floating-dock:focus-within,
+#luna-toc-floating-dock.luna-toc-floating-dock-open {
+  right: 0;
+}
+
+#luna-toc-floating-dock.luna-toc-floating-dock-dragging {
+  transition: none;
+}
+
+#luna-toc-toggle-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
   box-sizing: border-box;
-  border: 0;
-  border-left: 2px solid var(--ct-toggle-btn-color);
-  border-radius: 0;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
   background: var(--ct-toggle-btn-hover-bg);
   color: var(--ct-toggle-btn-color);
-  cursor: pointer;
-  opacity: 0.65;
-  touch-action: manipulation;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0;
-  transition: opacity 140ms ease, background-color 140ms ease;
+  opacity: 0.78;
+  cursor: ns-resize;
+  touch-action: none;
+  transition: background-color 120ms ease, opacity 120ms ease;
 }
 
 #luna-toc-toggle-btn:hover,
 #luna-toc-toggle-btn:focus-visible {
   background: var(--ct-toggle-btn-hover-active-bg);
+  color: var(--ct-accent-hover);
   opacity: 1;
 }
 
-#luna-toc-toggle-btn.luna-toc-sidebar-visible {
-  opacity: 0;
+#luna-toc-toggle-btn svg,
+#luna-toc-toggle-btn .toggle-sidebar-label {
+  grid-area: 1 / 1;
   pointer-events: none;
 }
 
+#luna-toc-toggle-btn svg {
+  display: block;
+  width: 42px;
+  height: 42px;
+}
+
 #luna-toc-toggle-btn .toggle-sidebar-label {
-  writing-mode: vertical-rl;
   font-size: 11px;
   font-weight: 700;
   font-family: system-ui, sans-serif;
-  letter-spacing: 5px;
-  user-select: none;
-  pointer-events: none;
+  letter-spacing: 0.5px;
+  color: var(--ct-bg-sidebar-solid);
+  transform: translate(-2px, -1px);
 }
 
 .navigator-icon-btn span {

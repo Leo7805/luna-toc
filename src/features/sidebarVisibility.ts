@@ -47,42 +47,64 @@ function bindToggleButton(): void {
   if (!toggleBtn) return;
   const button = toggleBtn;
 
-  // The rail is a reveal surface, not a draggable toggle.
-  button.addEventListener('focus', handleAutoHideEnter);
-  button.addEventListener('click', handleAutoHideEnter);
+  button.addEventListener('click', (event) => {
+    if (button.dataset.dragged === 'true') {
+      event.preventDefault();
+      button.dataset.dragged = 'false';
+      return;
+    }
+    handleAutoHideEnter();
+  });
 }
 
 function bindAutoHide(): void {
   if (!sidebar || !toggleBtn) return;
 
-  const panel = document.querySelector<HTMLElement>('.navigator-jump-controls');
+  const dock = document.getElementById('luna-toc-floating-dock');
 
-  sidebar.addEventListener('pointerenter', () => {
+  sidebar.addEventListener('pointerenter', handleAutoHideEnter);
+  sidebar.addEventListener('pointerleave', scheduleAutoHide);
+
+  // The small moon owns the pop-out tools; hovering the sidebar alone does
+  // not open the toolbar. Both surfaces stay active while crossing between them.
+  dock?.addEventListener('pointerenter', () => {
+    showDockTools(dock);
     handleAutoHideEnter();
-    if (!isHidden) setFloatingPanelVisible(true);
   });
-  toggleBtn.addEventListener('pointerenter', handleAutoHideEnter);
-  sidebar.addEventListener('pointerleave', (event) => {
-    if (!isPointerInside(panel) && !isRelatedTargetInside(event, panel)) {
-      setFloatingPanelVisible(false);
-    }
+  dock?.addEventListener('pointerleave', () => {
+    hideDockTools(dock);
     scheduleAutoHide();
   });
-  toggleBtn.addEventListener('pointerleave', scheduleAutoHide);
-
-  panel?.addEventListener('pointerenter', () => {
-    clearHideTimer();
-    if (!isHidden) setFloatingPanelVisible(true);
+  dock?.addEventListener('focusin', () => {
+    showDockTools(dock);
+    handleAutoHideEnter();
   });
-  panel?.addEventListener('pointerleave', (event) => {
-    if (!isPointerInside(sidebar) && !isRelatedTargetInside(event, sidebar)) {
-      setFloatingPanelVisible(false);
+  dock?.addEventListener('focusout', (event) => {
+    if (event.relatedTarget instanceof Node && dock.contains(event.relatedTarget)) {
+      return;
     }
+    hideDockTools(dock);
     scheduleAutoHide();
   });
 
   document.addEventListener('pointerover', handleDocumentPointerOver, true);
   document.addEventListener('pointerout', handleDocumentPointerOut, true);
+}
+
+/**
+ * Reveals the moon and its attached tools without moving either independently.
+ */
+function showDockTools(dock: HTMLElement): void {
+  dock.classList.add('luna-toc-floating-dock-open');
+  setFloatingPanelVisible(true);
+}
+
+/**
+ * Retracts the moon to its small edge tab and closes the attached tools.
+ */
+function hideDockTools(dock: HTMLElement): void {
+  dock.classList.remove('luna-toc-floating-dock-open');
+  setFloatingPanelVisible(false);
 }
 
 function handleAutoHideEnter(): void {
@@ -218,7 +240,11 @@ export function setSidebarHidden(hidden: boolean): void {
   toggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
   toggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
   toggleBtn?.setAttribute('aria-expanded', String(!isHidden));
-  if (isHidden) setFloatingPanelVisible(false);
+  if (isHidden) {
+    setFloatingPanelVisible(false);
+    document.getElementById('luna-toc-floating-dock')
+      ?.classList.remove('luna-toc-floating-dock-open');
+  }
   if (justOpened) onOpened?.();
 }
 
@@ -241,14 +267,6 @@ function isPointerInside(element: Element | null): boolean {
 
 function isPointerInsideFloatingPanel(): boolean {
   return isPointerInside(document.querySelector('.navigator-jump-controls'));
-}
-
-/**
- * Checks the destination before a pointerleave event updates hover state.
- */
-function isRelatedTargetInside(event: PointerEvent, element: Element | null): boolean {
-  return element !== null && event.relatedTarget instanceof Node &&
-    element.contains(event.relatedTarget);
 }
 
 function isPointerInsidePreviewTooltip(): boolean {

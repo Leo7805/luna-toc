@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建始终紧贴视口右缘的全高窄触发条；默认收起时仅显示该触发条，悬停后展开侧边栏，已固定的侧边栏除外。`src/features/sidebar/FloatingPanel.ts` 将三个可纵向拖动的工具按钮移至侧边栏外侧，按侧边栏宽度定位于其左缘，仅在鼠标悬停侧边栏或按钮时显示。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建独立于侧边栏的 42×42 月牙「目录」悬浮按钮及固定在视口右缘的共用 dock，默认将按钮大部分收出视口，仅留同高窄边；悬停后完整弹出，允许整组垂直拖动并保存纵向比例。`src/features/sidebar/FloatingPanel.ts` 将三个按钮附着在该 dock 内，通过 CSS 以月牙左侧与垂直中心定位，悬停月牙时显示，拖动月牙或工具条空白处时同步移动；不依赖侧边栏宽度。`src/features/sidebarVisibility.ts` 独立协调侧边栏自动隐藏与 dock 悬停，不以悬停侧边栏作为工具条显示条件。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 
