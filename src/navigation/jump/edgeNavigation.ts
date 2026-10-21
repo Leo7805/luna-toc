@@ -12,6 +12,8 @@ function platform() {
  * previous loop instead of stacking on top of it.
  */
 let activeEdgeJumpVersion = 0;
+let stopActiveScrollIntentTracking: (() => void) | null = null;
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 const EDGE_JUMP_HARD_CAP = 30;
 const EDGE_JUMP_SETTLE_MS = 1500;
 const EDGE_JUMP_HEIGHT_GROWTH_EPSILON = 50;
@@ -24,6 +26,52 @@ const EDGE_JUMP_BOTTOM_TOLERANCE_PX = 2;
  * actually scrolled to it, so we require it to be in the visible band.
  */
 const EDGE_JUMP_FIRST_PROMPT_VISIBLE_BAND_PX = 200;
+
+/**
+ * Cancels automatic edge correction when the user takes control of scrolling.
+ * Listen for input intent, not scroll events: programmatic scrolling and
+ * ChatGPT virtualizer updates also emit scroll events.
+ */
+function trackManualScrollIntent(
+  container: HTMLElement,
+  cancelJump: () => void
+): () => void {
+  const onWheel = (event: WheelEvent): void => {
+    if (event.deltaY !== 0) cancelJump();
+  };
+  const onTouchMove = (): void => cancelJump();
+  const onPointerDown = (): void => cancelJump();
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (
+      event.defaultPrevented ||
+      event.altKey || event.ctrlKey || event.metaKey ||
+      !SCROLL_KEYS.has(event.key)
+    ) return;
+
+    const target = event.target;
+    // Editable controls and the extension UI must not interrupt chat scrolling.
+    if (
+      target instanceof Element &&
+      target.closest(
+        'input, textarea, select, [contenteditable="true"], [role="textbox"], ' +
+        '#luna-toc-sidebar, #luna-toc-toggle-btn, #luna-toc-react-host'
+      )
+    ) return;
+    cancelJump();
+  };
+
+  container.addEventListener('wheel', onWheel, { passive: true });
+  container.addEventListener('touchmove', onTouchMove, { passive: true });
+  container.addEventListener('pointerdown', onPointerDown, { passive: true });
+  document.addEventListener('keydown', onKeyDown, true);
+
+  return () => {
+    container.removeEventListener('wheel', onWheel);
+    container.removeEventListener('touchmove', onTouchMove);
+    container.removeEventListener('pointerdown', onPointerDown);
+    document.removeEventListener('keydown', onKeyDown, true);
+  };
+}
 
 interface ExecuteAbsoluteEdgeJumpOptions {
   container?: HTMLElement | null;
@@ -191,7 +239,19 @@ export function executeAbsoluteEdgeJump(
 
   const isReverse =
     window.getComputedStyle(container).flexDirection === 'column-reverse';
+  // Replace any previous jump's event listeners before tracking this attempt.
+  stopActiveScrollIntentTracking?.();
   const jumpVersion = ++activeEdgeJumpVersion;
+  const stopListening = trackManualScrollIntent(container, () => {
+    if (jumpVersion !== activeEdgeJumpVersion) return;
+    // Invalidate the retry loop immediately, even while it is sleeping.
+    activeEdgeJumpVersion += 1;
+    stopListening();
+    if (stopActiveScrollIntentTracking === stopListening) {
+      stopActiveScrollIntentTracking = null;
+    }
+  });
+  stopActiveScrollIntentTracking = stopListening;
 
   void retryEdgeUntilSettled(
     container,
@@ -201,5 +261,10 @@ export function executeAbsoluteEdgeJump(
     options.firstPromptId ?? null,
     options.isCancelled,
     options.onFirstPromptVisible
-  );
+  ).finally(() => {
+    stopListening();
+    if (stopActiveScrollIntentTracking === stopListening) {
+      stopActiveScrollIntentTracking = null;
+    }
+  });
 }

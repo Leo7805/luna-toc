@@ -175,6 +175,75 @@ describe('edgeNavigation', () => {
       expect(container.scrollTop).toBe(0);
     });
 
+
+    it('does not pull the user back to the bottom after an upward wheel gesture', async () => {
+      container.style.flexDirection = 'column';
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(1200);
+
+      container.scrollTop = 850;
+      container.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -120 }));
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(container.scrollTop).toBe(850);
+    });
+
+    it('does not pull the user back in column-reverse after wheel input', async () => {
+      container.style.flexDirection = 'column-reverse';
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(0);
+
+      container.scrollTop = -350;
+      container.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -100 }));
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(container.scrollTop).toBe(-350);
+    });
+
+    it('cancels top-edge retries on a touch gesture', async () => {
+      container.style.flexDirection = 'column';
+      let height = 2000;
+      Object.defineProperty(container, 'scrollHeight', {
+        get: () => height,
+        configurable: true,
+      });
+      executeAbsoluteEdgeJump('top', { container });
+      expect(container.scrollTop).toBe(0);
+
+      height = 2200; // Normally triggers another top-edge assertion.
+      container.scrollTop = 250;
+      container.dispatchEvent(new Event('touchmove', { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(container.scrollTop).toBe(250);
+    });
+
+    it('cancels on a keyboard scroll gesture outside editable controls', async () => {
+      container.style.flexDirection = 'column';
+      executeAbsoluteEdgeJump('bottom', { container });
+      container.scrollTop = 750;
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'PageUp' }));
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(750);
+    });
+
+    it('keeps automatic correction for host scroll changes and unrelated input', async () => {
+      container.style.flexDirection = 'column';
+      executeAbsoluteEdgeJump('bottom', { container });
+      container.scrollTop = 900;
+      container.dispatchEvent(new Event('scroll'));
+      document.body.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -100 }));
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(container.scrollTop).toBe(1200);
+    });
+
+    it('removes interruption listeners when the jump settles', async () => {
+      container.style.flexDirection = 'column';
+      const removeSpy = vi.spyOn(container, 'removeEventListener');
+      executeAbsoluteEdgeJump('bottom', { container });
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(removeSpy).toHaveBeenCalledWith('wheel', expect.any(Function));
+      expect(removeSpy).toHaveBeenCalledWith('touchmove', expect.any(Function));
+      removeSpy.mockRestore();
+    });
+
     it('settles cleanly on standard layout bottom jump and re-asserts if displaced', async () => {
       container.style.flexDirection = 'column';
 
