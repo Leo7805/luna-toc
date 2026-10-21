@@ -37,6 +37,7 @@ describe('extractUserMessages', () => {
         text: 'First prompt',
         canMatchByText: true,
         createTime: 0,
+        answerId: 'ai-1',
       },
       {
         id: 'user-2',

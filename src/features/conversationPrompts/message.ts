@@ -204,7 +204,7 @@ export function extractUserMessages(
     if (!role) return;
 
     if (role === 'user') {
-      if (pendingUserMessage) flushPendingUserMessage();
+      // Consecutive user versions represent one turn; keep the latest.
       pendingUserMessage = message;
       return;
     }

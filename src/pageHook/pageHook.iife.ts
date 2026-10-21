@@ -131,4 +131,4 @@ import { installTitleObserver } from './titleObserver';
     return response;
   };
 
-})();})();
+})();
