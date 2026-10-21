@@ -147,6 +147,38 @@ describe('prompt navigation strategy', () => {
     expect(mocks.onJumpComplete).toHaveBeenCalledWith(0);
   });
 
+  it('viewport-driven mode navigates to prompt without calling onJumpStart or onJumpComplete', async () => {
+    const onJumpStart = vi.fn();
+    const onJumpComplete = vi.fn();
+
+    initializePromptNavigation({
+      getVirtualSearchContext: () => ({
+        conversationKey: 'conv-test',
+        prompts: [{ id: 'p-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 }],
+      }),
+      onJumpStart,
+      onJumpComplete,
+    });
+
+    const container = document.createElement('div');
+    const mountedPrompt = document.createElement('div');
+    mountedPrompt.setAttribute('data-chatgpt-search-unit-key', 'p-1:user');
+    mountedPrompt.setAttribute('data-chatgpt-search-message-ids', 'p-1');
+    container.appendChild(mountedPrompt);
+    document.body.appendChild(container);
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(mountedPrompt);
+    mountedPrompt.scrollIntoView = vi.fn();
+
+    jumpToMessage({ id: 'p-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 }, 0, {
+      mode: 'viewport-driven',
+    });
+
+    expect(mountedPrompt.scrollIntoView).toHaveBeenCalledOnce();
+    expect(onJumpStart).not.toHaveBeenCalled();
+    expect(onJumpComplete).not.toHaveBeenCalled();
+  });
+
   it('navigates directly to absolute edge in jumpToConversationEdge', () => {
     const container = document.createElement('div');
     Object.defineProperty(container, 'scrollHeight', {

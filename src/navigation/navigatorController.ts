@@ -114,12 +114,9 @@ export const navigatorController = (() => {
    * Coordinates user browse intent (wheel/touch inside active chat).
    */
   function handleUserBrowseIntent(): void {
+    cancelActiveNavigationSearch();
     const nav = getNavigationState();
-    if (nav.state === 'jumping') {
-      cancelActiveNavigationSearch();
-      setNavigationIdle();
-      projectDisplayIndex(true);
-    } else if (nav.state === 'landed') {
+    if (nav.state === 'jumping' || nav.state === 'landed') {
       setNavigationIdle();
       projectDisplayIndex(true);
     } else if (nav.state === 'failed') {
@@ -382,13 +379,35 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToEdge(edge: 'top' | 'bottom'): void {
+    if (edge === 'top') {
+      jumpToFirstPrompt();
+      return;
+    }
     cancelActiveNavigationSearch();
     setNavigationIdle();
     jumpToPageEdge(edge, 'auto');
   }
 
   /**
-   * Navigates to the last user prompt in the active conversation.
+   * Navigates to the first user prompt in the active conversation (Single-click ToTop).
+   * Reuses independent virtual navigation without TOC click side effects.
+   */
+  function jumpToFirstPrompt(): void {
+    const messages = conversationStore.getMessages();
+    const firstMessage = messages[0];
+    if (firstMessage) {
+      setNavigationIdle();
+      jumpToMessage(firstMessage, 0, { mode: 'viewport-driven' });
+    } else {
+      cancelActiveNavigationSearch();
+      setNavigationIdle();
+      jumpToPageEdge('top', 'auto');
+    }
+  }
+
+  /**
+   * Navigates to the last user prompt in the active conversation (Double-click ToBottom).
+   * Reuses independent virtual navigation without TOC click side effects.
    * Does nothing safely if no prompts exist.
    */
   function jumpToLastPrompt(): void {
@@ -397,7 +416,8 @@ export const navigatorController = (() => {
     const lastMessage = messages[lastIndex];
 
     if (lastMessage) {
-      handleNavigatorItemClick(lastMessage, lastIndex);
+      setNavigationIdle();
+      jumpToMessage(lastMessage, lastIndex, { mode: 'viewport-driven' });
     }
   }
 

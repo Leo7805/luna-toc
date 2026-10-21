@@ -53,6 +53,10 @@ export interface PromptNavigationOptions {
   notifyJumpFailed?: () => void;
 }
 
+export interface JumpMessageOptions {
+  mode?: 'target-driven' | 'viewport-driven';
+}
+
 let getVirtualSearchContext: () => VirtualSearchContext = () => ({
   conversationKey: '',
   prompts: [],
@@ -116,10 +120,15 @@ function highlightMatchedElement(element: HTMLElement): void {
  *
  * @param message Target message representation.
  * @param index 0-indexed position in the conversation.
+ * @param options Execution mode configuration.
  */
-export function jumpToMessage(message: NavigatorMessage, index: number): void {
+export function jumpToMessage(
+  message: NavigatorMessage,
+  index: number,
+  options: JumpMessageOptions = {}
+): void {
   cancelActiveNavigationSearch();
-  jumpWithIndependentVirtualNavigation(message, index);
+  jumpWithIndependentVirtualNavigation(message, index, options);
 }
 
 /**
@@ -127,8 +136,10 @@ export function jumpToMessage(message: NavigatorMessage, index: number): void {
  */
 function jumpWithIndependentVirtualNavigation(
   message: NavigatorMessage,
-  index: number
+  index: number,
+  options: JumpMessageOptions = {}
 ): void {
+  const mode = options.mode ?? 'target-driven';
   const jumpId = createChatGptNavigationJumpId();
   const context = getVirtualSearchContext();
   const container = getChatGptScrollContainer();
@@ -144,21 +155,25 @@ function jumpWithIndependentVirtualNavigation(
   // sidebar follow window open for the slide duration so the sidebar list can
   // scroll to track the target once it reaches the viewport.
   keepFollowing(15_000);
-  if (onJumpStart) {
-    onJumpStart(index);
-  } else {
-    setJumpProgress?.({
-      active: true,
-      targetIndex: index,
-      remainingSteps: 50,
-    });
+  if (mode === 'target-driven') {
+    if (onJumpStart) {
+      onJumpStart(index);
+    } else {
+      setJumpProgress?.({
+        active: true,
+        targetIndex: index,
+        remainingSteps: 50,
+      });
+    }
   }
 
   if (!container || !context.conversationKey) {
-    if (onJumpFailed) {
-      onJumpFailed(index);
-    } else {
-      clearJumpProgress?.();
+    if (mode === 'target-driven') {
+      if (onJumpFailed) {
+        onJumpFailed(index);
+      } else {
+        clearJumpProgress?.();
+      }
     }
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'missing-context',
@@ -182,7 +197,7 @@ function jumpWithIndependentVirtualNavigation(
       textHit: Boolean(textHit),
       finalElement: renderedTarget.tagName,
     });
-    finishIndependentVirtualJump(renderedTarget, message, index, false);
+    finishIndependentVirtualJump(renderedTarget, message, index, false, options);
     return;
   }
 
@@ -209,17 +224,19 @@ function jumpWithIndependentVirtualNavigation(
         return;
       }
       if (outcome.status === 'mounted') {
-        finishIndependentVirtualJump(outcome.element, message, index, true);
+        finishIndependentVirtualJump(outcome.element, message, index, true, options);
         return;
       }
       if (outcome.status === 'capability-failure') {
         loaded = await executeViewportWalkerStrategy(strategyContext);
       } else {
-        if (onJumpFailed) {
-          onJumpFailed(index);
-        } else {
-          notifyJumpFailed?.();
-          clearJumpProgress?.();
+        if (mode === 'target-driven') {
+          if (onJumpFailed) {
+            onJumpFailed(index);
+          } else {
+            notifyJumpFailed?.();
+            clearJumpProgress?.();
+          }
         }
         logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
           status: 'not-found',
@@ -233,15 +250,17 @@ function jumpWithIndependentVirtualNavigation(
     }
 
     if (loaded) {
-      finishIndependentVirtualJump(loaded, message, index, true);
+      finishIndependentVirtualJump(loaded, message, index, true, options);
       return;
     }
 
-    if (onJumpFailed) {
-      onJumpFailed(index);
-    } else {
-      notifyJumpFailed?.();
-      clearJumpProgress?.();
+    if (mode === 'target-driven') {
+      if (onJumpFailed) {
+        onJumpFailed(index);
+      } else {
+        notifyJumpFailed?.();
+        clearJumpProgress?.();
+      }
     }
     logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'not-found',
@@ -262,8 +281,10 @@ function finishIndependentVirtualJump(
   target: HTMLElement,
   message: NavigatorMessage,
   index: number,
-  requiresStabilization = false
+  requiresStabilization = false,
+  options: JumpMessageOptions = {}
 ): void {
+  const mode = options.mode ?? 'target-driven';
   const jumpVersion = ++navigationJumpVersion;
   const targetAttempts = 8;
   const SUBPIXEL_TOLERANCE_PX = 2;
@@ -380,7 +401,9 @@ function finishIndependentVirtualJump(
         'JUMP_FINISHED',
         { status: 'found', attempts: targetAttempts }
       );
-      onJumpComplete?.(index);
+      if (mode === 'target-driven') {
+        onJumpComplete?.(index);
+      }
       return;
     }
 
@@ -406,11 +429,13 @@ function finishIndependentVirtualJump(
           'JUMP_FINISHED',
           { status: 'target-disconnected' }
         );
-        if (onJumpFailed) {
-          onJumpFailed(index);
-        } else {
-          notifyJumpFailed?.();
-          clearJumpProgress?.();
+        if (mode === 'target-driven') {
+          if (onJumpFailed) {
+            onJumpFailed(index);
+          } else {
+            notifyJumpFailed?.();
+            clearJumpProgress?.();
+          }
         }
         return;
       }
@@ -428,11 +453,13 @@ function finishIndependentVirtualJump(
           'JUMP_FINISHED',
           { status: 'alignment-unstable' }
         );
-        if (onJumpFailed) {
-          onJumpFailed(index);
-        } else {
-          notifyJumpFailed?.();
-          clearJumpProgress?.();
+        if (mode === 'target-driven') {
+          if (onJumpFailed) {
+            onJumpFailed(index);
+          } else {
+            notifyJumpFailed?.();
+            clearJumpProgress?.();
+          }
         }
         return;
       }
@@ -445,7 +472,9 @@ function finishIndependentVirtualJump(
           'JUMP_FINISHED',
           { status: 'found', attempts: targetAttempts }
         );
-        onJumpComplete?.(index);
+        if (mode === 'target-driven') {
+          onJumpComplete?.(index);
+        }
         return;
       }
 
@@ -458,11 +487,13 @@ function finishIndependentVirtualJump(
           'JUMP_FINISHED',
           { status: 'alignment-unstable' }
         );
-        if (onJumpFailed) {
-          onJumpFailed(index);
-        } else {
-          notifyJumpFailed?.();
-          clearJumpProgress?.();
+        if (mode === 'target-driven') {
+          if (onJumpFailed) {
+            onJumpFailed(index);
+          } else {
+            notifyJumpFailed?.();
+            clearJumpProgress?.();
+          }
         }
       }
     };

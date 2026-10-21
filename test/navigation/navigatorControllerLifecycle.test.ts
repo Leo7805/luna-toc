@@ -593,7 +593,8 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(jumpToMessageSpy).toHaveBeenCalledOnce();
     expect(jumpToMessageSpy).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'prompt-2', text: 'Second prompt' }),
-      1
+      1,
+      { mode: 'viewport-driven' }
     );
     expect(jumpToAbsoluteEdgeSpy).not.toHaveBeenCalled();
   });
@@ -644,7 +645,7 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
   });
 
-  it('jumpToEdge("top") delegates directly to jumpToPageEdge', () => {
+  it('jumpToEdge("top") delegates to jumpToPageEdge when no messages exist', () => {
     const jumpToAbsoluteEdgeSpy = vi
       .spyOn(promptNav, 'jumpToAbsoluteEdge')
       .mockImplementation(() => {});
@@ -2010,8 +2011,8 @@ describe('navigatorController lifecycle and coordination', () => {
     it('previous landed target releases landed state to idle and restores viewport tracking on jumpToEdge("top")', async () => {
       setupConversationWithPrompts(100, 'test-landed-to-top');
       const promptNavModule = await import('@/navigation/jump/promptNavigation');
-      const jumpToAbsoluteEdgeSpy = vi
-        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+      const jumpToMessageSpy = vi
+        .spyOn(promptNavModule, 'jumpToMessage')
         .mockImplementation(() => {});
 
       // Simulate previously landed target at prompt 50 (targetIndex 49)
@@ -2027,7 +2028,11 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // 1. Previous landed ownership released, state returns to idle
       expect(controller.getNavigationState().state).toBe('idle');
-      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
+      expect(jumpToMessageSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p-0' }),
+        0,
+        { mode: 'viewport-driven' }
+      );
 
       // 2. Display index is no longer locked to 49
       expect(controller.getDisplayIndex()).not.toBe(49);
@@ -2070,8 +2075,8 @@ describe('navigatorController lifecycle and coordination', () => {
     it('edge jump supersedes an ongoing jump, returning state to idle and cancelling active search', async () => {
       setupConversationWithPrompts(100, 'test-edge-supersede-jump');
       const promptNavModule = await import('@/navigation/jump/promptNavigation');
-      const jumpToAbsoluteEdgeSpy = vi
-        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+      const jumpToMessageSpy = vi
+        .spyOn(promptNavModule, 'jumpToMessage')
         .mockImplementation(() => {});
 
       // Ongoing jump
@@ -2085,7 +2090,11 @@ describe('navigatorController lifecycle and coordination', () => {
       controller.jumpToEdge('top');
 
       expect(controller.getNavigationState().state).toBe('idle');
-      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
+      expect(jumpToMessageSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p-0' }),
+        0,
+        { mode: 'viewport-driven' }
+      );
     });
 
     it('jumpToAbsoluteEdge releases landed state to idle', async () => {
@@ -2239,6 +2248,104 @@ describe('navigatorController lifecycle and coordination', () => {
 
       expect(statusElement.textContent).toBe('Jump failed');
       expect(statusElement.textContent).not.toContain('Now #1');
+    });
+
+    it('To Top button navigation enters virtual layout strategy for unmounted Prompt #1 without premature target locking', async () => {
+      setupConversationWithPrompts(100, 'test-to-top-real-nav');
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      document.body.appendChild(container);
+
+      const virtualStrategyModule = await import('@/navigation/jump/strategies/virtualLayoutStrategy');
+      let capturedContext: any = null;
+      vi.spyOn(virtualStrategyModule, 'tryVirtualLayoutStrategy').mockImplementation((ctx) => {
+        capturedContext = ctx;
+        return { mode: 'virtual', promise: Promise.resolve({ status: 'mounted', element: document.createElement('div') }) };
+      });
+
+      controller.jumpToEdge('top');
+
+      // Status banner remains idle
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toBe('100 prompts');
+      expect(controller.getNavigationState().state).toBe('idle');
+
+      // Strategy was actually entered with Prompt #1 (index 0)
+      expect(capturedContext).not.toBeNull();
+      expect(capturedContext.targetIndex).toBe(0);
+      expect(capturedContext.targetMessage.id).toBe('p-0');
+
+      // TOC Active was NOT prematurely locked to Prompt #1 at start
+      expect(controller.getDisplayIndex()).not.toBe(0);
+    });
+
+    it('To Bottom single-click preserves physical edge scroll with idle state and no status banner', async () => {
+      setupConversationWithPrompts(50, 'test-to-bottom-single-click');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      controller.jumpToEdge('bottom');
+
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toBe('50 prompts');
+      expect(controller.getNavigationState().state).toBe('idle');
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
+    });
+
+    it('To Bottom double-click supersedes previous physical-bottom jump and targets last prompt without TOC locking', async () => {
+      setupConversationWithPrompts(50, 'test-to-bottom-double-click');
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      document.body.appendChild(container);
+
+      const virtualStrategyModule = await import('@/navigation/jump/strategies/virtualLayoutStrategy');
+      let capturedContext: any = null;
+      vi.spyOn(virtualStrategyModule, 'tryVirtualLayoutStrategy').mockImplementation((ctx) => {
+        capturedContext = ctx;
+        return { mode: 'virtual', promise: Promise.resolve({ status: 'mounted', element: document.createElement('div') }) };
+      });
+
+      // First click: starts single-click physical bottom
+      controller.jumpToEdge('bottom');
+
+      // Second click / dblclick: supersedes and navigates to last prompt
+      controller.jumpToLastPrompt();
+
+      // Status remains idle
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toBe('50 prompts');
+      expect(controller.getNavigationState().state).toBe('idle');
+
+      // Targets last prompt (index 49) in strategy
+      expect(capturedContext).not.toBeNull();
+      expect(capturedContext.targetIndex).toBe(49);
+      expect(capturedContext.targetMessage.id).toBe('p-49');
+
+      // TOC Active was not prematurely locked
+      expect(controller.getDisplayIndex()).not.toBe(49);
+    });
+
+    it('user browse intent (wheel/touch) cancels active navigation exactly once even when NavigationState is idle', async () => {
+      setupConversationWithPrompts(50, 'test-browse-cancels-idle-nav');
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      document.body.appendChild(container);
+
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const cancelSpy = vi.spyOn(promptNavModule, 'cancelActiveNavigationSearch');
+
+      // Start button navigation (state stays idle)
+      controller.jumpToEdge('top');
+      expect(controller.getNavigationState().state).toBe('idle');
+      cancelSpy.mockClear();
+
+      // Simulate user wheel browse intent on thread container
+      container.dispatchEvent(new Event('wheel', { bubbles: true }));
+
+      // Cancelled exactly once, without redundant duplicate increments
+      expect(cancelSpy).toHaveBeenCalledOnce();
     });
   });
 });
