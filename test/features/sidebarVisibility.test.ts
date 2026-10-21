@@ -62,9 +62,26 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.parentElement).toBe(sidebar);
     expect(Array.from(panel.querySelectorAll('button')).map(x => x.id))
       .toEqual(['jump-chat-top-btn', 'toggle-view-mode-btn', 'jump-chat-bottom-btn']);
-    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
-    expect(panel.hasAttribute('inert')).toBe(false);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(0);
     expect(panel.closest('[aria-hidden="true"]')).toBeNull();
+
+    // Moving anywhere outside the button group's actual footprint hides it.
+    sidebar.dispatchEvent(new Event('pointermove', { bubbles: true }));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(-1);
+
+    // The invisible footprint still accepts pointer entry to reveal the tools.
+    panel.dispatchEvent(new Event('pointerenter'));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+
+    panel.dispatchEvent(new Event('pointermove', { bubbles: true }));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    panel.dispatchEvent(new Event('pointerleave'));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
 
     sidebar.dispatchEvent(new Event('pointerenter'));
     vi.advanceTimersByTime(400);
@@ -74,6 +91,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     vi.advanceTimersByTime(400);
     expect(sidebar.getAttribute('aria-hidden')).toBe('true');
     expect(panel.closest('[aria-hidden="true"]')).toBe(sidebar);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(false);
     expect(dock.inert).toBe(false);
   });
@@ -98,4 +116,18 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(sidebar.getAttribute('aria-hidden')).toBe('false');
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(true);
   });
+  it('retains toolbar visibility when moving among its buttons and opens on keyboard focus', () => {
+    const { sidebar, trigger, panel } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+    sidebar.dispatchEvent(new Event('pointermove'));
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+
+    panel.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-bottom-btn')!.tabIndex).toBe(0);
+    panel.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+  });
+
 });

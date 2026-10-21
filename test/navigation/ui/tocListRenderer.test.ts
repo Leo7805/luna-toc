@@ -109,6 +109,24 @@ describe('tocListRenderer', () => {
     expect(onItemClick).toHaveBeenCalledWith(mockMessages[1], 1);
   });
 
+  it('orders the mark flag before the index and places the outline toggle last', () => {
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+
+    const main = listElement.querySelector('.navigator-item-main')!;
+    expect(Array.from(main.children).map(element => element.className))
+      .toEqual([
+        'navigator-mark-btn',
+        'navigator-item-index',
+        'navigator-item-text',
+        'navigator-outline-indicator',
+      ]);
+  });
+
   it('always shows a separate triangle toggle without activating prompt navigation', () => {
     const onItemClick = vi.fn();
     const onOutlineToggle = vi.fn();

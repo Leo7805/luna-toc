@@ -214,7 +214,7 @@ html[data-theme='light'] {
   -webkit-backdrop-filter: blur(12px);
   color: var(--ct-text-primary);
   z-index: var(--ct-z-sidebar, 1000);
-  padding: 0 6px 12px;
+  padding: 0 0 12px 6px;
   box-sizing: border-box;
   font-size: 14px;
   border-left: 1px solid var(--ct-border-sidebar);
@@ -232,7 +232,7 @@ html[data-theme='light'] {
 
 .navigator-topbar {
   flex: 0 0 auto;
-  margin: 0 -6px;
+  margin: 0 0 0 -6px;
   padding: 7px 14px 8px;
   background: var(--ct-bg-header);
   border-bottom: 1px solid var(--ct-border-divider);
@@ -310,16 +310,17 @@ html[data-theme='light'] {
 
 .navigator-jump-controls {
   position: absolute;
-  right: 8px;
+  right: 0;
   top: 50%;
   z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 6px;
-  border-radius: 18px;
+  padding: 8px 0 8px 6px;
+  border-radius: 18px 0 0 18px;
   background: var(--ct-bg-jump-controls);
   border: 1px solid var(--ct-border-jump-controls);
+  border-right: 0;
   box-shadow:
     var(--ct-sidebar-box-shadow-jump),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -328,6 +329,18 @@ html[data-theme='light'] {
   cursor: default;
   user-select: none;
   transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/* Fade only the visuals: the same-sized transparent footprint reveals on hover. */
+.navigator-jump-controls.navigator-jump-controls-visible {
+  opacity: 1;
+}
+
+/* Hidden buttons cannot be clicked; their parent remains the hover target. */
+.navigator-jump-controls:not(.navigator-jump-controls-visible) > button {
+  pointer-events: none;
 }
 
 .navigator-icon-btn {
@@ -458,9 +471,10 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 #luna-toc-floating-dock {
   position: fixed;
   right: 0;
-  top: calc(50% - 21px);
-  width: 10px;
-  height: 42px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 45px;
   z-index: var(--ct-z-toggle, 1010);
   transition: opacity 120ms ease, visibility 120ms ease;
 }
@@ -474,12 +488,12 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 #luna-toc-toggle-btn {
   display: block;
   box-sizing: border-box;
-  width: 10px;
-  height: 42px;
+  width: 5px;
+  height: 45px;
   padding: 0;
   border: 0;
-  border-left: 2px solid var(--ct-toggle-btn-color);
-  border-radius: 8px 0 0 8px;
+  border-left: 1px solid var(--ct-toggle-btn-color);
+  border-radius: 5px 0 0 5px;
   background: var(--ct-toggle-btn-hover-bg);
   cursor: pointer;
   touch-action: manipulation;
@@ -518,9 +532,9 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   box-sizing: border-box;
   width: 100%;
   min-height: 34px;
-  padding: 7px 8px;
+  padding: 7px 0 7px 8px;
   margin-top: 1px;
-  border-radius: 7px;
+  border-radius: 7px 0 0 7px;
   cursor: pointer;
   color: var(--ct-text-item);
   line-height: 20px;

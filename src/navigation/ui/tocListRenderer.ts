@@ -236,10 +236,10 @@ export function createTocListRenderer(
     });
 
     itemMain.append(
+      markButton,
       itemIndex,
       itemText,
-      outlineControls?.outlineIndicator || document.createElement('span'),
-      markButton
+      outlineControls?.outlineIndicator || document.createElement('span')
     );
     item.append(itemMain);
 

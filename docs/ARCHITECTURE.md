@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建贴视口右缘、约 10×42px 的半透明蓝色触发条，不含可见文字或图标，兼容之前保存的纵向位置，并在视口大小变化时重新约束位置。`src/features/sidebarVisibility.ts` 协调侧边栏和触发条的互斥显示：悬停触发条打开侧边栏，触发条随即隐藏且不再响应指针；侧边栏关闭后重新显示，固定侧边栏时始终不显示触发条。三个已有的导航/提示词按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，直接留在侧边栏内部并通过 CSS 在右侧垂直居中，显示与交互权限由侧边栏统一控制，不再维护独立的工具条悬浮状态。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建固定在视口右缘垂直中心、5×45px 的半透明蓝色触发条，不含可见文字或图标，忽略旧版保存的拖动位置。`src/features/sidebarVisibility.ts` 协调侧边栏和触发条的互斥显示：悬停触发条打开侧边栏，触发条随即隐藏且不再响应指针；侧边栏关闭后重新显示，固定侧边栏时始终不显示触发条。三个已有的导航/提示词按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，留在侧边栏内部右侧居中，侧边栏展开时显示，指针移出按钮组区域后透明隐藏，重新进入同一区域后显示；透明状态仍保留命中区域并将按钮移出键盘 Tab 序列。侧边栏及目录行取消右内边距，滚动条、工具条及最末端展开三角形靠齐视口右侧。目录行依次放置旗子、序号、文字和三角形。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 

@@ -58,8 +58,43 @@ function bindAutoHide(): void {
   sidebar.addEventListener('pointerenter', () => clearHideTimer());
   sidebar.addEventListener('pointerleave', scheduleAutoHide);
 
+  const controls = sidebar.querySelector<HTMLElement>('.navigator-jump-controls');
+  controls?.addEventListener('pointerenter', () => setJumpControlsVisible(true));
+  controls?.addEventListener('pointerleave', () => setJumpControlsVisible(false));
+  controls?.addEventListener('focusin', () => setJumpControlsVisible(true));
+  controls?.addEventListener('focusout', (event) => {
+    if (event.relatedTarget instanceof Node && controls.contains(event.relatedTarget)) {
+      return;
+    }
+    setJumpControlsVisible(false);
+  });
+
+  // The transparent control footprint remains hit-testable even when faded.
+  // After the sidebar opens, moving outside that footprint hides the buttons.
+  sidebar.addEventListener('pointermove', (event) => {
+    if (!controls?.classList.contains('navigator-jump-controls-visible')) return;
+    if (event.target instanceof Node && controls.contains(event.target)) return;
+    if (controls.contains(document.activeElement)) return;
+    setJumpControlsVisible(false);
+  });
+
   document.addEventListener('pointerover', handleDocumentPointerOver, true);
   document.addEventListener('pointerout', handleDocumentPointerOut, true);
+}
+
+/**
+ * Changes the three-button cluster's visual and keyboard state. The cluster
+ * itself remains hit-testable so moving back over its footprint reveals it.
+ */
+function setJumpControlsVisible(visible: boolean): void {
+  const controls = sidebar?.querySelector<HTMLElement>('.navigator-jump-controls');
+  if (!controls) return;
+
+  controls.classList.toggle('navigator-jump-controls-visible', visible);
+  controls.setAttribute('aria-hidden', String(!visible));
+  controls.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+    button.tabIndex = visible ? 0 : -1;
+  });
 }
 
 function handleAutoHideEnter(): void {
@@ -197,6 +232,7 @@ export function setSidebarHidden(hidden: boolean): void {
   dock?.classList.toggle('luna-toc-floating-dock-hidden', !isHidden);
   dock?.setAttribute('aria-hidden', String(!isHidden));
   if (dock) dock.inert = !isHidden;
+  setJumpControlsVisible(!isHidden);
   if (justOpened) onOpened?.();
 }
 

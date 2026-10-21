@@ -1,8 +1,7 @@
 /**
- * Verifies the collapsed 10px reveal strip and sidebar-owned centered tools.
- * Actual hover and pinning state transitions are tested in sidebarVisibility.
+ * Tests fixed edge dimensions, flush-right sidebar layout and toolbar hit area.
  */
-// @ts-expect-error Vitest runs in Node; the browser tsconfig intentionally omits Node types.
+// @ts-expect-error Vitest runs in Node; browser tsconfig intentionally omits Node typings.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -11,30 +10,38 @@ const stylesheet = readFileSync(
   'utf8'
 );
 
-describe('slim right-edge sidebar trigger', () => {
-  it('is 10px wide, keeps the translucent blue background and has no visible text', () => {
+describe('centered reveal handle and sidebar edge alignment', () => {
+  it('keeps the empty translucent blue tab at a fixed 5×45px centered position', () => {
     expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*width:\s*10px;[^}]*height:\s*42px;/s
+      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*50%;[^}]*transform:\s*translateY\(-50%\);[^}]*width:\s*5px;[^}]*height:\s*45px;/s
     );
     expect(stylesheet).toMatch(
-      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*10px;[^}]*height:\s*42px;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
+      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*5px;[^}]*height:\s*45px;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
     );
     expect(stylesheet).not.toMatch(/#luna-toc-floating-dock::before\s*\{/);
-    expect(stylesheet).not.toMatch(/#luna-toc-toggle-btn\s+\.toggle-sidebar-label/);
   });
 
-  it('hides the trigger while the sidebar is open', () => {
+  it('makes sidebar content and its scrollbar reach the right viewport edge', () => {
     expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock\.luna-toc-floating-dock-hidden\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s
+      /#luna-toc-sidebar\s*\{[^}]*right:\s*0;[^}]*padding:\s*0 0 12px 6px;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-item\s*\{[^}]*padding:\s*7px 0 7px 8px;/s
     );
   });
 
-  it('positions the three tools vertically centered on the sidebar right edge', () => {
+  it('aligns the toolbar edge flush-right and fades it without disabling hover', () => {
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*position:\s*absolute;[^}]*right:\s*8px;[^}]*top:\s*50%;/s
+      /\.navigator-jump-controls\s*\{[^}]*right:\s*0;[^}]*top:\s*50%;[^}]*padding:\s*8px 0 8px 6px;/s
     );
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*transform:\s*translateY\(-50%\);/s
+      /\.navigator-jump-controls\s*\{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 120ms ease;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-jump-controls\.navigator-jump-controls-visible\s*\{[^}]*opacity:\s*1;/s
+    );
+    expect(stylesheet).not.toMatch(
+      /\.navigator-jump-controls\s*\{[^}]*pointer-events:\s*none;/s
     );
   });
 });
