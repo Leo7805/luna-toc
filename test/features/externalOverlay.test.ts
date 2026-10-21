@@ -14,6 +14,7 @@ const OVERLAY_CLASS = 'luna-toc-external-overlay-open';
 
 afterEach(() => {
   document.body.innerHTML = '';
+  document.body.style.pointerEvents = '';
   document.documentElement.classList.remove(OVERLAY_CLASS);
 });
 
@@ -81,6 +82,51 @@ describe('observeExternalOverlays', () => {
     );
 
     disconnect();
+  });
+
+  it('tracks body pointer-events: none as an active external overlay and recovers on restore', async () => {
+    const disconnect = observeExternalOverlays();
+
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(false);
+
+    // Host page disables body pointer interaction (e.g. ChatGPT image preview opens)
+    document.body.style.pointerEvents = 'none';
+    await Promise.resolve();
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(true);
+
+    // Host page restores normal body pointer interaction (e.g. image preview closes)
+    document.body.style.pointerEvents = '';
+    await Promise.resolve();
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(false);
+
+    disconnect();
+  });
+
+  it('does not activate overlay state during normal browsing when body pointer-events is auto', () => {
+    const disconnect = observeExternalOverlays();
+
+    document.body.style.pointerEvents = 'auto';
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(false);
+
+    disconnect();
+  });
+
+  it('removes the overlay class and stops observing on disconnect', async () => {
+    document.body.style.pointerEvents = 'none';
+    const disconnect = observeExternalOverlays();
+
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(true);
+
+    disconnect();
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(false);
+
+    document.body.style.pointerEvents = 'auto';
+    await Promise.resolve();
+
+    document.body.style.pointerEvents = 'none';
+    await Promise.resolve();
+
+    expect(document.documentElement.classList.contains(OVERLAY_CLASS)).toBe(false);
   });
 });
 
