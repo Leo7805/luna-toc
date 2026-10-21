@@ -60,12 +60,6 @@ import {
   resolveChatGptContractValue,
   labelChatGptContractValue,
 } from './contract';
-import {
-  installMatchMediaSpoof as installChatGptMatchMediaSpoof,
-  installMatchMediaToggleListener as installChatGptMatchMediaToggleListener,
-  setSidebarSpoofEnabled as setChatGptSidebarSpoofEnabled,
-  SPOOFED_VIEWPORT_WIDTH,
-} from './pageHook/matchMediaSpoof';
 import type {
   Platform,
   PlatformContractTable,
@@ -114,11 +108,7 @@ export const chatGptPlatform: Platform = {
     messages: CHATGPT_MESSAGE_TYPES,
     buildBackfillUrl,
     probeFetchContract: undefined, // populated after the contractAlerts port
-    installMatchMediaSpoof: installChatGptMatchMediaSpoof,
-    installMatchMediaToggleListener: installChatGptMatchMediaToggleListener,
     postContractUpdate,
-    setSidebarSpoofEnabled: setChatGptSidebarSpoofEnabled,
-    spoofedViewportWidthPx: SPOOFED_VIEWPORT_WIDTH,
     installFlag: HOOK_INSTALL_FLAG_VALUE,
   },
   navigation: {
@@ -149,7 +139,6 @@ export const chatGptPlatform: Platform = {
     composerTextareaSelector: '.ProseMirror[contenteditable="true"]',
   },
   config: {
-    navigationAlgorithm: APP_CONFIG.platforms.chatgpt.navigationAlgorithm,
     promptTopOffsetPx: APP_CONFIG.platforms.chatgpt.promptTopOffsetPx,
     settleAttempts: APP_CONFIG.platforms.chatgpt.settleAttempts,
     backfillMaxPages: APP_CONFIG.platforms.chatgpt.backfillMaxPages,

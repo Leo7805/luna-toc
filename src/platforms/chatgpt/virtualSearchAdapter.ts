@@ -162,14 +162,12 @@ export function findRenderedChatGptPromptByText(
   const candidates = Array.from(
     root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)
   );
-  for (const element of candidates) {
-    if (
-      normalizeForTextMatch(element.textContent || '').startsWith(needle)
-    ) {
-      return element;
-    }
-  }
-  return null;
+  const matches = candidates.filter((element) =>
+    normalizeForTextMatch(element.textContent || '').startsWith(needle)
+  );
+  // The first visible match is not necessarily the correct message in a
+  // virtualized conversation; never guess when the DOM is ambiguous.
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function normalizeForTextMatch(text: string): string {

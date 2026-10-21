@@ -14,7 +14,6 @@ import type { Platform } from '@/platforms';
 import { getActivePlatform } from '@/platforms';
 import type { ConversationPayload } from './fetchHelpers';
 
-const BACKFILL_MAX_PAGES_FALLBACK = 10;
 // One page can carry the whole history for typical conversations: the
 // server does not cap `num_turns` at least up to 100, and the payload is
 // bounded by message count (user + assistant), not prompt count.
@@ -49,7 +48,8 @@ export function installConversationBackfill(opts: {
 export function startBackfillIfNeeded(
   data: unknown,
   routeKey: string,
-  authHeaders: Record<string, string> | null
+  authHeaders: Record<string, string> | null,
+  requestStartedAt?: number
 ): boolean {
   const pageInfo = (data as ConversationPayload | undefined)?.page_info;
 
@@ -60,7 +60,8 @@ export function startBackfillIfNeeded(
   backfillPreviousPages(
     routeKey,
     pageInfo.start_cursor,
-    authHeaders
+    authHeaders,
+    requestStartedAt
   ).finally(() => {
     backfillingConversationIds.delete(routeKey);
   });
@@ -75,7 +76,8 @@ export function startBackfillIfNeeded(
 async function backfillPreviousPages(
   conversationId: string,
   startCursor: string,
-  authHeaders: Record<string, string> | null
+  authHeaders: Record<string, string> | null,
+  requestStartedAt?: number
 ): Promise<void> {
   const platform = installedPlatform ?? getActivePlatform();
   let cursor = startCursor;
@@ -103,7 +105,7 @@ async function backfillPreviousPages(
         return;
       }
 
-      postConversationPayload(data, conversationId, platform);
+      postConversationPayload(data, conversationId, platform, requestStartedAt);
 
       const pageInfo = data?.page_info;
       if (pageInfo?.has_previous_page === false) {
@@ -141,11 +143,13 @@ export function isBackfilling(routeKey: string): boolean {
 export function postConversationPayload(
   payload: unknown,
   routeKey: string,
-  platform: Platform = installedPlatform ?? getActivePlatform()
+  platform: Platform = installedPlatform ?? getActivePlatform(),
+  requestStartedAt?: number
 ): void {
   window.postMessage(
     {
       type: platform.pageHook.messages.conversationData,
+      ...(requestStartedAt !== undefined ? { requestStartedAt } : {}),
       routeKey,
       payload,
     },
@@ -182,7 +186,3 @@ export function postConversationEnded(
   );
 }
 
-// Re-exported for compatibility with the previous default; consumers that
-// don't have a platform reference still get a sensible chatgpt fallback.
-const _UNUSED_BACKFILL_MAX_PAGES = BACKFILL_MAX_PAGES_FALLBACK;
-void _UNUSED_BACKFILL_MAX_PAGES;

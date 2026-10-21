@@ -1,19 +1,9 @@
 /**
  * Owns LunaTOC sidebar visibility, pinning, and auto-hide behavior.
  */
-import { getActivePlatform } from '@/platforms';
-
-const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
+ const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
 const AUTO_HIDE_DELAY_MS = 300;
-
-let widthSpoofMessageType: string | null = null;
-function getWidthSpoofMessageType(): string {
-  if (!widthSpoofMessageType) {
-    widthSpoofMessageType = getActivePlatform().pageHook.messages.setWidthSpoof;
-  }
-  return widthSpoofMessageType;
-}
 
 let sidebar: HTMLElement | null = null;
 let toggleBtn: HTMLButtonElement | null = null;
@@ -209,7 +199,6 @@ export function setSidebarHidden(hidden: boolean): void {
   }
   toggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
   toggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
-  setWideViewportSpoofEnabled(!isHidden);
   if (justOpened) onOpened?.();
 }
 
@@ -268,20 +257,6 @@ function isSidebarExtensionSurfaceEvent(event: Event): boolean {
 
   return !!target.closest(
     '#luna-toc-preview-tooltip, #luna-toc-react-host[data-luna-toc-context-menu-open]'
-  );
-}
-
-/**
- * Enables the page-context width spoof only while the LunaTOC sidebar is open.
- * @param {boolean} enabled
- */
-function setWideViewportSpoofEnabled(enabled: boolean): void {
-  window.postMessage(
-    {
-      type: getWidthSpoofMessageType(),
-      enabled,
-    },
-    '*'
   );
 }
 

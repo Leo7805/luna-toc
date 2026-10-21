@@ -455,7 +455,7 @@ export const navigatorController = (() => {
     });
   }
 
-  function handleConversationData(data: ConversationData): void {
+  function handleConversationData(data: ConversationData, requestStartedAt?: number): void {
     const incomingMessages = data?.messages;
     if (!Array.isArray(incomingMessages)) return;
 
@@ -463,7 +463,8 @@ export const navigatorController = (() => {
 
     conversationStore.handleConversationData(
       data,
-      getCurrentConversationKey()
+      getCurrentConversationKey(),
+      requestStartedAt
     );
     render({ refreshObservers: true });
   }
@@ -494,7 +495,7 @@ export const navigatorController = (() => {
         const routeKey = event.data.routeKey;
         if (routeKey && routeKey !== getCurrentConversationKey()) return;
         conversationStore.clearPendingNewChat();
-        handleConversationData(event.data.payload);
+        handleConversationData(event.data.payload, event.data.requestStartedAt);
       }
 
       if (

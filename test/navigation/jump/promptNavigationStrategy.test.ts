@@ -8,11 +8,10 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { ChatGptNavigationAlgorithm } from '@/config/config';
 
 const mocks = vi.hoisted(() => ({
-  navigationAlgorithm: 'legacy-native' as ChatGptNavigationAlgorithm,
   findPrompt: vi.fn(),
+  findText: vi.fn(),
   getContainer: vi.fn(),
   createJumpId: vi.fn(() => 'jump-id-stub'),
   getTestConfig: vi.fn(() => null),
@@ -28,7 +27,7 @@ vi.mock('@/platforms', () => ({
     navigation: {
       getScrollContainer: mocks.getContainer,
       findRenderedPrompt: mocks.findPrompt,
-      findRenderedPromptByText: vi.fn(() => null),
+      findRenderedPromptByText: mocks.findText,
       readMountedWithSidebarIdx: vi.fn(() => []),
       promptTopOffsetPx: 16,
     },
@@ -49,10 +48,6 @@ vi.mock('@/platforms', () => ({
 
 vi.mock('@/navigation/follow/follow', () => ({
   keepFollowing: vi.fn(),
-}));
-
-vi.mock('@/navigation/navigationSettings', () => ({
-  getChatGptNavigationAlgorithm: () => mocks.navigationAlgorithm,
 }));
 
 import {
@@ -86,7 +81,6 @@ beforeEach(() => {
       return 1;
     })
   );
-  mocks.navigationAlgorithm = 'legacy-native';
 
   initializePromptNavigation({
     getVirtualSearchContext: () => ({
@@ -112,21 +106,53 @@ afterEach(() => {
 });
 
 describe('prompt navigation strategy', () => {
-  it('never jumps to top for an obsolete legacy setting', () => {
+  it('does not use text fallback for a prompt containing attachments', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(null);
+    const message = { id: 'file-prompt', text: '[文件] attachment', canMatchByText: false, createTime: 0 };
+    initializePromptNavigation({
+      getVirtualSearchContext: () => ({ conversationKey: 'conversation-1', prompts: [message] }),
+      setJumpProgress: mocks.setJumpProgress,
+      clearJumpProgress: mocks.clearJumpProgress,
+      notifyJumpFailed: mocks.notifyJumpFailed,
+    });
+    jumpToMessage(message, 0);
+    expect(mocks.findText).not.toHaveBeenCalled();
+  });
+
+  it('rejects text fallback for repeated prompts even when one is mounted', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(null);
+    const messages = ['first', 'second'].map((id) => ({
+      id, text: 'Repeat this prompt', canMatchByText: true, createTime: 0,
+    }));
+    initializePromptNavigation({
+      getVirtualSearchContext: () => ({ conversationKey: 'conversation-1', prompts: messages }),
+      setJumpProgress: mocks.setJumpProgress,
+      clearJumpProgress: mocks.clearJumpProgress,
+      notifyJumpFailed: mocks.notifyJumpFailed,
+    });
+    jumpToMessage(messages[1], 1);
+    expect(mocks.findText).not.toHaveBeenCalled();
+  });
+
+  it('jumps to a currently mounted prompt by exact identity', () => {
     const container = document.createElement('div');
     const target = document.createElement('div');
     document.body.append(container, target);
     target.scrollIntoView = vi.fn();
     mocks.getContainer.mockReturnValue(container);
     mocks.findPrompt.mockReturnValue(target);
-    mocks.navigationAlgorithm = 'legacy-native';
     jumpToMessage({ id: 'prompt-1', text: 'Prompt', canMatchByText: true, createTime: 0 }, 0);
     expect(target.scrollIntoView).toHaveBeenCalledOnce();
     expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
   });
 
   it('navigates directly via fast-path when target is rendered in independent-virtual strategy', async () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     const target = document.createElement('div');
     document.body.append(container, target);
@@ -158,7 +184,6 @@ describe('prompt navigation strategy', () => {
   });
 
   it('initiates virtual step-loading when target is not rendered in the DOM', () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     document.body.appendChild(container);
     mocks.getContainer.mockReturnValue(container);
@@ -182,7 +207,6 @@ describe('prompt navigation strategy', () => {
   });
 
   it('starts independent virtual search without calling the legacy path', async () => {
-    mocks.navigationAlgorithm = 'independent-virtual';
     const container = document.createElement('div');
     Object.defineProperty(container, 'scrollHeight', {
       value: 1000,

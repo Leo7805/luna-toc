@@ -1,14 +1,11 @@
 /**
  * ChatGPT page-hook adapter.
  *
- * Wires the page-hook concerns (matchMedia spoof, contract-update listener,
- * backfill URL builder, optional fetch-contract probe) to the
- * platform-agnostic machinery under `src/pageHook/`.
+ * Wires conversation backfill URLs and contract-update messaging to
+ * the platform-agnostic machinery under `src/pageHook/`.
  *
- * The matchMedia spoof body lives at `./pageHook/matchMediaSpoof.ts`
- * (populated in step 6 of the platform-abstraction plan). This file holds
- * the contract-update poster, the backfill URL builder, and the
- * install-flag sentinel.
+ * The page hook does not override ChatGPT's responsive layout APIs.
+ * This file owns contract-update messages, backfill URLs, and install state.
  */
 import { CHATGPT_MESSAGE_TYPES } from './messages';
 

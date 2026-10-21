@@ -68,14 +68,15 @@ export function postConversationData(
   response: Response,
   routeKey: string,
   isInitialConversationLoad: boolean,
-  authHeaders: Record<string, string> | null
+  authHeaders: Record<string, string> | null,
+  requestStartedAt?: number
 ): void {
   const platform = getActivePlatform();
   response
     .clone()
     .json()
     .then((data) => {
-      postConversationPayload(data, routeKey, platform);
+      postConversationPayload(data, routeKey, platform, requestStartedAt);
 
       const messages = (data as { messages?: unknown } | null)?.messages;
       if (!Array.isArray(messages)) {
@@ -89,7 +90,8 @@ export function postConversationData(
         const backfillStarted = startBackfillIfNeeded(
           data,
           routeKey,
-          authHeaders
+          authHeaders,
+          requestStartedAt
         );
         // Skip the probe when the conversation is empty — a brand-new
         // chat has 0 messages by definition, and the probe would see 0

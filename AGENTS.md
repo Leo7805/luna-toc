@@ -1,4 +1,4 @@
-# AGENTS.md
+# LunaTOC-SC — AGENTS.md
 
 IMPORTANT:
 
@@ -94,7 +94,7 @@ Do not create unnecessary documentation files.
 
 1. Create `docs/context.md` only if multi-session work requires a handoff; it is not an existing mandatory input.
 2. Keep handoffs concise, in English, free of secrets; remove stale handoffs.
-3. Refer to `docs/ARCHITECTURE.md` and `docs/DECISIONS.md` for historical decisions.
+3. Refer to `docs/ARCHITECTURE.md` and `docs/DECISIONS.md` for the current implementation and decisions.
 
 ## Testing
 

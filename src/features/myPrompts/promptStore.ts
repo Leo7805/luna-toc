@@ -20,6 +20,7 @@ export type PromptsChangedListener = (prompts: SavedPrompt[]) => void;
 export interface PromptStore {
   getAll(): Promise<SavedPrompt[]>;
   saveAll(prompts: SavedPrompt[]): Promise<void>;
+  update(transform: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void>;
   subscribe(listener: PromptsChangedListener): () => void;
 }
 
@@ -33,14 +34,20 @@ export function createPromptStore(): PromptStore {
   let cache: SavedPrompt[] = [];
   let hydratePromise: Promise<SavedPrompt[]> | null = null;
   let hydrationVerified = false;
+  let writeQueue: Promise<void> = Promise.resolve();
   const listeners = new Set<PromptsChangedListener>();
 
+  // Copies records as well as the array: callers must not mutate cached data.
+  function clonePrompts(prompts: SavedPrompt[]): SavedPrompt[] {
+    return prompts.map((prompt) => ({ ...prompt }));
+  }
+
   function getCacheCopy(): SavedPrompt[] {
-    return [...cache];
+    return clonePrompts(cache);
   }
 
   function setCache(prompts: SavedPrompt[]): void {
-    cache = Array.isArray(prompts) ? [...prompts] : [];
+    cache = Array.isArray(prompts) ? clonePrompts(prompts) : [];
   }
 
   function notifyListeners(): void {
@@ -131,35 +138,60 @@ export function createPromptStore(): PromptStore {
     }
   }
 
+  async function persist(prompts: SavedPrompt[]): Promise<void> {
+    await hydrate();
+    if (!hydrationVerified) {
+      throw new Error('Prompt storage could not be read; refusing to overwrite it');
+    }
+    if (!isContextValid()) {
+      throw new Error('Invalid extension context: prompts were not saved');
+    }
+
+    const previous = getCacheCopy();
+    const next = clonePrompts(prompts);
+    setCache(next);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        chrome.storage.local.set({ [storageKey]: next }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message ?? 'Prompt storage write failed'));
+          } else {
+            resolve();
+          }
+        });
+      });
+      notifyListeners();
+    } catch (error) {
+      setCache(previous);
+      notifyListeners();
+      throw error;
+    }
+  }
+
+  // Serialize reads/modifications/writes in this extension context.
+  function enqueueWrite(operation: () => Promise<void>): Promise<void> {
+    const pending = writeQueue.catch(() => undefined).then(operation);
+    writeQueue = pending.catch(() => undefined);
+    return pending;
+  }
+
   return {
     async getAll(): Promise<SavedPrompt[]> {
       await hydrate();
+      await writeQueue;
       return getCacheCopy();
     },
-    async saveAll(prompts: SavedPrompt[]): Promise<void> {
-      const nextPrompts = Array.isArray(prompts) ? [...prompts] : [];
-      await hydrate();
-      if (!hydrationVerified) {
-        throw new Error('Prompt storage could not be read; refusing to overwrite it');
-      }
-      const previousPrompts = getCacheCopy();
-      if (!isContextValid()) {
-        throw new Error('Invalid extension context: prompts were not saved');
-      }
-      setCache(nextPrompts);
-
-      return new Promise((resolve, reject) => {
-        chrome.storage.local.set({ [storageKey]: nextPrompts }, () => {
-          if (chrome.runtime.lastError) {
-            setCache(previousPrompts);
-            notifyListeners();
-            reject(new Error(chrome.runtime.lastError.message ?? 'Prompt storage write failed'));
-            return;
-          }
-
-          notifyListeners();
-          resolve();
-        });
+    saveAll(prompts: SavedPrompt[]): Promise<void> {
+      const snapshot = clonePrompts(Array.isArray(prompts) ? prompts : []);
+      return enqueueWrite(() => persist(snapshot));
+    },
+    update(transform: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void> {
+      return enqueueWrite(async () => {
+        await hydrate();
+        if (!hydrationVerified) {
+          throw new Error('Prompt storage could not be read; refusing to overwrite it');
+        }
+        await persist(transform(getCacheCopy()));
       });
     },
     subscribe(listener: PromptsChangedListener): () => void {

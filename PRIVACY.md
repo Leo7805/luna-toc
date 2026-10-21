@@ -1,6 +1,6 @@
-# LunaTOC 隐私说明 / Privacy
+# LunaTOC-SC 隐私说明 / Privacy
 
-LunaTOC 是一个以 ChatGPT 为主要支持平台的 Chrome 浏览器扩展。本说明针对 [PyRookie1/luna-toc-sc](https://github.com/PyRookie1/luna-toc-sc) 的源码版本，不代表上游项目的隐私政策。
+LunaTOC-SC 是仅支持 ChatGPT 的 Chrome 浏览器扩展。本说明针对 [PyRookie1/luna-toc-sc](https://github.com/PyRookie1/luna-toc-sc) 的源码版本，不代表上游项目的隐私政策。
 
 ## 处理的信息
 
@@ -15,7 +15,7 @@ LunaTOC 是一个以 ChatGPT 为主要支持平台的 Chrome 浏览器扩展。�
 
 ## 权限及范围
 
-`manifest.json` 使用 Chrome 的 `storage` 权限，并在 `chatgpt.com`、`chat.openai.com` 页面注入运行所需脚本。扩展不会在 Microsoft Copilot 页面自动注入脚本；Copilot 适配代码尚未实现。
+`manifest.json` 使用 Chrome 的 `storage` 权限，并在 `chatgpt.com`、`chat.openai.com` 页面注入运行所需脚本。扩展不会在 Microsoft Copilot 或其他聊天站点注入脚本。
 
 ## 联系方式
 

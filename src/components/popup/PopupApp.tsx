@@ -99,7 +99,7 @@ export function PopupApp(): React.JSX.Element {
       <footer className="mt-2.5 flex items-center justify-between border-t border-(--p-toggle-border) pt-2">
         <button
           type="button"
-          title="打开 LunaTOC 设置"
+          title="打开 LunaTOC-SC 设置"
           className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) outline-none transition duration-150 hover:bg-(--p-toggle-bg) hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent)"
           onClick={() => void chrome.runtime.openOptionsPage()}
         >
@@ -111,7 +111,7 @@ export function PopupApp(): React.JSX.Element {
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium text-(--p-toggle-text) no-underline hover:text-(--p-accent) focus-visible:ring-2 focus-visible:ring-(--p-accent)"
-          title="打开 LunaTOC 的 GitHub 项目页面"
+          title="打开 LunaTOC-SC 的 GitHub 项目页面"
         >
           项目源码
         </a>

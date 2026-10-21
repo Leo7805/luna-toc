@@ -129,7 +129,7 @@ export function initializePromptNavigation(
 }
 
 /**
- * Jumps to the first or last prompt using ChatGPT's native TOC when available.
+ * Jumps to the start or end of the current ChatGPT conversation.
  *
  * @param edge Target edge: 'top' or 'bottom'.
  */
@@ -152,9 +152,8 @@ function highlightMatchedElement(element: HTMLElement): void {
 }
 
 /**
- * Jumps to a prompt. Prefer ChatGPT's built-in prompt navigator because it can
- * scroll virtualized conversations; DOM text/index fallbacks only work for
- * messages currently rendered in the page.
+ * Jumps to a prompt through the independent virtual navigation engine.
+ * Text fallback requires an unambiguous plain-text message identity.
  *
  * @param message Target message representation.
  * @param index 0-indexed position in the conversation.
@@ -205,9 +204,19 @@ function jumpWithIndependentVirtualNavigation(
   // DOM (id match exact, text match as fallback for id-string mismatches),
   // scroll straight to it.
   const idHit = findRenderedChatGptPrompt(message.id);
+  // A text fallback is safe only for a plain-text prompt unique in the
+  // entire conversation, not merely among currently mounted DOM elements.
+  const normalizedText = message.text.replace(/\s+/g, ' ').trim().toLowerCase();
+  const hasUniqueText = Boolean(
+    message.canMatchByText &&
+    normalizedText &&
+    context.prompts.filter((prompt) =>
+      prompt.canMatchByText &&
+      prompt.text.replace(/\s+/g, ' ').trim().toLowerCase() === normalizedText
+    ).length === 1
+  );
   const textHit =
-    idHit ??
-    (message.text ? findRenderedChatGptPromptByText(message.text) : null);
+    idHit ?? (hasUniqueText ? findRenderedChatGptPromptByText(message.text) : null);
   const renderedTarget = idHit ?? textHit;
 
   if (renderedTarget) {
@@ -340,7 +349,7 @@ export function jumpToPromptIndex(
 }
 
 /**
- * Cancels active independent and legacy virtual scans before a new jump.
+ * Cancels the currently active independent virtual scan before a new jump.
  */
 function cancelActiveNavigationSearch(): void {
   navigationJumpVersion += 1;

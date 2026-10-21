@@ -1,9 +1,5 @@
 /** Centralizes project-level values intended for deliberate tuning. */
 
-export type ChatGptNavigationAlgorithm =
-  | 'legacy-native'
-  | 'independent-virtual';
-
 /** Identifies one ChatGPT external-contract value (API path, selector, channel, etc.). */
 export type ChatGptContractId =
   | 'api.conversation.path'
@@ -15,10 +11,8 @@ export type ChatGptContractId =
   | 'dom.selector.user-message'
   | 'dom.selector.message-id'
   | 'postmessage.channel.conversation-data'
-  | 'postmessage.channel.width-spoof'
   | 'postmessage.hook-flag'
-  | 'response.messages-field'
-  | 'behavior.viewport-spoof-width';
+  | 'response.messages-field';
 
 /** A single ChatGPT external-contract value with parallel `formal`/`local` slots and a display label. */
 export interface ChatGptContractValue {
@@ -70,7 +64,6 @@ export const APP_CONFIG = {
   },
   platforms: {
     chatgpt: {
-      navigationAlgorithm: 'independent-virtual' as ChatGptNavigationAlgorithm,
       promptTopOffsetPx: 16,
       settleAttempts: 3,
       backfillMaxPages: 10,
@@ -133,11 +126,6 @@ export const APP_CONFIG = {
           local: 'CHATGPT_CONVERSATION_DATA',
           label: 'Page-to-extension conversation data channel',
         },
-        'postmessage.channel.width-spoof': {
-          formal: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
-          local: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
-          label: 'Sidebar width-spoof toggle channel',
-        },
         'postmessage.hook-flag': {
           formal: '__conversationNavigatorFetchHookInstalled',
           local: '__conversationNavigatorFetchHookInstalled',
@@ -147,11 +135,6 @@ export const APP_CONFIG = {
           formal: 'messages',
           local: 'messages',
           label: 'Conversation messages field',
-        },
-        'behavior.viewport-spoof-width': {
-          formal: '1400',
-          local: '1400',
-          label: 'Sidebar viewport spoof width',
         },
       } as ChatGptContractTable,
       // When true, getActiveContractValue() returns the `local` slot instead of

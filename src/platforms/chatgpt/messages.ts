@@ -1,7 +1,6 @@
 /**
  * ChatGPT namespaced window.postMessage channels. Each value mirrors a
- * constant previously inlined in `src/page/pageHook.iife.ts` and the
- * content-script message listeners.
+ * channel shared between the ChatGPT MAIN-world hook and isolated content scripts.
  */
 import type { PlatformMessageTypes } from '../platformInterface';
 
@@ -11,7 +10,6 @@ export const CHATGPT_MESSAGE_TYPES: PlatformMessageTypes = {
   newUserMessage: 'CHATGPT_NEW_USER_MESSAGE',
   routeChanged: 'CHATGPT_ROUTE_CHANGED',
   titleChanged: 'CHATGPT_TITLE_CHANGED',
-  setWidthSpoof: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
   configUpdate: 'LUNA_CHATGPT_CONFIG_UPDATE',
   contractMismatch: 'LUNA_CONTRACT_MISMATCH',
 };

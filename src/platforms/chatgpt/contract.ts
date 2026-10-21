@@ -1,5 +1,5 @@
 /**
- * ChatGPT contract table. Mirrors the entry previously inlined in
+ * ChatGPT contract table. Shares the schema defined in
  * `src/config/config.ts APP_CONFIG.platforms.chatgpt.contract`. Each entry
  * has parallel `formal`/`local` slots and a human-readable `label` for
  * the compatibility-alert popup.
@@ -55,11 +55,6 @@ export const CHATGPT_CONTRACT_TABLE: ChatGptContractTable = {
     local: 'CHATGPT_CONVERSATION_DATA',
     label: '页面到扩展的对话数据通道',
   },
-  'postmessage.channel.width-spoof': {
-    formal: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
-    local: 'CHATGPT_NAVIGATOR_SET_WIDTH_SPOOF',
-    label: '侧边栏宽度模拟切换通道',
-  },
   'postmessage.hook-flag': {
     formal: '__conversationNavigatorFetchHookInstalled',
     local: '__conversationNavigatorFetchHookInstalled',
@@ -69,11 +64,6 @@ export const CHATGPT_CONTRACT_TABLE: ChatGptContractTable = {
     formal: 'messages',
     local: 'messages',
     label: '对话消息字段',
-  },
-  'behavior.viewport-spoof-width': {
-    formal: '1400',
-    local: '1400',
-    label: '侧边栏视口模拟宽度',
   },
 };
 

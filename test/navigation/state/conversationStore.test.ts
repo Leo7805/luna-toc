@@ -76,6 +76,28 @@ describe('conversationStore', () => {
     ]);
   });
 
+  it('ignores an old paginated response after a fresh branch snapshot', () => {
+    const store = createConversationStore({ getCurrentRouteKey: () => 'conv-123' });
+    const current = {
+      id: 'active', author: { role: 'user' }, content: { parts: ['Current branch'] }, create_time: 2,
+    };
+    const abandoned = {
+      id: 'abandoned', author: { role: 'user' }, content: { parts: ['Old branch'] }, create_time: 1,
+    };
+    const staleRequestStartedAt = Date.now() - 1000;
+    expect(store.replaceWithFreshSnapshot({ messages: [current, {
+      id: 'answer', author: { role: 'assistant' }, content: { parts: ['Reply'] }, create_time: 2.5,
+    }] }, 'conv-123')).toBe(true);
+    store.handleConversationData({ messages: [abandoned] }, 'conv-123', staleRequestStartedAt);
+    expect(store.getMessages().map((message) => message.id)).toEqual(['active']);
+    store.handleConversationData({
+      messages: [{
+        id: 'new', author: { role: 'user' }, content: { parts: ['New message'] }, create_time: 3,
+      }],
+    }, 'conv-123', Date.now() + 1000);
+    expect(store.getMessages().map((message) => message.id)).toEqual(['active', 'new']);
+  });
+
   it('deduplicates incoming user messages by message ID', () => {
     const store = createConversationStore({
       getCurrentRouteKey: () => 'conv-123',

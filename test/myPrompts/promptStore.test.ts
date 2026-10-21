@@ -56,6 +56,41 @@ describe('promptStore persistence', () => {
     expect(writeSpy).not.toHaveBeenCalled();
   });
 
+  it('never exposes mutable cached prompt objects', async () => {
+    const store = createPromptStore();
+    const first = await store.getAll();
+    first[0].title = 'Changed outside storage';
+    expect((await store.getAll())[0].title).toBe('Saved');
+  });
+
+  it('rolls back edits to an existing prompt when storage rejects a write', async () => {
+    const store = createPromptStore();
+    await store.getAll();
+    writeError = 'quota exceeded';
+    await expect(store.update((prompts) => {
+      prompts[0].title = 'Unsaved change';
+      return prompts;
+    })).rejects.toThrow('quota exceeded');
+    expect((await store.getAll())[0].title).toBe('Saved');
+  });
+
+  it('serializes concurrent transformations instead of losing an update', async () => {
+    const store = createPromptStore();
+    const operations = [
+      store.update((prompts) => [...prompts, {
+        id: 'one', title: 'One', content: '1', createdAt: 2, updatedAt: 2,
+      }]),
+      store.update((prompts) => [...prompts, {
+        id: 'two', title: 'Two', content: '2', createdAt: 3, updatedAt: 3,
+      }]),
+    ];
+    await Promise.all(operations);
+    expect((await store.getAll()).map((prompt) => prompt.id)).toEqual(['saved', 'one', 'two']);
+    expect(writeSpy).toHaveBeenCalledTimes(2);
+    expect((writeSpy.mock.calls[1][0][key] as SavedPrompt[]).map((prompt) => prompt.id))
+      .toEqual(['saved', 'one', 'two']);
+  });
+
   it('restores the prior cache and rejects a failed Chrome storage write', async () => {
     const store = createPromptStore();
     await store.getAll();

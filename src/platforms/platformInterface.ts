@@ -1,7 +1,7 @@
 /**
  * Platform abstraction contract.
  *
- * Every AI chat host (ChatGPT, Copilot, Gemini, Claude, …) is described by
+ * Each registered AI chat host is described by
  * a single `Platform` record composed of typed adapter interfaces. Adding a
  * new host means creating `src/platforms/<host>/` and exporting a
  * `Platform` aggregator — no edits anywhere else.
@@ -13,7 +13,7 @@
  *
  * Generic machinery (fetch interception skeleton, SSE line reader, request
  * header collection, contract-mismatch reporter, Proxy/event synthesis for
- * matchMedia) stays in `src/pageHook/`; only platform-specific dispatch
+ * request interception) stays in `src/pageHook/`; only platform-specific dispatch
  * points use this interface.
  */
 import type { ResponseFingerprintRecord } from '@/navigation/fingerprint/index';
@@ -51,8 +51,6 @@ export interface PlatformMessageTypes {
   routeChanged: string;
   /** Page → content title mutation. */
   titleChanged: string;
-  /** Content → page sidebar visibility toggle. */
-  setWidthSpoof: string;
   /** Content → page effective contract values. */
   configUpdate: string;
   /** Page → content contract-drift alert. */
@@ -86,8 +84,7 @@ export interface PlatformFetchBumping {
 }
 
 /**
- * Page-hook concerns. Each host exposes its own matchMedia spoof install,
- * backfill URL builder, contract probe, and postMessage channels.
+ * Page-hook concerns: backfill URLs, contract probes, and message channels.
  */
 export interface PlatformPageHookAdapter {
   request: PlatformRequestShape;
@@ -100,16 +97,8 @@ export interface PlatformPageHookAdapter {
     conversationId: string,
     authHeaders: Record<string, string> | null
   ): Promise<void>;
-  /** Replaces `window.matchMedia` with a width-spoofing Proxy. */
-  installMatchMediaSpoof(): void;
-  /** Listens for the content-script visibility toggle message. */
-  installMatchMediaToggleListener(): void;
   /** Posts a contract-values update to the page-hook from the content script. */
   postContractUpdate(values: Record<string, string>): void;
-  /** Sets the matchMedia spoof on/off from the sidebar visibility toggle. */
-  setSidebarSpoofEnabled(enabled: boolean): void;
-  /** The forced width used for width queries when spoofing. */
-  spoofedViewportWidthPx: number;
   /** Sentinel string flagged on `window` to detect double installation. */
   installFlag: string;
 }
@@ -289,7 +278,6 @@ export interface PlatformContractTable<Id extends string> {
  * chatgpt block; new platforms copy it.
  */
 export interface PlatformConfigBlock {
-  navigationAlgorithm: 'legacy-native' | 'independent-virtual';
   promptTopOffsetPx: number;
   settleAttempts: number;
   backfillMaxPages: number;

@@ -46,7 +46,8 @@ export interface ConversationStore {
   appendNavigatorMessage(newMessage: ChatMessage, routeKey?: string): boolean;
   handleConversationData(
     data: ConversationData,
-    routeKey?: string
+    routeKey?: string,
+    requestStartedAt?: number
   ): NavigatorMessage[];
   handleNewUserMessage(
     newMessage: ChatMessage,
@@ -91,6 +92,7 @@ export function createConversationStore(
   let currentConversationKey: string | null = null;
   let pendingNewChatRouteKey: string | null = null;
   let pendingNewChatMessage: ChatMessage | null = null;
+  const freshSnapshotAppliedAt = new Map<string, number>();
 
   function defaultRouteResolver(): string {
     return 'new-chat:/';
@@ -199,12 +201,19 @@ export function createConversationStore(
 
   function handleConversationData(
     data: ConversationData,
-    routeKey?: string
+    routeKey?: string,
+    requestStartedAt?: number
   ): NavigatorMessage[] {
     const incomingMessages = data?.messages;
     if (!Array.isArray(incomingMessages)) return conversationMessages;
 
     const conversationKey = routeKey || getCurrentConversationKey();
+    if (
+      typeof requestStartedAt === 'number' &&
+      requestStartedAt <= (freshSnapshotAppliedAt.get(conversationKey) ?? -1)
+    ) {
+      return conversationMessages;
+    }
     const messageMap = getAccumulatedMessageMap(conversationKey);
 
     for (const message of incomingMessages) {
@@ -225,6 +234,9 @@ export function createConversationStore(
     if (routeKey !== getCurrentConversationKey()) return false;
     const branch = extractActiveBranchMessages(data);
     if (branch === null) return false;
+    // Requests begun before this authoritative snapshot must not reintroduce
+    // superseded branches when their paginated responses arrive late.
+    freshSnapshotAppliedAt.set(routeKey, Date.now());
     const next = extractUserMessages({ messages: branch });
     const previous = conversationMessages;
     const changed = previous.length !== next.length || previous.some((m, i) =>
@@ -383,6 +395,7 @@ export function createConversationStore(
   function reset(): void {
     conversationMessages = [];
     accumulatedConversationMessages.clear();
+    freshSnapshotAppliedAt.clear();
     currentConversationKey = null;
     clearPendingNewChat();
   }

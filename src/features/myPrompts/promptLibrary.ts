@@ -161,7 +161,6 @@ function importMyPrompts(onImport: VoidCallback): void {
         return;
       }
 
-      const existingPrompts = await getMyPrompts();
       const importedAt = Date.now();
       const importedPrompts = promptsToImport.map((prompt, index) => ({
         id: `prompt-${importedAt}-${index}`,
@@ -171,7 +170,7 @@ function importMyPrompts(onImport: VoidCallback): void {
         updatedAt: importedAt,
       }));
 
-      await saveMyPrompts([...existingPrompts, ...importedPrompts]);
+      await requirePromptStore().update((existingPrompts) => [...existingPrompts, ...importedPrompts]);
       onImport();
       await showPromptModal({
         title: '导入提示词',
@@ -382,7 +381,7 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   if (!shouldClear) return;
 
   try {
-    await saveMyPrompts([]);
+    await requirePromptStore().update(() => []);
     await requirePromptUsageStore().clear();
     onRefresh();
   } catch (error) {
@@ -461,28 +460,26 @@ async function savePromptEditorValues(
   { title, content }: PromptEditorValues
 ): Promise<void> {
   try {
-    const prompts = await getMyPrompts();
-    const isNew = !item?.id;
-
-    if (isNew) {
-      const now = Date.now();
-      prompts.push({
-        id: `prompt-${now}`,
-        title,
-        content,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } else {
-      const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
-      if (existingPrompt) {
+    await requirePromptStore().update((prompts) => {
+      const isNew = !item?.id;
+      if (isNew) {
+        const now = Date.now();
+        prompts.push({
+          id: `prompt-${now}-${crypto.randomUUID()}`,
+          title,
+          content,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else {
+        const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
+        if (!existingPrompt) throw new Error('Prompt no longer exists');
         existingPrompt.title = title;
         existingPrompt.content = content;
         existingPrompt.updatedAt = Date.now();
       }
-    }
-
-    await saveMyPrompts(prompts);
+      return prompts;
+    });
   } catch (error) {
     await showPromptModal({
       title: '保存提示词',
@@ -628,9 +625,9 @@ export async function renderMyPrompts(
 
       if (shouldDelete) {
         try {
-          const prompts = await getMyPrompts();
-          const filtered = prompts.filter((p) => p.id !== item.id);
-          await saveMyPrompts(filtered);
+          await requirePromptStore().update((prompts) =>
+            prompts.filter((p) => p.id !== item.id)
+          );
           void requirePromptUsageStore().remove(item.id).catch(() => undefined);
           onRefresh();
         } catch (error) {
