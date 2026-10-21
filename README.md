@@ -36,6 +36,20 @@
 - **历史分支同步**：优先使用包含节点父子关系的活动分支数据；若仅取得不含分支关系的分页消息，目录同步结果可能不完整或不准确。
 - **回答标题**：标题大纲从当前浏览器中已渲染的回答内容提取；未挂载的历史回答可能需要先滚动加载，纯文本回答没有可展开标题。
 
+## 从 GitHub Releases 安装（无需本地构建）
+
+`chore/remove-upstream-residue` 分支使用 GitHub Actions 自动运行类型检查、测试和构建。检查通过后，工作流会发布与该次提交对应的 **Pre-release**（预览版本）。
+
+1. 打开 [Releases 下载页](https://github.com/PyRookie1/luna-toc-sc/releases)，找到标题为 **LunaTOC Chrome preview** 的预览版本。
+2. 从 Assets 下载 `luna-toc-sc-chrome.zip`，并**解压**到独立文件夹。
+3. 打开 Chrome 的 `chrome://extensions/`，开启**开发者模式**。
+4. 点击**加载已解压的扩展程序**，选择解压后的文件夹（该目录下应直接包含 `manifest.json`）。
+5. 打开或刷新 [ChatGPT](https://chatgpt.com/) 页面。
+
+> 注意：`Code → Download ZIP` 获取的是未构建的源码，不是可安装版本；Chrome 不支持将普通 ZIP 文件直接作为未打包扩展加载。预览版随分支推送自动发布，不代表已完成 Chrome 实机兼容性测试。
+
+每次推送该分支都会触发 [构建工作流](https://github.com/PyRookie1/luna-toc-sc/actions)。工作流执行 `npm ci`、`npm run typecheck`、`npm test`、`npm run build`，校验 `dist/manifest.json` 所引用的资源后发布 ZIP 和 SHA-256 校验文件；同时在 Actions 中保留 30 天的构建产物。**类型检查、构建或安装包校验失败将阻止发布；现有测试失败会记录在 Actions 日志和 Release 说明中，但不会阻止生成开发预览版。**预览版不等于全部功能通过验证。
+
 ## 从源码安装（包含 GitHub ZIP）
 
 本仓库提供的是 **源代码**。从 GitHub 下载的 ZIP 不能直接作为扩展加载，必须先构建。

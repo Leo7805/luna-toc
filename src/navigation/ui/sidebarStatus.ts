@@ -85,10 +85,6 @@ export function setSidebarStatus(options: {
   let text: string;
 
   switch (state) {
-    case 'jumping':
-      // Handled above, so the banner stays collapsed.
-      text = '';
-      break;
     case 'loading':
       // Bare "Loading…" covers the `promptCount === 0` case (e.g. an
       // empty chat whose page hook never posted DATA). Once at least
