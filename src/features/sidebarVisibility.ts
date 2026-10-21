@@ -1,7 +1,9 @@
 /**
  * Owns LunaTOC sidebar visibility, pinning, and auto-hide behavior.
  */
- const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
+import { setFloatingPanelVisible } from './sidebar/FloatingPanel';
+
+const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
 const AUTO_HIDE_DELAY_MS = 300;
 
@@ -45,25 +47,39 @@ function bindToggleButton(): void {
   if (!toggleBtn) return;
   const button = toggleBtn;
 
-  button.addEventListener('click', (event) => {
-    if (button.dataset.dragged === 'true') {
-      event.preventDefault();
-      button.dataset.dragged = 'false';
-      return;
-    }
-
-    clearHideTimer();
-    setSidebarHidden(!isHidden);
-  });
+  // The rail is a reveal surface, not a draggable toggle.
+  button.addEventListener('focus', handleAutoHideEnter);
+  button.addEventListener('click', handleAutoHideEnter);
 }
 
 function bindAutoHide(): void {
   if (!sidebar || !toggleBtn) return;
 
-  sidebar.addEventListener('pointerenter', handleAutoHideEnter);
+  const panel = document.querySelector<HTMLElement>('.navigator-jump-controls');
+
+  sidebar.addEventListener('pointerenter', () => {
+    handleAutoHideEnter();
+    if (!isHidden) setFloatingPanelVisible(true);
+  });
   toggleBtn.addEventListener('pointerenter', handleAutoHideEnter);
-  sidebar.addEventListener('pointerleave', scheduleAutoHide);
+  sidebar.addEventListener('pointerleave', (event) => {
+    if (!isPointerInside(panel) && !isRelatedTargetInside(event, panel)) {
+      setFloatingPanelVisible(false);
+    }
+    scheduleAutoHide();
+  });
   toggleBtn.addEventListener('pointerleave', scheduleAutoHide);
+
+  panel?.addEventListener('pointerenter', () => {
+    clearHideTimer();
+    if (!isHidden) setFloatingPanelVisible(true);
+  });
+  panel?.addEventListener('pointerleave', (event) => {
+    if (!isPointerInside(sidebar) && !isRelatedTargetInside(event, sidebar)) {
+      setFloatingPanelVisible(false);
+    }
+    scheduleAutoHide();
+  });
 
   document.addEventListener('pointerover', handleDocumentPointerOver, true);
   document.addEventListener('pointerout', handleDocumentPointerOut, true);
@@ -84,6 +100,7 @@ function scheduleAutoHide(): void {
     if (
       isPointerInside(sidebar) ||
       isPointerInside(toggleBtn) ||
+      isPointerInsideFloatingPanel() ||
       isPointerInsidePreviewTooltip() ||
       isPointerInsideContextMenu()
     ) {
@@ -112,6 +129,7 @@ export function setSidebarPinned(
   } else if (
     !isPointerInside(sidebar) &&
     !isPointerInside(toggleBtn) &&
+    !isPointerInsideFloatingPanel() &&
     !isPointerInsidePreviewTooltip() &&
     !isPointerInsideContextMenu()
   ) {
@@ -199,6 +217,8 @@ export function setSidebarHidden(hidden: boolean): void {
   }
   toggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
   toggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
+  toggleBtn?.setAttribute('aria-expanded', String(!isHidden));
+  if (isHidden) setFloatingPanelVisible(false);
   if (justOpened) onOpened?.();
 }
 
@@ -217,6 +237,18 @@ function isPointerInside(element: Element | null): boolean {
   if (!element) return false;
 
   return element.matches(':hover');
+}
+
+function isPointerInsideFloatingPanel(): boolean {
+  return isPointerInside(document.querySelector('.navigator-jump-controls'));
+}
+
+/**
+ * Checks the destination before a pointerleave event updates hover state.
+ */
+function isRelatedTargetInside(event: PointerEvent, element: Element | null): boolean {
+  return element !== null && event.relatedTarget instanceof Node &&
+    element.contains(event.relatedTarget);
 }
 
 function isPointerInsidePreviewTooltip(): boolean {

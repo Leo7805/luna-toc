@@ -30,7 +30,7 @@
 
 ## 目录与导航
 
-- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录，使用原始提问作为目录文字；右键菜单保留「添加到我的提示词」，不提供目录项重命名。
+- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录，使用原始提问作为目录文字；右键菜单提供复制完整提问及「添加到我的提示词」，不提供目录项重命名。复制由 `src/features/conversationPrompts/copyPrompt.ts` 使用剪贴板 API 并提供浏览器兼容回退。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建始终紧贴视口右缘的全高窄触发条；默认收起时仅显示该触发条，悬停后展开侧边栏，已固定的侧边栏除外。`src/features/sidebar/FloatingPanel.ts` 将三个可纵向拖动的工具按钮移至侧边栏外侧，按侧边栏宽度定位于其左缘，仅在鼠标悬停侧边栏或按钮时显示。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 

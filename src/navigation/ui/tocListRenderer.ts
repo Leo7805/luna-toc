@@ -4,6 +4,7 @@
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { createPromptMarkButton } from '@/features/conversationPrompts/promptMark';
+import { copyPromptText } from '@/features/conversationPrompts/copyPrompt';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
@@ -264,13 +265,22 @@ export function createTocListRenderer(
         { left: event.clientX, top: event.clientY },
         [
           {
+            id: 'copy-prompt',
+            label: '复制提问',
+            icon: 'copy',
+          },
+          {
             id: 'save-prompt',
             label: '添加到我的提示词',
             icon: 'bookmark-plus',
           },
         ],
         (itemId) => {
-          if (itemId === 'save-prompt') {
+          if (itemId === 'copy-prompt') {
+            void copyPromptText(message.text).catch((error: unknown) => {
+              console.warn('[LunaTOC] Failed to copy prompt text', error);
+            });
+          } else if (itemId === 'save-prompt') {
             options.onSavePrompt?.(message);
           }
         }

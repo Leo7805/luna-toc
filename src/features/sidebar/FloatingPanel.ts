@@ -1,9 +1,8 @@
 /**
- * Draggable, persistence-aware positioning for the sidebar floating panel.
+ * Positions the detached jump/tool controls beside the sidebar's left edge.
  *
- * The panel floats over the conversation and exposes top/bottom jump buttons
- * plus the view-mode toggle. Users can drag it vertically; the chosen position
- * persists in sessionStorage and is re-clamped on browser resize.
+ * The toolbar remains vertically draggable, remembers its relative viewport
+ * position, and appears only while the user interacts with the sidebar.
  */
 const FLOATING_PANEL_POSITION_STORAGE_KEY = 'chatTocJumpControlsPosition';
 
@@ -12,27 +11,36 @@ interface FloatingPanelPosition {
   topRatio?: number;
 }
 
+let floatingPanel: HTMLElement | null = null;
+
 /**
- * Wires up the floating panel's drag, persistence, and viewport clamping.
- * Must be called after the `.navigator-jump-controls` element is in the DOM.
+ * Initializes the pop-out toolbar after its buttons have been created.
+ * Moves the toolbar to document.body so the sidebar's overflow cannot clip it.
  */
 export function initFloatingPanel(): void {
-  const floatingPanel = document.querySelector<HTMLElement>(
-    '.navigator-jump-controls'
-  );
-  if (!floatingPanel) return;
-  const panel = floatingPanel;
+  const panel = document.querySelector<HTMLElement>('.navigator-jump-controls');
+  const sidebar = document.getElementById('luna-toc-sidebar');
+  if (!panel || !sidebar) return;
 
+  floatingPanel = panel;
+  document.body.appendChild(panel);
+  alignFloatingPanel(panel, sidebar);
   restoreFloatingPanelPosition(panel);
+  setFloatingPanelVisible(false);
+
   window.addEventListener('resize', () => {
+    alignFloatingPanel(panel, sidebar);
     keepFloatingPanelInViewport(panel);
   });
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => alignFloatingPanel(panel, sidebar)).observe(sidebar);
+  }
+
   panel.addEventListener('pointerdown', (event: PointerEvent) => {
     if (
       event.button !== 0 ||
       (event.target instanceof Element && event.target.closest('button'))
-    )
-      return;
+    ) return;
     event.preventDefault();
 
     const rect = panel.getBoundingClientRect();
@@ -69,6 +77,24 @@ export function initFloatingPanel(): void {
     panel.addEventListener('pointerup', handlePointerUp);
     panel.addEventListener('pointercancel', handlePointerUp);
   });
+}
+
+/**
+ * Shows or hides the floating tools while keeping them inert when hidden.
+ * @param visible Whether the pop-out controls should accept interaction.
+ */
+export function setFloatingPanelVisible(visible: boolean): void {
+  if (!floatingPanel) return;
+  floatingPanel.classList.toggle('navigator-jump-controls-visible', visible);
+  floatingPanel.setAttribute('aria-hidden', String(!visible));
+  floatingPanel.inert = !visible;
+}
+
+/**
+ * Keeps the toolbar's right edge flush with the sidebar's left edge.
+ */
+function alignFloatingPanel(panel: HTMLElement, sidebar: HTMLElement): void {
+  panel.style.right = `${sidebar.offsetWidth}px`;
 }
 
 function saveFloatingPanelPosition(panel: HTMLElement): void {

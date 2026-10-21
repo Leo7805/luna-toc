@@ -309,10 +309,10 @@ html[data-theme='light'] {
 }
 
 .navigator-jump-controls {
-  position: absolute;
-  right: 8px;
+  position: fixed;
+  right: var(--navigator-width, 300px);
   top: clamp(120px, 30vh, 280px);
-  z-index: 2;
+  z-index: var(--ct-z-toggle, 1010);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -329,6 +329,18 @@ html[data-theme='light'] {
   cursor: ns-resize;
   touch-action: none;
   user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(8px);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+}
+
+.navigator-jump-controls.navigator-jump-controls-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
 }
 
 .navigator-jump-controls.navigator-jump-controls-dragging {
@@ -453,93 +465,56 @@ html.luna-toc-external-overlay-open #luna-toc-sidebar,
 html.luna-toc-external-overlay-open #luna-toc-toggle-btn,
 html.luna-toc-external-overlay-open #luna-toc-preview-tooltip,
 html.luna-toc-external-overlay-open #luna-toc-button-tooltip,
-html.luna-toc-external-overlay-open #luna-toc-react-host {
+html.luna-toc-external-overlay-open #luna-toc-react-host,
+html.luna-toc-external-overlay-open .navigator-jump-controls {
   visibility: hidden;
   pointer-events: none;
 }
 
+/* A narrow full-height reveal rail stays docked to the browser's right edge. */
 #luna-toc-toggle-btn {
   position: fixed;
   right: 0;
-  top: calc(50% - 21px);
-  bottom: auto;
-  width: 42px;
-  height: 42px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  height: 100vh;
+  height: 100dvh;
   z-index: var(--ct-z-toggle, 1010);
-  border-radius: 50%;
-  background: transparent;
+  box-sizing: border-box;
+  border: 0;
+  border-left: 2px solid var(--ct-toggle-btn-color);
+  border-radius: 0;
+  background: var(--ct-toggle-btn-hover-bg);
   color: var(--ct-toggle-btn-color);
-  border: none;
   cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-  opacity: 0.6;
-  touch-action: none;
-  display: grid;
-  place-items: center;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease,
-    opacity 120ms ease,
-    transform 120ms ease;
+  opacity: 0.65;
+  touch-action: manipulation;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  transition: opacity 140ms ease, background-color 140ms ease;
 }
 
-#luna-toc-toggle-btn:hover {
-  background: var(--ct-toggle-btn-hover-bg);
-  color: var(--ct-accent-hover);
-  opacity: 0.8;
-  transform: translateY(-1px);
-}
-
-#luna-toc-toggle-btn:active {
+#luna-toc-toggle-btn:hover,
+#luna-toc-toggle-btn:focus-visible {
   background: var(--ct-toggle-btn-hover-active-bg);
-  transform: translateY(0);
+  opacity: 1;
 }
 
-#luna-toc-toggle-btn.luna-toc-toggle-btn-dragging {
-  cursor: grabbing;
-  transition: none;
-  transform: none;
-}
-
-#luna-toc-toggle-btn.luna-toc-sidebar-hidden {
-  color: var(--ct-toggle-btn-color);
-  opacity: 0.42;
-}
-
-#luna-toc-toggle-btn.luna-toc-sidebar-hidden:hover {
-  background: var(--ct-toggle-btn-hover-bg);
-  color: var(--ct-accent-hover);
-  opacity: 0.68;
-}
-
-#luna-toc-toggle-btn svg,
-#luna-toc-toggle-btn .toggle-sidebar-label {
-  grid-area: 1 / 1;
-}
-
-#luna-toc-toggle-btn svg {
-  width: 42px;
-  height: 42px;
-  display: block;
-  z-index: 0;
+#luna-toc-toggle-btn.luna-toc-sidebar-visible {
+  opacity: 0;
+  pointer-events: none;
 }
 
 #luna-toc-toggle-btn .toggle-sidebar-label {
+  writing-mode: vertical-rl;
   font-size: 11px;
   font-weight: 700;
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
-  letter-spacing: 0.5px;
-  /* Moved upwards to avoid undesired overlap with the moon's inner edge */
-  transform: translate(-2px, -1px);
-  z-index: 1;
-  color: var(--ct-bg-primary);
+  font-family: system-ui, sans-serif;
+  letter-spacing: 5px;
+  user-select: none;
   pointer-events: none;
 }
 

@@ -213,7 +213,7 @@ describe('tocListRenderer', () => {
     expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
   });
 
-  it('offers only save-to-my-prompts on a TOC right-click', () => {
+  it('offers copy and save-to-my-prompts on a TOC right-click', () => {
     const onSavePrompt = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
@@ -229,14 +229,44 @@ describe('tocListRenderer', () => {
       clientX: 70,
       clientY: 90,
     }))).toBe(false);
-    expect(promptContextMenuController.getSnapshot()?.items).toEqual([{
-      id: 'save-prompt',
-      label: '添加到我的提示词',
-      icon: 'bookmark-plus',
-    }]);
+    expect(promptContextMenuController.getSnapshot()?.items).toEqual([
+      { id: 'copy-prompt', label: '复制提问', icon: 'copy' },
+      { id: 'save-prompt', label: '添加到我的提示词', icon: 'bookmark-plus' },
+    ]);
     promptContextMenuController.select('save-prompt');
     expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
     expect(promptContextMenuController.getSnapshot()).toBeNull();
+  });
+
+  it('copies the original prompt via the context menu without changing navigation', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const onItemClick = vi.fn();
+    try {
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick,
+      });
+      renderer.render();
+      const item = listElement.children[0] as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      promptContextMenuController.select('copy-prompt');
+
+      await vi.waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith('First user prompt');
+      });
+      expect(onItemClick).not.toHaveBeenCalled();
+      expect(promptContextMenuController.getSnapshot()).toBeNull();
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true, value: originalClipboard,
+      });
+    }
   });
 
   describe('initial active TOC scroll-position synchronization', () => {
