@@ -1,13 +1,13 @@
 # LunaTOC — ChatGPT 对话目录
 
-一个面向 ChatGPT 长对话的 Chrome 浏览器扩展：将用户提问整理成可搜索的侧边栏目录，支持定位问题、浏览回答标题，以及在编辑历史问题后主动同步当前对话。
+一个面向 ChatGPT 长对话的中文版 Chrome 浏览器扩展：将用户提问整理成可搜索的侧边栏目录，支持定位问题、浏览回答标题，以及在编辑历史问题后主动同步当前对话。
 
 本仓库 **`PyRookie1/luna-toc-sc`** 基于开源项目 [Leo7805/luna-toc](https://github.com/Leo7805/luna-toc) 进行修改与维护。
 
 ## 功能
 
 - **可搜索的对话目录**：自动整理 ChatGPT 对话中的用户提问，支持搜索、当前可见问题高亮，以及长对话中的虚拟滚动定位。
-- **悬停展开与主动同步**：侧边栏默认收起；鼠标移到 LunaTOC 悬浮按钮即可展开。每次从收起状态展开时会尝试重新获取当前会话数据，使目录跟随最新对话更新。
+- **悬停展开与主动同步**：侧边栏默认收起；鼠标移到悬浮按钮即可展开。每次从收起状态展开时会尝试重新获取当前会话数据，使目录跟随最新对话更新。
 - **历史编辑分支识别**：编辑历史问题后，若会话接口提供节点关系和 `current_node`，目录会沿当前活动分支重建，避免将旧分支的问题混入当前目录。
 - **问题与回答标题导航**：点击目录中的问题文字跳转到对应提问；点击右侧三角按钮单独展开或收起该回答的标题子目录。子目录最多展示两级标题，可点击定位到已渲染的回答标题。
 - **目录管理**：支持重命名目录项、标记重要问题，以及悬停预览较长的提问内容。
@@ -25,37 +25,13 @@
 
 ## 下载安装（无需本地构建）
 
-本项目的扩展源码和功能均保存在默认分支 `main`，无需切换分支。GitHub Actions 自动构建扩展，并在 [Releases 页面](https://github.com/PyRookie1/luna-toc-sc/releases) 提供可直接加载的预览版安装包。
-
 1. 打开 [Releases 下载页](https://github.com/PyRookie1/luna-toc-sc/releases)，选择最新的 **LunaTOC Chrome** 预览版本。
 2. 在 **Assets** 中下载 **`luna-toc-sc-chrome.zip`**，并**解压**到独立文件夹。不要下载 GitHub 自动附带的 `Source code (zip)`，它是未构建的源码。
 3. 打开 Chrome 的 `chrome://extensions/`，开启**开发者模式**。
 4. 点击**加载已解压的扩展程序**，选择解压后的文件夹（该目录下应直接包含 `manifest.json`）。
 5. 打开或刷新 [ChatGPT](https://chatgpt.com/) 页面。
 
-> 注意：Chrome 不能直接加载普通 ZIP 文件，必须先解压。预览版是已编译产物，不代表已通过全部自动化测试或 Chrome 实机兼容性测试。
-
-每次向 `main` 提交代码都会触发 [构建工作流](https://github.com/PyRookie1/luna-toc-sc/actions)。工作流执行 `npm ci`、`npm run typecheck`、`npm test`、`npm run build`，校验 `dist/manifest.json` 所引用的资源后发布 ZIP 和 SHA-256 校验文件；同时在 Actions 中保留 30 天的构建产物。**类型检查、构建或安装包校验失败将阻止发布；现有测试失败会记录在 Actions 日志和 Release 说明中，但不会阻止生成开发预览版。**预览版不等于全部功能通过验证。
-
-## 从源码安装（包含 GitHub ZIP）
-
-本仓库提供的是 **源代码**。从 GitHub 下载的 ZIP 不能直接作为扩展加载，必须先构建。
-
-**环境要求**：Node.js 22.12+（或与 Vite 8 兼容的版本）、npm、Chrome。
-
-1. 在 GitHub 下载本仓库 `main` 分支的 **Code → Download ZIP**，并解压；也可以使用 `git clone`。
-2. 在含有 `package.json` 的项目根目录打开终端，执行：
-
-   ```bash
-   npm ci
-   npm run build
-   ```
-
-3. 构建完成后检查 `dist/manifest.json` 是否存在。
-4. 打开 Chrome 的 `chrome://extensions/`，启用**开发者模式**。
-5. 点击**加载已解压的扩展程序**，选择项目的 **`dist` 文件夹**，然后打开或刷新 ChatGPT 页面。
-
-> 注意：应该加载构建出的 `dist/`，而不是 GitHub 下载的 ZIP，也不是源码根目录。重新构建后，可在扩展管理页点击该扩展的刷新按钮，再刷新 ChatGPT 标签页。
+> 注意：Chrome 不能直接加载普通 ZIP 文件，必须先解压。
 
 ## 如何使用
 
@@ -65,30 +41,12 @@
 4. 编辑某个已回答的历史问题并重新生成回答后，先将侧边栏收起，再次悬停展开以触发当前对话同步。
 5. 如需保持侧边栏展开，可使用固定按钮；也可拖动悬浮按钮调整位置。
 
-## 开发与检查
-
-```bash
-npm ci
-npm run typecheck
-npm test
-npm run build
-```
-
-- `npm run typecheck`：检查 TypeScript 类型。
-- `npm test`：运行 Vitest 单元测试。
-- `npm run build`：使用 Vite + CRXJS 构建扩展，输出至 `dist/`。
-- `npm run dev`：启动本地开发构建环境。
-
-代码主要位于 `src/`；`manifest.json` 是扩展清单源文件，`vite.config.ts` 定义构建配置。
-
 ## 隐私与数据处理
 
-项目没有自建对话数据收集服务。目录与对话导航主要在浏览器页面内运行；「我的提示词」、目录重命名等设置存储在浏览器的 `chrome.storage.local` 中。
-
-**主动同步会向 ChatGPT 当前站点的会话接口发送同源请求**，使用浏览器已有的登录会话读取当前对话，因此“所有功能完全离线运行”并不准确。扩展仍受 ChatGPT 服务及接口可用性约束。
+项目没有进行对话数据收集。目录与对话导航主要在浏览器页面内运行；「我的提示词」、目录重命名等设置存储在浏览器的 `chrome.storage.local` 中。
 
 ## 致谢与许可
 
-感谢 **[Leo7805/luna-toc](https://github.com/Leo7805/luna-toc)** 原开源项目及其贡献者提供 LunaTOC 的基础实现。本仓库在其代码基础上进行了个人定制、功能扩展与交互调整。
+感谢 **[Leo7805/luna-toc](https://github.com/Leo7805/luna-toc)** 开源项目及其贡献者提供 LunaTOC 的基础实现。本仓库在其代码基础上进行了个人定制、功能扩展与交互调整。
 
 项目沿用 **MIT License**。完整许可和原有版权声明请参阅 [LICENSE](LICENSE)。此衍生版本与原作者的官方发布渠道无隶属关系。
