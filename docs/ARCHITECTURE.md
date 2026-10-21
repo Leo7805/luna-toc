@@ -30,7 +30,7 @@
 
 ## 目录与导航
 
-- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录，使用原始提问作为目录文字；右键菜单提供复制完整提问及「添加到我的提示词」，不提供目录项重命名。复制由 `src/features/conversationPrompts/copyPrompt.ts` 使用剪贴板 API 并提供浏览器兼容回退。
+- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内保留序号、提问文字、三点按钮、展开三角形。右键与三点按钮共用「收藏」「复制」「添加」菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建固定在视口右缘垂直中心、5×45px 的半透明蓝色触发条，不含可见文字或图标，忽略旧版保存的拖动位置。`src/features/sidebarVisibility.ts` 协调侧边栏和触发条的互斥显示：悬停触发条打开侧边栏，触发条随即隐藏且不再响应指针；侧边栏关闭后重新显示，固定侧边栏时始终不显示触发条。三个已有的导航/提示词按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，留在侧边栏内部右侧居中，侧边栏展开时显示，指针移出按钮组区域后透明隐藏，重新进入同一区域后显示；透明状态仍保留命中区域并将按钮移出键盘 Tab 序列。侧边栏及目录行取消右内边距，滚动条、工具条及最末端展开三角形靠齐视口右侧。目录行依次放置旗子、序号、文字和三角形。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 5px、贯穿视口高度的半透明蓝色触发条。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，在侧边栏右下角显示；鼠标移出按钮组后淡出，重新进入保留的透明命中区域后重新显示，隐藏时不可直接点击或通过 Tab 到达。目录滚动条、工具条和最右端展开三角形贴齐浏览器右边缘，三点按钮位于三角形左边。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 

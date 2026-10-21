@@ -3,7 +3,7 @@
  * and status band state for the LunaTOC sidebar.
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
-import { createPromptMarkButton } from '@/features/conversationPrompts/promptMark';
+import { isPromptMarked, togglePromptMark } from '@/features/conversationPrompts/promptMark';
 import { copyPromptText } from '@/features/conversationPrompts/copyPrompt';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
@@ -224,10 +224,7 @@ export function createTocListRenderer(
     itemText.className = 'navigator-item-text';
     itemText.textContent = message.text.replace(/\s+/g, ' ');
 
-    const markButton = createPromptMarkButton({
-      item,
-      messageId: message.id,
-    });
+    item.classList.toggle('navigator-item-marked', isPromptMarked(message.id));
     const outlineControls = createPromptItem({
       item,
       index,
@@ -235,10 +232,23 @@ export function createTocListRenderer(
       onToggle: () => options.onOutlineToggle?.(message, index),
     });
 
+    const menuButton = document.createElement('button');
+    menuButton.type = 'button';
+    menuButton.className = 'navigator-item-menu-btn';
+    menuButton.setAttribute('aria-label', '更多操作');
+    menuButton.title = '更多操作';
+    menuButton.innerHTML = `
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1.7" />
+        <circle cx="12" cy="12" r="1.7" />
+        <circle cx="19" cy="12" r="1.7" />
+      </svg>
+    `;
+
     itemMain.append(
-      markButton,
       itemIndex,
       itemText,
+      menuButton,
       outlineControls?.outlineIndicator || document.createElement('span')
     );
     item.append(itemMain);
@@ -257,26 +267,23 @@ export function createTocListRenderer(
       options.onItemClick(message, index);
       if (item.matches(':hover')) showTooltip(event);
     });
-    item.addEventListener('contextmenu', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+    /**
+     * Opens the same three actions from either the right-click context menu
+     * or the explicit row ellipsis, preserving existing prompt storage.
+     */
+    const showItemMenu = (left: number, top: number): void => {
       previewTooltip.hide();
       promptContextMenuController.show(
-        { left: event.clientX, top: event.clientY },
+        { left, top },
         [
-          {
-            id: 'copy-prompt',
-            label: '复制提问',
-            icon: 'copy',
-          },
-          {
-            id: 'save-prompt',
-            label: '添加到我的提示词',
-            icon: 'bookmark-plus',
-          },
+          { id: 'mark-prompt', label: '收藏', icon: 'bookmark-plus' },
+          { id: 'copy-prompt', label: '复制', icon: 'copy' },
+          { id: 'save-prompt', label: '添加', icon: 'bookmark-plus' },
         ],
         (itemId) => {
-          if (itemId === 'copy-prompt') {
+          if (itemId === 'mark-prompt') {
+            togglePromptMark(item, message.id);
+          } else if (itemId === 'copy-prompt') {
             void copyPromptText(message.text).catch((error: unknown) => {
               console.warn('[LunaTOC] Failed to copy prompt text', error);
             });
@@ -285,6 +292,19 @@ export function createTocListRenderer(
           }
         }
       );
+    };
+
+    item.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showItemMenu(event.clientX, event.clientY);
+    });
+
+    menuButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = menuButton.getBoundingClientRect();
+      showItemMenu(rect.left, rect.bottom);
     });
     item.addEventListener('mouseenter', showTooltip);
     item.addEventListener('mouseleave', () => {

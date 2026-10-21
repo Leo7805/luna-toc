@@ -311,7 +311,7 @@ html[data-theme='light'] {
 .navigator-jump-controls {
   position: absolute;
   right: 0;
-  top: 50%;
+  bottom: 12px;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -328,7 +328,6 @@ html[data-theme='light'] {
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   cursor: default;
   user-select: none;
-  transform: translateY(-50%);
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -467,14 +466,13 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   pointer-events: none;
 }
 
-/* Collapsed sidebar: a short, translucent blue tab, with no visible label. */
+/* Collapsed sidebar: an unobtrusive full-height translucent blue edge strip. */
 #luna-toc-floating-dock {
   position: fixed;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
   width: 5px;
-  height: 45px;
+  height: 100vh;
   z-index: var(--ct-z-toggle, 1010);
   transition: opacity 120ms ease, visibility 120ms ease;
 }
@@ -489,11 +487,11 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   display: block;
   box-sizing: border-box;
   width: 5px;
-  height: 45px;
+  height: 100%;
   padding: 0;
   border: 0;
   border-left: 1px solid var(--ct-toggle-btn-color);
-  border-radius: 5px 0 0 5px;
+  border-radius: 0;
   background: var(--ct-toggle-btn-hover-bg);
   cursor: pointer;
   touch-action: manipulation;
@@ -671,54 +669,32 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
     box-shadow 160ms ease;
 }
 
-.navigator-mark-btn {
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
+/* Ellipsis sits immediately to the left of the outline chevron. */
+.navigator-item-menu-btn {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 24px;
+  display: grid;
+  place-items: center;
   padding: 0;
-  border: none;
-  border-radius: 50%;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
   color: var(--ct-text-muted);
   cursor: pointer;
-  display: grid;
-  opacity: 0;
-  place-items: center;
-  transition:
-    color 120ms ease,
-    opacity 120ms ease;
 }
 
-.navigator-item:hover .navigator-mark-btn,
-.navigator-mark-btn:focus-visible,
-.navigator-mark-btn.navigator-mark-btn-active {
-  opacity: 1;
+.navigator-item-menu-btn:hover,
+.navigator-item-menu-btn:focus-visible {
+  color: var(--ct-accent-hover);
+  background: var(--ct-bg-item-hover);
 }
 
-.navigator-mark-btn:hover {
-  color: var(--ct-flag-hover);
-}
-
-.navigator-mark-btn.navigator-mark-btn-active {
-  color: var(--ct-flag-color);
-}
-
-.navigator-mark-btn.navigator-mark-btn-active:hover {
-  color: var(--ct-flag-hover);
-}
-
-.navigator-mark-btn svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.navigator-mark-btn.navigator-mark-btn-active svg {
+.navigator-item-menu-btn svg {
+  width: 16px;
+  height: 16px;
   fill: currentColor;
+  stroke: none;
 }
 
 #luna-toc-preview-tooltip {

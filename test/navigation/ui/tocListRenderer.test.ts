@@ -6,6 +6,7 @@ import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
 import { setLoading } from '@/navigation/loading/promptLoadingState';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
+import { initializePromptMark, isPromptMarked } from '@/features/conversationPrompts/promptMark';
 
 describe('tocListRenderer', () => {
   let listElement: HTMLElement;
@@ -109,7 +110,7 @@ describe('tocListRenderer', () => {
     expect(onItemClick).toHaveBeenCalledWith(mockMessages[1], 1);
   });
 
-  it('orders the mark flag before the index and places the outline toggle last', () => {
+  it('puts the ellipsis immediately before the last-position outline toggle, without a flag', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
@@ -120,11 +121,12 @@ describe('tocListRenderer', () => {
     const main = listElement.querySelector('.navigator-item-main')!;
     expect(Array.from(main.children).map(element => element.className))
       .toEqual([
-        'navigator-mark-btn',
         'navigator-item-index',
         'navigator-item-text',
+        'navigator-item-menu-btn',
         'navigator-outline-indicator',
       ]);
+    expect(main.querySelector('.navigator-mark-btn')).toBeNull();
   });
 
   it('always shows a separate triangle toggle without activating prompt navigation', () => {
@@ -231,7 +233,7 @@ describe('tocListRenderer', () => {
     expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
   });
 
-  it('offers copy and save-to-my-prompts on a TOC right-click', () => {
+  it('offers 收藏 / 复制 / 添加 on right-click and preserves add action', () => {
     const onSavePrompt = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
@@ -248,12 +250,65 @@ describe('tocListRenderer', () => {
       clientY: 90,
     }))).toBe(false);
     expect(promptContextMenuController.getSnapshot()?.items).toEqual([
-      { id: 'copy-prompt', label: '复制提问', icon: 'copy' },
-      { id: 'save-prompt', label: '添加到我的提示词', icon: 'bookmark-plus' },
+      { id: 'mark-prompt', label: '收藏', icon: 'bookmark-plus' },
+      { id: 'copy-prompt', label: '复制', icon: 'copy' },
+      { id: 'save-prompt', label: '添加', icon: 'bookmark-plus' },
     ]);
     promptContextMenuController.select('save-prompt');
     expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
     expect(promptContextMenuController.getSnapshot()).toBeNull();
+  });
+
+  it('toggles 收藏 from the context menu while retaining stored mark state', () => {
+    const conversationKey = 'toc-menu-test';
+    const onMarkChanged = vi.fn();
+    initializePromptMark({ conversationKey, onMarkChanged });
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    const storageKey = `chatToc:marks:${conversationKey}`;
+    try {
+      row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      promptContextMenuController.select('mark-prompt');
+      expect(isPromptMarked('msg-2')).toBe(true);
+      expect(row.classList.contains('navigator-item-marked')).toBe(true);
+      expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toContain('msg-2');
+
+      renderer.render();
+      const newRow = listElement.children[1] as HTMLElement;
+      expect(newRow.classList.contains('navigator-item-marked')).toBe(true);
+      newRow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      promptContextMenuController.select('mark-prompt');
+      expect(isPromptMarked('msg-2')).toBe(false);
+      expect(newRow.classList.contains('navigator-item-marked')).toBe(false);
+      expect(JSON.parse(sessionStorage.getItem(storageKey)!)).not.toContain('msg-2');
+      expect(onMarkChanged).toHaveBeenCalledTimes(2);
+    } finally {
+      sessionStorage.removeItem(storageKey);
+      initializePromptMark({ conversationKey: 'toc-menu-reset' });
+    }
+  });
+
+  it('opens the same menu from the ellipsis without navigating the prompt', () => {
+    const onItemClick = vi.fn();
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick,
+    });
+    renderer.render();
+    const row = listElement.children[0] as HTMLElement;
+    const ellipsis = row.querySelector<HTMLButtonElement>('.navigator-item-menu-btn')!;
+    expect(ellipsis.getAttribute('aria-label')).toBe('更多操作');
+    ellipsis.click();
+    expect(onItemClick).not.toHaveBeenCalled();
+    expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
+      .toEqual(['收藏', '复制', '添加']);
+    promptContextMenuController.close();
   });
 
   it('copies the original prompt via the context menu without changing navigation', async () => {

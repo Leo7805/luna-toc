@@ -9,11 +9,6 @@ interface PromptMarkOptions {
   onMarkChanged?: () => void;
 }
 
-interface MarkButtonOptions {
-  item: HTMLElement;
-  messageId: string;
-}
-
 let conversationKey: string | null = null;
 let markedPromptIds = new Set<string>();
 let onMarkChanged: () => void = () => {};
@@ -39,40 +34,17 @@ export function isPromptMarked(messageId: string): boolean {
 }
 
 /**
- * Creates the mark button for one navigator row and wires its click handler.
- * @param {Object} params
- * @param {HTMLElement} params.item Navigator row element.
- * @param {string} params.messageId ChatGPT message ID.
- * @returns {HTMLButtonElement}
+ * Toggles the persisted collection state for one message and updates its row.
+ * Used by both right-click and three-dot context menus.
+ * @param {HTMLElement} item The visible directory row.
+ * @param {string} messageId The underlying prompt ID.
+ * @returns {boolean} Whether the prompt is marked after toggling.
  */
-export function createPromptMarkButton({
-  item,
-  messageId,
-}: MarkButtonOptions): HTMLButtonElement {
-  const markButton = document.createElement('button');
-
-  markButton.className = 'navigator-mark-btn';
-  markButton.type = 'button';
-  markButton.innerHTML = `
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-        <line x1="4" y1="22" x2="4" y2="15" />
-      </svg>
-    `;
-
-  applyState(item, markButton, isPromptMarked(messageId));
-
-  markButton.addEventListener('click', (event) => {
-    event.stopPropagation();
-
-    const nextMarked = toggle(messageId);
-
-    applyState(item, markButton, nextMarked);
-    onMarkChanged();
-    markButton.blur();
-  });
-
-  return markButton;
+export function togglePromptMark(item: HTMLElement, messageId: string): boolean {
+  const marked = toggle(messageId);
+  item.classList.toggle('navigator-item-marked', marked);
+  onMarkChanged();
+  return marked;
 }
 
 /**
@@ -91,26 +63,6 @@ function toggle(messageId: string): boolean {
 
   save();
   return markedPromptIds.has(messageId);
-}
-
-/**
- * Applies mark state to a navigator row and its mark button.
- * @param {HTMLElement} item
- * @param {HTMLButtonElement} markButton
- * @param {boolean} isMarked
- */
-function applyState(
-  item: HTMLElement,
-  markButton: HTMLButtonElement,
-  isMarked: boolean
-): void {
-  item.classList.toggle('navigator-item-marked', isMarked);
-  markButton.classList.toggle('navigator-mark-btn-active', isMarked);
-  markButton.setAttribute('aria-pressed', String(isMarked));
-  markButton.setAttribute(
-    'aria-label',
-    isMarked ? '取消标记提示词' : '标记提示词'
-  );
 }
 
 /**

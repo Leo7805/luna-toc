@@ -1,5 +1,5 @@
 /**
- * Tests fixed edge dimensions, flush-right sidebar layout and toolbar hit area.
+ * Tests the 5px full-height edge trigger, right-bottom tools, and row actions.
  */
 // @ts-expect-error Vitest runs in Node; browser tsconfig intentionally omits Node typings.
 import { readFileSync } from 'node:fs';
@@ -10,13 +10,13 @@ const stylesheet = readFileSync(
   'utf8'
 );
 
-describe('centered reveal handle and sidebar edge alignment', () => {
-  it('keeps the empty translucent blue tab at a fixed 5×45px centered position', () => {
+describe('full-height reveal edge and bottom-right sidebar actions', () => {
+  it('uses a text-free, 5px-wide, viewport-height reveal strip', () => {
     expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*50%;[^}]*transform:\s*translateY\(-50%\);[^}]*width:\s*5px;[^}]*height:\s*45px;/s
+      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*0;[^}]*width:\s*5px;[^}]*height:\s*100vh;/s
     );
     expect(stylesheet).toMatch(
-      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*5px;[^}]*height:\s*45px;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
+      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*5px;[^}]*height:\s*100%;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
     );
     expect(stylesheet).not.toMatch(/#luna-toc-floating-dock::before\s*\{/);
   });
@@ -30,9 +30,9 @@ describe('centered reveal handle and sidebar edge alignment', () => {
     );
   });
 
-  it('aligns the toolbar edge flush-right and fades it without disabling hover', () => {
+  it('places controls flush-right at the bottom, retaining the invisible hover hit area', () => {
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*right:\s*0;[^}]*top:\s*50%;[^}]*padding:\s*8px 0 8px 6px;/s
+      /\.navigator-jump-controls\s*\{[^}]*right:\s*0;[^}]*bottom:\s*12px;[^}]*padding:\s*8px 0 8px 6px;/s
     );
     expect(stylesheet).toMatch(
       /\.navigator-jump-controls\s*\{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 120ms ease;/s
@@ -43,5 +43,9 @@ describe('centered reveal handle and sidebar edge alignment', () => {
     const toolbarBlock = stylesheet.match(/^\.navigator-jump-controls\s*\{([^}]*)\}/m)?.[1];
     expect(toolbarBlock).toBeDefined();
     expect(toolbarBlock).not.toMatch(/pointer-events:\s*none;/);
+  });
+  it('removes the inline flag while retaining adjacent ellipsis and triangle controls', () => {
+    expect(stylesheet).toMatch(/\.navigator-item-menu-btn\s*\{[^}]*width:\s*20px;[^}]*height:\s*24px;/s);
+    expect(stylesheet).not.toMatch(/\.navigator-mark-btn\s*\{/);
   });
 });
