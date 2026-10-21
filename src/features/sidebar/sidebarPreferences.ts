@@ -15,7 +15,7 @@ export const SIDEBAR_COLORS: ReadonlyArray<{
   label: string;
   hex: string;
 }> = [
-  { id: 'default', label: '默认（透明）', hex: 'transparent' },
+  { id: 'default', label: '默认', hex: '#8b93a7' },
   { id: 'blue', label: '蓝色', hex: '#4799eb' },
   { id: 'green', label: '绿色', hex: '#36b58b' },
   { id: 'yellow', label: '黄色', hex: '#e8be45' },
@@ -89,7 +89,7 @@ function mix(base: readonly number[], tint: readonly number[], weight: number): 
 
 /**
  * Computes contrast-safe tinted sidebar surfaces and the same colored
- * semi-transparent reveal edge. The default has no colored backdrop.
+ * semi-transparent reveal edge. The default keeps legacy surface colors.
  */
 export function sidebarAppearance(
   settings: SidebarPreferences,
@@ -97,14 +97,15 @@ export function sidebarAppearance(
 ): { background: string | null; header: string | null; reveal: string } {
   const color = SIDEBAR_COLORS.find((entry) => entry.id === settings.backgroundColor)!;
   const base = theme === 'dark' ? [16, 24, 39] : [238, 245, 255];
-  const tint = settings.backgroundColor === 'default' ? null : hexRgb(color.hex);
-  const surface = tint && mix(base, tint, theme === 'dark' ? 0.27 : 0.20);
-  const header = tint && mix(base, tint, theme === 'dark' ? 0.33 : 0.24);
-  // The optional tinted reveal edge is neutral for the transparent default.
-  const revealColor = tint ?? (theme === 'dark' ? [33, 33, 33] : [255, 255, 255]);
+  const tint = hexRgb(color.hex);
+  const surface = settings.backgroundColor === 'default'
+    ? null : mix(base, tint, theme === 'dark' ? 0.27 : 0.20);
+  const header = settings.backgroundColor === 'default'
+    ? null : mix(base, tint, theme === 'dark' ? 0.33 : 0.24);
+  const revealColor = settings.backgroundColor === 'default' ? base : tint;
   return {
-    background: surface ? `rgba(${surface}, 0.94)` : 'transparent',
-    header: header ? `rgba(${header}, 0.95)` : 'transparent',
+    background: surface ? `rgba(${surface}, 0.94)` : null,
+    header: header ? `rgba(${header}, 0.95)` : null,
     reveal: settings.revealTint
       ? `rgba(${revealColor.join(', ')}, 0.42)`
       : 'transparent',

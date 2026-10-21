@@ -42,7 +42,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('sidebar preferences', () => {
-  it('defaults to overlay, a transparent activation zone and the original background', async () => {
+  it('defaults to overlay, a transparent activation zone and the original tinted background', async () => {
     expect(await readSidebarPreferences()).toEqual(DEFAULT_SIDEBAR_PREFERENCES);
     expect(DEFAULT_SIDEBAR_PREFERENCES).toEqual({
       layoutMode: 'overlay',
@@ -50,8 +50,8 @@ describe('sidebar preferences', () => {
       revealTint: false,
     });
     expect(sidebarAppearance(DEFAULT_SIDEBAR_PREFERENCES, 'dark')).toEqual({
-      background: 'transparent',
-      header: 'transparent',
+      background: null,
+      header: null,
       reveal: 'transparent',
     });
   });
@@ -88,12 +88,12 @@ describe('sidebar preferences', () => {
     const transparentTint = sidebarAppearance(
       { ...DEFAULT_SIDEBAR_PREFERENCES, revealTint: true }, 'dark'
     );
-    expect(transparentTint.reveal).toBe('rgba(33, 33, 33, 0.42)');
+    expect(transparentTint.reveal).toBe('rgba(16, 24, 39, 0.42)');
     expect(sidebarAppearance(
       { ...DEFAULT_SIDEBAR_PREFERENCES, revealTint: true }, 'light'
-    ).reveal).toBe('rgba(255, 255, 255, 0.42)');
+    ).reveal).toBe('rgba(238, 245, 255, 0.42)');
     expect(SIDEBAR_COLORS[0]).toEqual({
-      id: 'default', label: '默认（透明）', hex: 'transparent',
+      id: 'default', label: '默认', hex: '#8b93a7',
     });
     const selected = { layoutMode: 'side-by-side' as const, backgroundColor: 'orange' as const, revealTint: true };
     const light = sidebarAppearance(selected, 'light');

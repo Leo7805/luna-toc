@@ -232,11 +232,6 @@ html[data-theme='light'] {
   transition: transform 100ms ease;
 }
 
-/* Default appearance has no painted or blurred backdrop. */
-#luna-toc-sidebar.luna-toc-sidebar-transparent {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
 
 /* Keep the native ChatGPT navigation outside the resized chat column. */
 .luna-toc-chat-side-by-side {

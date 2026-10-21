@@ -55,10 +55,6 @@ body {
   border: 3px solid var(--o-surface); outline: 1px solid transparent;
   color: #171717; font-size: 17px; font-weight: 700;
 }
-.settings-swatch-transparent {
-  background-image: conic-gradient(var(--o-border) 25%, var(--o-surface) 0 50%, var(--o-border) 0 75%, var(--o-surface) 0);
-  background-size: 12px 12px;
-}
 .settings-swatch-label input:checked + .settings-swatch { outline: 2px solid var(--o-text); }
 .settings-swatch-label input:focus-visible + .settings-swatch { outline: 3px solid var(--o-accent); outline-offset: 3px; }
 .settings-swatch-text { color: var(--o-muted); font-size: 11px; }

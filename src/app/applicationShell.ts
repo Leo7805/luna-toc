@@ -33,12 +33,10 @@ function applySidebarAppearance(): void {
   const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
   const colors = sidebarAppearance(currentSidebarPreferences, theme);
   const sidebar = document.getElementById('luna-toc-sidebar');
-  sidebar?.style.setProperty('--ct-bg-sidebar', colors.background);
-  sidebar?.style.setProperty('--ct-bg-header', colors.header);
-  sidebar?.classList.toggle(
-    'luna-toc-sidebar-transparent',
-    currentSidebarPreferences.backgroundColor === 'default'
-  );
+  if (colors.background) sidebar?.style.setProperty('--ct-bg-sidebar', colors.background);
+  else sidebar?.style.removeProperty('--ct-bg-sidebar');
+  if (colors.header) sidebar?.style.setProperty('--ct-bg-header', colors.header);
+  else sidebar?.style.removeProperty('--ct-bg-header');
   document.getElementById('luna-toc-floating-dock')?.style.setProperty(
     '--luna-toc-reveal-bg', colors.reveal
   );

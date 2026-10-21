@@ -70,13 +70,14 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
     expect(base).not.toMatch(/opacity:\s*0;|pointer-events:\s*none;/);
   });
 
-  it('uses an unblurred transparent default background and a faster close transition', () => {
+  it('uses the legacy translucent default background and retains the faster close transition', () => {
     expect(stylesheet).toMatch(
       /#luna-toc-sidebar\.luna-toc-navigator-ready\s*\{[^}]*transition:\s*transform 100ms ease;/s
     );
-    expect(stylesheet).toMatch(
-      /#luna-toc-sidebar\.luna-toc-sidebar-transparent\s*\{[^}]*backdrop-filter:\s*none;[^}]*-webkit-backdrop-filter:\s*none;/s
-    );
+    expect(stylesheet).toMatch(/--ct-bg-sidebar:\s*rgba\(16, 24, 39, 0\.85\);/);
+    expect(stylesheet).toMatch(/--ct-bg-sidebar:\s*rgba\(238, 245, 255, 0\.85\);/);
+    expect(stylesheet).toMatch(/#luna-toc-sidebar\s*\{[^}]*backdrop-filter:\s*blur\(12px\);/s);
+    expect(stylesheet).not.toMatch(/#luna-toc-sidebar\.luna-toc-sidebar-transparent\s*\{/);
   });
 
   it('removes inline action buttons; truncation is purely CSS-driven', () => {
