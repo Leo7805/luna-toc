@@ -32,6 +32,7 @@ function isContextValid(): boolean {
 export function createPromptStore(): PromptStore {
   let cache: SavedPrompt[] = [];
   let hydratePromise: Promise<SavedPrompt[]> | null = null;
+  let hydrationVerified = false;
   const listeners = new Set<PromptsChangedListener>();
 
   function getCacheCopy(): SavedPrompt[] {
@@ -85,6 +86,7 @@ export function createPromptStore(): PromptStore {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         const result = await readPromptsRecord();
+        hydrationVerified = true;
         return readPromptsList(result);
       } catch (error) {
         if (attempt < maxAttempts) {
@@ -100,6 +102,8 @@ export function createPromptStore(): PromptStore {
     if (!hydratePromise) {
       hydratePromise = hydrateFromStorage().then((prompts) => {
         setCache(prompts);
+        // Retry the next read rather than permanently caching a failed load.
+        if (!hydrationVerified) hydratePromise = null;
         return getCacheCopy();
       });
     }
@@ -135,6 +139,9 @@ export function createPromptStore(): PromptStore {
     async saveAll(prompts: SavedPrompt[]): Promise<void> {
       const nextPrompts = Array.isArray(prompts) ? [...prompts] : [];
       await hydrate();
+      if (!hydrationVerified) {
+        throw new Error('Prompt storage could not be read; refusing to overwrite it');
+      }
       const previousPrompts = getCacheCopy();
       if (!isContextValid()) {
         throw new Error('Invalid extension context: prompts were not saved');

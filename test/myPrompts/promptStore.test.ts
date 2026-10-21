@@ -43,6 +43,19 @@ describe('promptStore persistence', () => {
     expect(writeSpy).not.toHaveBeenCalled();
   });
 
+  it('refuses to overwrite prompts if storage hydration never succeeded', async () => {
+    const local = chrome.storage.local as unknown as { get: ReturnType<typeof vi.fn> };
+    local.get.mockImplementation((_key: string, callback: (value: unknown) => void) => {
+      (chrome.runtime as unknown as { lastError: { message: string } | null }).lastError =
+        { message: 'storage unavailable' };
+      callback({});
+      (chrome.runtime as unknown as { lastError: { message: string } | null }).lastError = null;
+    });
+    const store = createPromptStore();
+    await expect(store.saveAll([])).rejects.toThrow('refusing to overwrite');
+    expect(writeSpy).not.toHaveBeenCalled();
+  });
+
   it('restores the prior cache and rejects a failed Chrome storage write', async () => {
     const store = createPromptStore();
     await store.getAll();
