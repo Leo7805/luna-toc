@@ -6,7 +6,6 @@ import { navigatorController } from '@/navigation/navigatorController';
 import { getActivePlatform } from '@/platforms';
 import { isLoading, setLoading } from '@/navigation/loading/promptLoadingState';
 import * as promptNav from '@/navigation/jump/promptNavigation';
-import { resetOutline } from '@/navigation/jump/outline';
 
 describe('navigatorController lifecycle and coordination', () => {
   beforeEach(() => {
@@ -535,7 +534,7 @@ describe('navigatorController lifecycle and coordination', () => {
     );
   });
 
-  it('automatically expands the arrow after clicking a prompt row and keeps it open on repeated clicks', () => {
+  it('automatically expands the arrow after clicking a prompt row and keeps it open on repeated clicks', async () => {
     const platform = getActivePlatform();
     Object.defineProperty(window, 'location', {
       writable: true,
@@ -545,11 +544,21 @@ describe('navigatorController lifecycle and coordination', () => {
         pathname: '/c/test-expand-on-jump',
       },
     });
-    const jumpToMessageSpy = vi.spyOn(promptNav, 'jumpToMessage')
+    // Other lifecycle tests reset modules; keep the spy and the controller
+    // under test bound to the same module instance.
+    vi.resetModules();
+    const { navigatorController: freshController } = await import(
+      '@/navigation/navigatorController'
+    );
+    const freshPromptNav = await import('@/navigation/jump/promptNavigation');
+    const { resetOutline: resetFreshOutline } = await import(
+      '@/navigation/jump/outline'
+    );
+    const jumpToMessageSpy = vi.spyOn(freshPromptNav, 'jumpToMessage')
       .mockImplementation(() => {});
 
-    navigatorController.init();
-    navigatorController.attach();
+    freshController.init();
+    freshController.attach();
     window.dispatchEvent(new MessageEvent('message', {
       source: window,
       data: { type: platform.pageHook.messages.routeChanged },
@@ -606,7 +615,7 @@ describe('navigatorController lifecycle and coordination', () => {
     arrow.click();
     expect(arrow.getAttribute('aria-expanded')).toBe('false');
     expect(jumpToMessageSpy).toHaveBeenCalledTimes(2);
-    resetOutline();
+    resetFreshOutline();
   });
 
   it('jumpToLastPrompt() navigates to the last message when messages exist', () => {
