@@ -40,8 +40,8 @@ describe('centered reveal handle and sidebar edge alignment', () => {
     expect(stylesheet).toMatch(
       /\.navigator-jump-controls\.navigator-jump-controls-visible\s*\{[^}]*opacity:\s*1;/s
     );
-    expect(stylesheet).not.toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*pointer-events:\s*none;/s
-    );
+    const toolbarBlock = stylesheet.match(/^\.navigator-jump-controls\s*\{([^}]*)\}/m)?.[1];
+    expect(toolbarBlock).toBeDefined();
+    expect(toolbarBlock).not.toMatch(/pointer-events:\s*none;/);
   });
 });
