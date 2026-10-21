@@ -493,6 +493,38 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   transition: none;
 }
 
+/* The high-contrast, button-height tab remains discoverable while the moon
+   sits mostly beyond the viewport. Its pseudo-element receives hover events. */
+#luna-toc-floating-dock::before {
+  content: '目录';
+  position: absolute;
+  left: -16px;
+  top: 0;
+  width: 32px;
+  height: 42px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  font: 700 12px/1.2 system-ui, sans-serif;
+  letter-spacing: 2px;
+  color: #fff;
+  background: var(--ct-toggle-btn-color);
+  border-radius: 10px 0 0 10px;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  opacity: 0.94;
+  transition: opacity 100ms ease;
+}
+
+#luna-toc-floating-dock:hover::before,
+#luna-toc-floating-dock:focus-within::before,
+#luna-toc-floating-dock.luna-toc-floating-dock-open::before {
+  opacity: 0;
+  pointer-events: none;
+}
+
 #luna-toc-toggle-btn {
   position: relative;
   display: grid;
@@ -509,6 +541,12 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   cursor: ns-resize;
   touch-action: none;
   transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+/* Hide the dim partial moon behind the readable collapsed tab. */
+#luna-toc-floating-dock:not(:hover):not(:focus-within):not(.luna-toc-floating-dock-open)
+  #luna-toc-toggle-btn {
+  opacity: 0;
 }
 
 #luna-toc-toggle-btn:hover,
