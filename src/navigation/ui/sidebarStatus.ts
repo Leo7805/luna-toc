@@ -69,7 +69,12 @@ function pluralizePrompts(count: number): string {
  */
 export function setSidebarStatus(options: {
   state: SidebarStatusState;
-  jump?: { active: boolean; targetIndex: number; remainingSteps?: number } | null;
+  jump?: {
+    active: boolean;
+    targetIndex: number;
+    currentProgressIndex?: number | null;
+    remainingSteps?: number;
+  } | null;
   promptCount?: number;
 }): void {
   const { state, jump, promptCount = 0 } = options;
@@ -80,9 +85,17 @@ export function setSidebarStatus(options: {
 
   switch (state) {
     case 'jumping':
-      text = jump
-        ? `Jumping to prompt #${jump.targetIndex + 1}`
-        : 'Jumping';
+      if (jump) {
+        const targetLabel = `To #${jump.targetIndex + 1}`;
+        const progressSuffix =
+          typeof jump.currentProgressIndex === 'number' &&
+          jump.currentProgressIndex >= 0
+            ? ` · Now #${jump.currentProgressIndex + 1}`
+            : '';
+        text = `${targetLabel}${progressSuffix}`;
+      } else {
+        text = 'Jumping';
+      }
       lastJumpingText = text;
       break;
     case 'loading':
@@ -126,10 +139,15 @@ export function setSidebarStatus(options: {
     // Build the DOM once on entry; subsequent calls during the same
     // jump hit the early-return above (textContent matches the prefix)
     // and leave the dots structure intact.
-    element.replaceChildren(
-      document.createTextNode(text),
-      buildJumpingDotsElement()
-    );
+    const existingDots = element.querySelector('.jumping-dots');
+    if (existingDots && element.firstChild && element.firstChild !== existingDots) {
+      element.firstChild.textContent = text;
+    } else {
+      element.replaceChildren(
+        document.createTextNode(text),
+        buildJumpingDotsElement()
+      );
+    }
     element.classList.add('navigator-status-active');
     if (statusLingerTimer !== null) {
       clearTimeout(statusLingerTimer);

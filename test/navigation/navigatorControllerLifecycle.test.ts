@@ -1322,7 +1322,7 @@ describe('navigatorController lifecycle and coordination', () => {
       });
 
       // Status updates immediately to jumping
-      expect(statusElement.textContent).toContain('Jumping to prompt #1');
+      expect(statusElement.textContent).toContain('To #1');
       expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
 
       // CRITICAL: #navigator-list must NOT have been wiped or rebuilt
@@ -1343,13 +1343,13 @@ describe('navigatorController lifecycle and coordination', () => {
         targetIndex: 2,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('Jumping to prompt #3');
+      expect(statusElement.textContent).toContain('To #3');
 
       // Act: Jump finishes
       navigatorController.clearJumpProgress();
 
       // Retains destination text during linger
-      expect(statusElement.textContent).toBe('Jumping to prompt #3');
+      expect(statusElement.textContent).toBe('To #3');
       expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
 
       // Still visible before linger expires (499ms)
@@ -1374,7 +1374,7 @@ describe('navigatorController lifecycle and coordination', () => {
         targetIndex: 1,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('Jumping to prompt #2');
+      expect(statusElement.textContent).toContain('To #2');
 
       // Act: Jump finishes while conversation is still loading
       navigatorController.clearJumpProgress();
@@ -1397,11 +1397,11 @@ describe('navigatorController lifecycle and coordination', () => {
         targetIndex: 2,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('Jumping to prompt #3');
+      expect(statusElement.textContent).toContain('To #3');
 
       // Jump #3 clears and begins 500ms linger
       navigatorController.clearJumpProgress();
-      expect(statusElement.textContent).toBe('Jumping to prompt #3');
+      expect(statusElement.textContent).toBe('To #3');
 
       // Advance 200ms into the linger
       vi.advanceTimersByTime(200);
@@ -1413,16 +1413,16 @@ describe('navigatorController lifecycle and coordination', () => {
         targetIndex: 7,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('Jumping to prompt #8');
+      expect(statusElement.textContent).toContain('To #8');
 
       // Jump #8 clears
       navigatorController.clearJumpProgress();
-      expect(statusElement.textContent).toBe('Jumping to prompt #8');
+      expect(statusElement.textContent).toBe('To #8');
 
       // Advance 400ms: total 600ms since jump #3 cleared, but only 400ms since jump #8 cleared.
       // If jump #3's linger timer wasn't cancelled, status would have cleared at 500ms.
       vi.advanceTimersByTime(400);
-      expect(statusElement.textContent).toBe('Jumping to prompt #8');
+      expect(statusElement.textContent).toBe('To #8');
       expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
 
       // Advance past jump #8's linger (>500ms total for jump #8)
@@ -1789,7 +1789,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // Status text shows 1-based prompt 200
       const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+      expect(statusElement.textContent).toContain('To #200');
     });
 
     it('jumping(199) suppresses raw viewport updates and preserves Prompt 200 active', () => {
@@ -1881,7 +1881,7 @@ describe('navigatorController lifecycle and coordination', () => {
       const statusElement = document.getElementById('luna-toc-status')!;
 
       controller.setNavigationJumping(199);
-      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+      expect(statusElement.textContent).toContain('To #200');
 
       controller.setNavigationFailed(199);
 
@@ -1901,7 +1901,7 @@ describe('navigatorController lifecycle and coordination', () => {
       controller.setNavigationJumping(199);
       controller.setNavigationLanded(199);
 
-      expect(statusElement.textContent).toBe('Jumping to prompt #200');
+      expect(statusElement.textContent).toBe('To #200');
       expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
 
       // Advance past linger timer (500ms)
@@ -1946,11 +1946,11 @@ describe('navigatorController lifecycle and coordination', () => {
 
       controller.setNavigationJumping(199);
       expect(controller.getDisplayIndex()).toBe(199);
-      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+      expect(statusElement.textContent).toContain('To #200');
 
       controller.setNavigationJumping(149);
       expect(controller.getDisplayIndex()).toBe(149);
-      expect(statusElement.textContent).toContain('Jumping to prompt #150');
+      expect(statusElement.textContent).toContain('To #150');
 
       const items = document.querySelectorAll<HTMLElement>('.navigator-item');
       expect(items[149].classList.contains('navigator-item-active')).toBe(true);
@@ -1978,10 +1978,10 @@ describe('navigatorController lifecycle and coordination', () => {
       );
 
       controller.setNavigationJumping(10);
-      expect(statusElement.textContent).toContain('Jumping to prompt #11');
+      expect(statusElement.textContent).toContain('To #11');
 
       controller.setNavigationLanded(10);
-      expect(statusElement.textContent).toBe('Jumping to prompt #11');
+      expect(statusElement.textContent).toBe('To #11');
     });
 
     it('route reset from jumping/landed/failed clears state to idle and resets visual status', () => {
@@ -1990,7 +1990,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
       controller.setNavigationJumping(199);
       expect(controller.getNavigationState().state).toBe('jumping');
-      expect(statusElement.textContent).toContain('Jumping to prompt #200');
+      expect(statusElement.textContent).toContain('To #200');
 
       // Trigger route change
       Object.defineProperty(window, 'location', {
@@ -2004,7 +2004,7 @@ describe('navigatorController lifecycle and coordination', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
 
       expect(controller.getNavigationState().state).toBe('idle');
-      expect(statusElement.textContent).not.toContain('Jumping');
+      expect(statusElement.textContent).not.toContain('To #200');
     });
 
     it('previous landed target releases landed state to idle and restores viewport tracking on jumpToEdge("top")', async () => {
@@ -2102,6 +2102,143 @@ describe('navigatorController lifecycle and coordination', () => {
 
       expect(controller.getNavigationState().state).toBe('idle');
       expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('top', 'auto');
+    });
+
+    it('real activePromptTracker event flow updates Now #N and locks TOC active highlight', async () => {
+      setupConversationWithPrompts(200, 'test-tracker-event-flow');
+      const statusElement = document.getElementById('luna-toc-status')!;
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+
+      // Mount thread container with initial prompt 200 (index 199) in DOM
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      document.body.appendChild(container);
+
+      const el199 = document.createElement('div');
+      el199.setAttribute('data-chatgpt-search-message-ids', 'p-199');
+      el199.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      el199.setAttribute('data-message-author-role', 'user');
+      el199.setAttribute('data-message-id', 'p-199');
+      el199.getBoundingClientRect = () => ({
+        top: 10,
+        bottom: 100,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 90,
+        x: 0,
+        y: 10,
+        toJSON: () => {},
+      });
+      container.appendChild(el199);
+
+      // Seed active index at prompt 200 via tracker observation
+      document.dispatchEvent(new Event('scroll'));
+      vi.runAllTimers();
+      expect(controller.getDisplayIndex()).toBe(199);
+
+      // User clicks TOC item #1 (index 0)
+      items[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      // 1. Destination prefix and initial origin position appear immediately
+      expect(statusElement.textContent).toBe('To #1 · Now #200');
+      expect(controller.getDisplayIndex()).toBe(0);
+      expect(items[0].classList.contains('navigator-item-active')).toBe(true);
+
+      // 2. Virtual scrolling mounts prompt 150 (index 149) at the viewport top
+      const el149 = document.createElement('div');
+      el149.setAttribute('data-chatgpt-search-message-ids', 'p-149');
+      el149.setAttribute('data-chatgpt-search-unit-key', 'k:user');
+      el149.setAttribute('data-message-author-role', 'user');
+      el149.setAttribute('data-message-id', 'p-149');
+      el149.getBoundingClientRect = () => ({
+        top: 10,
+        bottom: 100,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 90,
+        x: 0,
+        y: 10,
+        toJSON: () => {},
+      });
+      // Move el199 below viewport
+      el199.getBoundingClientRect = () => ({
+        top: 1000,
+        bottom: 1200,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 200,
+        x: 0,
+        y: 1000,
+        toJSON: () => {},
+      });
+      container.appendChild(el149);
+
+      // Real scroll event fires on document
+      document.dispatchEvent(new Event('scroll'));
+      vi.runAllTimers();
+
+      // Genuine tracker callback triggered: Now #N updates to #150
+      expect(statusElement.textContent).toBe('To #1 · Now #150');
+      // TOC list active item MUST remain locked on destination target (index 0)
+      expect(controller.getDisplayIndex()).toBe(0);
+      expect(items[0].classList.contains('navigator-item-active')).toBe(true);
+      expect(items[149].classList.contains('navigator-item-active')).toBe(false);
+    });
+
+    it('guarantees correct final destination on landing even when last intermediate differed', async () => {
+      setupConversationWithPrompts(300, 'test-guaranteed-final-status');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      let capturedOptions: any;
+      vi.spyOn(promptNavModule, 'initializePromptNavigation').mockImplementation((opts) => {
+        capturedOptions = opts;
+      });
+      controller.detach();
+      controller.attach();
+
+      // Jump starts toward prompt #1 (index 0) from prompt #274 (index 273)
+      controller.setNavigationJumping(0, 273);
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toBe('To #1 · Now #274');
+
+      // Navigation successfully completes via onJumpComplete
+      capturedOptions.onJumpComplete(0);
+
+      // Guaranteed final destination is updated immediately before and during linger
+      expect(statusElement.textContent).toBe('To #1 · Now #1');
+      expect(controller.getNavigationState()).toEqual({
+        state: 'landed',
+        targetIndex: 0,
+      });
+
+      // Linger for 500ms
+      vi.advanceTimersByTime(499);
+      expect(statusElement.textContent).toBe('To #1 · Now #1');
+
+      vi.advanceTimersByTime(2);
+      expect(statusElement.textContent).toBe('');
+    });
+
+    it('failure displays failure status without pretending arrival occurred', async () => {
+      setupConversationWithPrompts(100, 'test-failure-no-arrival');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      let capturedOptions: any;
+      vi.spyOn(promptNavModule, 'initializePromptNavigation').mockImplementation((opts) => {
+        capturedOptions = opts;
+      });
+      controller.detach();
+      controller.attach();
+
+      controller.setNavigationJumping(0, 50);
+      const statusElement = document.getElementById('luna-toc-status')!;
+      expect(statusElement.textContent).toBe('To #1 · Now #51');
+
+      capturedOptions.onJumpFailed(0);
+
+      expect(statusElement.textContent).toBe('Jump failed');
+      expect(statusElement.textContent).not.toContain('Now #1');
     });
   });
 });

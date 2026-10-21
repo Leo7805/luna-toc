@@ -6,9 +6,19 @@
 
 export type NavigationState =
   | { state: 'idle' }
-  | { state: 'jumping'; targetIndex: number }
-  | { state: 'landed'; targetIndex: number }
-  | { state: 'failed'; targetIndex: number };
+  | {
+      state: 'jumping';
+      targetIndex: number;
+      currentProgressIndex?: number | null;
+    }
+  | {
+      state: 'landed';
+      targetIndex: number;
+    }
+  | {
+      state: 'failed';
+      targetIndex: number;
+    };
 
 export type NavigationStateListener = (
   previous: NavigationState,
@@ -23,6 +33,18 @@ const listeners = new Set<NavigationStateListener>();
  */
 function areStatesEqual(a: NavigationState, b: NavigationState): boolean {
   if (a.state !== b.state) return false;
+  if (a.state === 'jumping' && b.state === 'jumping') {
+    return (
+      a.targetIndex === b.targetIndex &&
+      a.currentProgressIndex === b.currentProgressIndex
+    );
+  }
+  if (a.state === 'landed' && b.state === 'landed') {
+    return a.targetIndex === b.targetIndex;
+  }
+  if (a.state === 'failed' && b.state === 'failed') {
+    return a.targetIndex === b.targetIndex;
+  }
   if ('targetIndex' in a && 'targetIndex' in b) {
     return a.targetIndex === b.targetIndex;
   }
@@ -56,9 +78,38 @@ export function getNavigationState(): NavigationState {
  * Transitions lifecycle state to 'jumping' toward targetIndex.
  *
  * @param targetIndex 0-indexed position of target prompt.
+ * @param currentProgressIndex Optional 0-indexed current visible prompt position.
  */
-export function setNavigationJumping(targetIndex: number): void {
-  updateState({ state: 'jumping', targetIndex });
+export function setNavigationJumping(
+  targetIndex: number,
+  currentProgressIndex: number | null = null
+): void {
+  const next: NavigationState = {
+    state: 'jumping',
+    targetIndex,
+    ...(currentProgressIndex !== null ? { currentProgressIndex } : {}),
+  };
+  updateState(next);
+}
+
+/**
+ * Updates current progress index during active jump without resetting target or watchdog.
+ * Preserves last verified position if input is null or invalid.
+ */
+export function updateNavigationProgress(
+  currentProgressIndex: number | null
+): void {
+  if (currentState.state !== 'jumping') return;
+  if (currentProgressIndex === null || currentProgressIndex < 0) return;
+  const currentVal =
+    'currentProgressIndex' in currentState
+      ? currentState.currentProgressIndex
+      : undefined;
+  if (currentVal === currentProgressIndex) return;
+  updateState({
+    ...currentState,
+    currentProgressIndex,
+  });
 }
 
 /**
@@ -67,7 +118,11 @@ export function setNavigationJumping(targetIndex: number): void {
  * @param targetIndex 0-indexed position of landed prompt.
  */
 export function setNavigationLanded(targetIndex: number): void {
-  updateState({ state: 'landed', targetIndex });
+  const next: NavigationState = {
+    state: 'landed',
+    targetIndex,
+  };
+  updateState(next);
 }
 
 /**
@@ -76,7 +131,11 @@ export function setNavigationLanded(targetIndex: number): void {
  * @param targetIndex 0-indexed position of prompt that failed to land.
  */
 export function setNavigationFailed(targetIndex: number): void {
-  updateState({ state: 'failed', targetIndex });
+  const next: NavigationState = {
+    state: 'failed',
+    targetIndex,
+  };
+  updateState(next);
 }
 
 /**

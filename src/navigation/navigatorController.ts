@@ -28,6 +28,7 @@ import {
   setNavigationJumping,
   setNavigationLanded,
   setNavigationFailed,
+  updateNavigationProgress,
   setNavigationIdle,
   onNavigationStateChange,
   type NavigationState,
@@ -130,7 +131,11 @@ export const navigatorController = (() => {
     getMessages: () => conversationStore.getMessages(),
     onActiveIndexChange: (_index, changed) => {
       const nav = getNavigationState();
-      if (nav.state === 'jumping' || nav.state === 'landed') {
+      if (nav.state === 'jumping') {
+        updateNavigationProgress(_index);
+        return;
+      }
+      if (nav.state === 'landed') {
         // Raw viewport updates update internal tracker state,
         // but are suppressed from the presentation UI.
         return;
@@ -176,7 +181,11 @@ export const navigatorController = (() => {
     if (current.state === 'jumping') {
       setSidebarStatus({
         state: 'jumping',
-        jump: { active: true, targetIndex: current.targetIndex },
+        jump: {
+          active: true,
+          targetIndex: current.targetIndex,
+          currentProgressIndex: current.currentProgressIndex,
+        },
         promptCount,
       });
     } else if (previous.state === 'jumping' && current.state === 'landed') {
@@ -194,7 +203,14 @@ export const navigatorController = (() => {
 
     // 2. Display projection
     if (current.state === 'jumping') {
-      projectDisplayIndex(true);
+      const previousTargetIndex =
+        'targetIndex' in previous ? previous.targetIndex : undefined;
+      const isTargetChange =
+        previous.state !== 'jumping' ||
+        previousTargetIndex !== current.targetIndex;
+      if (isTargetChange) {
+        projectDisplayIndex(true);
+      }
     } else if (previous.state === 'jumping' && current.state === 'landed') {
       // Target did not change; do not issue redundant row scroll
     } else if (current.state === 'failed' || current.state === 'idle') {
@@ -262,18 +278,45 @@ export const navigatorController = (() => {
       }),
       onJumpStart: (targetIndex) => {
         keepFollowing(15_000);
-        setNavigationJumping(targetIndex);
+        const currentNav = getNavigationState();
+        if (
+          currentNav.state === 'jumping' &&
+          currentNav.targetIndex === targetIndex
+        ) {
+          return;
+        }
+        setNavigationJumping(
+          targetIndex,
+          activePromptTracker.getActiveIndex()
+        );
       },
       onJumpComplete: (targetIndex) => {
+        const currentNav = getNavigationState();
+        if (
+          currentNav.state !== 'jumping' ||
+          currentNav.targetIndex !== targetIndex
+        ) {
+          return;
+        }
         activePromptTracker.syncViewportIndex(targetIndex);
+        updateNavigationProgress(targetIndex);
         setNavigationLanded(targetIndex);
       },
       onJumpFailed: (targetIndex) => {
+        const currentNav = getNavigationState();
+        if (
+          currentNav.state !== 'jumping' ||
+          currentNav.targetIndex !== targetIndex
+        ) {
+          return;
+        }
         setNavigationFailed(targetIndex);
       },
       setJumpProgress: (progress) => {
         if (progress.active) {
-          setNavigationJumping(progress.targetIndex);
+          const currentNav = getNavigationState();
+          if (currentNav.state === 'jumping' && currentNav.targetIndex === progress.targetIndex) return;
+          setNavigationJumping(progress.targetIndex, activePromptTracker.getActiveIndex());
         }
       },
       clearJumpProgress: () => {
@@ -388,7 +431,8 @@ export const navigatorController = (() => {
     previewTooltip.hide();
     cancelActiveNavigationSearch();
     keepFollowing(15_000);
-    setNavigationJumping(index);
+    const currentIndex = activePromptTracker.getActiveIndex();
+    setNavigationJumping(index, currentIndex);
 
     const outlineAction = handlePromptNavigation(
       index,

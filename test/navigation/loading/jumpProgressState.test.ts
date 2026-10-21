@@ -8,6 +8,7 @@ import {
   setNavigationFailed,
   setNavigationIdle,
   onNavigationStateChange,
+  updateNavigationProgress,
   resetNavigationStateForTest,
 } from '@/navigation/loading/jumpProgressState';
 
@@ -35,6 +36,53 @@ describe('NavigationState store (jumpProgressState)', () => {
       { state: 'idle' },
       { state: 'jumping', targetIndex: 199 }
     );
+  });
+
+  it('setNavigationJumping records optional currentProgressIndex', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
+
+    setNavigationJumping(119, 426);
+
+    expect(getNavigationState()).toEqual({
+      state: 'jumping',
+      targetIndex: 119,
+      currentProgressIndex: 426,
+    });
+    expect(listener).toHaveBeenCalledWith(
+      { state: 'idle' },
+      { state: 'jumping', targetIndex: 119, currentProgressIndex: 426 }
+    );
+  });
+
+  it('updateNavigationProgress updates currentProgressIndex while keeping targetIndex and suppresses identical/invalid values', () => {
+    const listener = vi.fn();
+    onNavigationStateChange(listener);
+
+    setNavigationJumping(119, 426);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    updateNavigationProgress(379);
+    expect(getNavigationState()).toEqual({
+      state: 'jumping',
+      targetIndex: 119,
+      currentProgressIndex: 379,
+    });
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    // Duplicate write is suppressed
+    updateNavigationProgress(379);
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    // Null or invalid position does not overwrite verified position
+    updateNavigationProgress(null);
+    updateNavigationProgress(-1);
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(getNavigationState()).toEqual({
+      state: 'jumping',
+      targetIndex: 119,
+      currentProgressIndex: 379,
+    });
   });
 
   it('setNavigationLanded transitions to landed state upon verified completion', () => {

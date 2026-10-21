@@ -44,10 +44,41 @@ describe('sidebarStatus', () => {
       jump: { active: true, targetIndex: 2, remainingSteps: 1 },
     });
 
-    expect(statusElement.textContent).toContain('Jumping to prompt #3');
+    expect(statusElement.textContent).toContain('To #3');
     const dotsContainer = statusElement.querySelector('.jumping-dots');
     expect(dotsContainer).not.toBeNull();
     expect(dotsContainer?.querySelectorAll('.dot')).toHaveLength(3);
+  });
+
+  it('renders unified format with destination and current position (To #N · Now #M)', () => {
+    setSidebarStatus({
+      state: 'jumping',
+      jump: { active: true, targetIndex: 119, currentProgressIndex: 426 },
+    });
+
+    expect(statusElement.textContent).toBe('To #120 · Now #427');
+  });
+
+  it('updates text node without recreating jumping dots DOM cluster', () => {
+    setSidebarStatus({
+      state: 'jumping',
+      jump: { active: true, targetIndex: 119, currentProgressIndex: 426 },
+    });
+
+    const initialDots = statusElement.querySelector('.jumping-dots');
+    expect(initialDots).not.toBeNull();
+    expect(statusElement.textContent).toBe('To #120 · Now #427');
+
+    // Advance progress: Now #380
+    setSidebarStatus({
+      state: 'jumping',
+      jump: { active: true, targetIndex: 119, currentProgressIndex: 379 },
+    });
+
+    expect(statusElement.textContent).toBe('To #120 · Now #380');
+    const currentDots = statusElement.querySelector('.jumping-dots');
+    // Existing DOM node identity preserved
+    expect(currentDots).toBe(initialDots);
   });
 
   it('retracts complete state to idle after linger delay', () => {
