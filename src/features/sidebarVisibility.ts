@@ -1,6 +1,8 @@
 /**
  * Owns LunaTOC sidebar visibility, pinning, and auto-hide behavior.
  */
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
+
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
 const AUTO_HIDE_DELAY_MS = 300;
@@ -219,6 +221,10 @@ function finishInitializing(): void {
 export function setSidebarHidden(hidden: boolean): void {
   const justOpened = isHidden && !hidden;
   isHidden = hidden;
+
+  // The menu lives in a separate React portal, outside the collapsing sidebar.
+  // Explicitly dismiss it so no orphaned actions remain visible or interactive.
+  if (hidden) promptContextMenuController.close();
 
   sidebar?.classList.toggle('luna-toc-navigator-hidden', isHidden);
   sidebar?.setAttribute('aria-hidden', String(isHidden));

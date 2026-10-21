@@ -4,12 +4,15 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
   initializeSidebarVisibility,
+  setSidebarHidden,
   setSidebarPinned,
 } from '@/features/sidebarVisibility';
 
 afterEach(() => {
+  promptContextMenuController.close();
   vi.useRealTimers();
   sessionStorage.removeItem('chatTocSidebarPinned');
   sessionStorage.removeItem('chatTocToggleButtonPosition');
@@ -94,6 +97,41 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(false);
     expect(dock.inert).toBe(false);
+  });
+
+  it('closes an open React-portal context menu whenever the sidebar hides', () => {
+    const { sidebar, trigger } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+
+    promptContextMenuController.show(
+      { left: 45, top: 70 },
+      [{ id: 'mark-prompt', label: '收藏' }],
+      vi.fn()
+    );
+    expect(promptContextMenuController.getSnapshot()?.items[0].label).toBe('收藏');
+
+    setSidebarHidden(true);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+    expect(promptContextMenuController.getSnapshot()).toBeNull();
+  });
+
+  it('dismisses menu actions after the automatic 300ms sidebar collapse', () => {
+    vi.useFakeTimers();
+    const { sidebar, trigger } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+
+    promptContextMenuController.show(
+      { left: 10, top: 20 },
+      [{ id: 'copy-prompt', label: '复制' }],
+      vi.fn()
+    );
+
+    sidebar.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(350);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+    expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
   it('keeps the trigger hidden for a pinned sidebar and restores it after unpinning', () => {

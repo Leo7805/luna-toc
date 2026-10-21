@@ -30,26 +30,46 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
       /#luna-toc-sidebar\s*\{[^}]*right:\s*0;[^}]*padding:\s*0 0 12px 6px;/s
     );
     expect(stylesheet).toMatch(
-      /\.navigator-item\s*\{[^}]*padding:\s*7px 0 7px 8px;/s
+      /\.navigator-item\s*\{[^}]*padding:\s*7px 0 7px 6px;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-item-index\s*\{[^}]*flex:\s*0 0 auto;[^}]*width:\s*auto;[^}]*text-align:\s*left;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-item-text\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;[^}]*overflow:\s*hidden;/s
     );
   });
 
-  it('places controls flush-right at the bottom, retaining the invisible hover hit area', () => {
+  it('shows a 2px translucent reveal strip across only the stacked button height', () => {
     expect(stylesheet).toMatch(
       /\.navigator-jump-controls\s*\{[^}]*right:\s*0;[^}]*bottom:\s*12px;[^}]*padding:\s*8px 0 8px 6px;/s
     );
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 120ms ease;/s
+      /\.navigator-jump-controls::after\s*\{[^}]*top:\s*9px;[^}]*bottom:\s*9px;[^}]*width:\s*2px;[^}]*background:\s*var\(--ct-jump-reveal-bg\);/s
     );
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\.navigator-jump-controls-visible\s*\{[^}]*opacity:\s*1;/s
+      /--ct-jump-reveal-bg:\s*rgba\(3, 10, 23, 0\.3\);/
     );
-    const toolbarBlock = stylesheet.match(/^\.navigator-jump-controls\s*\{([^}]*)\}/m)?.[1];
-    expect(toolbarBlock).toBeDefined();
-    expect(toolbarBlock).not.toMatch(/pointer-events:\s*none;/);
+    expect(stylesheet).toMatch(
+      /--ct-jump-reveal-bg:\s*rgba\(141, 164, 197, 0\.23\);/
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-jump-controls\.navigator-jump-controls-visible::after\s*\{[^}]*opacity:\s*0;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-jump-controls > button\s*\{[^}]*opacity:\s*0;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-jump-controls\.navigator-jump-controls-visible > button\s*\{[^}]*opacity:\s*1;/s
+    );
+
+    const base = stylesheet.match(/^\.navigator-jump-controls\s*\{([^}]*)\}/m)?.[1];
+    expect(base).toBeDefined();
+    expect(base).not.toMatch(/opacity:\s*0;|pointer-events:\s*none;/);
   });
-  it('removes the inline flag and triangle while preserving the ellipsis menu', () => {
-    expect(stylesheet).toMatch(/\.navigator-item-menu-btn\s*\{[^}]*width:\s*20px;[^}]*height:\s*24px;/s);
+
+  it('removes inline action buttons; truncation is purely CSS-driven', () => {
+    expect(stylesheet).not.toMatch(/\.navigator-item-menu-btn\s*\{/);
     expect(stylesheet).not.toMatch(/\.navigator-mark-btn\s*\{/);
     expect(stylesheet).not.toMatch(/\.navigator-outline-indicator\s*\{/);
   });

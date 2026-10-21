@@ -110,7 +110,7 @@ describe('tocListRenderer', () => {
     expect(onItemClick).toHaveBeenCalledWith(mockMessages[1], 1);
   });
 
-  it('keeps only the ellipsis after the title, without a flag or a triangle', () => {
+  it('renders only the index and title, without any inline action buttons', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
@@ -123,10 +123,8 @@ describe('tocListRenderer', () => {
       .toEqual([
         'navigator-item-index',
         'navigator-item-text',
-        'navigator-item-menu-btn',
       ]);
-    expect(main.querySelector('.navigator-mark-btn')).toBeNull();
-    expect(main.querySelector('.navigator-outline-indicator')).toBeNull();
+    expect(main.querySelector('button')).toBeNull();
   });
 
   it('sends repeat row clicks to navigation for outline toggling without the chevron', () => {
@@ -291,19 +289,27 @@ describe('tocListRenderer', () => {
     }
   });
 
-  it('opens the same menu from the ellipsis without navigating the prompt', () => {
+  it('keeps long prompt text intact for CSS truncation and opens actions only on right-click', () => {
+    const original = 'A very long user question about implementation details '.repeat(10);
     const onItemClick = vi.fn();
     const renderer = createTocListRenderer({
-      getMessages: () => mockMessages,
+      getMessages: () => [{ ...mockMessages[0], text: original }],
       getActiveIndex: () => null,
       onItemClick,
     });
     renderer.render();
+
     const row = listElement.children[0] as HTMLElement;
-    const ellipsis = row.querySelector<HTMLButtonElement>('.navigator-item-menu-btn')!;
-    expect(ellipsis.getAttribute('aria-label')).toBe('更多操作');
-    ellipsis.click();
-    expect(onItemClick).not.toHaveBeenCalled();
+    const text = row.querySelector<HTMLElement>('.navigator-item-text')!;
+    expect(text.textContent).toBe(original);
+    expect(row.querySelector('button')).toBeNull();
+    expect(promptContextMenuController.getSnapshot()).toBeNull();
+
+    text.click();
+    expect(onItemClick).toHaveBeenCalledOnce();
+    expect(promptContextMenuController.getSnapshot()).toBeNull();
+
+    text.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
       .toEqual(['收藏', '复制', '添加']);
     promptContextMenuController.close();

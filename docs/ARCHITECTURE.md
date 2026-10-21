@@ -30,7 +30,7 @@
 
 ## 目录与导航
 
-- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内保留序号、提问文字和最右侧三点按钮（不再创建展开三角）。右键与三点按钮共用「收藏」「复制」「添加」菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
+- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单提供「收藏」「复制」「添加」，侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的均匀半透明浅蓝色触发条，去掉深色边框与额外透明度。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，在侧边栏右下角显示；鼠标移出按钮组后淡出，重新进入保留的透明命中区域后重新显示，隐藏时不可直接点击或通过 Tab 到达。目录滚动条、工具条和最右端三点菜单贴齐浏览器右边缘，不再渲染单独的展开三角形。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的均匀半透明浅蓝色触发条，去掉深色边框与额外透明度。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，在侧边栏右下角显示；鼠标移出按钮组后仅按钮及底板淡出，保留右缘2px宽且高度恰好覆盖三个按钮及间距的半透明深色触发线（暗/亮主题分别适配）；重新进入保留的透明命中区域后重新显示，隐藏时不可直接点击或通过 Tab 到达。目录滚动条和工具条贴齐浏览器右边缘，不再渲染独立的三点菜单按钮或展开三角形。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 

@@ -14,6 +14,7 @@ html[data-theme='dark'] {
   --ct-bg-icon-btn-hover: #18243a;
   --ct-bg-icon-btn-active: #1d2c50;
   --ct-bg-jump-controls: rgba(16, 24, 39, 0.45);
+  --ct-jump-reveal-bg: rgba(3, 10, 23, 0.3);
   --ct-bg-jump-btn-hover: rgba(255, 255, 255, 0.08);
   --ct-bg-input: #0b111d;
   --ct-bg-select: #162033;
@@ -108,6 +109,7 @@ html[data-theme='light'] {
   --ct-bg-icon-btn-hover: #e6f0fd;
   --ct-bg-icon-btn-active: #dce9ff;
   --ct-bg-jump-controls: rgba(238, 245, 255, 0.65);
+  --ct-jump-reveal-bg: rgba(141, 164, 197, 0.23);
   --ct-bg-jump-btn-hover: rgba(82, 110, 245, 0.08);
   --ct-bg-input: #e4eefc;
   --ct-bg-select: #e4eefc;
@@ -318,22 +320,52 @@ html[data-theme='light'] {
   gap: 6px;
   padding: 8px 0 8px 6px;
   border-radius: 18px 0 0 18px;
-  background: var(--ct-bg-jump-controls);
-  border: 1px solid var(--ct-border-jump-controls);
+  background: transparent;
+  border: 1px solid transparent;
   border-right: 0;
+  box-shadow: none;
+  cursor: default;
+  user-select: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+/* The 2px translucent edge stays visible while all three buttons are hidden.
+ * Inset by the toolbar's border and padding so its height matches the button stack.
+ */
+.navigator-jump-controls::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--ct-jump-reveal-bg);
+  border-radius: 2px 0 0 2px;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.navigator-jump-controls > button {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/* The full button-sized transparent footprint remains hit-testable on hover. */
+.navigator-jump-controls.navigator-jump-controls-visible {
+  background: var(--ct-bg-jump-controls);
+  border-color: var(--ct-border-jump-controls);
   box-shadow:
     var(--ct-sidebar-box-shadow-jump),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  cursor: default;
-  user-select: none;
-  opacity: 0;
-  transition: opacity 120ms ease;
 }
 
-/* Fade only the visuals: the same-sized transparent footprint reveals on hover. */
-.navigator-jump-controls.navigator-jump-controls-visible {
+.navigator-jump-controls.navigator-jump-controls-visible::after {
+  opacity: 0;
+}
+
+.navigator-jump-controls.navigator-jump-controls-visible > button {
   opacity: 1;
 }
 
@@ -365,6 +397,7 @@ html[data-theme='light'] {
   justify-self: auto;
   transform: none;
   transition:
+    opacity 120ms ease,
     color 120ms ease,
     transform 80ms ease;
 }
@@ -527,7 +560,7 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   box-sizing: border-box;
   width: 100%;
   min-height: 34px;
-  padding: 7px 0 7px 8px;
+  padding: 7px 0 7px 6px;
   margin-top: 1px;
   border-radius: 7px 0 0 7px;
   cursor: pointer;
@@ -547,9 +580,9 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 }
 
 .navigator-item-index {
-  flex: 0 0 24px;
-  width: 24px;
-  text-align: right;
+  flex: 0 0 auto;
+  width: auto;
+  text-align: left;
   font-size: 12.5px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -570,7 +603,7 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   min-width: 0;
   max-width: 100%;
   line-height: 20px;
-  text-overflow: clip;
+  text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -628,34 +661,6 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   transition:
     background 160ms ease,
     box-shadow 160ms ease;
-}
-
-/* The ellipsis is the row's only trailing action. */
-.navigator-item-menu-btn {
-  flex: 0 0 20px;
-  width: 20px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ct-text-muted);
-  cursor: pointer;
-}
-
-.navigator-item-menu-btn:hover,
-.navigator-item-menu-btn:focus-visible {
-  color: var(--ct-accent-hover);
-  background: var(--ct-bg-item-hover);
-}
-
-.navigator-item-menu-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-  stroke: none;
 }
 
 #luna-toc-preview-tooltip {

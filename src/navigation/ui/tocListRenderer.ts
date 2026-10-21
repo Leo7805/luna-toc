@@ -230,20 +230,7 @@ export function createTocListRenderer(
       messageId: message.id,
     });
 
-    const menuButton = document.createElement('button');
-    menuButton.type = 'button';
-    menuButton.className = 'navigator-item-menu-btn';
-    menuButton.setAttribute('aria-label', '更多操作');
-    menuButton.title = '更多操作';
-    menuButton.innerHTML = `
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <circle cx="5" cy="12" r="1.7" />
-        <circle cx="12" cy="12" r="1.7" />
-        <circle cx="19" cy="12" r="1.7" />
-      </svg>
-    `;
-
-    itemMain.append(itemIndex, itemText, menuButton);
+    itemMain.append(itemIndex, itemText);
     item.append(itemMain);
 
     if (outlineControls?.outlineList) {
@@ -261,8 +248,8 @@ export function createTocListRenderer(
       if (item.matches(':hover')) showTooltip(event);
     });
     /**
-     * Opens the same three actions from either the right-click context menu
-     * or the explicit row ellipsis, preserving existing prompt storage.
+     * Opens prompt actions exclusively from the native right-click gesture.
+     * Long titles use CSS text-overflow ellipsis instead of an action button.
      */
     const showItemMenu = (left: number, top: number): void => {
       previewTooltip.hide();
@@ -293,12 +280,6 @@ export function createTocListRenderer(
       showItemMenu(event.clientX, event.clientY);
     });
 
-    menuButton.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = menuButton.getBoundingClientRect();
-      showItemMenu(rect.left, rect.bottom);
-    });
     item.addEventListener('mouseenter', showTooltip);
     item.addEventListener('mouseleave', () => {
       previewTooltip.hide();
