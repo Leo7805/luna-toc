@@ -18,10 +18,11 @@ let floatingPanel: HTMLElement | null = null;
  * Moves the toolbar to document.body so the sidebar's overflow cannot clip it.
  */
 export function initFloatingPanel(): void {
-  const panel = document.querySelector<HTMLElement>('.navigator-jump-controls');
+  const panelElement = document.querySelector<HTMLElement>('.navigator-jump-controls');
   const sidebar = document.getElementById('luna-toc-sidebar');
-  if (!panel || !sidebar) return;
+  if (!panelElement || !sidebar) return;
 
+  const panel = panelElement;
   floatingPanel = panel;
   document.body.appendChild(panel);
   alignFloatingPanel(panel, sidebar);
