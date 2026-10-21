@@ -112,33 +112,17 @@ afterEach(() => {
 });
 
 describe('prompt navigation strategy', () => {
-  it('falls back to legacy navigation in the default legacy strategy', () => {
+  it('never jumps to top for an obsolete legacy setting', () => {
     const container = document.createElement('div');
-    Object.defineProperty(container, 'scrollHeight', {
-      value: 1000,
-      configurable: true,
-    });
-    Object.defineProperty(container, 'clientHeight', {
-      value: 600,
-      configurable: true,
-    });
-    container.scrollTop = 400;
-    document.body.appendChild(container);
+    const target = document.createElement('div');
+    document.body.append(container, target);
+    target.scrollIntoView = vi.fn();
     mocks.getContainer.mockReturnValue(container);
-
-    jumpToMessage(
-      {
-        id: 'prompt-1',
-        text: 'Prompt',
-        canMatchByText: true,
-        createTime: 0,
-      },
-      0
-    );
-
-    expect(container.scrollTop).toBe(0);
-    expect(mocks.findPrompt).not.toHaveBeenCalled();
-    expect(mocks.setJumpProgress).not.toHaveBeenCalled();
+    mocks.findPrompt.mockReturnValue(target);
+    mocks.navigationAlgorithm = 'legacy-native';
+    jumpToMessage({ id: 'prompt-1', text: 'Prompt', canMatchByText: true, createTime: 0 }, 0);
+    expect(target.scrollIntoView).toHaveBeenCalledOnce();
+    expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
   });
 
   it('navigates directly via fast-path when target is rendered in independent-virtual strategy', async () => {

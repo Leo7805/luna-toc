@@ -1,10 +1,11 @@
 /**
- * Shared prompt storage helper for LumaTOC My Prompts.
+ * Shared prompt storage helper for LunaTOC My Prompts.
  */
+// Preserve the legacy key so users retain previously saved prompts.
 const storageKey = 'lumaToc:myPromptsV1';
 
 /**
- * Represents a saved prompt in the LumaTOC My Prompts feature.
+ * Represents a saved prompt in the LunaTOC My Prompts feature.
  */
 export interface SavedPrompt {
   id: string;
@@ -135,18 +136,17 @@ export function createPromptStore(): PromptStore {
       const nextPrompts = Array.isArray(prompts) ? [...prompts] : [];
       await hydrate();
       const previousPrompts = getCacheCopy();
-      setCache(nextPrompts);
-
       if (!isContextValid()) {
-        notifyListeners();
-        return;
+        throw new Error('Invalid extension context: prompts were not saved');
       }
+      setCache(nextPrompts);
 
       return new Promise((resolve, reject) => {
         chrome.storage.local.set({ [storageKey]: nextPrompts }, () => {
           if (chrome.runtime.lastError) {
             setCache(previousPrompts);
-            reject(chrome.runtime.lastError);
+            notifyListeners();
+            reject(new Error(chrome.runtime.lastError.message ?? 'Prompt storage write failed'));
             return;
           }
 

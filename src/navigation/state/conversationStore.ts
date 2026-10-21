@@ -229,7 +229,8 @@ export function createConversationStore(
     const previous = conversationMessages;
     const changed = previous.length !== next.length || previous.some((m, i) =>
       m.id !== next[i]?.id || m.text !== next[i]?.text ||
-      m.createTime !== next[i]?.createTime || m.canMatchByText !== next[i]?.canMatchByText
+      m.createTime !== next[i]?.createTime || m.canMatchByText !== next[i]?.canMatchByText ||
+      m.answerId !== next[i]?.answerId
     );
     const map = new Map<string, ChatMessage>();
     for (const message of branch) if (message.id) map.set(message.id, message);

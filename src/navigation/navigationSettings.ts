@@ -81,12 +81,6 @@ function normalizeNavigationSettings(value: unknown): NavigationSettings {
   }
 
   const candidate = value as Partial<NavigationSettings>;
-  if (
-    candidate.chatgpt !== 'legacy-native' &&
-    candidate.chatgpt !== 'independent-virtual'
-  ) {
-    return { ...DEFAULT_SETTINGS };
-  }
-
-  return { chatgpt: candidate.chatgpt };
+  // The removed native strategy is always migrated to independent navigation.
+  return { chatgpt: 'independent-virtual' };
 }

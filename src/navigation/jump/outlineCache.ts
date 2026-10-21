@@ -9,11 +9,13 @@ import { logOutlineDiagnostic } from './outlineDiagnostics';
 
 export interface CachedPromptOutline {
   promptMessageId: string;
+  answerId?: string;
   entries: OutlineEntry[];
 }
 
 const promptOutlines = new Map<number, CachedPromptOutline>();
 const promptMessageIds = new Map<number, string>();
+const promptAnswerIds = new Map<number, string>();
 
 /**
  * Replaces the prompt index to message ID mapping for the active conversation.
@@ -23,21 +25,30 @@ const promptMessageIds = new Map<number, string>();
  */
 export function setPromptMessages(messages: NavigatorMessage[]): number[] {
   const nextPromptMessageIds = new Map<number, string>();
+  const nextAnswerIds = new Map<number, string>();
   messages.forEach((message, index) => {
     if (message.id) nextPromptMessageIds.set(index, message.id);
+    if (message.answerId) nextAnswerIds.set(index, message.answerId);
   });
 
   const invalidatedIndices: number[] = [];
   promptOutlines.forEach((cachedOutline, index) => {
-    if (cachedOutline.promptMessageId !== nextPromptMessageIds.get(index)) {
+    if (
+      cachedOutline.promptMessageId !== nextPromptMessageIds.get(index) ||
+      cachedOutline.answerId !== nextAnswerIds.get(index)
+    ) {
       invalidatePromptOutline(index, 'message-id-changed');
       invalidatedIndices.push(index);
     }
   });
 
   promptMessageIds.clear();
+  promptAnswerIds.clear();
   nextPromptMessageIds.forEach((messageId, index) => {
     promptMessageIds.set(index, messageId);
+  });
+  nextAnswerIds.forEach((answerId, index) => {
+    promptAnswerIds.set(index, answerId);
   });
 
   return invalidatedIndices;
@@ -55,7 +66,10 @@ export function getReusablePromptOutline(
   const promptMessageId = promptMessageIds.get(index);
   if (!cachedOutline || !promptMessageId) return null;
 
-  if (cachedOutline.promptMessageId !== promptMessageId) {
+  if (
+    cachedOutline.promptMessageId !== promptMessageId ||
+    cachedOutline.answerId !== promptAnswerIds.get(index)
+  ) {
     invalidatePromptOutline(index, 'message-id-mismatch');
     return null;
   }
@@ -72,6 +86,7 @@ export function getReusablePromptOutline(
 
   const refreshedOutline = {
     promptMessageId,
+    answerId: promptAnswerIds.get(index),
     entries: refreshedEntries,
   };
   promptOutlines.set(index, refreshedOutline);
@@ -90,6 +105,7 @@ export function cachePromptOutline(
 
   promptOutlines.set(index, {
     promptMessageId,
+    answerId: promptAnswerIds.get(index),
     entries,
   });
   return true;
@@ -115,6 +131,7 @@ export function getPromptMessageId(index: number): string | null {
 export function clearOutlineCache(): void {
   promptOutlines.clear();
   promptMessageIds.clear();
+  promptAnswerIds.clear();
 }
 
 /**

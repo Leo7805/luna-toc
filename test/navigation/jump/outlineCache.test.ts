@@ -93,6 +93,16 @@ describe('outlineCache', () => {
     expect(getCachedEntries(0)).toEqual([]);
   });
 
+  it('invalidates connected headings when assistant answer changes', () => {
+    setPromptMessages([{ ...createMessage('prompt-1'), answerId: 'answer-1' }]);
+    cachePromptOutline(0, [createHeadingEntry('Old answer')]);
+    const invalidated = setPromptMessages([
+      { ...createMessage('prompt-1'), answerId: 'answer-2' },
+    ]);
+    expect(invalidated).toEqual([0]);
+    expect(getCachedEntries(0)).toEqual([]);
+  });
+
   it('clears all cached entries and message IDs on clearOutlineCache', () => {
     setPromptMessages([createMessage('msg-1')]);
     cachePromptOutline(0, [createHeadingEntry('Heading')]);

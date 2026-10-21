@@ -43,6 +43,11 @@ describe('navigation settings', () => {
     });
   });
 
+  it('migrates legacy navigation to independent navigation', async () => {
+    storedValue = { chatgpt: 'legacy-native' };
+    await expect(readNavigationSettings()).resolves.toEqual({ chatgpt: 'independent-virtual' });
+  });
+
   it('rejects unsupported stored algorithms', async () => {
     storedValue = { chatgpt: 'unknown' };
 

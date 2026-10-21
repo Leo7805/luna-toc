@@ -36,6 +36,8 @@ export interface NavigatorMessage {
   text: string;
   canMatchByText: boolean;
   createTime: number;
+  /** Associated assistant response for cache invalidation. */
+  answerId?: string;
 }
 /**
  * Converts ChatGPT message content and attachments into simple TOC text labels.
@@ -183,10 +185,11 @@ export function extractUserMessages(
   const messages: NavigatorMessage[] = [];
   let pendingUserMessage: ChatMessage | null = null;
 
-  function flushPendingUserMessage(): void {
+  function flushPendingUserMessage(answerId?: string): void {
     if (!pendingUserMessage) return;
 
     const navigatorMessage = createNavigatorMessage(pendingUserMessage);
+    if (answerId) navigatorMessage.answerId = answerId;
 
     if (navigatorMessage.text.length > 0) {
       messages.push(navigatorMessage);
@@ -201,11 +204,12 @@ export function extractUserMessages(
     if (!role) return;
 
     if (role === 'user') {
+      if (pendingUserMessage) flushPendingUserMessage();
       pendingUserMessage = message;
       return;
     }
 
-    flushPendingUserMessage();
+    if (role === 'assistant') flushPendingUserMessage(message.id);
   });
 
   flushPendingUserMessage();
