@@ -112,7 +112,9 @@ export function insertIntoChatGPTInput(text: string): void {
       }
 
       try {
-        document.execCommand('insertText', false, textToInsert);
+        if (!document.execCommand('insertText', false, textToInsert)) {
+          throw new Error('Text insertion was rejected');
+        }
       } catch (error) {
         textarea.value = currentValue + textToInsert;
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
@@ -129,7 +131,9 @@ export function insertIntoChatGPTInput(text: string): void {
       }
 
       try {
-        document.execCommand('insertText', false, textToInsert);
+        if (!document.execCommand('insertText', false, textToInsert)) {
+          throw new Error('Text insertion was rejected');
+        }
       } catch (error) {
         const textNode = document.createTextNode(textToInsert);
         textarea.appendChild(textNode);
@@ -541,7 +545,14 @@ function selectAutocompleteItem(prompt: SavedPrompt): void {
       if (selection && context.replaceRange) {
         selection.removeAllRanges();
         selection.addRange(context.replaceRange);
-        document.execCommand('insertText', false, prompt.content);
+        const inserted = document.execCommand('insertText', false, prompt.content);
+        if (!inserted) {
+          context.replaceRange.deleteContents();
+          context.replaceRange.insertNode(document.createTextNode(prompt.content));
+          textarea.dispatchEvent(new InputEvent('input', {
+            bubbles: true, inputType: 'insertText', data: prompt.content,
+          }));
+        }
       }
     }
   } finally {

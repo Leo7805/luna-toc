@@ -21,6 +21,7 @@ import {
   probeNumTurnsBehavior,
   probeDomSelectors,
   reportContractMismatch,
+  shouldRunContractProbes,
 } from './contractAlerts';
 import {
   isBackfilling,
@@ -97,10 +98,12 @@ export function postConversationData(
         // unconditionally: it only alerts when both num_turns requests
         // return 0 messages, the only failure mode that actually
         // matters.
-        if (Array.isArray(messages) && messages.length > 0) {
-          void probeNumTurnsBehavior(routeKey, authHeaders);
+        if (shouldRunContractProbes()) {
+          if (Array.isArray(messages) && messages.length > 0) {
+            void probeNumTurnsBehavior(routeKey, authHeaders);
+          }
+          probeDomSelectors();
         }
-        probeDomSelectors();
         // If the initial response already represents the whole conversation
         // and no backfill is currently in flight for this route, the
         // backfill branch above won't fire the ENDED signal — do it here.

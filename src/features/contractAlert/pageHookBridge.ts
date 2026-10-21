@@ -82,6 +82,7 @@ interface PageHookMismatchMessage {
  */
 export function startPageHookMismatchBridge(): () => void {
   const handler = (event: MessageEvent): void => {
+    if (event.source !== window || event.origin !== location.origin) return;
     const data = event.data as Partial<PageHookMismatchMessage> | null;
     if (!data || data.type !== PAGE_HOOK_MISMATCH_MESSAGE_TYPE) return;
 
@@ -133,6 +134,7 @@ export function startChatGptConfigSync(
           {
             type: CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE,
             useLocalConfig: cfg.useLocalConfig,
+            showCompatibilityAlert: cfg.showCompatibilityAlert,
             contractValues: values,
           },
           window.location.origin

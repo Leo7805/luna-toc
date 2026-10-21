@@ -88,8 +88,11 @@ export function installConversationRefresh(
           if (message?.id) accumulated.set(message.id, message);
         }
 
-        if (data.page_info?.has_previous_page !== true) {
-          const allMessages = Array.from(accumulated.values());
+        if (data.page_info?.has_previous_page === false) {
+          const allMessages = Array.from(accumulated.values()).sort(
+            (a, b) => (a.create_time ?? a.createTime ?? 0) -
+              (b.create_time ?? b.createTime ?? 0)
+          );
           const branch = extractActiveBranchMessages({
             messages: allMessages,
             current_node: currentNode,
@@ -101,6 +104,8 @@ export function installConversationRefresh(
             page_info: { has_previous_page: false },
           };
         }
+        // Missing page metadata cannot prove that the snapshot is complete.
+        if (data.page_info?.has_previous_page !== true) return null;
         const nextCursor = data.page_info.start_cursor;
         if (!nextCursor || seenCursors.has(nextCursor)) return null;
         seenCursors.add(nextCursor);

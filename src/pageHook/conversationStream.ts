@@ -23,8 +23,6 @@ interface OutgoingRequestBody {
   messages?: OutgoingMessage[];
 }
 
-let streamBuffer = '';
-
 /**
  * Attempts to parse the outgoing POST request body to immediately capture
  * the user's prompt before the server responds.
@@ -75,7 +73,8 @@ export async function inspectStream(
 
   if (!reader) return;
 
-  streamBuffer = '';
+  // Keep incomplete lines local to each response.
+  let streamBuffer = '';
   const decoder = new TextDecoder();
 
   while (true) {
@@ -94,7 +93,7 @@ export async function inspectStream(
       stream: true,
     });
 
-    processBufferedStream(routeKey, messageType);
+    streamBuffer = processBufferedStream(streamBuffer, routeKey, messageType);
   }
 }
 
@@ -102,15 +101,15 @@ export async function inspectStream(
  * Splits the accumulated SSE buffer into complete lines while keeping the
  * trailing partial line for the next stream chunk.
  */
-function processBufferedStream(routeKey: string, messageType: string): void {
-  const lines = streamBuffer.split('\n');
-
-  // The last line may be incomplete.
-  streamBuffer = lines.pop() || '';
-
+function processBufferedStream(
+  buffer: string, routeKey: string, messageType: string
+): string {
+  const lines = buffer.split('\n');
+  const remainder = lines.pop() || '';
   for (const line of lines) {
     processStreamLine(line, routeKey, messageType);
   }
+  return remainder;
 }
 
 /**

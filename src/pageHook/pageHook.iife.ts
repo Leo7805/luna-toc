@@ -13,9 +13,14 @@
  * every imported submodule into a single IIFE chunk; the source-level
  * split exists for humans, the bundle for Chrome.
  */
-import { APP_CONFIG } from '@/config/config';
 import { getActivePlatform } from '@/platforms';
-import { CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE } from '@/features/contractAlert/pageHookBridge';
+import {
+  checkConversationPathAgainstContract,
+  installContractAlerts,
+  reportContractMismatch,
+  setContractProbesEnabled,
+  setEffectiveContractValues,
+} from './contractAlerts';
 import {
   extractOutgoingMessage,
   getRequestHeaders,
@@ -44,6 +49,7 @@ import { installTitleObserver } from './titleObserver';
 
   installConversationCapture({ originalFetch });
   installConversationBackfill({ originalFetch, platform });
+  installContractAlerts({ originalFetch });
   const observeRefreshHeaders = installConversationRefresh(originalFetch, platform);
   platform.pageHook.installMatchMediaSpoof();
   platform.pageHook.installMatchMediaToggleListener();
@@ -51,57 +57,31 @@ import { installTitleObserver } from './titleObserver';
   installTitleObserver(platform.pageHook.messages.titleChanged);
 
   window.addEventListener('message', (event: MessageEvent): void => {
-    const data = event.data as
-      | {
-          type?: string;
-          contractValues?: Record<string, unknown>;
-        }
-      | null;
+    if (event.source !== window || event.origin !== location.origin) return;
+    const data = event.data as {
+      type?: string;
+      showCompatibilityAlert?: unknown;
+      contractValues?: Record<string, unknown>;
+    } | null;
     if (!data || data.type !== platform.pageHook.messages.configUpdate) return;
     if (data.contractValues && typeof data.contractValues === 'object') {
-      // Contract-values are pushed into the platform's contract table by the
-      // content script. Page-hook consumes them via the platform's contract
-      // resolver rather than directly (re)writing a map.
-      void data.contractValues;
+      setEffectiveContractValues(data.contractValues);
     }
+    setContractProbesEnabled(data.showCompatibilityAlert === true);
   });
 
   window.fetch = async function (...args) {
     const requestMeta = inspectFetchRequest(args, platform);
 
     try {
-      const requestUrl = platform.pageHook.fetch.getFetchUrl(args[0]);
-      const requestPath = new URL(requestUrl, window.location.origin).pathname;
-      if (
-        requestMeta?.isConversationGet &&
-        requestPath.includes('/backend-api/conversations/')
-      ) {
-        // ChatGPT-specific path check kept inline until the routing adapter
-        // exposes a richer API. The check is intentionally narrow so other
-        // platforms with `/api/conversations/` style URLs are unaffected.
-        const contractIds = platform.config.contract.ids as readonly string[];
-        const initialId = contractIds.find((id) =>
-          id.startsWith('api.conversation.path')
-        );
-        const messagesId = contractIds.find((id) =>
-          id.startsWith('api.conversation.messages-path')
-        );
+      if (requestMeta?.isConversationGet) {
+        const requestUrl = platform.pageHook.fetch.getFetchUrl(args[0]);
+        const requestPath = new URL(requestUrl, window.location.origin).pathname;
         const contractId = requestMeta.isInitialConversationLoad
-          ? initialId
-          : messagesId;
-        if (contractId) {
-          const expected = platform.config.contract.resolve(
-            contractId,
-            platform.config.useLocalConfig
-          );
-          if (
-            expected &&
-            !buildPathRegexFromTemplate(expected).test(requestPath)
-          ) {
-            // Forward to the platform-agnostic contract-mismatch reporter
-            // (populated in step 7).
-            void contractId;
-          }
+          ? 'api.conversation.path'
+          : 'api.conversation.messages-path';
+        if (checkConversationPathAgainstContract(contractId, requestPath) === false) {
+          reportContractMismatch(contractId, requestPath);
         }
       }
     } catch {}
@@ -151,18 +131,4 @@ import { installTitleObserver } from './titleObserver';
     return response;
   };
 
-  /**
-   * Builds a RegExp from a contract path template by escaping every regex
-   * special character and substituting the `{id}` placeholder with a path
-   * segment matcher. Duplicated here from `contractAlerts` to keep the
-   * page-hook entry self-contained; the contractAlerts module exposes a
-   * `checkConversationPathAgainstContract` helper in step 7 that the entry
-   * will switch to once `effectiveContractValues` flows through.
-   */
-  function buildPathRegexFromTemplate(template: string): RegExp {
-    const parts = template.split('{id}').map((part) =>
-      part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    );
-    return new RegExp('^' + parts.join('([^/]+)') + '/?$');
-  }
-})();
+})();})();

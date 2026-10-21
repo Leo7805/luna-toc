@@ -227,6 +227,8 @@ export const navigatorController = (() => {
 
     initActivePromptTracking();
     isAttached = true;
+    // Restored pin state may open the sidebar before attach() has completed.
+    if (isSidebarVisible()) queueMicrotask(refreshCurrentConversation);
     const currentRouteKey = getCurrentConversationKey();
     const isInitialNewChat =
       conversationStore.isNewChatRouteKey(currentRouteKey) &&
@@ -430,6 +432,14 @@ export const navigatorController = (() => {
     });
 
     flushPendingNewChatMessage();
+    // Route switches with a pinned sidebar do not trigger onOpened again.
+    if (isAttached && isSidebarVisible()) {
+      queueMicrotask(refreshCurrentConversation);
+    }
+  }
+
+  function isSidebarVisible(): boolean {
+    return document.getElementById('luna-toc-sidebar')?.getAttribute('aria-hidden') === 'false';
   }
 
   function listenForRouteChanges(): void {
