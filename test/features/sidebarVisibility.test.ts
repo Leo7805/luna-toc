@@ -63,7 +63,8 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(Array.from(panel.querySelectorAll('button')).map(x => x.id))
       .toEqual(['jump-chat-top-btn', 'toggle-view-mode-btn', 'jump-chat-bottom-btn']);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
-    expect(panel.inert).toBe(false);
+    expect(panel.hasAttribute('inert')).toBe(false);
+    expect(panel.closest('[aria-hidden="true"]')).toBeNull();
 
     sidebar.dispatchEvent(new Event('pointerenter'));
     vi.advanceTimersByTime(400);
@@ -72,6 +73,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     sidebar.dispatchEvent(new Event('pointerleave'));
     vi.advanceTimersByTime(400);
     expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+    expect(panel.closest('[aria-hidden="true"]')).toBe(sidebar);
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(false);
     expect(dock.inert).toBe(false);
   });
