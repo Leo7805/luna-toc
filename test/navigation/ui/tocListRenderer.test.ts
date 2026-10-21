@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
 import { setLoading } from '@/navigation/loading/promptLoadingState';
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 describe('tocListRenderer', () => {
@@ -199,40 +200,43 @@ describe('tocListRenderer', () => {
     expect(rendererB.getSearchQuery()).toBe('');
   });
 
-  it('renders custom TOC title and applies styling class when set', async () => {
-    vi.stubGlobal('chrome', {
-      storage: {
-        local: {
-          get: vi.fn(async () => ({})),
-          set: vi.fn(async () => {}),
-        },
-      },
-    });
-
-    const { setCustomTitle, removeCustomTitle } = await import(
-      '@/features/customTocTitles/customTocTitleStore'
-    );
-    await setCustomTitle('msg-2', 'Renamed Step 2');
-
+  it('uses original prompt text without custom title styling', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
       onItemClick: vi.fn(),
     });
-
     renderer.render();
+    const item = listElement.children[1] as HTMLElement;
+    expect(item.querySelector('.navigator-item-index')?.textContent).toBe('2.');
+    expect(item.querySelector('.navigator-item-text')?.textContent).toBe('Second user prompt');
+    expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
+  });
 
-    const secondItem = listElement.children[1] as HTMLElement;
-    expect(secondItem.querySelector('.navigator-item-index')?.textContent).toBe('2.');
-    expect(secondItem.querySelector('.navigator-item-text')?.textContent).toBe('Renamed Step 2');
-    expect(secondItem.classList.contains('navigator-item-custom-title')).toBe(true);
-
-    const firstItem = listElement.children[0] as HTMLElement;
-    expect(firstItem.querySelector('.navigator-item-index')?.textContent).toBe('1.');
-    expect(firstItem.querySelector('.navigator-item-text')?.textContent).toBe('First user prompt');
-    expect(firstItem.classList.contains('navigator-item-custom-title')).toBe(false);
-
-    await removeCustomTitle('msg-2');
+  it('offers only save-to-my-prompts on a TOC right-click', () => {
+    const onSavePrompt = vi.fn();
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onSavePrompt,
+    });
+    renderer.render();
+    const item = listElement.children[1] as HTMLElement;
+    expect(item.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 70,
+      clientY: 90,
+    }))).toBe(false);
+    expect(promptContextMenuController.getSnapshot()?.items).toEqual([{
+      id: 'save-prompt',
+      label: '添加到我的提示词',
+      icon: 'bookmark-plus',
+    }]);
+    promptContextMenuController.select('save-prompt');
+    expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
+    expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
   describe('initial active TOC scroll-position synchronization', () => {

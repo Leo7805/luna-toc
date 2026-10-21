@@ -7,7 +7,6 @@ import { createRoot } from 'react-dom/client';
 import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomplete';
 import { PromptContextMenuHost } from '@/components/my-prompts/PromptContextMenu';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
-import { CustomTocTitleDialogHost } from '@/components/custom-toc-titles/CustomTocTitleDialog';
 import { ContractAlert } from '@/features/contractAlert/ContractAlert';
 import {
   setReactPortalContainer,
@@ -59,7 +58,6 @@ export async function initializeReactHost(): Promise<void> {
       <PromptAutocompleteHost />
       <PromptContextMenuHost />
       <PromptEditorDialogHost />
-      <CustomTocTitleDialogHost />
       <ContractAlert />
     </>
   );

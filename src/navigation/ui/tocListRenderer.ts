@@ -5,8 +5,6 @@
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { createPromptMarkButton } from '@/features/conversationPrompts/promptMark';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
-import { getCustomTitle } from '@/features/customTocTitles/customTocTitleStore';
-import { openCustomTocTitleDialog } from '@/components/custom-toc-titles/CustomTocTitleDialog';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
   collapseAll,
@@ -212,25 +210,18 @@ export function createTocListRenderer(
     const itemMain = document.createElement('div');
     const itemText = document.createElement('span');
 
-    const customTitle = getCustomTitle(message.id);
-    const hasCustomTitle = Boolean(customTitle);
-    const titleText = hasCustomTitle ? customTitle! : message.text;
-
     item.dataset.messageIndex = String(index);
     item.className = 'navigator-item';
     item.classList.toggle(
       'navigator-item-active',
       index === options.getActiveIndex()
     );
-    if (hasCustomTitle) {
-      item.classList.add('navigator-item-custom-title');
-    }
     itemMain.className = 'navigator-item-main';
     const itemIndex = document.createElement('span');
     itemIndex.className = 'navigator-item-index';
     itemIndex.textContent = `${index + 1}.`;
     itemText.className = 'navigator-item-text';
-    itemText.textContent = titleText.replace(/\s+/g, ' ');
+    itemText.textContent = message.text.replace(/\s+/g, ' ');
 
     const markButton = createPromptMarkButton({
       item,
@@ -256,13 +247,7 @@ export function createTocListRenderer(
     }
 
     const showTooltip = (event: MouseEvent): void => {
-      if (hasCustomTitle) {
-        previewTooltip.show(
-          { originalPrompt: message.text, customTitle },
-          event,
-          itemMain
-        );
-      } else if (isElementTextTruncated(itemText)) {
+      if (isElementTextTruncated(itemText)) {
         previewTooltip.show(message.text, event, itemMain);
       }
     };
@@ -283,21 +268,10 @@ export function createTocListRenderer(
             label: '添加到我的提示词',
             icon: 'bookmark-plus',
           },
-          {
-            id: 'rename-toc',
-            label: '重命名目录项…',
-            icon: 'pencil-line',
-          },
         ],
         (itemId) => {
           if (itemId === 'save-prompt') {
             options.onSavePrompt?.(message);
-          } else if (itemId === 'rename-toc') {
-            openCustomTocTitleDialog({
-              messageId: message.id,
-              originalPrompt: message.text,
-              onUpdated: render,
-            });
           }
         }
       );

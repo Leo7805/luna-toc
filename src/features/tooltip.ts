@@ -8,8 +8,6 @@
 export interface PreviewTooltipContent {
   title?: string;
   content?: string;
-  originalPrompt?: string;
-  customTitle?: string;
 }
 
 /**
@@ -93,19 +91,7 @@ export const previewTooltip = (() => {
     showTimer = setTimeout(() => {
       tooltip.innerHTML = '';
       if (typeof text === 'object' && text !== null) {
-        if (text.customTitle && text.originalPrompt) {
-          tooltip.innerHTML =
-            '<div class="navigator-preview-tooltip-custom"></div>' +
-            '<div class="navigator-preview-tooltip-original"></div>';
-          const customEl = tooltip.querySelector<HTMLElement>(
-            '.navigator-preview-tooltip-custom'
-          );
-          const origEl = tooltip.querySelector<HTMLElement>(
-            '.navigator-preview-tooltip-original'
-          );
-          if (customEl) customEl.textContent = text.customTitle;
-          if (origEl) origEl.textContent = text.originalPrompt;
-        } else if (text.title && text.content) {
+        if (text.title && text.content) {
           const titleEl = document.createElement('div');
           titleEl.className = 'navigator-preview-tooltip-title';
           titleEl.textContent = text.title;

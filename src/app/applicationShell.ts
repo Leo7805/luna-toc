@@ -19,7 +19,6 @@ import {
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
 import { APP_CONFIG } from '@/config/config';
-import { initializeCustomTocTitles } from '@/features/customTocTitles/customTocTitleStore';
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
 import { initFloatingPanel } from '@/features/sidebar/FloatingPanel';
@@ -214,7 +213,6 @@ function applyStackingConfig(): void {
  */
 export async function initializeApplication(): Promise<void> {
   applyStackingConfig();
-  await initializeCustomTocTitles();
   initTheme();
   navigatorController.init({
     onPromptCountChanged: sidebarController.setPromptCount,

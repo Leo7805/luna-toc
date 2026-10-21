@@ -36,7 +36,6 @@ html[data-theme='dark'] {
   --ct-border-autocomplete: #27354a;
   --ct-border-autocomplete-item: rgba(39, 53, 74, 0.6);
   --ct-border-tooltip-preview: #27354a;
-  --ct-border-tooltip-divider: rgba(39, 53, 74, 0.6);
 
   /* Text */
   --ct-text-primary: #dce6f5;
@@ -56,17 +55,11 @@ html[data-theme='dark'] {
   --ct-text-tooltip-preview: #cbd5e1;
   --ct-text-tooltip-title: #f8fafc;
   --ct-text-tooltip-content: #cbd5e1;
-  --ct-text-tooltip-custom: var(--ct-text-custom-title);
-  --ct-text-tooltip-original: #8fa2bc;
   --ct-text-tooltip-button: #ffffff;
   --ct-text-autocomplete-title: #7f91ff;
   --ct-text-autocomplete-preview: #8fa2bc;
   --ct-text-select: #cbd5e1;
   --ct-text-select-hover: #f1f5f9;
-
-  /* Custom TOC Title (indigo) */
-  --ct-text-custom-title: #a5b4fc;
-  --ct-text-custom-title-active: #c7d2fe;
 
   /* Accent (blue) */
   --ct-accent: #7f91ff;
@@ -137,7 +130,6 @@ html[data-theme='light'] {
   --ct-border-autocomplete: #cddcf0;
   --ct-border-autocomplete-item: rgba(205, 220, 240, 0.6);
   --ct-border-tooltip-preview: #cddcf0;
-  --ct-border-tooltip-divider: rgba(205, 220, 240, 0.6);
 
   /* Text */
   --ct-text-primary: #23456f;
@@ -157,17 +149,11 @@ html[data-theme='light'] {
   --ct-text-tooltip-preview: #23456f;
   --ct-text-tooltip-title: #23456f;
   --ct-text-tooltip-content: #6c82a0;
-  --ct-text-tooltip-custom: var(--ct-text-custom-title);
-  --ct-text-tooltip-original: #6c82a0;
   --ct-text-tooltip-button: #23456f;
   --ct-text-autocomplete-title: #526ef5;
   --ct-text-autocomplete-preview: #6c82a0;
   --ct-text-select: #23456f;
   --ct-text-select-hover: #23456f;
-
-  /* Custom TOC Title (indigo) */
-  --ct-text-custom-title: #4f46e5;
-  --ct-text-custom-title-active: #4338ca;
 
   /* Accent (blue) */
   --ct-accent: #526ef5;
@@ -630,15 +616,6 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   overflow: hidden;
 }
 
-.navigator-item.navigator-item-custom-title .navigator-item-text {
-  color: var(--ct-text-custom-title);
-}
-
-.navigator-item.navigator-item-active.navigator-item-custom-title
-  .navigator-item-text {
-  color: var(--ct-text-custom-title-active);
-}
-
 .navigator-outline-indicator {
   flex: 0 0 20px;
   color: var(--ct-accent-outline-indicator);
@@ -810,27 +787,6 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 
 #luna-toc-preview-tooltip.luna-toc-tooltip-visible {
   display: block;
-}
-
-.navigator-preview-tooltip-custom {
-  font-weight: 600;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--ct-text-tooltip-custom);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.navigator-preview-tooltip-original {
-  font-weight: 400;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--ct-text-tooltip-original);
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-top: 7px;
-  padding-top: 6px;
-  border-top: 1px solid var(--ct-border-tooltip-divider);
 }
 
 .navigator-preview-tooltip-title {

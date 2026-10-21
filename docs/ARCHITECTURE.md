@@ -30,7 +30,7 @@
 
 ## 目录与导航
 
-- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录。
+- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录，使用原始提问作为目录文字；右键菜单保留「添加到我的提示词」，不提供目录项重命名。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
