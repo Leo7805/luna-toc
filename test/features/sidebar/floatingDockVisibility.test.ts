@@ -1,5 +1,5 @@
 /**
- * Tests the 5px full-height edge trigger, right-bottom tools, and row actions.
+ * Tests the borderless 6px light-blue edge, bottom tools, and row actions.
  */
 // @ts-expect-error Vitest runs in Node; browser tsconfig intentionally omits Node typings.
 import { readFileSync } from 'node:fs';
@@ -11,14 +11,18 @@ const stylesheet = readFileSync(
 );
 
 describe('full-height reveal edge and bottom-right sidebar actions', () => {
-  it('uses a text-free, 5px-wide, viewport-height reveal strip', () => {
+  it('uses a uniform translucent light-blue borderless 6px viewport-height strip', () => {
     expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*0;[^}]*width:\s*5px;[^}]*height:\s*100vh;/s
+      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*0;[^}]*width:\s*6px;[^}]*height:\s*100vh;/s
     );
     expect(stylesheet).toMatch(
-      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*5px;[^}]*height:\s*100%;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
+      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*6px;[^}]*height:\s*100%;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
     );
     expect(stylesheet).not.toMatch(/#luna-toc-floating-dock::before\s*\{/);
+    const handle = stylesheet.match(/^#luna-toc-toggle-btn\s*\{([^}]*)\}/m)?.[1];
+    expect(handle).toMatch(/border:\s*0;/);
+    expect(handle).not.toMatch(/border-left|box-shadow|background-image/);
+    expect(stylesheet).toMatch(/--ct-toggle-btn-hover-bg:\s*rgba\(147, 197, 253, 0\.35\);/);
   });
 
   it('makes sidebar content and its scrollbar reach the right viewport edge', () => {
@@ -44,8 +48,9 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
     expect(toolbarBlock).toBeDefined();
     expect(toolbarBlock).not.toMatch(/pointer-events:\s*none;/);
   });
-  it('removes the inline flag while retaining adjacent ellipsis and triangle controls', () => {
+  it('removes the inline flag and triangle while preserving the ellipsis menu', () => {
     expect(stylesheet).toMatch(/\.navigator-item-menu-btn\s*\{[^}]*width:\s*20px;[^}]*height:\s*24px;/s);
     expect(stylesheet).not.toMatch(/\.navigator-mark-btn\s*\{/);
+    expect(stylesheet).not.toMatch(/\.navigator-outline-indicator\s*\{/);
   });
 });

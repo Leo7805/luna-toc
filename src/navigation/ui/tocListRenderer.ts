@@ -36,7 +36,6 @@ export interface TocListRendererOptions {
   getMessages: () => NavigatorMessage[];
   getActiveIndex: () => number | null;
   onItemClick: (message: NavigatorMessage, index: number) => void;
-  onOutlineToggle?: (message: NavigatorMessage, index: number) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   onPromptCountReported?: (count: number) => void;
   onRefreshObservers?: () => void;
@@ -229,7 +228,6 @@ export function createTocListRenderer(
       item,
       index,
       messageId: message.id,
-      onToggle: () => options.onOutlineToggle?.(message, index),
     });
 
     const menuButton = document.createElement('button');
@@ -245,12 +243,7 @@ export function createTocListRenderer(
       </svg>
     `;
 
-    itemMain.append(
-      itemIndex,
-      itemText,
-      menuButton,
-      outlineControls?.outlineIndicator || document.createElement('span')
-    );
+    itemMain.append(itemIndex, itemText, menuButton);
     item.append(itemMain);
 
     if (outlineControls?.outlineList) {

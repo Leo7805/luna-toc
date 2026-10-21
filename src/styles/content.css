@@ -76,8 +76,8 @@ html[data-theme='dark'] {
 
   /* Floating toggle button */
   --ct-toggle-btn-color: #7f91ff;
-  --ct-toggle-btn-hover-bg: rgba(127, 145, 255, 0.12);
-  --ct-toggle-btn-hover-active-bg: rgba(127, 145, 255, 0.18);
+  --ct-toggle-btn-hover-bg: rgba(147, 197, 253, 0.35);
+  --ct-toggle-btn-hover-active-bg: rgba(147, 197, 253, 0.5);
   --ct-toggle-label-color: #dce6f5;
   --ct-toggle-label-shadow: #101827;
 
@@ -170,8 +170,8 @@ html[data-theme='light'] {
 
   /* Floating toggle button */
   --ct-toggle-btn-color: #526ef5;
-  --ct-toggle-btn-hover-bg: rgba(82, 110, 245, 0.12);
-  --ct-toggle-btn-hover-active-bg: rgba(82, 110, 245, 0.2);
+  --ct-toggle-btn-hover-bg: rgba(147, 197, 253, 0.35);
+  --ct-toggle-btn-hover-active-bg: rgba(147, 197, 253, 0.5);
   --ct-toggle-label-color: #23456f;
   --ct-toggle-label-shadow: #eef5ff;
 
@@ -471,7 +471,7 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   position: fixed;
   right: 0;
   top: 0;
-  width: 5px;
+  width: 6px;
   height: 100vh;
   z-index: var(--ct-z-toggle, 1010);
   transition: opacity 120ms ease, visibility 120ms ease;
@@ -486,23 +486,20 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 #luna-toc-toggle-btn {
   display: block;
   box-sizing: border-box;
-  width: 5px;
+  width: 6px;
   height: 100%;
   padding: 0;
   border: 0;
-  border-left: 1px solid var(--ct-toggle-btn-color);
   border-radius: 0;
   background: var(--ct-toggle-btn-hover-bg);
   cursor: pointer;
   touch-action: manipulation;
-  opacity: 0.7;
-  transition: opacity 120ms ease, background-color 120ms ease;
+  transition: background-color 120ms ease;
 }
 
 #luna-toc-toggle-btn:hover,
 #luna-toc-toggle-btn:focus-visible {
   background: var(--ct-toggle-btn-hover-active-bg);
-  opacity: 1;
 }
 
 .navigator-icon-btn span {
@@ -578,42 +575,6 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   overflow: hidden;
 }
 
-.navigator-outline-indicator {
-  flex: 0 0 20px;
-  color: var(--ct-accent-outline-indicator);
-  width: 20px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  appearance: none;
-  border: 0;
-  border-radius: 4px;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.navigator-outline-indicator:hover {
-  background: var(--ct-bg-item-hover);
-}
-
-.navigator-outline-indicator:focus-visible {
-  outline: 2px solid var(--ct-accent-outline-indicator);
-  outline-offset: -2px;
-}
-
-.navigator-outline-indicator svg {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
-  stroke: none;
-  transition: transform 120ms ease;
-}
-
-.navigator-outline-indicator[data-expanded='true'] svg {
-  transform: rotate(180deg);
-}
-
 .navigator-item:hover {
   background: var(--ct-bg-item-hover);
 }
@@ -669,7 +630,7 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
     box-shadow 160ms ease;
 }
 
-/* Ellipsis sits immediately to the left of the outline chevron. */
+/* The ellipsis is the row's only trailing action. */
 .navigator-item-menu-btn {
   flex: 0 0 20px;
   width: 20px;

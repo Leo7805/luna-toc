@@ -19,7 +19,6 @@ export type { OutlineEntry };
 
 interface PromptItemEntry {
   item: HTMLElement;
-  outlineIndicator: HTMLButtonElement;
   outlineList: HTMLDivElement;
 }
 
@@ -27,7 +26,6 @@ interface CreatePromptItemOptions {
   item: HTMLElement;
   index: number;
   messageId: string;
-  onToggle?: () => void;
 }
 
 interface PromptNavigationAction {
@@ -86,48 +84,29 @@ function handleInvalidatedOutline(index: number): void {
 }
 
 /**
- * Creates and registers the outline-related DOM pieces for a prompt row.
+ * Creates and registers the answer-heading list for one prompt row.
+ * Expansion is controlled by clicking the prompt row itself.
  * @param {CreatePromptItemOptions} params
- * @returns {{ outlineIndicator: HTMLElement, outlineList: HTMLElement }}
+ * @returns The outline list appended below the prompt row.
  */
 export function createPromptItem({
   item,
   index,
-  onToggle,
 }: CreatePromptItemOptions): {
-  outlineIndicator: HTMLButtonElement;
   outlineList: HTMLDivElement;
 } {
-  const outlineIndicator = document.createElement('button');
   const outlineList = document.createElement('div');
-
-  outlineIndicator.type = 'button';
-  outlineIndicator.className = 'navigator-outline-indicator';
-  outlineIndicator.innerHTML = getOutlineIndicatorIcon();
-  outlineIndicator.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onToggle?.();
-  });
-
-  const entry = {
-    item,
-    outlineIndicator,
-    outlineList,
-  };
+  const entry = { item, outlineList };
 
   promptItems.set(index, entry);
   updatePromptItemState(entry, index);
 
-  return {
-    outlineIndicator,
-    outlineList,
-  };
+  return { outlineList };
 }
 
 /**
  * Changes the answer outline for a prompt.
- * Navigation expands idempotently; the chevron retains toggle behavior.
+ * Repeated prompt clicks toggle expansion while explicit expand stays idempotent.
  * @param {number} index Prompt index.
  * @param {number | null} activeIndex Currently active prompt index.
  * @param {'toggle' | 'expand'} mode Interaction type.
@@ -180,8 +159,7 @@ export function handlePromptNavigation(
     expandedPromptOutlines.delete(index);
   }
 
-  // Navigation requests expansion without cancelling a build already pending.
-  // Only another chevron click may collapse and cancel that build.
+  // An additional click cancels an in-flight build for the same prompt.
   const shouldBuild = mode === 'expand'
     ? pendingOutlineIndex !== index || !expandedPromptOutlines.has(index)
     : !expandedPromptOutlines.has(index);
@@ -206,7 +184,7 @@ export function handlePromptNavigation(
  */
 export function syncActivePrompt(index: number): void {
   if (index === currentPromptIndex) return;
-  // A virtualized answer is being mounted for an explicit triangle click.
+  // A virtualized answer is being mounted for an explicit row click.
   // Intermediate active-prompt updates must not collapse the requested outline.
   if (pendingOutlineIndex !== null && index !== pendingOutlineIndex) return;
 
@@ -368,26 +346,8 @@ function updatePromptItemState(entry: PromptItemEntry, index: number): void {
   entry.item.classList.toggle('navigator-item-has-outline', hasVisibleOutline);
   entry.item.classList.toggle('navigator-item-outline-expanded', isExpanded);
 
-  entry.outlineIndicator.dataset.expanded = String(isExpanded);
-  entry.outlineIndicator.setAttribute('aria-expanded', String(isExpanded));
-  entry.outlineIndicator.setAttribute(
-    'aria-label',
-    isExpanded ? '收起回答标题' : '展开回答标题'
-  );
-
+  entry.item.setAttribute('aria-expanded', String(isExpanded));
   renderOutlineList(entry.outlineList, outline, isExpanded, index);
-}
-
-/**
- * Returns the shared chevron icon used by collapsed and expanded outlines.
- * CSS rotates the same SVG so both states stay visually consistent.
- */
-function getOutlineIndicatorIcon(): string {
-  return `
-      <svg aria-hidden="true" viewBox="0 0 16 16">
-        <path d="M3 5h10L8 11Z" />
-      </svg>
-    `;
 }
 
 /**

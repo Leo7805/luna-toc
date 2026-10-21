@@ -110,7 +110,7 @@ describe('tocListRenderer', () => {
     expect(onItemClick).toHaveBeenCalledWith(mockMessages[1], 1);
   });
 
-  it('puts the ellipsis immediately before the last-position outline toggle, without a flag', () => {
+  it('keeps only the ellipsis after the title, without a flag or a triangle', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
@@ -124,31 +124,29 @@ describe('tocListRenderer', () => {
         'navigator-item-index',
         'navigator-item-text',
         'navigator-item-menu-btn',
-        'navigator-outline-indicator',
       ]);
     expect(main.querySelector('.navigator-mark-btn')).toBeNull();
+    expect(main.querySelector('.navigator-outline-indicator')).toBeNull();
   });
 
-  it('always shows a separate triangle toggle without activating prompt navigation', () => {
+  it('sends repeat row clicks to navigation for outline toggling without the chevron', () => {
     const onItemClick = vi.fn();
-    const onOutlineToggle = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
       onItemClick,
-      onOutlineToggle,
     });
 
     renderer.render();
-    const item = listElement.children[1] as HTMLElement;
-    const triangle = item.querySelector<HTMLButtonElement>('.navigator-outline-indicator');
-    expect(triangle?.tagName).toBe('BUTTON');
-    expect(triangle?.getAttribute('aria-expanded')).toBe('false');
-    expect(triangle?.querySelector('svg')).not.toBeNull();
+    const row = listElement.children[1] as HTMLElement;
+    expect(row.querySelector('.navigator-outline-indicator')).toBeNull();
+    expect(row.getAttribute('aria-expanded')).toBe('false');
 
-    triangle!.click();
-    expect(onOutlineToggle).toHaveBeenCalledWith(mockMessages[1], 1);
-    expect(onItemClick).not.toHaveBeenCalled();
+    row.click();
+    row.click();
+    expect(onItemClick).toHaveBeenCalledTimes(2);
+    expect(onItemClick).toHaveBeenNthCalledWith(1, mockMessages[1], 1);
+    expect(onItemClick).toHaveBeenNthCalledWith(2, mockMessages[1], 1);
   });
 
   it('updates active item UI and toggles active class', () => {

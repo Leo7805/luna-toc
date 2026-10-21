@@ -69,56 +69,74 @@ describe('prompt outlines', () => {
     expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: true });
   });
 
-  it('shows a triangle before headings are cached and expands on first build', () => {
+  it('shows no triangle and expands/collapses on repeated row clicks', () => {
     setPromptMessages([createMessage('prompt-a')]);
     renderConversation('prompt-a', [['h2', 'First heading']]);
 
     const item = document.createElement('div');
     document.body.appendChild(item);
-    const { outlineIndicator, outlineList } = createPromptItem({
+    const { outlineList } = createPromptItem({
       item,
       index: 0,
       messageId: 'prompt-a',
     });
-    item.append(outlineIndicator, outlineList);
+    item.append(outlineList);
 
-    expect(outlineIndicator.querySelector('svg')).not.toBeNull();
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+    expect(item.querySelector('.navigator-outline-indicator')).toBeNull();
+    expect(item.getAttribute('aria-expanded')).toBe('false');
     expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: true });
     scheduleBuild(0, 1);
 
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+    expect(item.getAttribute('aria-expanded')).toBe('true');
     expect(outlineList.hidden).toBe(false);
     expect(outlineList.textContent).toContain('First heading');
 
     expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: false });
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+    expect(item.getAttribute('aria-expanded')).toBe('false');
     expect(outlineList.hidden).toBe(true);
   });
 
-  it('expands a cached outline on row navigation without toggling it closed', () => {
+  it('preserves an explicit expand request while row clicks can collapse it', () => {
     setPromptMessages([createMessage('prompt-a')]);
     renderConversation('prompt-a', [['h2', 'Cached heading']]);
     const item = document.createElement('div');
     document.body.appendChild(item);
-    const { outlineIndicator, outlineList } = createPromptItem({
+    const { outlineList } = createPromptItem({
       item, index: 0, messageId: 'prompt-a',
     });
-    item.append(outlineIndicator, outlineList);
+    item.append(outlineList);
 
     expect(handlePromptNavigation(0, null, 'expand')).toEqual({ shouldBuild: true });
     scheduleBuild(0, 1);
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+    expect(item.getAttribute('aria-expanded')).toBe('true');
 
     expect(handlePromptNavigation(0, 0, 'expand')).toEqual({ shouldBuild: false });
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+    expect(item.getAttribute('aria-expanded')).toBe('true');
     expect(outlineList.textContent).toContain('Cached heading');
 
-    // The separate chevron still collapses or expands.
+    // Clicking the same directory row again collapses or expands.
     expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: false });
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+    expect(item.getAttribute('aria-expanded')).toBe('false');
     expect(handlePromptNavigation(0, 0, 'expand')).toEqual({ shouldBuild: false });
-    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+    expect(item.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('cancels a pending outline build when the same row is clicked again', () => {
+    setPromptMessages([createMessage('pending-prompt')]);
+    const item = document.createElement('div');
+    document.body.appendChild(item);
+    const { outlineList } = createPromptItem({
+      item, index: 0, messageId: 'pending-prompt',
+    });
+    item.appendChild(outlineList);
+
+    expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: true });
+    expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: false });
+
+    renderConversation('pending-prompt', [['h2', 'Arrived too late']]);
+    scheduleBuild(0, 1);
+    expect(item.getAttribute('aria-expanded')).toBe('false');
+    expect(outlineList.hidden).toBe(true);
   });
 
   it('keeps an outline expansion pending until a virtualized answer mounts', () => {
@@ -127,20 +145,20 @@ describe('prompt outlines', () => {
       setPromptMessages([createMessage('prompt-a')]);
       const item = document.createElement('div');
       document.body.appendChild(item);
-      const { outlineIndicator, outlineList } = createPromptItem({
+      const { outlineList } = createPromptItem({
         item, index: 0, messageId: 'prompt-a',
       });
-      item.append(outlineIndicator, outlineList);
+      item.append(outlineList);
 
       expect(handlePromptNavigation(0, null, 'expand')).toEqual({ shouldBuild: true });
       scheduleBuild(0, 3);
-      expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+      expect(item.getAttribute('aria-expanded')).toBe('false');
       expect(handlePromptNavigation(0, null, 'expand')).toEqual({ shouldBuild: false });
 
       renderConversation('prompt-a', [['h2', 'Late heading']]);
       vi.advanceTimersByTime(300);
 
-      expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+      expect(item.getAttribute('aria-expanded')).toBe('true');
       expect(outlineList.textContent).toContain('Late heading');
     } finally {
       vi.useRealTimers();

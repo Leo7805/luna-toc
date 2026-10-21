@@ -36,7 +36,6 @@ import {
 } from './jump/promptNavigation';
 import {
   handlePromptNavigation,
-  getPromptOutline,
   resetOutline,
   scheduleBuild,
   syncMarkState,
@@ -98,9 +97,6 @@ export const navigatorController = (() => {
     getActiveIndex: () => activePromptTracker.getActiveIndex(),
     onItemClick: (message, index) => {
       handleNavigatorItemClick(message, index);
-    },
-    onOutlineToggle: (message, index) => {
-      handleNavigatorOutlineToggle(message, index);
     },
     onSavePrompt: (message) => {
       onSavePrompt(message);
@@ -299,7 +295,7 @@ export const navigatorController = (() => {
   }
 
   /**
-   * Navigates to a prompt and expands its answer outline when available.
+   * Navigates to a prompt and toggles its answer outline on repeated clicks.
    * @param {NavigatorMessage} message Target prompt.
    * @param {number} index Target prompt index.
    */
@@ -310,32 +306,10 @@ export const navigatorController = (() => {
     previewTooltip.hide();
     const action = handlePromptNavigation(
       index,
-      activePromptTracker.getActiveIndex(),
-      'expand'
+      activePromptTracker.getActiveIndex()
     );
     jumpToMessage(message, index);
     if (action.shouldBuild) scheduleBuild(index);
-  }
-
-  /**
-   * Expands or collapses an answer outline without firing the prompt row's
-   * click handler. Unmounted responses require a prompt jump before extraction.
-   */
-  function handleNavigatorOutlineToggle(
-    message: NavigatorMessage,
-    index: number
-  ): void {
-    previewTooltip.hide();
-    const action = handlePromptNavigation(
-      index,
-      activePromptTracker.getActiveIndex()
-    );
-    if (!action.shouldBuild) return;
-
-    if (getPromptOutline(index).length === 0) {
-      jumpToMessage(message, index);
-    }
-    scheduleBuild(index);
   }
 
   /**
