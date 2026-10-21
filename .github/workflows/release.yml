@@ -1,10 +1,10 @@
-# Build and publish unpacked Chrome extensions from the cleanup branch.
+# Build and publish unpacked Chrome extensions from the main branch.
 name: Build and publish Chrome extension
 
 on:
   push:
     branches:
-      - chore/remove-upstream-residue
+      - main
   workflow_dispatch:
 
 permissions:
@@ -119,7 +119,7 @@ jobs:
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         shell: bash
         run: |
-          tag="preview-chore-remove-upstream-residue-${COMMIT_SHA:0:12}"
+          tag="preview-main-${COMMIT_SHA:0:12}"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" luna-toc-sc-chrome.zip luna-toc-sc-chrome.zip.sha256 --clobber
           else
@@ -129,5 +129,5 @@ jobs:
               --target "$COMMIT_SHA" \
               --title "LunaTOC Chrome preview (${COMMIT_SHA:0:12})" \
               --prerelease \
-              --notes "Unpacked Chrome extension built from chore/remove-upstream-residue at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). Automated test outcome: ${TEST_OUTCOME} (non-blocking). This is a development preview, not a Chrome Web Store package."
+              --notes "Unpacked Chrome extension built from main at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). Automated test outcome: ${TEST_OUTCOME} (non-blocking). This is a development preview, not a Chrome Web Store package."
           fi
