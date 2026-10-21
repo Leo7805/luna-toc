@@ -1,8 +1,8 @@
 /**
- * Prevents regressions where the collapsed floating dock is visually absent.
- * The browser smoke-check separately verifies actual pointer hit testing.
+ * Verifies the collapsed 10px reveal strip and sidebar-owned centered tools.
+ * Actual hover and pinning state transitions are tested in sidebarVisibility.
  */
-// @ts-expect-error Test runtime is Node.js; browser tsconfig deliberately omits Node typings.
+// @ts-expect-error Vitest runs in Node; the browser tsconfig intentionally omits Node types.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -11,23 +11,30 @@ const stylesheet = readFileSync(
   'utf8'
 );
 
-describe('collapsed directory dock visual affordance', () => {
-  it('has a readable, hoverable button-height edge tab when the moon is retracted', () => {
+describe('slim right-edge sidebar trigger', () => {
+  it('is 10px wide, keeps the translucent blue background and has no visible text', () => {
     expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock\s*\{[^}]*right:\s*-26px;[^}]*width:\s*42px;[^}]*height:\s*42px;/s
+      /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*width:\s*10px;[^}]*height:\s*42px;/s
     );
     expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock::before\s*\{[^}]*content:\s*'目录';[^}]*left:\s*-16px;[^}]*width:\s*32px;[^}]*height:\s*42px;[^}]*background:\s*var\(--ct-toggle-btn-color\);/s
+      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*10px;[^}]*height:\s*42px;[^}]*background:\s*var\(--ct-toggle-btn-hover-bg\);/s
     );
-    expect(stylesheet).toMatch(
-      /#luna-toc-floating-dock:hover::before,[\s\S]*?pointer-events:\s*none;/s
-    );
-    expect(stylesheet).not.toMatch(/#luna-toc-floating-dock\s*\{[^}]*height:\s*100(?:d?vh);/s);
+    expect(stylesheet).not.toMatch(/#luna-toc-floating-dock::before\s*\{/);
+    expect(stylesheet).not.toMatch(/#luna-toc-toggle-btn\s+\.toggle-sidebar-label/);
   });
 
-  it('keeps the pop-out controls aligned with the moon rather than the sidebar', () => {
+  it('hides the trigger while the sidebar is open', () => {
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*position:\s*absolute;[^}]*right:\s*100%;[^}]*top:\s*50%;/s
+      /#luna-toc-floating-dock\.luna-toc-floating-dock-hidden\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s
+    );
+  });
+
+  it('positions the three tools vertically centered on the sidebar right edge', () => {
+    expect(stylesheet).toMatch(
+      /\.navigator-jump-controls\s*\{[^}]*position:\s*absolute;[^}]*right:\s*8px;[^}]*top:\s*50%;/s
+    );
+    expect(stylesheet).toMatch(
+      /\.navigator-jump-controls\s*\{[^}]*transform:\s*translateY\(-50%\);/s
     );
   });
 });

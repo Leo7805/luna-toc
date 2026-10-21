@@ -21,7 +21,6 @@ import {
 import { APP_CONFIG } from '@/config/config';
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
-import { initFloatingPanel } from '@/features/sidebar/FloatingPanel';
 import { createJumpToEdgeControls } from '@/features/sidebar/jumpToEdgeControls';
 
 /**
@@ -229,7 +228,6 @@ export async function initializeApplication(): Promise<void> {
   initSidebarResize(sidebar);
   createJumpToEdgeControls(() => sidebarController.isMyPromptsView());
   const toggleButton = createSidebarToggleButton();
-  initFloatingPanel();
   initializeSidebarVisibility(sidebar, toggleButton, {
     onOpened: () => {
       if (!sidebarController.isMyPromptsView()) {

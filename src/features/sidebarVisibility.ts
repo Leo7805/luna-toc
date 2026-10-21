@@ -47,14 +47,7 @@ function bindToggleButton(): void {
   if (!toggleBtn) return;
   const button = toggleBtn;
 
-  button.addEventListener('click', (event) => {
-    if (button.dataset.dragged === 'true') {
-      event.preventDefault();
-      button.dataset.dragged = 'false';
-      return;
-    }
-    handleAutoHideEnter();
-  });
+  button.addEventListener('click', handleAutoHideEnter);
 }
 
 function bindAutoHide(): void {

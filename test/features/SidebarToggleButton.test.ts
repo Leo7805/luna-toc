@@ -1,66 +1,53 @@
 /**
  * @vitest-environment jsdom
- * Tests the partially hidden, viewport-docked, vertically draggable moon.
+ * Checks the small text-free right-edge handle and legacy position restore.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
 
 afterEach(() => {
   document.body.textContent = '';
   sessionStorage.removeItem('chatTocToggleButtonPosition');
-  vi.restoreAllMocks();
 });
 
-describe('floating directory moon', () => {
-  it('creates a compact moon inside a shared edge dock and restores only vertical position', () => {
+describe('slim sidebar reveal handle', () => {
+  it('creates an unlabeled visual trigger with an accessible name', () => {
     sessionStorage.setItem('chatTocToggleButtonPosition', JSON.stringify({
-      left: 120,
-      top: 240,
+      left: 120, top: 240,
     }));
-    const moon = createSidebarToggleButton();
-    const dock = moon.parentElement!;
+    const trigger = createSidebarToggleButton();
+    const dock = trigger.parentElement!;
 
     expect(dock.id).toBe('luna-toc-floating-dock');
-    expect(moon.id).toBe('luna-toc-toggle-btn');
-    expect(moon.getAttribute('aria-label')).toBe('展开目录');
-    expect(moon.getAttribute('aria-expanded')).toBe('false');
-    expect(moon.querySelector('svg')).not.toBeNull();
-    expect(moon.textContent).toContain('目录');
+    expect(trigger.id).toBe('luna-toc-toggle-btn');
+    expect(trigger.getAttribute('aria-label')).toBe('展开目录');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.textContent).toBe('');
+    expect(trigger.querySelector('svg')).toBeNull();
     expect(dock.style.top).toBe('240px');
     expect(dock.style.left).toBe('');
     expect(dock.style.right).toBe('');
   });
 
-  it('drags the moon and shared dock vertically, without changing the edge alignment', () => {
-    sessionStorage.setItem('chatTocToggleButtonPosition', JSON.stringify({
-      top: 200,
-    }));
-    const moon = createSidebarToggleButton();
-    const dock = moon.parentElement!;
-    vi.spyOn(dock, 'getBoundingClientRect').mockImplementation(() =>
-      ({ top: Number.parseFloat(dock.style.top), height: 42 }) as DOMRect
-    );
-
-    moon.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 100 }));
-    moon.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, button: 0, clientY: 180 }));
-    moon.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, button: 0, clientY: 180 }));
-
-    expect(dock.style.top).toBe('280px');
-    expect(dock.style.right).toBe('');
-    expect(moon.dataset.dragged).toBe('true');
-    expect(JSON.parse(sessionStorage.getItem('chatTocToggleButtonPosition')!).top).toBe(280);
-  });
-
-  it('reclamps the saved vertical ratio on window resize', () => {
+  it('preserves an existing vertical ratio after window resize', () => {
     sessionStorage.setItem('chatTocToggleButtonPosition', JSON.stringify({
       topRatio: 1,
     }));
-    const moon = createSidebarToggleButton();
-    const dock = moon.parentElement!;
+    const trigger = createSidebarToggleButton();
+    const dock = trigger.parentElement!;
     const expectedTop = window.innerHeight - 42 - 8;
     expect(dock.style.top).toBe(`${expectedTop}px`);
 
     window.dispatchEvent(new Event('resize'));
     expect(dock.style.top).toBe(`${expectedTop}px`);
+  });
+
+  it('ignores horizontal positions from previous floating button versions', () => {
+    sessionStorage.setItem('chatTocToggleButtonPosition', JSON.stringify({
+      left: 60, top: 135,
+    }));
+    const trigger = createSidebarToggleButton();
+    expect(trigger.parentElement?.style.left).toBe('');
+    expect(trigger.parentElement?.style.top).toBe('135px');
   });
 });

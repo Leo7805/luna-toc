@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建独立于侧边栏的 42×42 月牙「目录」悬浮按钮及固定在视口右缘的共用 dock，默认将按钮大部分收出视口，由具有对比度的竖向「目录」短标签保留可见、可悬停的触发区域；悬停后完整弹出，允许整组垂直拖动并保存纵向比例。`src/features/sidebar/FloatingPanel.ts` 将三个按钮附着在该 dock 内，通过 CSS 以月牙左侧与垂直中心定位，悬停月牙时显示，拖动月牙或工具条空白处时同步移动；不依赖侧边栏宽度。`src/features/sidebarVisibility.ts` 独立协调侧边栏自动隐藏与 dock 悬停，不以悬停侧边栏作为工具条显示条件。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建贴视口右缘、约 10×42px 的半透明蓝色触发条，不含可见文字或图标，兼容之前保存的纵向位置，并在视口大小变化时重新约束位置。`src/features/sidebarVisibility.ts` 协调侧边栏和触发条的互斥显示：悬停触发条打开侧边栏，触发条随即隐藏且不再响应指针；侧边栏关闭后重新显示，固定侧边栏时始终不显示触发条。三个已有的导航/提示词按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，直接留在侧边栏内部并通过 CSS 在右侧垂直居中，显示与交互权限由侧边栏统一控制，不再维护独立的工具条悬浮状态。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 

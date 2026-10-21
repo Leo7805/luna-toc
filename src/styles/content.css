@@ -310,9 +310,9 @@ html[data-theme='light'] {
 
 .navigator-jump-controls {
   position: absolute;
-  right: 100%;
+  right: 8px;
   top: 50%;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -325,26 +325,9 @@ html[data-theme='light'] {
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  overflow: hidden;
-  cursor: ns-resize;
-  touch-action: none;
+  cursor: default;
   user-select: none;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translate(8px, -50%);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
-}
-
-.navigator-jump-controls.navigator-jump-controls-visible {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translate(0, -50%);
-}
-
-.navigator-jump-controls.navigator-jump-controls-dragging {
-  cursor: grabbing;
+  transform: translateY(-50%);
 }
 
 .navigator-icon-btn {
@@ -471,110 +454,43 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   pointer-events: none;
 }
 
-/* The compact moon and its toolbar share one vertically draggable dock. */
+/* Collapsed sidebar: a short, translucent blue tab, with no visible label. */
 #luna-toc-floating-dock {
   position: fixed;
-  right: -26px;
+  right: 0;
   top: calc(50% - 21px);
-  width: 42px;
+  width: 10px;
   height: 42px;
   z-index: var(--ct-z-toggle, 1010);
-  overflow: visible;
-  transition: right 160ms ease;
+  transition: opacity 120ms ease, visibility 120ms ease;
 }
 
-#luna-toc-floating-dock:hover,
-#luna-toc-floating-dock:focus-within,
-#luna-toc-floating-dock.luna-toc-floating-dock-open {
-  right: 0;
-}
-
-#luna-toc-floating-dock.luna-toc-floating-dock-dragging {
-  transition: none;
-}
-
-/* The high-contrast, button-height tab remains discoverable while the moon
-   sits mostly beyond the viewport. Its pseudo-element receives hover events. */
-#luna-toc-floating-dock::before {
-  content: '目录';
-  position: absolute;
-  left: -16px;
-  top: 0;
-  width: 32px;
-  height: 42px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  writing-mode: vertical-rl;
-  font: 700 12px/1.2 system-ui, sans-serif;
-  letter-spacing: 2px;
-  color: #fff;
-  background: var(--ct-toggle-btn-color);
-  border-radius: 10px 0 0 10px;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.14);
-  cursor: pointer;
-  opacity: 0.94;
-  transition: opacity 100ms ease;
-}
-
-#luna-toc-floating-dock:hover::before,
-#luna-toc-floating-dock:focus-within::before,
-#luna-toc-floating-dock.luna-toc-floating-dock-open::before {
+#luna-toc-floating-dock.luna-toc-floating-dock-hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
 #luna-toc-toggle-btn {
-  position: relative;
-  display: grid;
-  place-items: center;
+  display: block;
   box-sizing: border-box;
-  width: 42px;
+  width: 10px;
   height: 42px;
   padding: 0;
-  border: none;
-  border-radius: 50%;
+  border: 0;
+  border-left: 2px solid var(--ct-toggle-btn-color);
+  border-radius: 8px 0 0 8px;
   background: var(--ct-toggle-btn-hover-bg);
-  color: var(--ct-toggle-btn-color);
-  opacity: 0.78;
-  cursor: ns-resize;
-  touch-action: none;
-  transition: background-color 120ms ease, opacity 120ms ease;
-}
-
-/* Hide the dim partial moon behind the readable collapsed tab. */
-#luna-toc-floating-dock:not(:hover):not(:focus-within):not(.luna-toc-floating-dock-open)
-  #luna-toc-toggle-btn {
-  opacity: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: 0.7;
+  transition: opacity 120ms ease, background-color 120ms ease;
 }
 
 #luna-toc-toggle-btn:hover,
 #luna-toc-toggle-btn:focus-visible {
   background: var(--ct-toggle-btn-hover-active-bg);
-  color: var(--ct-accent-hover);
   opacity: 1;
-}
-
-#luna-toc-toggle-btn svg,
-#luna-toc-toggle-btn .toggle-sidebar-label {
-  grid-area: 1 / 1;
-  pointer-events: none;
-}
-
-#luna-toc-toggle-btn svg {
-  display: block;
-  width: 42px;
-  height: 42px;
-}
-
-#luna-toc-toggle-btn .toggle-sidebar-label {
-  font-size: 11px;
-  font-weight: 700;
-  font-family: system-ui, sans-serif;
-  letter-spacing: 0.5px;
-  color: var(--ct-bg-sidebar-solid);
-  transform: translate(-2px, -1px);
 }
 
 .navigator-icon-btn span {
