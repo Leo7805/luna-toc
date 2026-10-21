@@ -92,14 +92,9 @@ Do not create unnecessary documentation files.
 
 ## Persistent Context
 
-1. Use `docs/context.md` as the concise, persistent handoff for work that must continue across sessions or agents.
-2. Write and maintain all persistent context in English.
-3. Read `docs/context.md` when starting a new session, recovering from lost or compacted context, resuming paused work, or switching to a different area of the project.
-4. Update `docs/context.md` when the active goal, implementation state, key decision, blocker, validation result, or next step materially changes.
-5. Replace stale information instead of appending a chronological conversation log.
-6. Keep the file concise and link to `docs/ARCHITECTURE.md` or `docs/DECISIONS.md` instead of duplicating durable documentation.
-7. Never store secrets, credentials, tokens, or private user data in the context file.
-8. The primary coordinating agent is the default and only writer; sub-agents may read the file and report findings unless write ownership is explicitly delegated.
+1. Create `docs/context.md` only if multi-session work requires a handoff; it is not an existing mandatory input.
+2. Keep handoffs concise, in English, free of secrets; remove stale handoffs.
+3. Refer to `docs/ARCHITECTURE.md` and `docs/DECISIONS.md` for historical decisions.
 
 ## Testing
 

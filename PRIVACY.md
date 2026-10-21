@@ -19,4 +19,4 @@ LunaTOC 是一个以 ChatGPT 为主要支持平台的 Chrome 浏览器扩展。�
 
 ## 联系方式
 
-问题反馈请使用本仓库的 [GitHub Issues](https://github.com/PyRookie1/luna-toc-sc/issues)。
+仓库目前尚未开启 GitHub Issues；请勿将 Issues 页面视为已启用的反馈渠道。

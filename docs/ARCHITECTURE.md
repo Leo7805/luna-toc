@@ -105,7 +105,7 @@ graph TD
 
 - Every host LunaTOC supports is described by a `Platform` record exported from [`src/platforms/platformInterface.ts`](../src/platforms/platformInterface.ts). Each record carries its own `pageHook`, `navigation`, `routing`, `contentCapture`, `diagnostics`, `config`, `messages`, `runtimeConfigKey`, and optional `theme`.
 - [`getActivePlatform()`](../src/platforms/index.ts) is the only host-detection call in the codebase. It runs once at startup, walks the `PLATFORMS` registry, and returns the adapter whose `matches` accept `window.location.host`. Any module that needs platform-specific behavior calls `getActivePlatform()` and consumes `platform.*` fields rather than importing from `src/platforms/<host>/`.
-- ChatGPT lives under [`src/platforms/chatgpt/`](../src/platforms/chatgpt/); it wraps the existing modules instead of rewriting them so behavior is unchanged. A [`src/platforms/copilot/`](../src/platforms/copilot/) placeholder exists where every method throws `Error('Copilot platform not yet implemented')` — see [ADR 11](DECISIONS.md#adr-11-platform-abstraction-interface).
+- Only ChatGPT is registered; historical Copilot placeholder code was removed. See [ADR 11](DECISIONS.md#adr-11-platform-abstraction-interface) for the original design.
 - `APP_CONFIG` exposes a `Record<PlatformId, PlatformConfigBlock>`; `navigationAlgorithm`, `promptTopOffsetPx`, `settleAttempts`, `backfillMaxPages`, `interceptFetchNumTurns`, contract slots, and DOM selectors are all per-platform.
 
 ### Main World (`pageHook.iife.ts`)
@@ -172,7 +172,7 @@ graph TD
 - [PromptEditorDialog.tsx](../src/components/my-prompts/PromptEditorDialog.tsx) renders the first migrated My Prompts interface while saving remains in the feature layer.
 - [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature and keeps a single highlight owned by the most recent pointer or keyboard interaction.
 - [PopupApp.tsx](../src/components/popup/PopupApp.tsx) renders the extension Popup, including the follow-ChatGPT and manual theme controls.
-- [OptionsApp.tsx](../src/components/options/OptionsApp.tsx) renders the ChatGPT navigation strategy setting as immediately saved radio cards.
+- [OptionsApp.tsx](../src/components/options/OptionsApp.tsx) renders developer-only compatibility diagnostics. Independent virtual navigation is the only supported strategy.
 - Popup layout and component styling use Tailwind utilities; `popup.css` remains the Tailwind entry and retains only theme tokens and document-level base rules.
 - `@/` resolves to the entire `src/` directory for browser code, React components, styles, and utilities.
 - Tailwind CSS is loaded as an inline string inside the React Shadow Root, so generated global rules cannot affect ChatGPT or the legacy Content Script UI.
@@ -182,7 +182,7 @@ graph TD
 ### Build Outputs
 
 - `src/config/config.ts` centralizes compile-time values intended for deliberate project tuning, including sidebar widths and a shared z-index base with semantic Sidebar, Toggle, Popover, and Modal offsets; runtime user preferences remain in their existing storage modules.
-- `platforms.chatgpt.navigationAlgorithm` supplies the default `legacy-native` fallback, while `navigationSettings.ts` persists and synchronizes the user's runtime choice between native and independent navigation.
+- `platforms.chatgpt.navigationAlgorithm` defaults to `independent-virtual`; persisted `legacy-native` choices are normalized to the only supported strategy.
 - `platforms.chatgpt.promptTopOffsetPx` keeps a small gap above prompts after independent navigation aligns them with the chat container's top edge.
 - `platforms.chatgpt.settleAttempts` limits how many times independent navigation re-resolves a Prompt after ChatGPT replaces virtualized DOM.
 - `navigation.search` bounds each virtual search by 32 total attempts and 4 seconds and stops response seeking earlier after 6 consecutive attempts without logical progress; unresolved positions use the same no-progress budget instead of a separate smaller limit.

@@ -76,7 +76,7 @@ describe('mountQueue', () => {
     expect(findTargetInQueue(queue, 'missing', 99)).toBeNull();
   });
 
-  it('throws explicit error when platform does not support mounted prompt inspection', () => {
+  it('rejects a host that is no longer registered', () => {
     const originalHost = window.location.host;
     try {
       Object.defineProperty(window, 'location', {
@@ -85,10 +85,10 @@ describe('mountQueue', () => {
       });
 
       expect(() => seedMountQueue([{ id: 'prompt-1' }])).toThrow(
-        'LunaTOC: current platform does not support mounted prompt inspection'
+        'LunaTOC: no platform registered for host "copilot.microsoft.com"'
       );
       expect(() => detectNewMounts(new Map(), [{ id: 'prompt-1' }])).toThrow(
-        'LunaTOC: current platform does not support mounted prompt inspection'
+        'LunaTOC: no platform registered for host "copilot.microsoft.com"'
       );
     } finally {
       Object.defineProperty(window, 'location', {

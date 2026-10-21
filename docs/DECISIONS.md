@@ -2,6 +2,8 @@
 
 This document records architectural decisions carried over from the upstream project and subsequent LunaTOC development. Historical names and persistence keys are preserved when they document actual compatibility requirements.
 
+**Current implementation (2026-10-21):** ADR 03's legacy-native navigation and ADR 11's Copilot placeholder were retired. Only independent virtual navigation and the ChatGPT host are supported. Older decisions below are preserved as historical records.
+
 ---
 
 ## ADR 01: Session-Bound State Storage (sessionStorage)
