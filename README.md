@@ -48,7 +48,7 @@
 
 > 注意：`Code → Download ZIP` 获取的是未构建的源码，不是可安装版本；Chrome 不支持将普通 ZIP 文件直接作为未打包扩展加载。预览版随分支推送自动发布，不代表已完成 Chrome 实机兼容性测试。
 
-每次推送该分支都会触发 [构建工作流](https://github.com/PyRookie1/luna-toc-sc/actions)。工作流执行 `npm ci`、`npm run typecheck`、`npm test`、`npm run build`，校验 `dist/manifest.json` 所引用的资源后发布 ZIP 和 SHA-256 校验文件；同时在 Actions 中保留 30 天的构建产物。若校验或测试失败，则不会发布该次构建的 Release。
+每次推送该分支都会触发 [构建工作流](https://github.com/PyRookie1/luna-toc-sc/actions)。工作流执行 `npm ci`、`npm run typecheck`、`npm test`、`npm run build`，校验 `dist/manifest.json` 所引用的资源后发布 ZIP 和 SHA-256 校验文件；同时在 Actions 中保留 30 天的构建产物。**类型检查、构建或安装包校验失败将阻止发布；现有测试失败会记录在 Actions 日志和 Release 说明中，但不会阻止生成开发预览版。**预览版不等于全部功能通过验证。
 
 ## 从源码安装（包含 GitHub ZIP）
 

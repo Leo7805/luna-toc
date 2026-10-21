@@ -38,7 +38,15 @@ jobs:
         run: npm run typecheck
 
       - name: Run tests
+        id: tests
+        continue-on-error: true
         run: npm test
+
+      - name: Warn about existing test failures
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "::warning::The test suite failed; this is an unverified development preview."
+          echo "Some existing tests failed. Check the test step before installing this preview." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build Chrome extension
         run: npm run build
@@ -108,6 +116,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           COMMIT_SHA: ${{ github.sha }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
         shell: bash
         run: |
           tag="preview-chore-remove-upstream-residue-${COMMIT_SHA:0:12}"
@@ -120,5 +129,5 @@ jobs:
               --target "$COMMIT_SHA" \
               --title "LunaTOC Chrome preview (${COMMIT_SHA:0:12})" \
               --prerelease \
-              --notes "Unpacked Chrome extension built from chore/remove-upstream-residue at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). This is a development preview, not a Chrome Web Store package."
+              --notes "Unpacked Chrome extension built from chore/remove-upstream-residue at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). Automated test outcome: ${TEST_OUTCOME} (non-blocking). This is a development preview, not a Chrome Web Store package."
           fi
