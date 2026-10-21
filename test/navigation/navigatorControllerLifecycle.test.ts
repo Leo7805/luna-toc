@@ -534,7 +534,7 @@ describe('navigatorController lifecycle and coordination', () => {
     );
   });
 
-  it('automatically expands the arrow after clicking a prompt row and keeps it open on repeated clicks', async () => {
+  it('jumps and expands on first row click, collapses on second, reopens on third', async () => {
     const platform = getActivePlatform();
     Object.defineProperty(window, 'location', {
       writable: true,
@@ -600,21 +600,22 @@ describe('navigatorController lifecycle and coordination', () => {
 
     const row = document.querySelector<HTMLElement>('.navigator-item')!;
     const text = row.querySelector<HTMLElement>('.navigator-item-text')!;
-    const arrow = row.querySelector<HTMLButtonElement>('.navigator-outline-indicator')!;
-    expect(arrow.getAttribute('aria-expanded')).toBe('false');
+    expect(row.querySelector('.navigator-outline-indicator')).toBeNull();
+    expect(row.getAttribute('aria-expanded')).toBe('false');
 
     text.click();
     expect(jumpToMessageSpy).toHaveBeenCalledOnce();
-    expect(arrow.getAttribute('aria-expanded')).toBe('true');
+    expect(row.getAttribute('aria-expanded')).toBe('true');
     expect(row.querySelector('.navigator-outline-list')?.textContent).toContain('Answer section');
 
     text.click();
     expect(jumpToMessageSpy).toHaveBeenCalledTimes(2);
-    expect(arrow.getAttribute('aria-expanded')).toBe('true');
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(row.querySelector('.navigator-outline-list')?.hasAttribute('hidden')).toBe(true);
 
-    arrow.click();
-    expect(arrow.getAttribute('aria-expanded')).toBe('false');
-    expect(jumpToMessageSpy).toHaveBeenCalledTimes(2);
+    text.click();
+    expect(jumpToMessageSpy).toHaveBeenCalledTimes(3);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
     resetFreshOutline();
   });
 
