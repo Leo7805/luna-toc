@@ -156,3 +156,19 @@ jobs:
             fi
           done < <(gh api "repos/$GH_REPO/git/matching-refs/tags" --jq '.[].ref')
 
+
+      # Remove both obsolete layout branches only after a successful main
+      # release job. Pull requests are closed separately before this run.
+      - name: Remove retired layout experiment branches
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for branch in feat/chatgpt-side-by-side feature/chatgpt-side-by-side-layout; do
+            if gh api "repos/$GH_REPO/git/ref/heads/$branch" >/dev/null 2>&1; then
+              echo "Removing retired branch: $branch"
+              gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch"
+            fi
+          done

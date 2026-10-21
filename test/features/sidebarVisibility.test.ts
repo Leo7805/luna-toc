@@ -5,16 +5,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
+import { initializeChatGptSideBySide, disposeChatGptSideBySide, setChatGptSideBySideEnabled } from '@/features/sidebar/chatGptSideBySide';
 import {
   initializeSidebarVisibility,
   setSidebarHidden,
   setSidebarPinned,
+  setSidebarLayoutMode,
 } from '@/features/sidebarVisibility';
 
 afterEach(() => {
+  disposeChatGptSideBySide();
   promptContextMenuController.close();
   vi.useRealTimers();
   sessionStorage.removeItem('chatTocSidebarPinned');
+  sessionStorage.removeItem('chatToc:activeSidebarLayoutMode');
   sessionStorage.removeItem('chatTocToggleButtonPosition');
   document.body.textContent = '';
 });
@@ -65,9 +69,10 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.parentElement).toBe(sidebar);
     expect(Array.from(panel.querySelectorAll('button')).map(x => x.id))
       .toEqual(['jump-chat-top-btn', 'toggle-view-mode-btn', 'jump-chat-bottom-btn']);
-    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
-    expect(panel.getAttribute('aria-hidden')).toBe('false');
-    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(0);
+    // Opening the sidebar must never force the toolbar buttons to pop open.
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(-1);
     expect(panel.closest('[aria-hidden="true"]')).toBeNull();
 
     // Moving anywhere outside the button group's actual footprint hides it.
@@ -76,7 +81,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(-1);
 
-    // The invisible footprint still accepts pointer entry to reveal the tools.
+    // The invisible footprint reveals the tools only after leaving and re-entering.
     panel.dispatchEvent(new Event('pointerenter'));
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('false');
@@ -145,6 +150,45 @@ describe('sidebar reveal handle and right-side tools', () => {
     setSidebarPinned(false);
     expect(sidebar.getAttribute('aria-hidden')).toBe('true');
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(false);
+  });
+
+  it('applies per-mode defaults and keeps a manual pin while the mode is unchanged', () => {
+    const { sidebar, trigger } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    setSidebarLayoutMode('side-by-side');
+    expect(sidebar.getAttribute('aria-hidden')).toBe('false');
+    expect(document.getElementById('luna-toc-sidebar-pin-btn')?.getAttribute('aria-pressed')).toBe('true');
+    setSidebarPinned(false);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+    setSidebarLayoutMode('side-by-side');
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+
+    setSidebarLayoutMode('overlay');
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+    expect(document.getElementById('luna-toc-sidebar-pin-btn')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('reflows the ChatGPT conversation on sidebar open and restores it when closed', () => {
+    const { sidebar } = setup();
+    sidebar.style.setProperty('--navigator-width', '300px');
+    const root = document.createElement('div');
+    root.id = 'root';
+    root.innerHTML = '<nav id="chatgpt-native-sidebar"></nav><main id="chatgpt-main"><div id="thread"></div></main>';
+    document.body.prepend(root);
+    const main = document.getElementById('chatgpt-main')!;
+
+    initializeChatGptSideBySide(sidebar);
+    initializeSidebarVisibility(sidebar, document.getElementById('luna-toc-toggle-btn') as HTMLButtonElement);
+    setChatGptSideBySideEnabled(true);
+    setSidebarLayoutMode('side-by-side');
+    expect(main.classList.contains('luna-toc-chat-side-by-side')).toBe(true);
+    expect(root.classList.contains('luna-toc-chat-side-by-side')).toBe(false);
+    expect(main.style.getPropertyValue('--luna-toc-reserved-sidebar-width')).toBe('300px');
+
+    setSidebarHidden(true);
+    expect(main.classList.contains('luna-toc-chat-side-by-side')).toBe(false);
+    setSidebarLayoutMode('overlay');
+    expect(main.classList.contains('luna-toc-chat-side-by-side')).toBe(false);
   });
 
   it('also opens from keyboard focus on the slim trigger', () => {

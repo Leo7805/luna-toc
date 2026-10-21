@@ -4,7 +4,10 @@
  * orchestrator that wires them together.
  */
 import { myPrompts } from '@/features/myPrompts/myPrompts';
-import { initializeSidebarVisibility } from '@/features/sidebarVisibility';
+import { initializeSidebarVisibility, setSidebarLayoutMode } from '@/features/sidebarVisibility';
+import { initializeChatGptSideBySide, setChatGptSideBySideEnabled, syncChatGptSideBySide } from '@/features/sidebar/chatGptSideBySide';
+import { initializeJumpControlsPosition } from '@/features/sidebar/jumpControlsPosition';
+import { DEFAULT_SIDEBAR_PREFERENCES, readSidebarPreferences, sidebarAppearance, subscribeSidebarPreferences, type SidebarPreferences } from '@/features/sidebar/sidebarPreferences';
 import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
 import { buttonTooltip, previewTooltip } from '@/features/tooltip';
 import {
@@ -22,6 +25,23 @@ import { APP_CONFIG } from '@/config/config';
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
 import { createJumpToEdgeControls } from '@/features/sidebar/jumpToEdgeControls';
+
+let currentSidebarPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
+
+/** Reapplies local sidebar colors whenever a theme or preference changes. */
+function applySidebarAppearance(): void {
+  const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  const colors = sidebarAppearance(currentSidebarPreferences, theme);
+  const sidebar = document.getElementById('luna-toc-sidebar');
+  if (colors.background) sidebar?.style.setProperty('--ct-bg-sidebar', colors.background);
+  else sidebar?.style.removeProperty('--ct-bg-sidebar');
+  if (colors.header) sidebar?.style.setProperty('--ct-bg-header', colors.header);
+  else sidebar?.style.removeProperty('--ct-bg-header');
+  document.getElementById('luna-toc-floating-dock')?.style.setProperty(
+    '--luna-toc-reveal-bg', colors.reveal
+  );
+}
+
 
 /**
  * Resolves when document.body exists during document_start execution.
@@ -149,6 +169,7 @@ function initSidebarResize(sidebar: HTMLElement): void {
         Math.max(sidebarConfig.minimumWidthPx, startWidth + delta)
       );
       sidebar.style.setProperty('--navigator-width', `${nextWidth}px`);
+      syncChatGptSideBySide();
     }
 
     function handleMouseUp(): void {
@@ -166,6 +187,7 @@ function initTheme(): void {
 
   const applyTheme = (theme: ResolvedTheme): void => {
     document.documentElement.dataset.theme = theme;
+    applySidebarAppearance();
   };
   const handleChatGPTTheme = (theme: ResolvedTheme): void => {
     void writeResolvedChatGPTTheme(theme);
@@ -227,7 +249,9 @@ export async function initializeApplication(): Promise<void> {
   sidebarController.init();
   initSidebarResize(sidebar);
   createJumpToEdgeControls(() => sidebarController.isMyPromptsView());
+  initializeJumpControlsPosition(sidebar);
   const toggleButton = createSidebarToggleButton();
+  initializeChatGptSideBySide(sidebar);
   initializeSidebarVisibility(sidebar, toggleButton, {
     onOpened: () => {
       if (!sidebarController.isMyPromptsView()) {
@@ -235,6 +259,17 @@ export async function initializeApplication(): Promise<void> {
       }
     },
   });
+  const applyPreferences = (preferences: SidebarPreferences): void => {
+    currentSidebarPreferences = preferences;
+    setChatGptSideBySideEnabled(preferences.layoutMode === 'side-by-side');
+    setSidebarLayoutMode(preferences.layoutMode);
+    applySidebarAppearance();
+  };
+  applySidebarAppearance();
+  void readSidebarPreferences().then(applyPreferences).catch(() => {
+    applyPreferences(DEFAULT_SIDEBAR_PREFERENCES);
+  });
+  subscribeSidebarPreferences(applyPreferences);
   previewTooltip.init({ anchorSelector: '#navigator-list' });
   buttonTooltip.init();
   myPrompts.initAutocomplete();

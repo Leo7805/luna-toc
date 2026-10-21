@@ -11,12 +11,12 @@ const stylesheet = readFileSync(
 );
 
 describe('full-height reveal edge and bottom-right sidebar actions', () => {
-  it('keeps the entire 6px viewport-height pointer target fully transparent', () => {
+  it('keeps a 6px full-height pointer target with a configurable tint', () => {
     expect(stylesheet).toMatch(
       /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*0;[^}]*width:\s*6px;[^}]*height:\s*100vh;/s
     );
     expect(stylesheet).toMatch(
-      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*6px;[^}]*height:\s*100%;[^}]*background:\s*transparent;/s
+      /#luna-toc-toggle-btn\s*\{[^}]*width:\s*6px;[^}]*height:\s*100%;[^}]*background:\s*var\(--luna-toc-reveal-bg, transparent\);/s
     );
     expect(stylesheet).not.toMatch(/#luna-toc-floating-dock::before\s*\{/);
     const handle = stylesheet.match(/^#luna-toc-toggle-btn\s*\{([^}]*)\}/m)?.[1];
@@ -24,6 +24,7 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
     expect(handle).not.toMatch(/border-left|box-shadow|background-image/);
     expect(stylesheet).not.toMatch(/#luna-toc-toggle-btn:hover\s*,/);
     expect(handle).not.toMatch(/opacity:|background-image|background-color/);
+    expect(stylesheet).not.toMatch(/#luna-toc-toggle-btn:hover\s*,/);
   });
 
   it('makes sidebar content and its scrollbar reach the right viewport edge', () => {

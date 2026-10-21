@@ -232,6 +232,17 @@ html[data-theme='light'] {
   transition: transform 160ms ease;
 }
 
+/* Keep the native ChatGPT navigation outside the resized chat column. */
+.luna-toc-chat-side-by-side {
+  box-sizing: border-box !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: calc(100% - var(--luna-toc-reserved-sidebar-width)) !important;
+  margin-right: var(--luna-toc-reserved-sidebar-width) !important;
+  flex-shrink: 1 !important;
+  transition: margin-right 160ms ease, max-width 160ms ease;
+}
+
 .navigator-topbar {
   flex: 0 0 auto;
   margin: 0 0 0 -6px;
@@ -324,7 +335,8 @@ html[data-theme='light'] {
   border: 1px solid transparent;
   border-right: 0;
   box-shadow: none;
-  cursor: default;
+  cursor: ns-resize;
+  touch-action: none;
   user-select: none;
   transition: background-color 120ms ease, border-color 120ms ease;
 }
@@ -363,6 +375,11 @@ html[data-theme='light'] {
 
 .navigator-jump-controls.navigator-jump-controls-visible::after {
   opacity: 0;
+}
+
+.navigator-jump-controls:focus-visible {
+  outline: 1px solid var(--ct-accent);
+  outline-offset: 1px;
 }
 
 .navigator-jump-controls.navigator-jump-controls-visible > button {
@@ -524,10 +541,9 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: var(--luna-toc-reveal-bg, transparent);
   cursor: pointer;
   touch-action: manipulation;
-
 }
 
 .navigator-icon-btn span {

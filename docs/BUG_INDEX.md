@@ -15,6 +15,7 @@ This document is the master registry for tracking bugs and regressions in LunaTO
 
 | ID | Date | Bug | Area | Root Cause | Fix | Commit | Showcase |
 |---|---|---|---|---|---|---|---|
+| B009 | 2026-10-21 | 并排布局未作用于实际 ChatGPT 对话区 | ChatGPT / Layout | 原实验仅给顶层应用节点预留宽度，内部主列不一定重排。 | 将对话主列适配与显隐设置一起集成到 main，窄窗口回退并新增端到端生命周期单测。 | — | No |
 | B008 | 2026-10-21 | 悬浮按钮展开后项目对话目录未自动刷新 | Navigation / Refresh | 内容脚本与 MAIN world 的路由识别不一致，项目路径刷新请求被拒绝；仅完整会话请求捕获鉴权头。 | 统一路由解析，兼容项目对话并捕获分页请求鉴权头，加入刷新回归测试及失败日志。 | — | Yes |
 | B007 | 2026-10-21 | 跳转底部后手动向上滚动被自动纠偏拉回 | Navigation / Scroll | 跳转重试只检查滚动位置，未区分宿主虚拟列表偏移和用户主动滚动。 | 监测对话区域滚轮、触控、指针和有效键盘滚动输入，立即取消当前边缘跳转，保留宿主自动偏移纠正。 | — | Yes |
 | B006 | 2026-10-21 | 页面宽度伪装干扰宿主媒体查询 | Page Hook / Responsive | 旧版宽度伪装改写 `matchMedia`，未完整维护事件监听与对象生命周期。 | 移除不再依赖的宽度伪装，保留浏览器和 ChatGPT 的原生媒体查询。 | 3f0cb90 | No |

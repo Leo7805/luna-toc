@@ -2,16 +2,21 @@
  * Owns LunaTOC sidebar visibility, pinning, and auto-hide behavior.
  */
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
+import type { SidebarLayoutMode } from '@/features/sidebar/sidebarPreferences';
+import { syncChatGptSideBySide } from '@/features/sidebar/chatGptSideBySide';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
 const AUTO_HIDE_DELAY_MS = 300;
+const LAYOUT_MODE_STORAGE_KEY = 'chatToc:activeSidebarLayoutMode';
 
 let sidebar: HTMLElement | null = null;
 let toggleBtn: HTMLButtonElement | null = null;
 let pinBtn: HTMLElement | null = null;
 let isPinned = false;
 let isHidden = true;
+let activeLayoutMode: SidebarLayoutMode | null = null;
+let jumpRevealArmed = false;
 let hideTimer = 0;
 let onOpened: (() => void) | null = null;
 /**
@@ -24,6 +29,8 @@ export function initializeSidebarVisibility(
   options: { onOpened?: () => void } = {}
 ): void {
   onOpened = options.onOpened ?? null;
+  activeLayoutMode = null;
+  jumpRevealArmed = false;
   sidebar = sidebarElement;
   toggleBtn = toggleButton;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
@@ -61,8 +68,13 @@ function bindAutoHide(): void {
   sidebar.addEventListener('pointerleave', scheduleAutoHide);
 
   const controls = sidebar.querySelector<HTMLElement>('.navigator-jump-controls');
-  controls?.addEventListener('pointerenter', () => setJumpControlsVisible(true));
-  controls?.addEventListener('pointerleave', () => setJumpControlsVisible(false));
+  controls?.addEventListener('pointerenter', () => {
+    if (jumpRevealArmed) setJumpControlsVisible(true);
+  });
+  controls?.addEventListener('pointerleave', () => {
+    jumpRevealArmed = true;
+    setJumpControlsVisible(false);
+  });
   controls?.addEventListener('focusin', () => setJumpControlsVisible(true));
   controls?.addEventListener('focusout', (event) => {
     if (event.relatedTarget instanceof Node && controls.contains(event.relatedTarget)) {
@@ -74,9 +86,9 @@ function bindAutoHide(): void {
   // The transparent control footprint remains hit-testable even when faded.
   // After the sidebar opens, moving outside that footprint hides the buttons.
   sidebar.addEventListener('pointermove', (event) => {
-    if (!controls?.classList.contains('navigator-jump-controls-visible')) return;
-    if (event.target instanceof Node && controls.contains(event.target)) return;
-    if (controls.contains(document.activeElement)) return;
+    if (event.target instanceof Node && controls?.contains(event.target)) return;
+    jumpRevealArmed = true;
+    if (controls?.contains(document.activeElement)) return;
     setJumpControlsVisible(false);
   });
 
@@ -151,6 +163,25 @@ export function setSidebarPinned(
   if (options.persist) {
     storageSet(PINNED_STORAGE_KEY, isPinned);
   }
+}
+
+/**
+ * Applies the chosen layout mode. A new mode restores its default visibility;
+ * a reload of the same mode retains the user's manual pin choice.
+ */
+export function setSidebarLayoutMode(mode: SidebarLayoutMode): void {
+  if (activeLayoutMode === mode) return;
+  activeLayoutMode = mode;
+  const lastSavedMode = storageGet<SidebarLayoutMode>(LAYOUT_MODE_STORAGE_KEY);
+  const savedPin = storageGet<boolean>(PINNED_STORAGE_KEY);
+  const pinned = lastSavedMode === mode && typeof savedPin === 'boolean'
+    ? savedPin : mode === 'side-by-side';
+  isPinned = pinned;
+  storageSet(LAYOUT_MODE_STORAGE_KEY, mode);
+  storageSet(PINNED_STORAGE_KEY, pinned);
+  clearHideTimer();
+  updatePinButtonState();
+  setSidebarHidden(!pinned);
 }
 
 function loadPinnedState(): void {
@@ -238,7 +269,9 @@ export function setSidebarHidden(hidden: boolean): void {
   dock?.classList.toggle('luna-toc-floating-dock-hidden', !isHidden);
   dock?.setAttribute('aria-hidden', String(!isHidden));
   if (dock) dock.inert = !isHidden;
-  setJumpControlsVisible(!isHidden);
+  if (justOpened) jumpRevealArmed = false;
+  setJumpControlsVisible(false);
+  syncChatGptSideBySide();
   if (justOpened) onOpened?.();
 }
 

@@ -1,14 +1,27 @@
-/** Renders supported LunaTOC settings. */
+/** Renders LunaTOC preferences using ChatGPT-like settings groups. */
 import { useEffect, useState } from 'react';
 import {
   loadPlatformRuntimeConfig,
   savePlatformRuntimeConfig,
   type ChatGptRuntimeConfig,
 } from '@/config/config';
+import {
+  DEFAULT_SIDEBAR_PREFERENCES,
+  SIDEBAR_COLORS,
+  readSidebarPreferences,
+  subscribeSidebarPreferences,
+  writeSidebarPreferences,
+  type SidebarPreferences,
+  type SidebarLayoutMode,
+} from '@/features/sidebar/sidebarPreferences';
 
-/** Displays ChatGPT compatibility diagnostics controls. */
+/** Displays layout, appearance and advanced compatibility settings. */
 export function OptionsApp(): React.JSX.Element {
   const [runtimeConfig, setRuntimeConfig] = useState<ChatGptRuntimeConfig | null>(null);
+  const [preferences, setPreferences] = useState<SidebarPreferences>(
+    DEFAULT_SIDEBAR_PREFERENCES
+  );
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -18,6 +31,14 @@ export function OptionsApp(): React.JSX.Element {
       });
     };
     refresh();
+    void readSidebarPreferences().then((values) => {
+      if (!cancelled) setPreferences(values);
+    }).catch(() => {
+      if (!cancelled) setSaveError('无法读取设置，请检查扩展存储权限。');
+    });
+    const unsubscribe = subscribeSidebarPreferences((next) => {
+      if (!cancelled) setPreferences(next);
+    });
     const handleChange = (
       changes: Record<string, chrome.storage.StorageChange>,
       areaName: chrome.storage.AreaName
@@ -27,9 +48,21 @@ export function OptionsApp(): React.JSX.Element {
     chrome.storage.onChanged.addListener(handleChange);
     return () => {
       cancelled = true;
+      unsubscribe();
       chrome.storage.onChanged.removeListener(handleChange);
     };
   }, []);
+
+  /** Applies changes locally and publishes them to every ChatGPT tab. */
+  const updatePreferences = (patch: Partial<SidebarPreferences>): void => {
+    const next = { ...preferences, ...patch };
+    setPreferences(next);
+    setSaveError('');
+    void writeSidebarPreferences(next).catch(() => {
+      setSaveError('设置保存失败，请重试。');
+      void readSidebarPreferences().then(setPreferences).catch(() => {});
+    });
+  };
 
   const toggleCompatibilityAlert = (enabled: boolean): void => {
     setRuntimeConfig((previous) => ({
@@ -39,27 +72,95 @@ export function OptionsApp(): React.JSX.Element {
     void savePlatformRuntimeConfig('chatgpt', { showCompatibilityAlert: enabled });
   };
 
+  const modeOptions: Array<{ id: SidebarLayoutMode; name: string; detail: string }> = [
+    { id: 'side-by-side', name: '并列排布', detail: '对话区域与目录并排，默认固定展开' },
+    { id: 'overlay', name: '浮于上层', detail: '不改变对话区域，目录默认自动隐藏' },
+  ];
+
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
-      <header className="mb-8">
-        <p className="m-0 text-xs font-semibold tracking-[0.12em] text-[var(--o-accent)] uppercase">LunaTOC-SC</p>
-        <h1 className="mt-2 mb-0 text-3xl font-semibold text-[var(--o-text)]">设置</h1>
+    <main className="settings-page">
+      <header className="settings-header">
+        <p className="settings-brand">LunaTOC-SC</p>
+        <h1>设置</h1>
+        <p className="settings-caption">偏好设置会自动同步到已打开的 ChatGPT 页面。</p>
       </header>
-      <section aria-labelledby="compat-heading">
-        <h2 id="compat-heading" className="m-0 text-lg font-semibold text-[var(--o-text)]">兼容性</h2>
-        <p className="mt-1 mb-4 text-sm text-[var(--o-muted)]">开发者诊断功能，默认关闭。</p>
-        <label className="grid cursor-pointer grid-cols-[18px_minmax(0,1fr)] gap-3 rounded-xl border border-[var(--o-border)] bg-[var(--o-surface)] p-4">
-          <input type="checkbox" checked={runtimeConfig?.showCompatibilityAlert ?? false}
-            onChange={(event) => toggleCompatibilityAlert(event.currentTarget.checked)}
-            className="mt-0.5 size-4 accent-[var(--o-accent)]" />
-          <span>
-            <span className="block text-sm font-semibold text-[var(--o-text)]">ChatGPT 兼容性警告</span>
-            <span className="mt-1 block text-sm leading-5 text-[var(--o-muted)]">
-              检查会话 API 和关键页面标记；开启后额外发送同源诊断请求并在异常时提醒。
-            </span>
-          </span>
-        </label>
+
+      <section className="settings-section" aria-labelledby="layout-heading">
+        <div className="settings-section-heading">
+          <h2 id="layout-heading">布局</h2>
+          <p>选择对话和目录的排列方式。</p>
+        </div>
+        <div className="settings-card settings-layout-choice">
+          {modeOptions.map((mode) => (
+            <label className="settings-choice" key={mode.id}>
+              <span className="settings-choice-info">
+                <strong>{mode.name}</strong>
+                <small>{mode.detail}</small>
+              </span>
+              <input type="radio" name="sidebar-layout" value={mode.id}
+                checked={preferences.layoutMode === mode.id}
+                onChange={() => updatePreferences({ layoutMode: mode.id })} />
+            </label>
+          ))}
+        </div>
       </section>
+
+      <section className="settings-section" aria-labelledby="appearance-heading">
+        <div className="settings-section-heading">
+          <h2 id="appearance-heading">外观</h2>
+          <p>选择 LunaTOC 的背景配色，与 ChatGPT 浅色和深色主题协调。</p>
+        </div>
+        <div className="settings-card">
+          <div className="settings-setting-title">侧边栏背景颜色</div>
+          <div className="settings-palette" role="radiogroup" aria-label="侧边栏背景颜色">
+            {SIDEBAR_COLORS.map((color) => (
+              <label className="settings-swatch-label" key={color.id}
+                title={color.label} aria-label={color.label}>
+                <input type="radio" name="sidebar-color" value={color.id}
+                  checked={preferences.backgroundColor === color.id}
+                  onChange={() => updatePreferences({ backgroundColor: color.id })} />
+                <span className="settings-swatch" style={{ backgroundColor: color.hex }}
+                  aria-hidden="true">
+                  {preferences.backgroundColor === color.id ? '✓' : ''}
+                </span>
+                <span className="settings-swatch-text">{color.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="settings-divider" />
+          <label className="settings-choice settings-no-border">
+            <span className="settings-choice-info">
+              <strong>为隐藏侧边栏的触发区显示颜色</strong>
+              <small>开启时与背景所选色系一致，使用半透明显示；关闭则完全透明。</small>
+            </span>
+            <input className="settings-switch-input" type="checkbox"
+              checked={preferences.revealTint}
+              onChange={(event) => updatePreferences({ revealTint: event.target.checked })} />
+            <span className="settings-switch-track" aria-hidden="true" />
+          </label>
+        </div>
+      </section>
+
+      <section className="settings-section" aria-labelledby="compat-heading">
+        <div className="settings-section-heading">
+          <h2 id="compat-heading">兼容性</h2>
+          <p>开发者诊断功能，默认关闭。</p>
+        </div>
+        <div className="settings-card">
+          <label className="settings-choice settings-no-border">
+            <span className="settings-choice-info">
+              <strong>ChatGPT 兼容性警告</strong>
+              <small>检查会话 API 和关键页面标记；开启后可能发送额外的同源诊断请求。</small>
+            </span>
+            <input className="settings-switch-input" type="checkbox"
+              checked={runtimeConfig?.showCompatibilityAlert ?? false}
+              onChange={(event) => toggleCompatibilityAlert(event.target.checked)} />
+            <span className="settings-switch-track" aria-hidden="true" />
+          </label>
+        </div>
+      </section>
+      {saveError && <p className="settings-error" role="alert">{saveError}</p>}
+      <p className="settings-footnote">设置保存在浏览器本地，不会上传到维护者服务器。</p>
     </main>
   );
 }
