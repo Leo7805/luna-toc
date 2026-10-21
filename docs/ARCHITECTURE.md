@@ -49,7 +49,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的均匀半透明浅蓝色触发条，去掉深色边框与额外透明度。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，在侧边栏右下角显示；鼠标移出按钮组后仅按钮及底板淡出，保留右缘2px宽且高度恰好覆盖三个按钮及间距的半透明深色触发线（暗/亮主题分别适配）；重新进入保留的透明命中区域后重新显示，隐藏时不可直接点击或通过 Tab 到达。目录滚动条和工具条贴齐浏览器右边缘，不再渲染独立的三点菜单按钮或展开三角形。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的完全透明鼠标触发区，不含背景、悬停色或可见描边。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，在侧边栏右下角显示；鼠标移出按钮组后仅按钮及底板淡出，保留右缘2px宽且高度恰好覆盖三个按钮及间距的半透明深色触发线（暗/亮主题分别适配）；重新进入保留的透明命中区域后重新显示，隐藏时不可直接点击或通过 Tab 到达。目录滚动条和工具条贴齐浏览器右边缘，不再渲染独立的三点菜单按钮或展开三角形。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 
