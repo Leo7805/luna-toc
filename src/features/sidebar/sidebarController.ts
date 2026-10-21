@@ -108,6 +108,7 @@ export const sidebarController = (() => {
       {
         content: message.text,
         title: message.text.slice(0, 30),
+        sourceMessageId: message.id,
       },
       () => {
         if (viewMode !== 'myPrompts') {

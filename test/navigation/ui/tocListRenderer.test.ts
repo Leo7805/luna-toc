@@ -7,12 +7,15 @@ import { setLoading } from '@/navigation/loading/promptLoadingState';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { initializePromptMark, isPromptMarked } from '@/features/conversationPrompts/promptMark';
+import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 
 describe('tocListRenderer', () => {
   let listElement: HTMLElement;
   let hintElement: HTMLElement;
 
   beforeEach(() => {
+    promptContextMenuController.close();
+    initializePromptMark({ conversationKey: 'toc-renderer-default' });
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     document.body.innerHTML = `
       <div id="navigator-list"></div>
@@ -229,7 +232,7 @@ describe('tocListRenderer', () => {
     expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
   });
 
-  it('offers 收藏 / 复制 / 添加 on right-click and preserves add action', () => {
+  it('offers 复制 / 收藏 / 添加 in that order on right-click', async () => {
     const onSavePrompt = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
@@ -245,17 +248,19 @@ describe('tocListRenderer', () => {
       clientX: 70,
       clientY: 90,
     }))).toBe(false);
-    expect(promptContextMenuController.getSnapshot()?.items).toEqual([
-      { id: 'mark-prompt', label: '收藏', icon: 'bookmark-plus' },
-      { id: 'copy-prompt', label: '复制', icon: 'copy' },
-      { id: 'save-prompt', label: '添加', icon: 'bookmark-plus' },
-    ]);
+    await vi.waitFor(() => {
+      expect(promptContextMenuController.getSnapshot()?.items).toEqual([
+        { id: 'copy-prompt', label: '复制', icon: 'copy' },
+        { id: 'mark-prompt', label: '收藏', icon: 'bookmark-plus' },
+        { id: 'save-prompt', label: '添加', icon: 'bookmark-plus' },
+      ]);
+    });
     promptContextMenuController.select('save-prompt');
     expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
     expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
-  it('toggles 收藏 from the context menu while retaining stored mark state', () => {
+  it('toggles 收藏 / 取消收藏 based on persisted mark state', async () => {
     const conversationKey = 'toc-menu-test';
     const onMarkChanged = vi.fn();
     initializePromptMark({ conversationKey, onMarkChanged });
@@ -269,6 +274,9 @@ describe('tocListRenderer', () => {
     const storageKey = `chatToc:marks:${conversationKey}`;
     try {
       row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(promptContextMenuController.getSnapshot()?.items[1].label).toBe('收藏');
+      });
       promptContextMenuController.select('mark-prompt');
       expect(isPromptMarked('msg-2')).toBe(true);
       expect(row.classList.contains('navigator-item-marked')).toBe(true);
@@ -278,6 +286,9 @@ describe('tocListRenderer', () => {
       const newRow = listElement.children[1] as HTMLElement;
       expect(newRow.classList.contains('navigator-item-marked')).toBe(true);
       newRow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(promptContextMenuController.getSnapshot()?.items[1].label).toBe('取消收藏');
+      });
       promptContextMenuController.select('mark-prompt');
       expect(isPromptMarked('msg-2')).toBe(false);
       expect(newRow.classList.contains('navigator-item-marked')).toBe(false);
@@ -289,7 +300,7 @@ describe('tocListRenderer', () => {
     }
   });
 
-  it('keeps long prompt text intact for CSS truncation and opens actions only on right-click', () => {
+  it('keeps long prompt text intact for CSS truncation and opens actions only on right-click', async () => {
     const original = 'A very long user question about implementation details '.repeat(10);
     const onItemClick = vi.fn();
     const renderer = createTocListRenderer({
@@ -310,8 +321,10 @@ describe('tocListRenderer', () => {
     expect(promptContextMenuController.getSnapshot()).toBeNull();
 
     text.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-    expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
-      .toEqual(['收藏', '复制', '添加']);
+    await vi.waitFor(() => {
+      expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
+        .toEqual(['复制', '收藏', '添加']);
+    });
     promptContextMenuController.close();
   });
 
@@ -332,6 +345,9 @@ describe('tocListRenderer', () => {
       renderer.render();
       const item = listElement.children[0] as HTMLElement;
       item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(promptContextMenuController.getSnapshot()?.items[0].label).toBe('复制');
+      });
       promptContextMenuController.select('copy-prompt');
 
       await vi.waitFor(() => {
@@ -344,6 +360,56 @@ describe('tocListRenderer', () => {
         configurable: true, value: originalClipboard,
       });
     }
+  });
+
+  it('shows 取消添加 for a saved source and removes only the matched entry', async () => {
+    const added: SavedPrompt = {
+      id: 'saved-msg-2', title: 'Edited prompt title', content: 'Edited text',
+      sourceMessageId: 'msg-2', createdAt: 1, updatedAt: 2,
+    };
+    const remove = vi.fn().mockResolvedValue(undefined);
+    let savedPrompts = [added];
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      getSavedPrompts: async () => savedPrompts,
+      onRemoveSavedPrompt: remove,
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
+        .toEqual(['复制', '收藏', '取消添加']);
+    });
+
+    promptContextMenuController.select('save-prompt');
+    expect(remove).toHaveBeenCalledExactlyOnceWith('saved-msg-2');
+    savedPrompts = [];
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(promptContextMenuController.getSnapshot()?.items[2].label).toBe('添加');
+    });
+  });
+
+  it('ignores an outdated asynchronous menu after the TOC is reset', async () => {
+    let resolvePrompts!: (value: SavedPrompt[]) => void;
+    const read = new Promise<SavedPrompt[]>((resolve) => { resolvePrompts = resolve; });
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      getSavedPrompts: () => read,
+    });
+    renderer.render();
+    const row = listElement.children[0] as HTMLElement;
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    renderer.resetList();
+    resolvePrompts([]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
   describe('initial active TOC scroll-position synchronization', () => {

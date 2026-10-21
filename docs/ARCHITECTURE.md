@@ -30,7 +30,7 @@
 
 ## 目录与导航
 
-- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单提供「收藏」「复制」「添加」，侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
+- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单按「复制」「收藏／取消收藏」「添加／取消添加」排序，标记根据当前会话状态切换；已保存提示词按来源消息 ID 精确关联并允许取消添加，升级前的旧记录仅在原始标题和内容唯一匹配时兼容识别，侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；提示词来源保存在 `SavedPrompt.sourceMessageId`，取消添加通过 `PromptStore.update()` 删除指定记录，保留提示词库原有手工项及其他同文记录；复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。

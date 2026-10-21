@@ -91,6 +91,20 @@ export async function saveMyPrompts(prompts: SavedPrompt[]): Promise<void> {
 }
 
 /**
+ * Removes exactly one persisted My Prompts entry created from a TOC item.
+ * The existing store's write queue prevents concurrent updates from being lost.
+ */
+export async function removeMyPrompt(promptId: string): Promise<void> {
+  await requirePromptStore().update((prompts) => {
+    if (!prompts.some((prompt) => prompt.id === promptId)) {
+      throw new Error('Saved prompt no longer exists');
+    }
+    return prompts.filter((prompt) => prompt.id !== promptId);
+  });
+  void requirePromptUsageStore().remove(promptId).catch(() => undefined);
+}
+
+/**
  * Registers a listener for prompt store changes.
  * @param {(prompts: Array) => void} listener
  * @returns {() => void}
@@ -470,6 +484,9 @@ async function savePromptEditorValues(
           content,
           createdAt: now,
           updatedAt: now,
+          ...(item?.sourceMessageId
+            ? { sourceMessageId: item.sourceMessageId }
+            : {}),
         });
       } else {
         const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
