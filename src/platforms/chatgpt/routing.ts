@@ -2,13 +2,12 @@
  * ChatGPT routing adapter: route-key extraction, new-chat sentinel, and
  * sidebar title resolution.
  *
- * `getCurrentRouteKey` mirrors the previous inline
- * `location.pathname.match(/\/c\/([^/]+)/)` regex used by the page-hook
- * and the navigator controller. `newChatRouteKey` produces the `new-chat:`
- * sentinel that the controller already recognises. `getSidebarTitle`
+ * `getCurrentRouteKey` resolves both standalone `/c/:id` and project
+ * `/g/:projectId/c/:id` routes. `newChatRouteKey` produces the `new-chat:`
+ * sentinel that the controller also recognises. `getSidebarTitle`
  * strips the ` - ChatGPT` / `ChatGPT - ` suffix from `document.title`.
  */
-const CONVERSATION_PATH_PATTERN = /^\/c\/([^/]+)/;
+const CONVERSATION_PATH_PATTERN = /\/c\/([^/]+)(?=\/|$)/;
 
 export function getCurrentRouteKey(): string {
   const match = location.pathname.match(CONVERSATION_PATH_PATTERN);

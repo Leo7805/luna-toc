@@ -47,6 +47,18 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(typeof navigatorController.setSearchQuery).toBe('function');
   });
 
+  it('uses the platform route key for project conversations', () => {
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/g/g-p-workspace/c/project-conversation',
+      },
+    });
+    expect(navigatorController.getCurrentConversationKey()).toBe('project-conversation');
+  });
+
   it('initializes and attaches without throwing under jsdom', () => {
     const onPromptCountChanged = vi.fn();
     const onRouteChanged = vi.fn();

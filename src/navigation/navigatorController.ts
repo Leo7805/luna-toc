@@ -79,8 +79,7 @@ export const navigatorController = (() => {
    * @returns {string}
    */
   function getCurrentConversationKey(): string {
-    const match = location.pathname.match(/\/c\/([^/]+)/);
-    return match?.[1] || `new-chat:${location.pathname}`;
+    return getActivePlatform().routing.getCurrentRouteKey();
   }
 
   const conversationStore = createConversationStore({
@@ -148,7 +147,10 @@ export const navigatorController = (() => {
     const requestId = ++refreshSequence;
     window.postMessage({ type: TOC_REFRESH_REQUEST, routeKey, requestId }, location.origin);
     window.setTimeout(() => {
-      if (refreshSequence === requestId) refreshPending = false;
+      if (refreshSequence === requestId && refreshPending) {
+        refreshPending = false;
+        console.warn('[LunaTOC] Conversation TOC refresh timed out');
+      }
     }, 15000);
   }
 
@@ -479,7 +481,10 @@ export const navigatorController = (() => {
         const { requestId, routeKey, payload } = event.data;
         if (requestId !== refreshSequence || routeKey !== getCurrentConversationKey()) return;
         refreshPending = false;
-        if (!payload || !Array.isArray((payload as ConversationSnapshot).messages)) return;
+        if (!payload || !Array.isArray((payload as ConversationSnapshot).messages)) {
+          console.warn('[LunaTOC] Conversation TOC refresh returned no complete snapshot');
+          return;
+        }
         const changed = conversationStore.replaceWithFreshSnapshot(payload, routeKey);
         if (changed) {
           resetOutline();

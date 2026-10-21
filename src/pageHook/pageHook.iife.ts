@@ -103,17 +103,17 @@ import { installTitleObserver } from './titleObserver';
 
     try {
       if (requestMeta?.isConversationGet) {
-        const authHeaders = requestMeta.isInitialConversationLoad
-          ? getRequestHeaders(args[0], args[1])
-          : null;
-
-        if (authHeaders) observeRefreshHeaders(requestMeta.routeKey, authHeaders);
+        // Both full and paginated conversation requests can carry auth headers.
+        const requestHeaders = getRequestHeaders(args[0], args[1]);
+        if (Object.keys(requestHeaders).length > 0) {
+          observeRefreshHeaders(requestMeta.routeKey, requestHeaders);
+        }
 
         postConversationData(
           response,
           requestMeta.routeKey,
           requestMeta.isInitialConversationLoad,
-          authHeaders,
+          requestMeta.isInitialConversationLoad ? requestHeaders : null,
           requestStartedAt
         );
       }
