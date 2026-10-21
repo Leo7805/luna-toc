@@ -2,13 +2,8 @@
  * Prevents regressions where the collapsed floating dock is visually absent.
  * The browser smoke-check separately verifies actual pointer hit testing.
  */
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-
-const stylesheet = readFileSync(
-  new URL('../../../src/styles/content.css', import.meta.url),
-  'utf8'
-);
+import stylesheet from '@/styles/content.css?raw';
 
 describe('collapsed directory dock visual affordance', () => {
   it('has a readable, hoverable button-height edge tab when the moon is retracted', () => {
