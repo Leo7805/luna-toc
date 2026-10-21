@@ -34,10 +34,10 @@ describe('jump-to-edge controls', () => {
     ]);
     expect(
       document.getElementById('jump-chat-top-btn')?.getAttribute('aria-label')
-    ).toBe('Jump to top');
+    ).toBe('跳转到顶部');
     expect(
       document.getElementById('jump-chat-bottom-btn')?.getAttribute('aria-label')
-    ).toBe('Jump to bottom');
+    ).toBe('跳转到底部');
   });
 
   it('delegates single clicks immediately to jumpToEdge without timer delay', () => {

@@ -9,18 +9,6 @@ import type {
 
 let collector: RenderedFingerprintCollector | null = null;
 
-const flushAsyncOperations = () =>
-  new Promise<void>((resolve) => {
-    const defer = (
-      globalThis as unknown as { setImmediate?: (cb: () => void) => void }
-    ).setImmediate;
-    if (typeof defer === 'function') {
-      defer(resolve);
-    } else {
-      setTimeout(resolve, 0);
-    }
-  });
-
 afterEach(() => {
   collector?.disconnect();
   collector = null;
@@ -115,7 +103,6 @@ describe('ChatGPT rendered fingerprint collector', () => {
   });
 
   it('collects the latest text after DOM mutations settle', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const onFingerprintRecord = vi.fn();
     collector = createRenderedFingerprintCollector({
       debounceMs: 50,
@@ -133,21 +120,19 @@ describe('ChatGPT rendered fingerprint collector', () => {
       </div>
     `;
     await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(25);
     document.querySelector('.markdown')!.textContent = 'Completed answer';
 
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(50);
-    await flushAsyncOperations();
-
-    expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
-    expect(
-      onFingerprintRecord.mock.calls[0]?.[1].fingerprints[0]?.probeText
-    ).toContain('Completed answer');
+    // Wait for the observer, debounce timer, and asynchronous SHA-256 digest.
+    // Advancing fake timers alone cannot guarantee the digest has finished.
+    await vi.waitFor(() => {
+      expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
+      expect(
+        onFingerprintRecord.mock.calls[0]?.[1].fingerprints[0]?.probeText
+      ).toContain('Completed answer');
+    }, { timeout: 2_000, interval: 10 });
   });
 
   it('uses the current conversation context after a route switch', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const onFingerprintRecord = vi.fn();
     collector = createRenderedFingerprintCollector({
       debounceMs: 20,
@@ -170,16 +155,15 @@ describe('ChatGPT rendered fingerprint collector', () => {
       </div>
     `;
 
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(20);
-    await flushAsyncOperations();
-
-    expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
-    expect(onFingerprintRecord.mock.calls[0]?.[0]).toMatchObject({
-      conversationKey: 'new-conversation',
-      revision: 4,
-    });
-    expect(onFingerprintRecord.mock.calls[0]?.[1].promptIndex).toBe(2);
+    // Observe the current context after the asynchronous fingerprint digest.
+    await vi.waitFor(() => {
+      expect(onFingerprintRecord).toHaveBeenCalledTimes(1);
+      expect(onFingerprintRecord.mock.calls[0]?.[0]).toMatchObject({
+        conversationKey: 'new-conversation',
+        revision: 4,
+      });
+      expect(onFingerprintRecord.mock.calls[0]?.[1].promptIndex).toBe(2);
+    }, { timeout: 2_000, interval: 10 });
   });
 
 });

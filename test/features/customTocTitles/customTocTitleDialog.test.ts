@@ -82,7 +82,7 @@ describe('CustomTocTitleDialog', () => {
     });
 
     expect(portalContainer.textContent).toContain(
-      'Extension updated. Refresh ChatGPT to save.'
+      '扩展已更新，请刷新 ChatGPT 页面后再保存。'
     );
     expect(saveButton.disabled).toBe(false);
     expect(portalContainer.querySelector('form')).not.toBeNull();
@@ -112,7 +112,7 @@ describe('CustomTocTitleDialog', () => {
     });
 
     expect(portalContainer.textContent).toContain(
-      'Unable to save custom title. Please try again.'
+      '无法保存自定义标题，请重试。'
     );
     expect(portalContainer.querySelector('form')).not.toBeNull();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -143,7 +143,7 @@ describe('CustomTocTitleDialog', () => {
     });
 
     expect(portalContainer.textContent).toContain(
-      'Unable to save custom title. Please try again.'
+      '无法保存自定义标题，请重试。'
     );
 
     act(() => {
@@ -156,7 +156,7 @@ describe('CustomTocTitleDialog', () => {
     });
 
     expect(portalContainer.textContent).not.toContain(
-      'Unable to save custom title. Please try again.'
+      '无法保存自定义标题，请重试。'
     );
   });
 

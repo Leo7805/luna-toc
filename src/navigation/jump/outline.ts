@@ -137,6 +137,7 @@ export function handlePromptNavigation(
 ): PromptNavigationAction {
   cancelOutlineNavigation();
 
+  const hadCachedHeadings = outlineCache.getCachedEntries(index).length > 0;
   const cachedOutline = outlineCache.getReusablePromptOutline(index, () =>
     getPromptOutline(index)
   );
@@ -163,6 +164,12 @@ export function handlePromptNavigation(
     return {
       shouldBuild: false,
     };
+  }
+
+  if (hadCachedHeadings) {
+    // An invalidated DOM cache must not leave the prompt marked as expanded.
+    // Otherwise the next click collapses it instead of rebuilding the outline.
+    expandedPromptOutlines.delete(index);
   }
 
   // First click requests expansion even before the answer has been mounted.
