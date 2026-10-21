@@ -1,14 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pnpm compile)",
-      "Bash(pnpm sbuild)",
-      "Bash(npx tsc)",
+      "Bash(npm ci)",
+      "Bash(npm run typecheck)",
       "Bash(npm test)",
-      "Bash(pnpm build)",
-      "Bash(npx vitest)",
-      "Bash(pnpm stamp)",
-      "Bash(pnpm sync)"
+      "Bash(npm run build)",
+      "Bash(npm run sbuild)"
     ]
   }
 }

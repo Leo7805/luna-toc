@@ -22,7 +22,7 @@ import type { NavigationTurn } from '@/navigation/navigationData';
 /**
  * Literal platform id. Add new members as adapters are added.
  */
-export type PlatformId = 'chatgpt' | 'copilot';
+export type PlatformId = 'chatgpt';
 
 /**
  * A platform-known host match pattern (mirrors a `content_scripts.matches`

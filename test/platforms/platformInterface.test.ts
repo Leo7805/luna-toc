@@ -8,7 +8,7 @@ describe('platformInterface and registration', () => {
   it('registers supported platforms in PLATFORMS', () => {
     const ids = PLATFORMS.map((p) => p.id);
     expect(ids).toContain('chatgpt');
-    expect(ids).toContain('copilot');
+    expect(ids).not.toContain('copilot');
   });
 
   it('retrieves platform by id', () => {
@@ -16,9 +16,6 @@ describe('platformInterface and registration', () => {
     expect(chatgpt.id).toBe('chatgpt');
     expect(chatgpt.displayName).toBe('ChatGPT');
 
-    const copilot = getPlatformById('copilot');
-    expect(copilot.id).toBe('copilot');
-    expect(copilot.displayName).toBe('Microsoft Copilot');
   });
 
   it('throws when getting an unknown platform id', () => {
@@ -31,8 +28,6 @@ describe('platformInterface and registration', () => {
     const chatgpt = getActivePlatform('chatgpt.com');
     expect(chatgpt.id).toBe('chatgpt');
 
-    const copilot = getActivePlatform('copilot.microsoft.com');
-    expect(copilot.id).toBe('copilot');
   });
 
   it('throws when resolving an unregistered host', () => {
@@ -67,22 +62,9 @@ describe('platformInterface and registration', () => {
     expect(config.selectors.messageId).toBe('data-chatgpt-search-message-ids');
   });
 
-  it('fulfills active navigation contract on Copilot platform and leaves optional methods undefined', () => {
-    const platform = getActivePlatform('copilot.microsoft.com');
-    const { navigation, diagnostics } = platform;
-    expect(typeof navigation.getScrollContainer).toBe('function');
-    expect(typeof navigation.findRenderedPrompt).toBe('function');
-    expect(typeof navigation.getJumpTargetElement).toBe('function');
-    expect(typeof navigation.observeVisibleUserMessages).toBe('function');
-    expect(typeof navigation.settleAttempts).toBe('number');
-    expect(navigation.settleAttempts).toBeGreaterThan(0);
-    expect(typeof navigation.promptTopOffsetPx).toBe('number');
-
-    // Optional capabilities remain undefined without dummy stubs
-    expect(navigation.findRenderedPromptByText).toBeUndefined();
-    expect(navigation.readMountedWithSidebarIdx).toBeUndefined();
-    expect(navigation.getMessageIdFromElement).toBeUndefined();
-    expect(navigation.getPromptUnitKeyFromElement).toBeUndefined();
-    expect(diagnostics.isJumpVizDebugEnabled).toBeUndefined();
+  it('rejects unimplemented hosts', () => {
+    expect(() => getActivePlatform('copilot.microsoft.com')).toThrow(
+      'LunaTOC: no platform registered for host "copilot.microsoft.com"'
+    );
   });
 });

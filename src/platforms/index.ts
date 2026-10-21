@@ -12,17 +12,13 @@
  * `Platform.matches` directly.
  */
 import { chatGptPlatform } from './chatgpt';
-import { copilotPlatform } from './copilot';
 import type { Platform, PlatformId } from './platformInterface';
 
 /**
  * Every registered platform. Order matters only when two platforms share
  * a host (not currently the case).
  */
-export const PLATFORMS: readonly Platform[] = [
-  chatGptPlatform,
-  copilotPlatform,
-];
+export const PLATFORMS: readonly Platform[] = [chatGptPlatform];
 
 /**
  * Returns the platform record for a given id, or throws if unknown.
