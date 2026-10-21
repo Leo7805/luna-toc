@@ -56,9 +56,10 @@ export function createSidebarToggleButton(): HTMLButtonElement {
  * @param {HTMLElement} handle Element providing pointer drag gestures.
  */
 export function bindFloatingDockDrag(handle: HTMLElement): void {
-  const dock = document.getElementById(DOCK_ID);
-  if (!dock) return;
+  const dockElement = document.getElementById(DOCK_ID);
+  if (!dockElement) return;
 
+  const dock = dockElement;
   handle.addEventListener('pointerdown', (event: PointerEvent) => {
     if (
       event.button !== 0 ||
