@@ -34,7 +34,7 @@
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
-- `src/navigation/jump/outline.ts` 和 `outlineNavigation.ts` 提取并定位已渲染回答的标题，避免使用已脱离 DOM 的缓存元素。
+- `src/navigation/jump/outline.ts` 和 `outlineNavigation.ts` 提取并定位已渲染回答的标题，避免使用已脱离 DOM 的缓存元素。点击目录项时以幂等展开模式请求对应回答标题，虚拟化内容挂载后重试提取；点击三角按钮仍独立切换展开状态。
 
 页面结构或接口发生变化时，先更新 ChatGPT 平台适配层，再验证导航行为。
 

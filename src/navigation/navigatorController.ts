@@ -299,17 +299,22 @@ export const navigatorController = (() => {
   }
 
   /**
-   * Navigates to a prompt and schedules its assistant-answer outline.
-   * @param {Object} message
-   * @param {number} index
+   * Navigates to a prompt and expands its answer outline when available.
+   * @param {NavigatorMessage} message Target prompt.
+   * @param {number} index Target prompt index.
    */
   function handleNavigatorItemClick(
     message: NavigatorMessage,
     index: number
   ): void {
     previewTooltip.hide();
-    // The prompt row navigates only; its chevron handles outline expansion.
+    const action = handlePromptNavigation(
+      index,
+      activePromptTracker.getActiveIndex(),
+      'expand'
+    );
     jumpToMessage(message, index);
+    if (action.shouldBuild) scheduleBuild(index);
   }
 
   /**

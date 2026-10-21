@@ -126,14 +126,17 @@ export function createPromptItem({
 }
 
 /**
- * Handles outline state changes for a prompt row click.
- * @param {number} index Clicked prompt index.
+ * Changes the answer outline for a prompt.
+ * Navigation expands idempotently; the chevron retains toggle behavior.
+ * @param {number} index Prompt index.
  * @param {number | null} activeIndex Currently active prompt index.
- * @returns {PromptNavigationAction} Whether caller should try building outline after navigation.
+ * @param {'toggle' | 'expand'} mode Interaction type.
+ * @returns {PromptNavigationAction} Whether a heading build is needed.
  */
 export function handlePromptNavigation(
   index: number,
-  _activeIndex: number | null
+  _activeIndex: number | null,
+  mode: 'toggle' | 'expand' = 'toggle'
 ): PromptNavigationAction {
   cancelOutlineNavigation();
 
@@ -158,7 +161,12 @@ export function handlePromptNavigation(
     });
     pendingOutlineIndex = null;
     currentPromptIndex = index;
-    togglePromptOutline(index);
+    if (mode === 'expand') {
+      collapseAllExcept(index);
+      expandedPromptOutlines.add(index);
+    } else {
+      togglePromptOutline(index);
+    }
     updateAllPromptItems();
 
     return {
@@ -172,14 +180,16 @@ export function handlePromptNavigation(
     expandedPromptOutlines.delete(index);
   }
 
-  // First click requests expansion even before the answer has been mounted.
-  // A second click while still loading collapses it and cancels the build.
-  const shouldBuild = !expandedPromptOutlines.has(index);
+  // Navigation requests expansion without cancelling a build already pending.
+  // Only another chevron click may collapse and cancel that build.
+  const shouldBuild = mode === 'expand'
+    ? pendingOutlineIndex !== index || !expandedPromptOutlines.has(index)
+    : !expandedPromptOutlines.has(index);
   setCurrentPrompt(index);
   if (shouldBuild) {
     pendingOutlineIndex = index;
     expandedPromptOutlines.add(index);
-  } else {
+  } else if (mode === 'toggle') {
     if (pendingOutlineIndex === index) pendingOutlineIndex = null;
     expandedPromptOutlines.delete(index);
     outlineBuildVersion += 1;

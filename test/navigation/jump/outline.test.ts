@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 /** Tests Outline extraction descriptors and cache ownership. */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getPromptOutline,
   handlePromptNavigation,
@@ -94,6 +94,57 @@ describe('prompt outlines', () => {
     expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: false });
     expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
     expect(outlineList.hidden).toBe(true);
+  });
+
+  it('expands a cached outline on row navigation without toggling it closed', () => {
+    setPromptMessages([createMessage('prompt-a')]);
+    renderConversation('prompt-a', [['h2', 'Cached heading']]);
+    const item = document.createElement('div');
+    document.body.appendChild(item);
+    const { outlineIndicator, outlineList } = createPromptItem({
+      item, index: 0, messageId: 'prompt-a',
+    });
+    item.append(outlineIndicator, outlineList);
+
+    expect(handlePromptNavigation(0, null, 'expand')).toEqual({ shouldBuild: true });
+    scheduleBuild(0, 1);
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+
+    expect(handlePromptNavigation(0, 0, 'expand')).toEqual({ shouldBuild: false });
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+    expect(outlineList.textContent).toContain('Cached heading');
+
+    // The separate chevron still collapses or expands.
+    expect(handlePromptNavigation(0, 0)).toEqual({ shouldBuild: false });
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+    expect(handlePromptNavigation(0, 0, 'expand')).toEqual({ shouldBuild: false });
+    expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('keeps an outline expansion pending until a virtualized answer mounts', () => {
+    vi.useFakeTimers();
+    try {
+      setPromptMessages([createMessage('prompt-a')]);
+      const item = document.createElement('div');
+      document.body.appendChild(item);
+      const { outlineIndicator, outlineList } = createPromptItem({
+        item, index: 0, messageId: 'prompt-a',
+      });
+      item.append(outlineIndicator, outlineList);
+
+      expect(handlePromptNavigation(0, null, 'expand')).toEqual({ shouldBuild: true });
+      scheduleBuild(0, 3);
+      expect(outlineIndicator.getAttribute('aria-expanded')).toBe('false');
+      expect(handlePromptNavigation(0, null, 'expand')).toEqual({ shouldBuild: false });
+
+      renderConversation('prompt-a', [['h2', 'Late heading']]);
+      vi.advanceTimersByTime(300);
+
+      expect(outlineIndicator.getAttribute('aria-expanded')).toBe('true');
+      expect(outlineList.textContent).toContain('Late heading');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('rejects a disconnected cache when the current Assistant has no headings', () => {

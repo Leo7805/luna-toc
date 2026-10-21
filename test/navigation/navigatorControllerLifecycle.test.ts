@@ -6,6 +6,7 @@ import { navigatorController } from '@/navigation/navigatorController';
 import { getActivePlatform } from '@/platforms';
 import { isLoading, setLoading } from '@/navigation/loading/promptLoadingState';
 import * as promptNav from '@/navigation/jump/promptNavigation';
+import { resetOutline } from '@/navigation/jump/outline';
 
 describe('navigatorController lifecycle and coordination', () => {
   beforeEach(() => {
@@ -532,6 +533,80 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(mutationObserveSpy.mock.calls.length).toBeGreaterThan(
       initialObserveCallCount
     );
+  });
+
+  it('automatically expands the arrow after clicking a prompt row and keeps it open on repeated clicks', () => {
+    const platform = getActivePlatform();
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        host: 'chatgpt.com',
+        pathname: '/c/test-expand-on-jump',
+      },
+    });
+    const jumpToMessageSpy = vi.spyOn(promptNav, 'jumpToMessage')
+      .mockImplementation(() => {});
+
+    navigatorController.init();
+    navigatorController.attach();
+    window.dispatchEvent(new MessageEvent('message', {
+      source: window,
+      data: { type: platform.pageHook.messages.routeChanged },
+    }));
+    window.dispatchEvent(new MessageEvent('message', {
+      source: window,
+      data: {
+        type: platform.pageHook.messages.conversationData,
+        routeKey: 'test-expand-on-jump',
+        payload: {
+          messages: [
+            {
+              id: 'prompt-expand',
+              author: { role: 'user' },
+              content: { parts: ['Expand me'] },
+              create_time: 100,
+            },
+            {
+              id: 'answer-expand',
+              author: { role: 'assistant' },
+              content: { parts: ['Answer'] },
+              create_time: 200,
+            },
+          ],
+        },
+      },
+    }));
+
+    const user = document.createElement('div');
+    user.setAttribute('data-chatgpt-search-unit-key', 'prompt-expand:user');
+    user.setAttribute('data-chatgpt-search-message-ids', 'prompt-expand');
+    const assistant = document.createElement('div');
+    assistant.setAttribute('data-chatgpt-search-unit-key', 'answer-expand:assistant');
+    assistant.setAttribute('data-chatgpt-search-message-ids', 'answer-expand');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Answer section';
+    assistant.appendChild(heading);
+    document.body.append(user, assistant);
+
+    const row = document.querySelector<HTMLElement>('.navigator-item')!;
+    const text = row.querySelector<HTMLElement>('.navigator-item-text')!;
+    const arrow = row.querySelector<HTMLButtonElement>('.navigator-outline-indicator')!;
+    expect(arrow.getAttribute('aria-expanded')).toBe('false');
+
+    text.click();
+    expect(jumpToMessageSpy).toHaveBeenCalledOnce();
+    expect(arrow.getAttribute('aria-expanded')).toBe('true');
+    expect(row.querySelector('.navigator-outline-list')?.textContent).toContain('Answer section');
+
+    text.click();
+    expect(jumpToMessageSpy).toHaveBeenCalledTimes(2);
+    expect(arrow.getAttribute('aria-expanded')).toBe('true');
+
+    arrow.click();
+    expect(arrow.getAttribute('aria-expanded')).toBe('false');
+    expect(jumpToMessageSpy).toHaveBeenCalledTimes(2);
+    resetOutline();
   });
 
   it('jumpToLastPrompt() navigates to the last message when messages exist', () => {
