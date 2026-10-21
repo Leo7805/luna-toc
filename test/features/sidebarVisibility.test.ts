@@ -73,7 +73,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(-1);
-    expect(panel.closest('[aria-hidden="true"]')).toBeNull();
+    expect(panel.closest('[aria-hidden="true"]')).toBe(panel);
 
     // Moving anywhere outside the button group's actual footprint hides it.
     sidebar.dispatchEvent(new Event('pointermove', { bubbles: true }));

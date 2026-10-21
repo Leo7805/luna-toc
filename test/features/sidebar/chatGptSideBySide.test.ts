@@ -191,6 +191,7 @@ describe('ChatGPT app beside LunaTOC sidebar', () => {
     const sidebar = document.getElementById('luna-toc-sidebar')!;
     const chatMain = document.getElementById('chatgpt-main')!;
     initializeChatGptSideBySide(sidebar);
+    setChatGptSideBySideEnabled(true);
     expect(chatMain.classList.contains(SIDE_BY_SIDE)).toBe(true);
     expect(document.getElementById('root')?.classList.contains(SIDE_BY_SIDE)).toBe(false);
   });
