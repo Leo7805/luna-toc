@@ -70,6 +70,15 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
     expect(base).not.toMatch(/opacity:\s*0;|pointer-events:\s*none;/);
   });
 
+  it('uses an unblurred transparent default background and a faster close transition', () => {
+    expect(stylesheet).toMatch(
+      /#luna-toc-sidebar\.luna-toc-navigator-ready\s*\{[^}]*transition:\s*transform 100ms ease;/s
+    );
+    expect(stylesheet).toMatch(
+      /#luna-toc-sidebar\.luna-toc-sidebar-transparent\s*\{[^}]*backdrop-filter:\s*none;[^}]*-webkit-backdrop-filter:\s*none;/s
+    );
+  });
+
   it('removes inline action buttons; truncation is purely CSS-driven', () => {
     expect(stylesheet).not.toMatch(/\.navigator-item-menu-btn\s*\{/);
     expect(stylesheet).not.toMatch(/\.navigator-mark-btn\s*\{/);

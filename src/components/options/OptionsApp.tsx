@@ -119,7 +119,7 @@ export function OptionsApp(): React.JSX.Element {
                 <input type="radio" name="sidebar-color" value={color.id}
                   checked={preferences.backgroundColor === color.id}
                   onChange={() => updatePreferences({ backgroundColor: color.id })} />
-                <span className="settings-swatch" style={{ backgroundColor: color.hex }}
+                <span className={color.id === 'default' ? 'settings-swatch settings-swatch-transparent' : 'settings-swatch'} style={{ backgroundColor: color.hex }}
                   aria-hidden="true">
                   {preferences.backgroundColor === color.id ? '✓' : ''}
                 </span>

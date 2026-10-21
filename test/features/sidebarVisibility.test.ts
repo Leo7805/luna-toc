@@ -96,12 +96,30 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(sidebar.getAttribute('aria-hidden')).toBe('false');
 
     sidebar.dispatchEvent(new Event('pointerleave'));
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(59);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('false');
+    vi.advanceTimersByTime(1);
     expect(sidebar.getAttribute('aria-hidden')).toBe('true');
     expect(sidebar.contains(panel)).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(false);
     expect(dock.inert).toBe(false);
+  });
+
+  it('cancels quick auto-hide when the pointer reenters the sidebar', () => {
+    vi.useFakeTimers();
+    const { sidebar, trigger } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+    sidebar.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(50);
+    sidebar.dispatchEvent(new Event('pointerenter'));
+    vi.advanceTimersByTime(70);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('false');
+
+    sidebar.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(60);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('closes an open React-portal context menu whenever the sidebar hides', () => {
@@ -121,7 +139,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
-  it('dismisses menu actions after the automatic 300ms sidebar collapse', () => {
+  it('dismisses menu actions after the faster 60ms sidebar collapse', () => {
     vi.useFakeTimers();
     const { sidebar, trigger } = setup();
     initializeSidebarVisibility(sidebar, trigger);
@@ -134,7 +152,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     );
 
     sidebar.dispatchEvent(new Event('pointerleave'));
-    vi.advanceTimersByTime(350);
+    vi.advanceTimersByTime(60);
     expect(sidebar.getAttribute('aria-hidden')).toBe('true');
     expect(promptContextMenuController.getSnapshot()).toBeNull();
   });

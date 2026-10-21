@@ -7,7 +7,8 @@ import { syncChatGptSideBySide } from '@/features/sidebar/chatGptSideBySide';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
-const AUTO_HIDE_DELAY_MS = 300;
+// A short grace period retains portal hover without delayed collapse.
+const AUTO_HIDE_DELAY_MS = 60;
 const LAYOUT_MODE_STORAGE_KEY = 'chatToc:activeSidebarLayoutMode';
 
 let sidebar: HTMLElement | null = null;

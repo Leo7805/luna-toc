@@ -50,8 +50,8 @@ describe('sidebar preferences', () => {
       revealTint: false,
     });
     expect(sidebarAppearance(DEFAULT_SIDEBAR_PREFERENCES, 'dark')).toEqual({
-      background: null,
-      header: null,
+      background: 'transparent',
+      header: 'transparent',
       reveal: 'transparent',
     });
   });
@@ -85,6 +85,16 @@ describe('sidebar preferences', () => {
       'default', 'blue', 'green', 'yellow', 'pink', 'orange',
       'purple', 'red', 'cyan', 'lime', 'magenta',
     ]);
+    const transparentTint = sidebarAppearance(
+      { ...DEFAULT_SIDEBAR_PREFERENCES, revealTint: true }, 'dark'
+    );
+    expect(transparentTint.reveal).toBe('rgba(33, 33, 33, 0.42)');
+    expect(sidebarAppearance(
+      { ...DEFAULT_SIDEBAR_PREFERENCES, revealTint: true }, 'light'
+    ).reveal).toBe('rgba(255, 255, 255, 0.42)');
+    expect(SIDEBAR_COLORS[0]).toEqual({
+      id: 'default', label: '默认（透明）', hex: 'transparent',
+    });
     const selected = { layoutMode: 'side-by-side' as const, backgroundColor: 'orange' as const, revealTint: true };
     const light = sidebarAppearance(selected, 'light');
     const dark = sidebarAppearance(selected, 'dark');
