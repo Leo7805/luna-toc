@@ -1,5 +1,5 @@
-# Build and publish installable Chrome extension archives from the default branch.
-name: Build and publish Chrome extension
+# Verify and publish LunaTOC-SC from main, retaining only the latest release.
+name: LunaTOC-SC build and release
 
 on:
   push:
@@ -107,7 +107,7 @@ jobs:
           retention-days: 30
 
       - name: Publish GitHub pre-release
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -130,7 +130,7 @@ jobs:
 
       # Retain exactly one publicly listed installable version on main.
       - name: Remove superseded releases and tags
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -156,12 +156,3 @@ jobs:
             fi
           done < <(gh api "repos/$GH_REPO/git/matching-refs/tags" --jq '.[].ref')
 
-      - name: Delete merged temporary fix branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh api --method DELETE \
-            "repos/$GH_REPO/git/refs/heads/fix/runtime-integrity-and-project-text"
