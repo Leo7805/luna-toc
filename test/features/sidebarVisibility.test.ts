@@ -90,7 +90,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     sidebar.dispatchEvent(new Event('pointerleave'));
     vi.advanceTimersByTime(400);
     expect(sidebar.getAttribute('aria-hidden')).toBe('true');
-    expect(panel.closest('[aria-hidden="true"]')).toBe(sidebar);
+    expect(sidebar.contains(panel)).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(dock.classList.contains('luna-toc-floating-dock-hidden')).toBe(false);
     expect(dock.inert).toBe(false);
