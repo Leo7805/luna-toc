@@ -10,14 +10,17 @@
 :root,
 html[data-theme='dark'],
 body[data-theme='dark'] {
-  --p-bg-body: #0f172a;
-  --p-bg-main: #111827;
-  --p-bg-note: #1f2937;
-  --p-bg-kbd: #1f2937;
-  --p-border-kbd: #4b5563;
-  --p-text-base: #dbe4f0;
-  --p-text-h2: #93c5fd;
-  --p-text-strong: #93c5fd;
+  --p-brand-title: linear-gradient(135deg, #a5b4fc 0%, #60a5fa 100%);
+  --p-bg-body: #0b1120;
+  --p-bg-main: #0f172a;
+  --p-border-card: #1e293b;
+  --p-border-divider: #1e293b;
+  --p-bg-kbd: #1e293b;
+  --p-border-kbd: #334155;
+  --p-text-heading: #f8fafc;
+  --p-text-base: #cbd5e1;
+  --p-text-muted: #94a3b8;
+  --p-text-strong: #60a5fa;
   --p-text-kbd: #bfdbfe;
   --p-accent: #60a5fa;
 
@@ -25,21 +28,33 @@ body[data-theme='dark'] {
   --p-toggle-bg: #1e293b;
   --p-toggle-bg-active: #1d4ed8;
   --p-toggle-border: #334155;
-  --p-toggle-text: #94a3b8;
+
+  /* Footer */
+  --p-footer-text: #94a3b8;
+  --p-footer-hover-bg: #1e293b;
+  --p-footer-hover-text: #60a5fa;
 
   /* Rate link */
   --p-rate-hover-color: #fcd34d;
+
+  /* Backward compatibility aliases */
+  --p-text-h2: var(--p-text-heading);
+  --p-bg-note: var(--p-bg-kbd);
+  --p-toggle-text: var(--p-text-muted);
 }
 
 html[data-theme='light'],
 body[data-theme='light'] {
-  --p-bg-body: #e0effe;
-  --p-bg-main: #eff6ff;
-  --p-bg-note: #dbeafe;
-  --p-bg-kbd: #dbeafe;
-  --p-border-kbd: #93c5fd;
-  --p-text-base: #1e3a5f;
-  --p-text-h2: #1d4ed8;
+  --p-brand-title: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  --p-bg-body: #dbeafe;
+  --p-bg-main: #f4f8fe;
+  --p-border-card: #cfe0f5;
+  --p-border-divider: #e2ecf9;
+  --p-bg-kbd: #eaf2fc;
+  --p-border-kbd: #bfdbfe;
+  --p-text-heading: #172e4c;
+  --p-text-base: #274264;
+  --p-text-muted: #577497;
   --p-text-strong: #1d4ed8;
   --p-text-kbd: #1d4ed8;
   --p-accent: #2563eb;
@@ -47,11 +62,20 @@ body[data-theme='light'] {
   /* Theme toggle */
   --p-toggle-bg: #dbeafe;
   --p-toggle-bg-active: #2563eb;
-  --p-toggle-border: #93c5fd;
-  --p-toggle-text: #3b6b9e;
+  --p-toggle-border: #bfdbfe;
+
+  /* Footer */
+  --p-footer-text: #577497;
+  --p-footer-hover-bg: #e6f0fc;
+  --p-footer-hover-text: #1d4ed8;
 
   /* Rate link */
   --p-rate-hover-color: #2563eb;
+
+  /* Backward compatibility aliases */
+  --p-text-h2: var(--p-text-heading);
+  --p-bg-note: var(--p-bg-kbd);
+  --p-toggle-text: var(--p-text-muted);
 
   /* Coffee button */
   .coffee-img-dark { display: none; }
@@ -67,6 +91,13 @@ body {
   margin: 0;
   padding: 2px;
   background: var(--p-bg-body);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--p-text-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+.popup-brand-title {
+  background: var(--p-brand-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

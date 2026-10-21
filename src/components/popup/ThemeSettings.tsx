@@ -29,17 +29,17 @@ export function ThemeSettings({
 
   return (
     <section
-      className="mb-2.5 border-b border-(--p-toggle-border) pb-2"
-      aria-labelledby="theme-heading"
+      className="mb-2.5 border-b border-[var(--p-border-divider)] pb-2"
+      aria-labelledby="brand-heading"
     >
       <div className="flex min-h-6 items-center gap-2">
-        <h2
-          id="theme-heading"
-          className="m-0 mr-auto text-[10px] font-semibold uppercase tracking-[0.08em] text-(--p-toggle-text)"
+        <h1
+          id="brand-heading"
+          className="popup-brand-title m-0 mr-auto select-none text-[20px] font-bold leading-none tracking-[-0.025em]"
         >
-          Theme
-        </h2>
-        <span className="text-[10px] font-medium text-(--p-toggle-text)">
+          LunaTOC
+        </h1>
+        <span className="text-xs font-medium text-[var(--p-text-muted)]">
           Follow ChatGPT
         </span>
         <button
@@ -55,8 +55,8 @@ export function ThemeSettings({
           onClick={toggleFollow}
         >
           <span
-            className={`absolute top-0.5 left-0 size-3 rounded-full bg-white shadow-sm transition-transform ${
-              settings.followChatGPT ? 'translate-x-4.25' : 'translate-x-0.5'
+            className={`absolute top-0.5 left-0 size-3.5 rounded-full bg-white shadow-sm transition-transform ${
+              settings.followChatGPT ? 'translate-x-3.75' : 'translate-x-0.5'
             }`}
           />
         </button>
@@ -75,22 +75,22 @@ export function ThemeSettings({
           }
           className={`inline-flex size-6 appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-(--p-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--p-bg-main) ${
             settings.followChatGPT
-              ? 'cursor-default opacity-55'
-              : 'cursor-pointer hover:scale-110 hover:brightness-125 active:scale-95'
-          } ${resolvedTheme === 'dark' ? 'text-blue-400' : 'text-amber-600'}`}
+              ? 'cursor-default opacity-40'
+              : 'cursor-pointer hover:scale-110 active:scale-95'
+          } ${resolvedTheme === 'dark' ? 'text-sky-400' : 'text-amber-500'}`}
           onClick={toggleManualTheme}
         >
           {resolvedTheme === 'dark' ? (
             <Moon
               aria-hidden="true"
               viewBox="2 2 20 20"
-              className="size-5 drop-shadow-[0_0_4px_currentColor]"
+              className="size-4.5"
             />
           ) : (
             <Sun
               aria-hidden="true"
               viewBox="2 2 20 20"
-              className="size-5 drop-shadow-[0_0_4px_currentColor]"
+              className="size-4.5"
             />
           )}
         </button>
