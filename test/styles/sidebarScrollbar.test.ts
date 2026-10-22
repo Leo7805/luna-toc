@@ -1,9 +1,7 @@
 /** @vitest-environment node */
 /** Guards the TOC-only scrollbar styling while preserving scroll navigation. */
-import { readFileSync } from 'node:fs';
+import css from '@/styles/content.css?raw';
 import { describe, expect, it } from 'vitest';
-
-const css = readFileSync(new URL('../../src/styles/content.css', import.meta.url), 'utf8');
 
 describe('TOC list scrollbar', () => {
   it('hides the track in modern browsers without disabling scrolling', () => {
