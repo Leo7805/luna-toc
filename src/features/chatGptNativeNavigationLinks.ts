@@ -60,6 +60,7 @@ const DESTINATIONS: Readonly<Record<string, string>> = {
 let observer: MutationObserver | null = null;
 const originalPositions = new Map<HTMLElement, string>();
 const hiddenProjects = new Map<HTMLElement, { value: string; priority: string }>();
+let nativeProjectIcon: Element | null = null;
 
 /** Normalizes localized labels while ignoring a trailing new-feature badge. */
 function normalizeLabel(value: string): string {
@@ -138,20 +139,58 @@ function enhanceTree(root: Document | Element): void {
   root.querySelectorAll<HTMLElement>(CONTROL_SELECTOR).forEach(enhanceControl);
 }
 
-/** Locates the existing Library row to copy its active ChatGPT visual style. */
+/** Finds Library by its actual href first, then by its localized navigation label. */
 function findLibraryRow(): HTMLElement | null {
-  const nodes = document.querySelectorAll<HTMLElement>(
-    'nav a, nav button, nav [role="button"], ' +
-    'aside a, aside button, aside [role="button"], ' +
-    '#stage-slideover-sidebar a, #stage-slideover-sidebar button, ' +
-    '#sidebar a, #sidebar button, [data-testid*="sidebar"] a, ' +
-    '[data-testid*="sidebar"] button'
+  const candidates = document.querySelectorAll<HTMLElement>(
+    'a[href], button, [role="button"], [role="link"]'
   );
-  for (const node of nodes) {
-    if (!isNativeNavigation(node) || node.closest('[' + PROJECT_ATTRIBUTE + ']')) continue;
-    if (LIBRARY_NAMES.has(readLabel(node))) return node;
+  for (const candidate of candidates) {
+    if (!isNativeNavigation(candidate) ||
+        candidate.closest('[' + PROJECT_ATTRIBUTE + ']')) continue;
+    if (candidate instanceof HTMLAnchorElement) {
+      try {
+        const target = new URL(candidate.href);
+        if (target.origin === window.location.origin &&
+            target.pathname.replace(/\/$/, '') === '/library') return candidate;
+      } catch {
+        // Non-URL anchors can still be matched by their accessible label.
+      }
+    }
+    if (LIBRARY_NAMES.has(readLabel(candidate))) return candidate;
   }
   return null;
+}
+
+/** Copies the actual Projects icon only from an existing ChatGPT menu item. */
+function captureNativeProjectIcon(): void {
+  const candidates = document.querySelectorAll<HTMLElement>(
+    '[role="menuitem"], [role="menu"] a, [role="menu"] button, ' +
+    'nav a, nav button, aside a, aside button'
+  );
+  for (const candidate of candidates) {
+    if (!isNativeNavigation(candidate) ||
+        candidate.closest('[' + PROJECT_ATTRIBUTE + ']') ||
+        !PROJECT_NAMES.has(readLabel(candidate))) continue;
+    const icon = candidate.querySelector('svg, img');
+    if (icon) {
+      nativeProjectIcon = icon.cloneNode(true) as Element;
+      return;
+    }
+  }
+}
+
+/**
+ * Mirrors the native icon when ChatGPT renders one. Until then, leave an
+ * empty icon slot rather than substituting a different folder symbol.
+ */
+function syncNativeProjectIcon(shortcut: HTMLAnchorElement): boolean {
+  const slot = shortcut.querySelector<HTMLElement>('[data-luna-toc-project-icon-slot]');
+  if (!slot || !nativeProjectIcon) return false;
+  const markup = nativeProjectIcon.outerHTML;
+  if (slot.dataset.nativeProjectIcon === markup) return true;
+  slot.replaceChildren(nativeProjectIcon.cloneNode(true));
+  slot.dataset.nativeProjectIcon = markup;
+  return true;
 }
 
 /** Builds a standalone Projects anchor styled like the native Library row. */
@@ -173,13 +212,17 @@ function createProjectShortcut(library: HTMLElement): HTMLAnchorElement {
       }
     });
 
-  const icon = shortcut.querySelector('svg');
-  if (icon) {
-    icon.setAttribute('fill', 'none');
-    icon.setAttribute('stroke', 'currentColor');
-    icon.setAttribute('stroke-width', '2');
-    icon.innerHTML =
-      '<path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/>';
+  const oldIcon = shortcut.querySelector('svg, img');
+  const slot = document.createElement('span');
+  slot.setAttribute('data-luna-toc-project-icon-slot', '');
+  slot.setAttribute('aria-hidden', 'true');
+  slot.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;' +
+    'width:20px;height:20px;flex-shrink:0;';
+  if (oldIcon) {
+    slot.className = oldIcon.getAttribute('class') || '';
+    oldIcon.replaceWith(slot);
+  } else {
+    shortcut.prepend(slot);
   }
 
   const walker = document.createTreeWalker(shortcut, NodeFilter.SHOW_TEXT);
@@ -199,9 +242,27 @@ function createProjectShortcut(library: HTMLElement): HTMLAnchorElement {
   return shortcut;
 }
 
-/** Hides just the redundant Projects destination inside the Explore menu. */
+/** Restores Explore as a fallback whenever the independent link is absent. */
+function restoreExploreProjects(): void {
+  for (const [item, display] of hiddenProjects) {
+    if (display.value) item.style.setProperty('display', display.value, display.priority);
+    else item.style.removeProperty('display');
+  }
+  hiddenProjects.clear();
+}
+
+/** Hides only redundant Explore items when a working native-icon link exists. */
 function hideExploreProjects(): void {
-  if (!document.querySelector('a[' + PROJECT_ATTRIBUTE + ']')) return;
+  const shortcut = document.querySelector<HTMLAnchorElement>(
+    'a[' + PROJECT_ATTRIBUTE + ']'
+  );
+  if (!shortcut?.isConnected || !syncNativeProjectIcon(shortcut)) {
+    restoreExploreProjects();
+    return;
+  }
+  for (const item of hiddenProjects.keys()) {
+    if (!item.isConnected) hiddenProjects.delete(item);
+  }
   const items = document.querySelectorAll<HTMLElement>(
     '[role="menu"] [role="menuitem"], [role="menu"] a, ' +
     '[data-radix-menu-content] [role="menuitem"], ' +
@@ -218,8 +279,9 @@ function hideExploreProjects(): void {
   }
 }
 
-/** Keeps one Projects shortcut immediately after Library across SPA remounts. */
+/** Recreates one Projects link after Library and never leaves both routes hidden. */
 function syncProjectShortcut(): void {
+  captureNativeProjectIcon();
   const library = findLibraryRow();
   const shortcuts = Array.from(
     document.querySelectorAll<HTMLAnchorElement>('a[' + PROJECT_ATTRIBUTE + ']')
@@ -229,6 +291,7 @@ function syncProjectShortcut(): void {
 
   if (!library || !library.parentElement) {
     existing?.remove();
+    restoreExploreProjects();
     return;
   }
   if (existing && existing.previousElementSibling === library) {
@@ -236,7 +299,8 @@ function syncProjectShortcut(): void {
     return;
   }
   existing?.remove();
-  library.after(createProjectShortcut(library));
+  const shortcut = createProjectShortcut(library);
+  library.after(shortcut);
   hideExploreProjects();
 }
 
@@ -246,27 +310,47 @@ export function initializeChatGptNativeNavigationLinks(): void {
   observer = new MutationObserver((records) => {
     let navigationChanged = false;
     for (const record of records) {
+      const target = record.target instanceof Element
+        ? record.target
+        : record.target.parentElement;
+      const inNavigation = Boolean(
+        target && (isNativeNavigation(target) || target.matches(NAVIGATION_AREA))
+      );
+      if (record.type !== 'childList') {
+        if (inNavigation) navigationChanged = true;
+        continue;
+      }
       for (const node of record.addedNodes) {
-        if (!(node instanceof Element)) continue;
-        if (!node.matches(NAVIGATION_AREA) && !node.closest(NAVIGATION_AREA) &&
+        if (!(node instanceof Element)) {
+          if (inNavigation) navigationChanged = true;
+          continue;
+        }
+        if (!inNavigation && !node.matches(NAVIGATION_AREA) &&
             !node.querySelector(NAVIGATION_AREA) &&
             !node.matches('[data-testid="create-new-chat-button"]')) continue;
         enhanceTree(node);
         navigationChanged = true;
       }
-      if (record.target instanceof HTMLElement &&
-          record.target.matches(CONTROL_SELECTOR) &&
+      if (target instanceof HTMLElement && target.matches(CONTROL_SELECTOR) &&
           Array.from(record.removedNodes).some((node) =>
             node instanceof HTMLAnchorElement && node.hasAttribute(LINK_ATTRIBUTE))) {
-        enhanceControl(record.target);
+        enhanceControl(target);
       }
-      if (Array.from(record.removedNodes).some((node) => node instanceof Element)) {
+      if (inNavigation || Array.from(record.removedNodes).some((node) =>
+        node instanceof Element &&
+        (node.matches(NAVIGATION_AREA) || Boolean(node.querySelector(NAVIGATION_AREA))))) {
         navigationChanged = true;
       }
     }
     if (navigationChanged) syncProjectShortcut();
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['href', 'aria-label', 'title'],
+  });
   enhanceTree(document);
   syncProjectShortcut();
 }
@@ -281,9 +365,6 @@ export function disposeChatGptNativeNavigationLinks(): void {
     if (element.style.position === 'relative') element.style.position = position;
   }
   originalPositions.clear();
-  for (const [element, display] of hiddenProjects) {
-    if (display.value) element.style.setProperty('display', display.value, display.priority);
-    else element.style.removeProperty('display');
-  }
-  hiddenProjects.clear();
+  restoreExploreProjects();
+  nativeProjectIcon = null;
 }

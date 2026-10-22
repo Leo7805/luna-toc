@@ -75,14 +75,14 @@ describe('ChatGPT native sidebar navigation links', () => {
     expect(contextMenu.defaultPrevented).toBe(false);
   });
 
-  it('adds one Projects link below Library and removes only the duplicate Explore item', () => {
+  it('uses the real Explore icon, places Projects below Library, and restores the original if Library disappears', async () => {
     document.body.innerHTML =
       '<nav id="stage-slideover-sidebar">' +
-      '<a id="library" href="/library" class="native-nav-item"><svg></svg><span>资料库</span></a>' +
+      '<a id="library" href="/library" class="native-nav-item"><svg><path d="M0 0"/></svg><span>资料库</span></a>' +
       '<a id="other" href="/recent">最近</a></nav>' +
-      '<div role="menu"><a role="menuitem" id="explore-project" href="/projects">项目</a>' +
+      '<div role="menu"><a role="menuitem" id="explore-project" href="/projects">' +
+      '<svg viewBox="0 0 24 24"><path d="M3 7 L12 2 L21 7"/></svg><span>项目</span></a>' +
       '<a role="menuitem" id="explore-sites" href="/sites">站点</a></div>';
-    initializeChatGptNativeNavigationLinks();
     initializeChatGptNativeNavigationLinks();
     const projects = projectShortcut()!;
     expect(projects.href).toContain('/projects');
@@ -90,12 +90,46 @@ describe('ChatGPT native sidebar navigation links', () => {
     expect(projects.nextElementSibling).toBe(document.getElementById('other'));
     expect(projects.textContent).toBe('项目');
     expect(projects.className).toBe('native-nav-item');
+    expect(projects.querySelector('svg path')?.getAttribute('d')).toBe('M3 7 L12 2 L21 7');
     expect(document.getElementById('explore-project')?.style.display).toBe('none');
     expect(document.getElementById('explore-sites')?.style.display).toBe('');
+
+    document.getElementById('library')!.remove();
+    await Promise.resolve();
+    expect(projectShortcut()).toBeNull();
+    expect(document.getElementById('explore-project')?.style.display).toBe('');
+
+    const replacement = document.createElement('a');
+    replacement.href = '/library';
+    replacement.textContent = '资料库';
+    document.getElementById('stage-slideover-sidebar')!.prepend(replacement);
+    await Promise.resolve();
+    expect(projectShortcut()?.previousElementSibling).toBe(replacement);
+    expect(projectShortcut()?.querySelector('svg path')?.getAttribute('d'))
+      .toBe('M3 7 L12 2 L21 7');
+    expect(document.getElementById('explore-project')?.style.display).toBe('none');
 
     disposeChatGptNativeNavigationLinks();
     expect(projectShortcut()).toBeNull();
     expect(document.getElementById('explore-project')?.style.display).toBe('');
+  });
+
+  it('keeps Explore Projects available until the genuine icon is present', async () => {
+    document.body.innerHTML =
+      '<nav id="sidebar"><a href="/library" aria-label="Library">Library</a></nav>' +
+      '<div role="menu"><a role="menuitem" id="explore-project">Projects</a></div>';
+    initializeChatGptNativeNavigationLinks();
+    expect(projectShortcut()).not.toBeNull();
+    expect(projectShortcut()?.querySelector('svg')).toBeNull();
+    expect(document.getElementById('explore-project')?.style.display).toBe('');
+
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.innerHTML = '<path d="M5 10 L20 10"/>';
+    document.getElementById('explore-project')!.prepend(icon);
+    await Promise.resolve();
+    expect(projectShortcut()?.querySelector('svg path')?.getAttribute('d'))
+      .toBe('M5 10 L20 10');
+    expect(document.getElementById('explore-project')?.style.display).toBe('none');
   });
 
   it('rebuilds the Projects shortcut after a sidebar remount', async () => {
