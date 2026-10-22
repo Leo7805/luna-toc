@@ -307,6 +307,85 @@ describe('tocListRenderer', () => {
       .toEqual(['copy-prompt', 'save-prompt']);
   });
 
+  it('hides boundary actions when the expanded question and headings are fully visible', () => {
+    const topbar = document.createElement('div');
+    topbar.className = 'navigator-topbar';
+    listElement.before(topbar);
+    vi.spyOn(topbar, 'getBoundingClientRect').mockReturnValue({
+      top: 0, bottom: 180,
+    } as DOMRect);
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    showOutline(row);
+    const question = row.querySelector<HTMLElement>('.navigator-item-main')!;
+    const outline = row.querySelector<HTMLElement>('.navigator-outline-list')!;
+    const questionRect = vi.spyOn(question, 'getBoundingClientRect').mockReturnValue({
+      top: 200, bottom: 228,
+    } as DOMRect);
+    const outlineRect = vi.spyOn(outline, 'getBoundingClientRect').mockReturnValue({
+      top: 228, bottom: 480,
+    } as DOMRect);
+    const open = (): string[] => {
+      row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      return promptContextMenuController.getSnapshot()?.items.map(({ id }) => id) ?? [];
+    };
+    expect(open()).toEqual(['copy-prompt', 'save-prompt']);
+    promptContextMenuController.close();
+
+    // Partly under the frosted top bar.
+    questionRect.mockReturnValue({ top: 170, bottom: 200 } as DOMRect);
+    expect(open()).toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
+    promptContextMenuController.close();
+
+    // The question is visible, but the last heading is clipped below the list.
+    questionRect.mockReturnValue({ top: 200, bottom: 228 } as DOMRect);
+    outlineRect.mockReturnValue({ top: 228, bottom: 510 } as DOMRect);
+    expect(open()).toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
+    promptContextMenuController.close();
+
+    // Both return to view as the user scrolls the list.
+    outlineRect.mockReturnValue({ top: 228, bottom: 500 } as DOMRect);
+    expect(open()).toEqual(['copy-prompt', 'save-prompt']);
+  });
+
+  it('ignores a stale boundary action once scrolling exposes the complete outline', () => {
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    showOutline(row);
+    const question = row.querySelector<HTMLElement>('.navigator-item-main')!;
+    const outline = row.querySelector<HTMLElement>('.navigator-outline-list')!;
+    vi.spyOn(question, 'getBoundingClientRect').mockReturnValue({
+      top: 200, bottom: 228,
+    } as DOMRect);
+    const outlineRect = vi.spyOn(outline, 'getBoundingClientRect').mockReturnValue({
+      top: 230, bottom: 800,
+    } as DOMRect);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toContain('return-to-bottom');
+    outlineRect.mockReturnValue({ top: 230, bottom: 450 } as DOMRect);
+    promptContextMenuController.select('return-to-bottom');
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
   it('aligns the full prompt row below the frosted topbar and shows the next prompt at bottom', () => {
     const onItemClick = vi.fn();
     const scrollTo = vi.fn();

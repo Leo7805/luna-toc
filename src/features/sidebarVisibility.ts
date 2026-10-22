@@ -14,7 +14,7 @@ const AUTO_HIDE_DELAY_MS = 60;
 export const EDGE_TOOL_DWELL_MS = 50;
 const EDGE_TOOL_THRESHOLD_PX = 12;
 /** Keep revealed right-edge tools visible briefly after the pointer moves away. */
-export const EDGE_TOOL_HIDE_DELAY_MS = 1000;
+export const EDGE_TOOL_HIDE_DELAY_MS = 400;
 const LAYOUT_MODE_STORAGE_KEY = 'chatToc:activeSidebarLayoutMode';
 
 let sidebar: HTMLElement | null = null;
@@ -341,7 +341,7 @@ export function setSidebarHidden(hidden: boolean): void {
   if (justOpened) onOpened?.();
 }
 
-/** Starts a cancellable 1s grace period after leaving the edge/buttons. */
+/** Starts a cancellable 400ms grace period after leaving the edge/buttons. */
 function scheduleJumpControlsHide(): void {
   const controls = sidebar?.querySelector<HTMLElement>('.navigator-jump-controls');
   if (!controls?.classList.contains('navigator-jump-controls-visible') ||

@@ -102,7 +102,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
     panel.dispatchEvent(new Event('pointerleave'));
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(399);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
     vi.advanceTimersByTime(1);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
@@ -177,12 +177,12 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
   });
 
-  it('keeps 50ms reveal and sets a 1s hide grace period', () => {
+  it('keeps 50ms reveal and sets a 400ms hide grace period', () => {
     expect(EDGE_TOOL_DWELL_MS).toBe(50);
-    expect(EDGE_TOOL_HIDE_DELAY_MS).toBe(1000);
+    expect(EDGE_TOOL_HIDE_DELAY_MS).toBe(400);
   });
 
-  it('cancels pending toolbar hide on pointer return and restarts 1s after leaving again', () => {
+  it('cancels pending toolbar hide on pointer return and restarts 400ms after leaving again', () => {
     vi.useFakeTimers();
     const { sidebar, trigger, panel } = setup();
     initializeSidebarVisibility(sidebar, trigger);
@@ -195,20 +195,20 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.getAttribute('aria-hidden')).toBe('false');
 
     sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 20 }));
-    vi.advanceTimersByTime(700);
+    vi.advanceTimersByTime(300);
     expect(panel.getAttribute('aria-hidden')).toBe('false');
 
     panel.dispatchEvent(new Event('pointerenter'));
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(200);
     expect(panel.getAttribute('aria-hidden')).toBe('false');
     panel.dispatchEvent(new Event('pointerleave'));
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(399);
     expect(panel.getAttribute('aria-hidden')).toBe('false');
     vi.advanceTimersByTime(1);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('keeps the toolbar/sidebar available for 1s when leaving the open sidebar', () => {
+  it('keeps the toolbar/sidebar available for 400ms when leaving the open sidebar', () => {
     vi.useFakeTimers();
     const { sidebar, trigger, panel } = setup();
     initializeSidebarVisibility(sidebar, trigger);
@@ -219,7 +219,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     }));
     vi.advanceTimersByTime(50);
     sidebar.dispatchEvent(new Event('pointerleave'));
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(399);
     expect(sidebar.getAttribute('aria-hidden')).toBe('false');
     expect(panel.getAttribute('aria-hidden')).toBe('false');
     vi.advanceTimersByTime(1);

@@ -341,6 +341,30 @@ export function createTocListRenderer(
   }
 
   /**
+   * Returns true if the open question and its answer headings extend outside
+   * the sidebar's unobscured viewport. Zero-sized layout (e.g. before a browser
+   * layout pass) remains eligible so actions are not prematurely hidden.
+   */
+  function isExpandedOutlineObscured(
+    row: HTMLElement,
+    outline: HTMLElement
+  ): boolean {
+    if (row.getAttribute('aria-expanded') !== 'true' || outline.hidden ||
+        !outline.querySelector('.navigator-outline-item')) return false;
+    const list = document.getElementById('navigator-list');
+    if (!list) return false;
+    const viewport = list.getBoundingClientRect();
+    const topBar = list.parentElement?.querySelector<HTMLElement>('.navigator-topbar');
+    const visibleTop = Math.max(viewport.top, topBar?.getBoundingClientRect().bottom ?? viewport.top);
+    if (viewport.bottom <= visibleTop) return true;
+    const question = row.querySelector<HTMLElement>('.navigator-item-main');
+    const questionTop = (question ?? row).getBoundingClientRect().top;
+    const outlineBottom = outline.getBoundingClientRect().bottom;
+    if (questionTop === 0 && outlineBottom === 0) return true;
+    return questionTop < visibleTop || outlineBottom > viewport.bottom;
+  }
+
+  /**
    * Aligns the expanded prompt row below the visible top bar, or reveals the
    * entire next directory row at the bottom. If no next row exists, aligns
    * the final answer heading instead. Never scrolls the ChatGPT conversation.
@@ -355,7 +379,7 @@ export function createTocListRenderer(
     const list = document.getElementById('navigator-list');
     if (!row?.isConnected || !list || row.getAttribute('aria-expanded') !== 'true') return;
     const outline = row.querySelector<HTMLElement>('.navigator-outline-list');
-    if (!outline || outline.hidden) return;
+    if (!outline || !isExpandedOutlineObscured(row, outline)) return;
     const headings = outline.querySelectorAll<HTMLElement>('.navigator-outline-item');
     if (!headings.length || typeof list.scrollTo !== 'function') return;
 
@@ -433,9 +457,7 @@ export function createTocListRenderer(
      */
     const showItemMenu = (left: number, top: number): void => {
       previewTooltip.hide();
-      const expandedOutline = item.getAttribute('aria-expanded') === 'true' &&
-        !outlineControls.outlineList.hidden &&
-        !!outlineControls.outlineList.querySelector('.navigator-outline-item');
+      const expandedOutline = isExpandedOutlineObscured(item, outlineControls.outlineList);
       promptContextMenuController.show(
         { left, top },
         [
