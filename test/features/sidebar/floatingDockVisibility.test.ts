@@ -1,5 +1,5 @@
 /**
- * Tests the invisible 6px activation edge, bottom tools, and row actions.
+ * Tests the invisible 6px activation edge, pointer-positioned tools, and row actions.
  */
 // @ts-expect-error Vitest runs in Node; browser tsconfig intentionally omits Node typings.
 import { readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ const stylesheet = readFileSync(
   'utf8'
 );
 
-describe('full-height reveal edge and bottom-right sidebar actions', () => {
+describe('full-height reveal edge and pointer-positioned sidebar actions', () => {
   it('keeps a 6px full-height pointer target with a configurable tint', () => {
     expect(stylesheet).toMatch(
       /#luna-toc-floating-dock\s*\{[^}]*right:\s*0;[^}]*top:\s*0;[^}]*width:\s*6px;[^}]*height:\s*100vh;/s
@@ -42,21 +42,12 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
     );
   });
 
-  it('shows a 2px translucent reveal strip across only the stacked button height', () => {
+  it('keeps navigation controls hidden until the pointer reaches the edge', () => {
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\s*\{[^}]*right:\s*0;[^}]*bottom:\s*12px;[^}]*padding:\s*8px 0 8px 6px;/s
+      /\.navigator-jump-controls\s*\{[^}]*right:\s*0;[^}]*top:\s*50%;[^}]*bottom:\s*auto;/s
     );
     expect(stylesheet).toMatch(
-      /\.navigator-jump-controls::after\s*\{[^}]*top:\s*9px;[^}]*bottom:\s*9px;[^}]*width:\s*2px;[^}]*background:\s*var\(--ct-jump-reveal-bg\);/s
-    );
-    expect(stylesheet).toMatch(
-      /--ct-jump-reveal-bg:\s*rgba\(3, 10, 23, 0\.3\);/
-    );
-    expect(stylesheet).toMatch(
-      /--ct-jump-reveal-bg:\s*rgba\(141, 164, 197, 0\.23\);/
-    );
-    expect(stylesheet).toMatch(
-      /\.navigator-jump-controls\.navigator-jump-controls-visible::after\s*\{[^}]*opacity:\s*0;/s
+      /\.navigator-jump-controls:not\(\.navigator-jump-controls-visible\)\s*\{[^}]*pointer-events:\s*none;/s
     );
     expect(stylesheet).toMatch(
       /\.navigator-jump-controls > button\s*\{[^}]*opacity:\s*0;/s
@@ -64,10 +55,8 @@ describe('full-height reveal edge and bottom-right sidebar actions', () => {
     expect(stylesheet).toMatch(
       /\.navigator-jump-controls\.navigator-jump-controls-visible > button\s*\{[^}]*opacity:\s*1;/s
     );
-
-    const base = stylesheet.match(/^\.navigator-jump-controls\s*\{([^}]*)\}/m)?.[1];
-    expect(base).toBeDefined();
-    expect(base).not.toMatch(/opacity:\s*0;|pointer-events:\s*none;/);
+    expect(stylesheet).not.toMatch(/\.navigator-jump-controls::after\s*\{/);
+    expect(stylesheet).not.toMatch(/\.navigator-jump-controls\s*\{[^}]*bottom:\s*12px;/s);
   });
 
   it('uses the legacy translucent default background and retains the faster close transition', () => {
