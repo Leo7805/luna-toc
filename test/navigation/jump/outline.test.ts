@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getPromptOutline,
   handlePromptNavigation,
+  collapsePromptOutline,
   createPromptItem,
   resetOutline,
   scheduleBuild,
@@ -155,6 +156,29 @@ describe('prompt outlines', () => {
     expect(item.getAttribute('aria-expanded')).toBe('false');
     expect(handlePromptNavigation(0, 0, 'expand')).toEqual({ shouldBuild: false });
     expect(item.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('collapses only the selected outline while preserving cached headings for reopen', () => {
+    setPromptMessages([createMessage('prompt-a')]);
+    renderConversation('prompt-a', [['h2', 'Cached first heading']]);
+    const item = document.createElement('div');
+    document.body.appendChild(item);
+    const outlineList = createPromptItem({ item, index: 0, messageId: 'prompt-a' }).outlineList;
+    item.append(outlineList);
+    expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: true });
+    scheduleBuild(0, 1);
+    expect(item.getAttribute('aria-expanded')).toBe('true');
+    expect(outlineList.hidden).toBe(false);
+
+    collapsePromptOutline(0);
+    expect(item.getAttribute('aria-expanded')).toBe('false');
+    expect(outlineList.hidden).toBe(true);
+    expect(outlineList.querySelectorAll('.navigator-outline-item')).toHaveLength(0);
+
+    // A normal next click reopens cached headings without rebuilding or jumping.
+    expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: false });
+    expect(item.getAttribute('aria-expanded')).toBe('true');
+    expect(outlineList.textContent).toContain('Cached first heading');
   });
 
   it('cancels a pending outline build when the same row is clicked again', () => {

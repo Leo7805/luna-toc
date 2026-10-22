@@ -220,6 +220,21 @@ export function collapseAll(): void {
 }
 
 /**
+ * Collapses one expanded answer outline without navigating the ChatGPT page.
+ * Cached headings remain available for a later regular row click.
+ * @param index Original prompt index in the current conversation.
+ */
+export function collapsePromptOutline(index: number): void {
+  if (!expandedPromptOutlines.has(index)) return;
+  expandedPromptOutlines.delete(index);
+  if (pendingOutlineIndex === index) {
+    pendingOutlineIndex = null;
+    outlineBuildVersion += 1;
+  }
+  updatePromptItemByIndex(index);
+}
+
+/**
  * Lazily builds and stores an outline for a prompt, then refreshes its row UI.
  * @param {number} index Prompt index to build an outline for.
  * @param {number} [attempts] Remaining build attempts.

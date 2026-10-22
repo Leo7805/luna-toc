@@ -8,6 +8,7 @@ import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
   collapseAll,
+  collapsePromptOutline,
   createPromptItem,
   resetPromptItems,
   setPromptMessages,
@@ -457,7 +458,11 @@ export function createTocListRenderer(
      */
     const showItemMenu = (left: number, top: number): void => {
       previewTooltip.hide();
-      const expandedOutline = isExpandedOutlineObscured(item, outlineControls.outlineList);
+      const isExpanded = item.getAttribute('aria-expanded') === 'true' &&
+        !outlineControls.outlineList.hidden &&
+        !!outlineControls.outlineList.querySelector('.navigator-outline-item');
+      const expandedOutline = isExpanded &&
+        isExpandedOutlineObscured(item, outlineControls.outlineList);
       promptContextMenuController.show(
         { left, top },
         [
@@ -467,10 +472,13 @@ export function createTocListRenderer(
             ? [{ id: 'rename-toc', label: '编辑文字', icon: 'pencil-line' as const }]
             : []),
           ...(expandedOutline
-            ? [
-                { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' as const },
-                { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' as const },
-              ]
+            ? [{ id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' as const }]
+            : []),
+          ...(isExpanded
+            ? [{ id: 'collapse-outline', label: '收起目录', icon: 'list-collapse' as const }]
+            : []),
+          ...(expandedOutline
+            ? [{ id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' as const }]
             : []),
           ...(options.onRestorePrompt && options.isRenamed?.(message)
             ? [{ id: 'restore-toc', label: '恢复原文', icon: 'pencil-line' as const }]
@@ -481,6 +489,14 @@ export function createTocListRenderer(
             scrollExpandedOutlineBoundary(
               message, index, itemId === 'return-to-top' ? 'top' : 'bottom'
             );
+          } else if (itemId === 'collapse-outline') {
+            // Ignore an old menu after a route change or row replacement.
+            if (options.getMessages()[index]?.id === message.id &&
+                navigatorItems[index] === item && item.isConnected &&
+                item.getAttribute('aria-expanded') === 'true' &&
+                !outlineControls.outlineList.hidden) {
+              collapsePromptOutline(index);
+            }
           } else if (itemId === 'copy-prompt') {
             void copyPromptText(message.text).catch((error: unknown) => {
               console.warn('[LunaTOC] Failed to copy prompt text', error);

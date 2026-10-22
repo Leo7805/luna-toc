@@ -8,6 +8,7 @@ import {
   BookmarkPlusIcon,
   ClipboardIcon,
   CopyIcon,
+  ListCollapseIcon,
   PencilLineIcon,
   Trash2Icon,
 } from 'lucide-react';
@@ -15,7 +16,7 @@ import {
 export interface ContextMenuItem {
   id: string;
   label: string;
-  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line' | 'arrow-up' | 'arrow-down';
+  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line' | 'arrow-up' | 'arrow-down' | 'list-collapse';
   variant?: 'default' | 'destructive';
   disabled?: boolean;
 }
@@ -48,7 +49,9 @@ function ContextMenuIcon({
 }: Pick<ContextMenuItem, 'icon'>): React.JSX.Element | null {
   if (!icon) return null;
   const Icon =
-    icon === 'arrow-down'
+    icon === 'list-collapse'
+      ? ListCollapseIcon
+    : icon === 'arrow-down'
       ? ArrowDownIcon
       : icon === 'arrow-up'
         ? ArrowUpIcon
