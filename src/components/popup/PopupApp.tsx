@@ -57,7 +57,7 @@ export function PopupApp(): React.JSX.Element {
   };
 
   return (
-    <main className="rounded-xl border border-[var(--p-border-card)] bg-[var(--p-bg-main)] p-3 shadow-md">
+    <main className="rounded-xl border border-(--p-border-card) bg-(--p-bg-main) p-3 shadow-md">
       <ThemeSettings
         settings={settings}
         resolvedTheme={resolvedTheme}
@@ -67,41 +67,41 @@ export function PopupApp(): React.JSX.Element {
       <section className="m-0" aria-labelledby="tips-heading">
         <h2
           id="tips-heading"
-          className="m-0 text-[13px] leading-[1.3] font-semibold text-[var(--p-text-heading)]"
+          className="m-0 text-[13px] leading-[1.3] font-semibold text-(--p-text-heading)"
         >
           Tips
         </h2>
-        <ul className="mt-1.5 mb-0 space-y-1 pl-4 text-xs leading-relaxed text-[var(--p-text-base)]">
+        <ul className="mt-1.5 mb-0 space-y-1 pl-4 text-xs leading-relaxed text-(--p-text-base)">
           <li>
             Type <PromptKey>#</PromptKey> or <PromptKey>//</PromptKey> to insert
             a saved prompt. Add a space first when typing mid-message.
           </li>
           <li>
-            <strong className="font-semibold text-[var(--p-text-strong)]">
+            <strong className="font-semibold text-(--p-text-strong)">
               Right-click
             </strong>{' '}
-            a prompt to save it to MyPrompts.
+            to rename or save to MyPrompts.
           </li>
         </ul>
 
         <div
-          className="mt-2.5 flex items-start gap-1.5 text-xs leading-normal text-[var(--p-text-muted)]"
+          className="mt-2.5 flex items-start gap-1.5 text-xs leading-normal text-(--p-text-muted)"
           aria-label="Navigation note"
         >
           <Info
-            className="mt-0.5 size-3.5 shrink-0 text-[var(--p-accent)]"
+            className="mt-0.5 size-3.5 shrink-0 text-(--p-accent)"
             aria-hidden="true"
             strokeWidth={1.75}
           />
-          <span>TOC missing items or out of sync? Refresh the page.</span>
+          <span>TOC missing items or out of sync? Refresh.</span>
         </div>
       </section>
 
-      <footer className="mt-2.5 flex items-center justify-between border-t border-[var(--p-border-divider)] pt-2">
+      <footer className="mt-2.5 flex items-center justify-between border-t border-(--p-border-divider) pt-2">
         <button
           type="button"
           title="Open LunaTOC settings"
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-xs font-medium text-[var(--p-footer-text)] outline-none transition duration-150 hover:bg-[var(--p-footer-hover-bg)] hover:text-[var(--p-footer-hover-text)] focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] active:scale-95"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-xs font-medium text-(--p-footer-text) outline-none transition duration-150 hover:bg-(--p-footer-hover-bg) hover:text-(--p-footer-hover-text) focus-visible:ring-2 focus-visible:ring-(--p-accent) active:scale-95"
           onClick={() => void chrome.runtime.openOptionsPage()}
         >
           <Settings className="size-3.5" aria-hidden="true" />
@@ -111,7 +111,7 @@ export function PopupApp(): React.JSX.Element {
           href={WEB_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="rate-link inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-[var(--p-footer-text)] no-underline transition duration-150 hover:bg-[var(--p-footer-hover-bg)] hover:text-[var(--p-rate-hover-color)]"
+          className="rate-link inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-(--p-footer-text) no-underline transition duration-150 hover:bg-(--p-footer-hover-bg) hover:text-(--p-rate-hover-color)"
         >
           <svg
             aria-hidden="true"
@@ -126,17 +126,17 @@ export function PopupApp(): React.JSX.Element {
           href={COFFEE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="coffee-link inline-flex items-center rounded-md px-1 py-0.5 transition duration-150 hover:bg-[var(--p-footer-hover-bg)] hover:scale-105 active:scale-95"
+          className="coffee-link inline-flex items-center rounded-md px-1 py-0.5 transition duration-150 hover:bg-(--p-footer-hover-bg) hover:scale-105 active:scale-95"
         >
           <img
             src={coffeeImage}
             alt="Buy me a coffee"
-            className="coffee-img-dark h-[26px] w-auto"
+            className="coffee-img-dark h-6.5 w-auto"
           />
           <img
             src={coffeeImageLight}
             alt="Buy me a coffee"
-            className="coffee-img-light hidden h-[26px] w-auto"
+            className="coffee-img-light hidden h-6.5 w-auto"
           />
         </a>
       </footer>
@@ -150,7 +150,7 @@ interface PromptKeyProps {
 
 function PromptKey({ children }: PromptKeyProps): React.JSX.Element {
   return (
-    <kbd className="inline-block rounded border border-[var(--p-border-kbd)] bg-[var(--p-bg-kbd)] px-1 py-0.25 text-[11px] font-medium leading-tight text-[var(--p-text-kbd)]">
+    <kbd className="inline-block rounded border border-(--p-border-kbd) bg-(--p-bg-kbd) px-1 py-px text-[11px] font-medium leading-tight text-(--p-text-kbd)">
       {children}
     </kbd>
   );
