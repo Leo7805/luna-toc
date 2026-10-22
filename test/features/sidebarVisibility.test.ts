@@ -106,6 +106,27 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(dock.inert).toBe(false);
   });
 
+  it('positions and reveals all three controls on the first right-edge pointer entry', () => {
+    const { sidebar, trigger, panel } = setup();
+    Object.defineProperty(sidebar, 'clientHeight', { configurable: true, value: 800 });
+    Object.defineProperty(panel, 'offsetHeight', { configurable: true, value: 132 });
+    initializeSidebarVisibility(sidebar, trigger);
+
+    trigger.dispatchEvent(new MouseEvent('pointerenter', { clientY: 410 }));
+    expect(sidebar.getAttribute('aria-hidden')).toBe('false');
+    expect(panel.style.top).toBe('344px');
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(0);
+
+    sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 10, clientY: 450 }));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 3, clientY: 150,
+    }));
+    expect(panel.style.top).toBe('84px');
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+  });
+
   it('cancels quick auto-hide when the pointer reenters the sidebar', () => {
     vi.useFakeTimers();
     const { sidebar, trigger } = setup();
