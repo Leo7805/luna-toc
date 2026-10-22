@@ -119,10 +119,10 @@ describe('activePromptTracker', () => {
     expect(tracker.getActiveIndex()).toBe(1);
   });
 
-  it('does NOT activate Prompt N+1 while it is still below the effective navigation boundary', () => {
+  it('does NOT activate Prompt N+1 while it has not sufficiently entered the viewport', () => {
     createPromptElement('msg-0', -400, -320);
-    // Boundary is containerTop (0) + 16 + 2 = 18px. Prompt 1 is at 25px (below boundary)
-    createPromptElement('msg-1', 25, 105);
+    // Container height is 800px. Prompt 1 top is at 790px (only 10px entered < 16px threshold)
+    createPromptElement('msg-1', 790, 870);
 
     const tracker = createActivePromptTracker({
       getMessages: () => sampleMessages,
@@ -147,7 +147,7 @@ describe('activePromptTracker', () => {
     expect(tracker.getActiveIndex()).toBe(1);
   });
 
-  it('keeps Prompt N Active throughout Assistant Response N even when Prompt N+1 is visible at bottom', () => {
+  it('Rule A (Scenario A1): activates visible Prompt N+1 even when Assistant Response N occupies the viewport top', () => {
     // Prompt 0 is above viewport top (user is reading assistant response 0)
     createPromptElement('msg-0', -400, -320);
     // Prompt 1 is visible near the bottom edge (top = 700px, container height = 800px)
@@ -159,12 +159,14 @@ describe('activePromptTracker', () => {
     });
 
     tracker.checkActivePrompt();
-    expect(tracker.getActiveIndex()).toBe(0);
+    // Rule A: Prompt 1 is visible in viewport, so it takes precedence over Assistant 0
+    expect(tracker.getActiveIndex()).toBe(1);
   });
 
-  it('makes Prompt N+1 Active only after its top crosses the effective boundary', () => {
+  it('makes Prompt N+1 Active once it enters the viewport past the visibility threshold', () => {
     const el0 = createPromptElement('msg-0', -600, -520);
-    const el1 = createPromptElement('msg-1', 50, 130);
+    // Below viewport (850px)
+    const el1 = createPromptElement('msg-1', 850, 930);
 
     const tracker = createActivePromptTracker({
       getMessages: () => sampleMessages,
@@ -172,17 +174,18 @@ describe('activePromptTracker', () => {
     });
 
     tracker.checkActivePrompt();
+    // Below viewport: Rule B fallback keeps Prompt 0
     expect(tracker.getActiveIndex()).toBe(0);
 
-    // Scroll down so Prompt 1 reaches the effective boundary (top <= 18)
-    mockRect(el0, { top: -650, bottom: -570 });
-    mockRect(el1, { top: 16, bottom: 96 });
+    // Scroll down so Prompt 1 enters past the visibility threshold (e.g. top = 750px)
+    mockRect(el0, { top: -700, bottom: -620 });
+    mockRect(el1, { top: 750, bottom: 830 });
 
     tracker.checkActivePrompt();
     expect(tracker.getActiveIndex()).toBe(1);
   });
 
-  it('returns Active to Prompt N-1 symmetrically on upward scrolling', () => {
+  it('returns Active to Prompt N-1 symmetrically when upward scrolling brings Prompt N-1 into the viewport', () => {
     const el0 = createPromptElement('msg-0', -200, -120);
     const el1 = createPromptElement('msg-1', 16, 96);
 
@@ -194,17 +197,33 @@ describe('activePromptTracker', () => {
     tracker.checkActivePrompt();
     expect(tracker.getActiveIndex()).toBe(1);
 
-    // Scroll upward: Prompt 1 moves below effective boundary (18px)
-    mockRect(el0, { top: -100, bottom: -20 });
-    mockRect(el1, { top: 40, bottom: 120 });
+    // Scroll upward: Prompt 0 enters the viewport above Prompt 1
+    mockRect(el0, { top: 50, bottom: 130 });
+    mockRect(el1, { top: 500, bottom: 580 });
 
     tracker.checkActivePrompt();
+    // Rule A: Prompt 0 is visually topmost, so active returns to 0
     expect(tracker.getActiveIndex()).toBe(0);
   });
 
-  it('preserves previous Active prompt when final short prompt cannot reach effective boundary', () => {
-    // Turn 1 (Prompt 1) is at the top; Turn 2 (final short prompt) is near bottom (500px)
-    createPromptElement('msg-1', 0, 80);
+  it('Rule A: activates final short prompt when visible in viewport even if it cannot reach top boundary', () => {
+    // Prompt 1 is above the viewport (e.g. -400px); final short Prompt 2 is visible at 500px
+    createPromptElement('msg-1', -400, -320);
+    createPromptElement('msg-2', 500, 580);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    // Rule A: Final short prompt 2 is visible in viewport, so it becomes Active
+    expect(tracker.getActiveIndex()).toBe(2);
+  });
+
+  it('Rule A (Scenario A2): selects the visually topmost prompt when multiple prompts are visible', () => {
+    // Both Prompt 1 and Prompt 2 are visible
+    createPromptElement('msg-1', 100, 180);
     createPromptElement('msg-2', 500, 580);
 
     const tracker = createActivePromptTracker({
@@ -214,6 +233,95 @@ describe('activePromptTracker', () => {
 
     tracker.checkActivePrompt();
     expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('Rule A: uses visual geometry order when DOM query order differs from visual order', () => {
+    // Prompt 2 is first in DOM, but visually lower (top = 500)
+    createPromptElement('msg-2', 500, 580);
+    // Prompt 1 is second in DOM, but visually higher (top = 100)
+    createPromptElement('msg-1', 100, 180);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    // Visual sort selects Prompt 1 despite DOM position
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('Rule A (Scenario A3): prompt partially leaving through top remains active while above threshold', () => {
+    // Prompt 1 is leaving top: top is -50px, bottom is 30px (extends past viewportTop 18px by 12px)
+    createPromptElement('msg-1', -50, 30);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('Rule A: very short prompt activates when at least 50% visible', () => {
+    createPromptElement('msg-0', -400, -320);
+    // Short prompt: height 20px (top = 788, bottom = 808). Entry threshold = min(16, 10) = 10px.
+    // containerBottom = 800. top (788) <= 800 - 10 = 790 => visible
+    createPromptElement('msg-1', 788, 808);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('Rule A (Scenario A4): ignores unlisted prompt and selects visible valid TOC prompt', () => {
+    // Unlisted prompt without TOC entry (e.g. interrupted Prompt A) is at top 50px
+    createPromptElement('msg-unlisted', 50, 130);
+    // Valid Prompt 1 is at top 250px
+    createPromptElement('msg-1', 250, 330);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages, // only contains msg-0, msg-1, msg-2
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    // Unlisted prompt is ignored; valid Prompt 1 is selected
+    expect(tracker.getActiveIndex()).toBe(1);
+  });
+
+  it('Rule B: falls back to top-boundary prompt during long assistant response when no prompt is visible', () => {
+    // Prompt 0 is far above viewport; Prompt 1 is far below viewport
+    createPromptElement('msg-0', -600, -520);
+    createPromptElement('msg-1', 950, 1030);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    // Rule B: neither prompt visible, selects Prompt 0 via latestAboveTop
+    expect(tracker.getActiveIndex()).toBe(0);
+  });
+
+  it('Rule B: ignores unlisted prompt when no valid prompt is visible', () => {
+    createPromptElement('msg-0', -600, -520);
+    // Only an unlisted prompt is in the viewport
+    createPromptElement('msg-unlisted', 100, 180);
+
+    const tracker = createActivePromptTracker({
+      getMessages: () => sampleMessages,
+      getPlatform: () => mockPlatform,
+    });
+
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(0);
   });
 
   it('falls back to Prompt 0 when at conversation top and Prompt 0 is below effective boundary', () => {

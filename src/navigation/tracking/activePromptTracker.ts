@@ -126,7 +126,10 @@ export function createActivePromptTracker(
 
     const platform = resolvePlatform();
     const container = resolveScrollContainer();
-    const containerTop = container ? container.getBoundingClientRect().top : 0;
+    const containerRect = container ? container.getBoundingClientRect() : null;
+    const containerTop = containerRect ? containerRect.top : 0;
+    const containerBottom = containerRect ? containerRect.bottom : 0;
+
     // Aligns with promptNavigation landing geometry: elements land at `containerTop + promptTopOffsetPx`
     // via scrollMarginTop. Aligning the activation boundary ensures that landing at the intended top
     // position immediately and consistently activates the target prompt.
@@ -140,8 +143,16 @@ export function createActivePromptTracker(
       )
     );
 
+    interface VisibleCandidate {
+      index: number;
+      top: number;
+    }
+    const visibleCandidates: VisibleCandidate[] = [];
+
     let latestAboveTop: number | null = null;
     let lowestMountedIndex: number | null = null;
+    const viewportTop = containerTop + targetOffset;
+    const viewportBottom = containerBottom;
 
     for (const element of renderedPromptElements) {
       const index = findConversationIndexByElement(element);
@@ -152,31 +163,53 @@ export function createActivePromptTracker(
       }
 
       const rect = element.getBoundingClientRect();
+
+      // Rule B fallback tracking: preserve existing top-boundary ownership calculation
       if (rect.top <= referenceBoundary) {
         if (latestAboveTop === null || index > latestAboveTop) {
           latestAboveTop = index;
         }
       }
+
+      // Rule A candidate evaluation: is element visible within the scroll container viewport?
+      const entryThreshold = Math.min(16, Math.max(1, rect.height * 0.5));
+      const isVisible =
+        Boolean(container) &&
+        rect.height > 0 &&
+        rect.bottom >= viewportTop + SUBPIXEL_TOLERANCE_PX &&
+        rect.top <= viewportBottom - entryThreshold;
+
+      if (isVisible) {
+        visibleCandidates.push({ index, top: rect.top });
+      }
     }
 
-    const isAtTop = Boolean(
-      container && container.scrollTop <= SUBPIXEL_TOLERANCE_PX
-    );
-    const canFallbackToZero =
-      lowestMountedIndex === 0 &&
-      (activeNavigatorIndex === null || isAtTop);
-
     let nextIndex: number | null = null;
-    if (latestAboveTop !== null) {
-      nextIndex = latestAboveTop;
-    } else if (canFallbackToZero) {
-      nextIndex = 0;
+
+    // Rule A: Visible TOC Prompt First (visually topmost among visible valid prompts)
+    if (visibleCandidates.length > 0) {
+      visibleCandidates.sort((a, b) => a.top - b.top);
+      nextIndex = visibleCandidates[0].index;
     } else {
-      nextIndex =
-        activeNavigatorIndex ??
-        (lowestMountedIndex !== null
-          ? Math.max(0, lowestMountedIndex - 1)
-          : null);
+      // Rule B: Fallback to existing top-boundary ownership algorithm unchanged
+      const isAtTop = Boolean(
+        container && container.scrollTop <= SUBPIXEL_TOLERANCE_PX
+      );
+      const canFallbackToZero =
+        lowestMountedIndex === 0 &&
+        (activeNavigatorIndex === null || isAtTop);
+
+      if (latestAboveTop !== null) {
+        nextIndex = latestAboveTop;
+      } else if (canFallbackToZero) {
+        nextIndex = 0;
+      } else {
+        nextIndex =
+          activeNavigatorIndex ??
+          (lowestMountedIndex !== null
+            ? Math.max(0, lowestMountedIndex - 1)
+            : null);
+      }
     }
 
     if (nextIndex !== null && nextIndex !== activeNavigatorIndex) {
