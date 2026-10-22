@@ -290,7 +290,7 @@ describe('tocListRenderer', () => {
       promptContextMenuController.select('mark-prompt');
       expect(isPromptMarked('msg-2')).toBe(false);
       expect(newRow.classList.contains('navigator-item-marked')).toBe(false);
-      expect(JSON.parse(sessionStorage.getItem(storageKey)!)).not.toContain('msg-2');
+      expect(sessionStorage.getItem(storageKey)).toBeNull();
       expect(onMarkChanged).toHaveBeenCalledTimes(2);
     } finally {
       sessionStorage.removeItem(storageKey);
