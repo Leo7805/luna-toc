@@ -9,6 +9,7 @@ import {
   setPromptMarkOwner,
 } from '@/features/conversationPrompts/promptMark';
 import { navigatorController } from '@/navigation/navigatorController';
+import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import {
   TOC_LIFECYCLE_CHECK_REQUEST,
   TOC_LIFECYCLE_CHECK_RESULT,
@@ -34,6 +35,7 @@ export function initializeConversationLifecycle(): void {
     } | null;
     if (data?.type === TOC_CONVERSATION_DELETED && isPermanentConversationId(data.routeKey)) {
       clearPromptMarksForConversation(data.routeKey);
+      void tocAliasStore.removeConversation(data.routeKey).catch(() => undefined);
       navigatorController.handleConversationDeleted(data.routeKey);
     }
     if (data?.type !== TOC_LIFECYCLE_CHECK_RESULT || data.requestId !== requestId) return;
@@ -42,15 +44,30 @@ export function initializeConversationLifecycle(): void {
     if (!ownerId || !Array.isArray(data.missingIds)) return;
     for (const routeKey of data.missingIds) {
       if (!isPermanentConversationId(routeKey)) continue;
-      // Legacy unowned marks and marks belonging to another account are never pruned.
-      if (getPromptMarkOwner(routeKey) !== ownerId) continue;
-      clearPromptMarksForConversation(routeKey);
-      navigatorController.handleConversationDeleted(routeKey);
+      // Never remove data that belongs to an unknown or different account.
+      const markedForAccount = getPromptMarkOwner(routeKey) === ownerId;
+      if (markedForAccount) clearPromptMarksForConversation(routeKey);
+      void tocAliasStore.owner(routeKey).then((savedOwner) => {
+        if (savedOwner !== ownerId) return;
+        return tocAliasStore.removeConversation(routeKey).then(() => {
+          navigatorController.handleConversationDeleted(routeKey);
+        });
+      }).catch(() => undefined);
+      if (markedForAccount) navigatorController.handleConversationDeleted(routeKey);
     }
   });
-  window.postMessage({
-    type: TOC_LIFECYCLE_CHECK_REQUEST,
-    requestId,
-    conversationIds: getStoredMarkConversationIds(),
-  }, location.origin);
+  // Resolve both session marks and persisted titles before the single startup check.
+  void tocAliasStore.references().then((aliasIds) => {
+    window.postMessage({
+      type: TOC_LIFECYCLE_CHECK_REQUEST,
+      requestId,
+      conversationIds: [...new Set([...getStoredMarkConversationIds(), ...aliasIds])],
+    }, location.origin);
+  }).catch(() => {
+    window.postMessage({
+      type: TOC_LIFECYCLE_CHECK_REQUEST,
+      requestId,
+      conversationIds: getStoredMarkConversationIds(),
+    }, location.origin);
+  });
 }

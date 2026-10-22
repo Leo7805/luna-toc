@@ -14,7 +14,13 @@ import type {
   ConversationData,
   NavigatorMessage,
 } from '@/features/conversationPrompts/message';
-import { initializePromptMark } from '@/features/conversationPrompts/promptMark';
+import {
+  initializePromptMark,
+  getActivePromptMarkOwner,
+} from '@/features/conversationPrompts/promptMark';
+import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
+import { tocRenameEditorController } from '@/features/conversationPrompts/tocRenameEditor';
+import { isPermanentConversationId } from './lifecycle/protocol';
 import { initializeFollow } from './follow/follow';
 import {
   isLoading as isLoadingPrompts,
@@ -102,6 +108,30 @@ export const navigatorController = (() => {
     onSavePrompt: (message) => {
       onSavePrompt(message);
     },
+    getDisplayText: (message) =>
+      tocAliasStore.get(getCurrentConversationKey(), message.id) ?? message.text,
+    isRenamed: (message) => tocAliasStore.get(getCurrentConversationKey(), message.id) !== null,
+    canRename: () => isPermanentConversationId(getCurrentConversationKey()),
+    onRenamePrompt: (message) => {
+      const routeKey = getCurrentConversationKey();
+      tocRenameEditorController.open(
+        tocAliasStore.get(routeKey, message.id) ?? message.text,
+        async (title) => {
+          if (getCurrentConversationKey() !== routeKey ||
+              !conversationStore.getMessages().some((item) => item.id === message.id)) {
+            throw new Error('Conversation changed while editing title');
+          }
+          await tocAliasStore.update(routeKey, message.id,
+            title === message.text ? null : title, getActivePromptMarkOwner());
+        }
+      );
+    },
+    onRestorePrompt: (message) => {
+      void tocAliasStore.update(getCurrentConversationKey(), message.id,
+        null, getActivePromptMarkOwner()).catch((error: unknown) => {
+        console.warn('[LunaTOC] Failed to restore TOC title', error);
+      });
+    },
     onPromptCountReported: (count) => {
       if (count === reportedPromptCount) return;
       reportedPromptCount = count;
@@ -162,6 +192,10 @@ export const navigatorController = (() => {
     onTitleChanged = options.onTitleChanged || onTitleChanged;
     conversationStore.setCurrentConversationKey(getCurrentConversationKey());
     initMarkedPrompts();
+    tocAliasStore.subscribe((routeKey) => {
+      if (routeKey === getCurrentConversationKey()) render();
+    });
+    void tocAliasStore.load(getCurrentConversationKey()).catch(() => undefined);
     listenForConversationData();
     listenForRouteChanges();
     isInitialized = true;
@@ -376,6 +410,8 @@ export const navigatorController = (() => {
     activePromptTracker.reset();
     resetOutline();
     tocListRenderer.resetList();
+    tocRenameEditorController.close();
+    void tocAliasStore.load(getCurrentConversationKey()).catch(() => undefined);
     previewTooltip.hide();
     onRouteChanged();
     if (isAttached) {

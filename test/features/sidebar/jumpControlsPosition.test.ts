@@ -1,74 +1,51 @@
 /** @vitest-environment jsdom */
-/** Ensures the toolbar's empty reveal footprint can be repositioned vertically. */
+/** Ensures edge-triggered navigation controls follow pointer height. */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  clampJumpControlsBottom,
+  clampJumpControlsTop,
   initializeJumpControlsPosition,
+  placeJumpControlsAtPointer,
 } from '@/features/sidebar/jumpControlsPosition';
 
-afterEach(() => {
-  sessionStorage.removeItem('chatToc:jumpControlsBottom');
-  document.body.textContent = '';
-});
+afterEach(() => { document.body.textContent = ''; sessionStorage.clear(); });
 
-function setup(): { sidebar: HTMLElement; rail: HTMLElement; button: HTMLElement } {
+function setup(): { sidebar: HTMLElement; rail: HTMLElement } {
   document.body.innerHTML = `
     <aside id="luna-toc-sidebar">
-      <div class="navigator-jump-controls"><button id="jump-chat-top-btn"></button></div>
+      <div class="navigator-jump-controls">
+        <button id="jump-chat-top-btn"></button>
+        <button id="toggle-view-mode-btn"></button>
+        <button id="jump-chat-bottom-btn"></button>
+      </div>
     </aside>
   `;
   const sidebar = document.getElementById('luna-toc-sidebar')!;
   const rail = document.querySelector<HTMLElement>('.navigator-jump-controls')!;
-  const button = document.getElementById('jump-chat-top-btn')!;
   Object.defineProperty(sidebar, 'clientHeight', { configurable: true, value: 800 });
   Object.defineProperty(rail, 'offsetHeight', { configurable: true, value: 132 });
-  return { sidebar, rail, button };
+  return { sidebar, rail };
 }
 
-describe('jump controls vertical repositioning', () => {
-  it('clamps to the available height', () => {
-    expect(clampJumpControlsBottom(5, 800, 132)).toBe(12);
-    expect(clampJumpControlsBottom(5000, 800, 132)).toBe(656);
-    expect(clampJumpControlsBottom(122.7, 800, 132)).toBe(123);
+describe('jump control pointer positioning', () => {
+  it('centers at cursor height and clamps to the viewport', () => {
+    expect(clampJumpControlsTop(5, 800, 132)).toBe(12);
+    expect(clampJumpControlsTop(400, 800, 132)).toBe(334);
+    expect(clampJumpControlsTop(5000, 800, 132)).toBe(656);
   });
-
-  it('drags by the blank rail without consuming button interactions', () => {
-    const { sidebar, rail, button } = setup();
-    const dispose = initializeJumpControlsPosition(sidebar);
-    expect(rail.style.bottom).toBe('12px');
-    expect(rail.getAttribute('role')).toBe('slider');
-
-    button.dispatchEvent(new MouseEvent('pointerdown', {
-      bubbles: true, button: 0, clientY: 600,
-    }));
-    document.dispatchEvent(new MouseEvent('pointermove', {
-      bubbles: true, clientY: 400,
-    }));
-    expect(rail.style.bottom).toBe('12px');
-
-    rail.dispatchEvent(new MouseEvent('pointerdown', {
-      bubbles: true, button: 0, clientY: 600,
-    }));
-    document.dispatchEvent(new MouseEvent('pointermove', {
-      bubbles: true, clientY: 500,
-    }));
-    expect(rail.style.bottom).toBe('112px');
-    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
-    expect(sessionStorage.getItem('chatToc:jumpControlsBottom')).toBe('112');
-
-    rail.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowUp' }));
-    expect(rail.style.bottom).toBe('122px');
-    dispose();
-  });
-
-  it('restores the position and constrains it on resize', () => {
+  it('updates top position and clears obsolete fixed placement', () => {
     const { sidebar, rail } = setup();
     sessionStorage.setItem('chatToc:jumpControlsBottom', '170');
     const dispose = initializeJumpControlsPosition(sidebar);
-    expect(rail.style.bottom).toBe('170px');
+    expect(rail.style.top).toBe('334px');
+    expect(sessionStorage.getItem('chatToc:jumpControlsBottom')).toBeNull();
+    placeJumpControlsAtPointer(sidebar, 100);
+    expect(rail.style.top).toBe('34px');
+    expect(rail.style.bottom).toBe('auto');
+    sidebar.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: 740 }));
+    expect(rail.style.top).toBe('656px');
     Object.defineProperty(sidebar, 'clientHeight', { configurable: true, value: 200 });
     window.dispatchEvent(new Event('resize'));
-    expect(rail.style.bottom).toBe('56px');
+    expect(rail.style.top).toBe('56px');
     dispose();
   });
 });

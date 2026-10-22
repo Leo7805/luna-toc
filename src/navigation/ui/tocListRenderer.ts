@@ -37,6 +37,11 @@ export interface TocListRendererOptions {
   getActiveIndex: () => number | null;
   onItemClick: (message: NavigatorMessage, index: number) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
+  getDisplayText?: (message: NavigatorMessage) => string;
+  onRenamePrompt?: (message: NavigatorMessage) => void;
+  onRestorePrompt?: (message: NavigatorMessage) => void;
+  isRenamed?: (message: NavigatorMessage) => boolean;
+  canRename?: () => boolean;
   onPromptCountReported?: (count: number) => void;
   onRefreshObservers?: () => void;
   getJumpProgress?: () => ReturnType<typeof readJumpProgress>;
@@ -221,7 +226,8 @@ export function createTocListRenderer(
     itemIndex.className = 'navigator-item-index';
     itemIndex.textContent = `${index + 1}.`;
     itemText.className = 'navigator-item-text';
-    itemText.textContent = message.text.replace(/\s+/g, ' ');
+    const displayText = options.getDisplayText?.(message) ?? message.text;
+    itemText.textContent = displayText.replace(/\s+/g, ' ');
 
     item.classList.toggle('navigator-item-marked', isPromptMarked(message.id));
     const outlineControls = createPromptItem({
@@ -239,7 +245,7 @@ export function createTocListRenderer(
 
     const showTooltip = (event: MouseEvent): void => {
       if (isElementTextTruncated(itemText)) {
-        previewTooltip.show(message.text, event, itemMain);
+        previewTooltip.show(displayText, event, itemMain);
       }
     };
 
@@ -263,6 +269,12 @@ export function createTocListRenderer(
             label: isPromptMarked(message.id) ? '取消收藏' : '收藏',
             icon: 'bookmark-plus',
           },
+          ...(options.onRenamePrompt && (options.canRename?.() ?? true)
+            ? [{ id: 'rename-toc', label: '修改文字', icon: 'pencil-line' as const }]
+            : []),
+          ...(options.onRestorePrompt && options.isRenamed?.(message)
+            ? [{ id: 'restore-toc', label: '恢复原文', icon: 'pencil-line' as const }]
+            : []),
         ],
         (itemId) => {
           if (itemId === 'mark-prompt') {
@@ -273,6 +285,10 @@ export function createTocListRenderer(
             });
           } else if (itemId === 'save-prompt') {
             options.onSavePrompt?.(message);
+          } else if (itemId === 'rename-toc') {
+            options.onRenamePrompt?.(message);
+          } else if (itemId === 'restore-toc') {
+            options.onRestorePrompt?.(message);
           }
         }
       );
@@ -321,9 +337,8 @@ export function createTocListRenderer(
       .map((message, index) => ({ message, index }))
       .filter(({ message }) => {
         if (!normalizedQuery) return true;
-        return normalizeText(message.text)
-          .toLowerCase()
-          .includes(normalizedQuery);
+        return [message.text, options.getDisplayText?.(message) ?? message.text]
+          .some((text) => normalizeText(text).toLowerCase().includes(normalizedQuery));
       });
 
     if (hint) {

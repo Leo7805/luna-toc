@@ -4,6 +4,7 @@
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { SidebarLayoutMode } from '@/features/sidebar/sidebarPreferences';
 import { syncChatGptSideBySide } from '@/features/sidebar/chatGptSideBySide';
+import { placeJumpControlsAtPointer } from '@/features/sidebar/jumpControlsPosition';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
@@ -17,7 +18,6 @@ let pinBtn: HTMLElement | null = null;
 let isPinned = false;
 let isHidden = true;
 let activeLayoutMode: SidebarLayoutMode | null = null;
-let jumpRevealArmed = false;
 let hideTimer = 0;
 let onOpened: (() => void) | null = null;
 /**
@@ -31,7 +31,6 @@ export function initializeSidebarVisibility(
 ): void {
   onOpened = options.onOpened ?? null;
   activeLayoutMode = null;
-  jumpRevealArmed = false;
   sidebar = sidebarElement;
   toggleBtn = toggleButton;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
@@ -55,7 +54,12 @@ function bindToggleButton(): void {
   if (!toggleBtn) return;
   const button = toggleBtn;
 
-  button.addEventListener('pointerenter', handleAutoHideEnter);
+  button.addEventListener('pointerenter', (event) => {
+    handleAutoHideEnter();
+    if (sidebar && Number.isFinite(event.clientY) && event.clientY >= 0) {
+      placeJumpControlsAtPointer(sidebar, event.clientY);
+    }
+  });
   button.addEventListener('focus', handleAutoHideEnter);
   button.addEventListener('pointerleave', scheduleAutoHide);
 
@@ -70,10 +74,9 @@ function bindAutoHide(): void {
 
   const controls = sidebar.querySelector<HTMLElement>('.navigator-jump-controls');
   controls?.addEventListener('pointerenter', () => {
-    if (jumpRevealArmed) setJumpControlsVisible(true);
+    setJumpControlsVisible(true);
   });
   controls?.addEventListener('pointerleave', () => {
-    jumpRevealArmed = true;
     setJumpControlsVisible(false);
   });
   controls?.addEventListener('focusin', () => setJumpControlsVisible(true));
@@ -84,11 +87,17 @@ function bindAutoHide(): void {
     setJumpControlsVisible(false);
   });
 
-  // The transparent control footprint remains hit-testable even when faded.
-  // After the sidebar opens, moving outside that footprint hides the buttons.
+  // The group follows the height where the pointer reaches the right edge.
+  // Once the pointer enters the buttons, keep their position stable for clicks.
   sidebar.addEventListener('pointermove', (event) => {
     if (event.target instanceof Node && controls?.contains(event.target)) return;
-    jumpRevealArmed = true;
+    if (event.clientX >= window.innerWidth - 12 &&
+        event.clientX <= window.innerWidth && Number.isFinite(event.clientY)) {
+      placeJumpControlsAtPointer(sidebar!, event.clientY);
+      sidebar?.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: event.clientY }));
+      setJumpControlsVisible(true);
+      return;
+    }
     if (controls?.contains(document.activeElement)) return;
     setJumpControlsVisible(false);
   });
@@ -270,7 +279,6 @@ export function setSidebarHidden(hidden: boolean): void {
   dock?.classList.toggle('luna-toc-floating-dock-hidden', !isHidden);
   dock?.setAttribute('aria-hidden', String(!isHidden));
   if (dock) dock.inert = !isHidden;
-  if (justOpened) jumpRevealArmed = false;
   setJumpControlsVisible(false);
   syncChatGptSideBySide();
   if (justOpened) onOpened?.();

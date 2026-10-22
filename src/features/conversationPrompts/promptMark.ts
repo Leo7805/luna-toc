@@ -160,3 +160,8 @@ export function clearPromptMarksForConversation(routeKey: string): void {
 function getOwnerKey(routeKey: string | null): string {
   return MARK_OWNER_PREFIX + routeKey;
 }
+
+/** Returns the account verified by the current page's startup check. */
+export function getActivePromptMarkOwner(): string | null {
+  return activeOwnerId;
+}

@@ -29,11 +29,12 @@
 - `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新；刷新失败会将缓存标为未验证，成功删除则清空当前视图。
 - `src/navigation/jump/navigationSnapshotStore.ts` 限制标签页内快照数量，提供逐会话删除和全量重置；会话切换不保留无界的原始分页消息集合。
 - `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话 API 校验本地引用，并识别成功的 DELETE 或 `is_visible=false` 会话删除请求；归档不作为删除。
-- `src/navigation/lifecycle/conversationLifecycle.ts` 处理校验与删除通知，只清理由同一账号明确绑定且确认不存在的会话收藏；旧版无归属收藏及网络失败结果不做破坏性处理。没有后台轮询。
+- `src/navigation/lifecycle/conversationLifecycle.ts` 处理校验与删除通知，对会话收藏与本地目录别名进行同账号存在性核验和清理；无归属记录及网络失败结果不做破坏性处理。没有后台轮询。
 
 ## 目录与导航
 
 - `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单固定按「复制」「添加」「收藏／取消收藏」排序；「添加」始终打开原有提示词编辑保存流程，「收藏」按会话状态切换标签，侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；目录菜单不读取或删除已保存的提示词，复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
+- `src/features/conversationPrompts/tocAliasStore.ts` 将自定义目录标题按永久会话 ID、消息 ID 写入 Chrome 本地存储；仅覆盖显示，导航和复制始终基于原始消息。`src/features/conversationPrompts/tocRenameEditor.ts` 与 `src/components/navigation/TocRenameDialog.tsx` 提供重命名弹窗、取消与错误恢复。目录搜索同时覆盖原文和别名，恢复原文时移除本地覆盖。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
@@ -53,7 +54,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的完全透明鼠标触发区，不含背景、悬停色或可见描边。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示，自动收起采用 60ms 缓冲、100ms 动画并保留固定与扩展弹层悬停保护。 `src/features/sidebar/sidebarPreferences.ts` 在 `chrome.storage.local` 中维护布局、背景配色及触发区颜色开关，设置页与内容脚本监听同一个变更事件。默认背景沿用原有浅蓝/深蓝半透明主题底色与 12px 背景模糊，不再设置透明覆盖；非默认色仍按深浅主题混色。`src/features/sidebar/chatGptSideBySide.ts` 在并排模式下识别 ChatGPT 的实际聊天主列并预留侧边栏宽度，监听宽度、窗口及 SPA 结构变化；空间不足或无法安全识别时回退浮层模式，不修改 `window.matchMedia` 或页面 body。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，由 `src/features/sidebar/jumpControlsPosition.ts` 负责工具区域纵向拖动、键盘上下调节、尺寸边界和会话存储；侧边栏展开时不会强制弹出按钮组，重新进入工具区域后才显示；鼠标移出按钮组后仅按钮及底板淡出，保留右缘2px宽且高度恰好覆盖三个按钮及间距的半透明深色触发线（暗/亮主题分别适配）；重新进入保留的透明命中区域后重新显示，隐藏时不可直接点击或通过 Tab 到达。目录滚动条和工具条贴齐浏览器右边缘，不再渲染独立的三点菜单按钮或展开三角形。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度，并排和浮层模式的固定/隐藏默认值不同；用户手动固定状态在相同模式的当前标签页中保留。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的完全透明鼠标触发区，不含背景、悬停色或可见描边。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示，自动收起采用 60ms 缓冲、100ms 动画并保留固定与扩展弹层悬停保护。 `src/features/sidebar/sidebarPreferences.ts` 在 `chrome.storage.local` 中维护布局、背景配色及触发区颜色开关，设置页与内容脚本监听同一个变更事件。默认背景沿用原有浅蓝/深蓝半透明主题底色与 12px 背景模糊，不再设置透明覆盖；非默认色仍按深浅主题混色。`src/features/sidebar/chatGptSideBySide.ts` 在并排模式下识别 ChatGPT 的实际聊天主列并预留侧边栏宽度，监听宽度、窗口及 SPA 结构变化；空间不足或无法安全识别时回退浮层模式，不修改 `window.matchMedia` 或页面 body。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，由 `src/features/sidebar/jumpControlsPosition.ts` 计算鼠标高度对应的工具组位置并在顶部和底部边界内裁切；`src/features/sidebarVisibility.ts` 在鼠标进入视口最右缘时显示按钮，鼠标进入按钮组后保持位置稳定供点击，离开后隐藏。旧版拖动位置的会话存储在初始化时删除。隐藏时按钮不可点击或通过 Tab 到达。目录滚动条和工具条贴齐浏览器右边缘，不再渲染独立的三点菜单按钮或展开三角形。收藏操作保留原持久化逻辑，界面不显示旗子。侧边栏展开不会伪装网页宽度，并排和浮层模式的固定/隐藏默认值不同；用户手动固定状态在相同模式的当前标签页中保留。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 验证 PR，主分支通过检查后发布可解压安装的预览包。
 
