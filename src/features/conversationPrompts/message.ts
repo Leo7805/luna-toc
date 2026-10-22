@@ -212,3 +212,56 @@ export function extractUserMessages(
 
   return messages;
 }
+
+/**
+ * Builds an explicit map from collapsed predecessor user message IDs to their
+ * surviving TOC user message ID. Follows the exact consecutive user collapse
+ * semantics of extractUserMessages().
+ */
+export function extractCollapsedUserMessageMap(
+  data: ConversationData | null | undefined
+): Map<string, string> {
+  const orderedMessages = data?.messages ?? [];
+  const collapsedMap = new Map<string, string>();
+  let collapsedPredecessorIds: string[] = [];
+  let pendingUserMessage: ChatMessage | null = null;
+
+  function flush(): void {
+    if (!pendingUserMessage) {
+      collapsedPredecessorIds = [];
+      return;
+    }
+
+    const navigatorMessage = createNavigatorMessage(pendingUserMessage);
+    if (navigatorMessage.text.length > 0 && pendingUserMessage.id) {
+      const survivingId = pendingUserMessage.id;
+      for (const predecessorId of collapsedPredecessorIds) {
+        collapsedMap.set(predecessorId, survivingId);
+      }
+    }
+
+    pendingUserMessage = null;
+    collapsedPredecessorIds = [];
+  }
+
+  orderedMessages.forEach((message) => {
+    const role = message?.author?.role;
+    if (!role) return;
+
+    if (role === 'user') {
+      if (
+        pendingUserMessage?.id &&
+        createNavigatorMessage(pendingUserMessage).text.length > 0
+      ) {
+        collapsedPredecessorIds.push(pendingUserMessage.id);
+      }
+      pendingUserMessage = message;
+      return;
+    }
+
+    flush();
+  });
+
+  flush();
+  return collapsedMap;
+}

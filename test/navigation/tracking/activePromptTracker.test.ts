@@ -607,4 +607,112 @@ describe('activePromptTracker', () => {
       expect(onBrowseIntent).not.toHaveBeenCalled();
     });
   });
+
+  describe('Rule C: Collapsed User Message Mapping', () => {
+    const tocMessages = [
+      { id: 'msg-0' },
+      { id: 'msg-b' },
+      { id: 'msg-c' },
+    ];
+
+    it('Case C1: activates surviving TOC prompt when only collapsed prompt is visible', () => {
+      // Prompt A (id: 'msg-a') is collapsed into Prompt B ('msg-b', index 1 in TOC)
+      createPromptElement('msg-a', 100, 150);
+      const collapsedMap = new Map([['msg-a', 'msg-b']]);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => tocMessages,
+        getPlatform: () => mockPlatform,
+        getCollapsedMessageMap: () => collapsedMap,
+      });
+
+      tracker.checkActivePrompt();
+      expect(tracker.getActiveIndex()).toBe(1);
+    });
+
+    it('Case C2: prioritizes directly visible prompt over collapsed prompt even if collapsed is higher', () => {
+      // Prompt A (collapsed) is higher up at y=50..100
+      createPromptElement('msg-a', 50, 100);
+      // Prompt B (direct TOC prompt, index 1) is visible lower down at y=200..250
+      createPromptElement('msg-b', 200, 250);
+
+      const collapsedMap = new Map([['msg-a', 'msg-b']]);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => tocMessages,
+        getPlatform: () => mockPlatform,
+        getCollapsedMessageMap: () => collapsedMap,
+      });
+
+      tracker.checkActivePrompt();
+      // Directly visible prompt B must take priority over collapsed candidate A
+      expect(tracker.getActiveIndex()).toBe(1);
+    });
+
+    it('Case C3: prioritizes directly visible prompt C over collapsed prompt A mapped to unmounted B', () => {
+      // Prompt A is visible at y=50..100 (mapped to unmounted B, index 1)
+      createPromptElement('msg-a', 50, 100);
+      // Prompt C (direct TOC prompt, index 2) is visible at y=150..200
+      createPromptElement('msg-c', 150, 200);
+
+      const collapsedMap = new Map([['msg-a', 'msg-b']]);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => tocMessages,
+        getPlatform: () => mockPlatform,
+        getCollapsedMessageMap: () => collapsedMap,
+      });
+
+      tracker.checkActivePrompt();
+      // Directly visible prompt C (index 2) must take precedence over collapsed A
+      expect(tracker.getActiveIndex()).toBe(2);
+    });
+
+    it('Case C4: activates surviving prompt when multiple collapsed prompts are visible', () => {
+      createPromptElement('msg-a1', 60, 100);
+      createPromptElement('msg-a2', 120, 160);
+
+      const collapsedMap = new Map([
+        ['msg-a1', 'msg-b'],
+        ['msg-a2', 'msg-b'],
+      ]);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => tocMessages,
+        getPlatform: () => mockPlatform,
+        getCollapsedMessageMap: () => collapsedMap,
+      });
+
+      tracker.checkActivePrompt();
+      expect(tracker.getActiveIndex()).toBe(1);
+    });
+
+    it('Case C5: falls back via Rule B when collapsed prompt has scrolled above top boundary and nothing is visible', () => {
+      // Prompt A (mapped to B, index 1) is above reference boundary
+      createPromptElement('msg-a', -100, -50);
+
+      const collapsedMap = new Map([['msg-a', 'msg-b']]);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => tocMessages,
+        getPlatform: () => mockPlatform,
+        getCollapsedMessageMap: () => collapsedMap,
+      });
+
+      tracker.checkActivePrompt();
+      expect(tracker.getActiveIndex()).toBe(1);
+    });
+
+    it('ignores collapsed element when mapping is not provided or unmapped', () => {
+      createPromptElement('msg-unmapped', 100, 150);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => tocMessages,
+        getPlatform: () => mockPlatform,
+      });
+
+      tracker.checkActivePrompt();
+      expect(tracker.getActiveIndex()).toBeNull();
+    });
+  });
 });

@@ -1,6 +1,7 @@
 /** Tests flat ChatGPT message extraction used by the navigator. */
 import { describe, expect, it } from 'vitest';
 import {
+  extractCollapsedUserMessageMap,
   extractUserMessages,
   type ChatMessage,
   type ConversationData,
@@ -76,5 +77,79 @@ describe('extractUserMessages', () => {
     expect(extractUserMessages(null)).toEqual([]);
     expect(extractUserMessages(undefined)).toEqual([]);
     expect(extractUserMessages({ messages: [] })).toEqual([]);
+  });
+});
+
+describe('extractCollapsedUserMessageMap', () => {
+  it('returns an empty map when there are no consecutive user messages', () => {
+    const data: ConversationData = {
+      messages: [
+        createMessage('user-1', 'user', ['First prompt']),
+        createMessage('ai-1', 'assistant', ['First answer']),
+        createMessage('user-2', 'user', ['Second prompt']),
+      ],
+    };
+
+    const map = extractCollapsedUserMessageMap(data);
+    expect(map.size).toBe(0);
+  });
+
+  it('maps collapsed user message IDs to the surviving message ID', () => {
+    const data: ConversationData = {
+      messages: [
+        createMessage('user-1', 'user', ['Stopped one']),
+        createMessage('user-2', 'user', ['Stopped two']),
+        createMessage('user-3', 'user', ['Answered prompt']),
+        createMessage('ai-3', 'assistant', ['Answer']),
+      ],
+    };
+
+    const map = extractCollapsedUserMessageMap(data);
+    expect(map.size).toBe(2);
+    expect(map.get('user-1')).toBe('user-3');
+    expect(map.get('user-2')).toBe('user-3');
+    expect(map.has('user-3')).toBe(false);
+  });
+
+  it('handles multiple distinct clusters of consecutive user messages', () => {
+    const data: ConversationData = {
+      messages: [
+        createMessage('user-1', 'user', ['First attempt']),
+        createMessage('user-2', 'user', ['Second attempt']),
+        createMessage('ai-1', 'assistant', ['Answer 1']),
+        createMessage('user-3', 'user', ['Third attempt']),
+        createMessage('user-4', 'user', ['Fourth attempt']),
+        createMessage('user-5', 'user', ['Fifth attempt']),
+        createMessage('ai-2', 'assistant', ['Answer 2']),
+      ],
+    };
+
+    const map = extractCollapsedUserMessageMap(data);
+    expect(map.size).toBe(3);
+    expect(map.get('user-1')).toBe('user-2');
+    expect(map.get('user-3')).toBe('user-5');
+    expect(map.get('user-4')).toBe('user-5');
+  });
+
+  it('ignores empty user messages during collapse mapping', () => {
+    const data: ConversationData = {
+      messages: [
+        createMessage('user-1', 'user', ['Attempt 1']),
+        createMessage('user-empty', 'user', ['   ']),
+        createMessage('user-2', 'user', ['Attempt 2']),
+        createMessage('ai-1', 'assistant', ['Answer 1']),
+      ],
+    };
+
+    const map = extractCollapsedUserMessageMap(data);
+    expect(map.size).toBe(1);
+    expect(map.get('user-1')).toBe('user-2');
+    expect(map.has('user-empty')).toBe(false);
+  });
+
+  it('returns an empty map for missing or empty data', () => {
+    expect(extractCollapsedUserMessageMap(null).size).toBe(0);
+    expect(extractCollapsedUserMessageMap(undefined).size).toBe(0);
+    expect(extractCollapsedUserMessageMap({ messages: [] }).size).toBe(0);
   });
 });

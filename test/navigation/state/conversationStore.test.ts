@@ -548,4 +548,184 @@ describe('conversationStore', () => {
     expect(store.getMessages()[0].id).toBe('msg-opt-hi8');
     expect(store.getMessages()[0].text).toBe('hi8 confirmed');
   });
+
+  describe('collapsedMessageMap lifecycle', () => {
+    it('accumulates collapsed message mappings across paginated backfill', () => {
+      const store = createConversationStore({
+        getCurrentRouteKey: () => 'conv-collapsed-backfill',
+      });
+
+      // Page 2 arrives first (newer messages: user-2 interrupted, followed by user-3)
+      store.handleConversationData({
+        messages: [
+          {
+            id: 'user-2',
+            author: { role: 'user' },
+            content: { parts: ['Interrupted 2'] },
+            create_time: 200,
+          } as ChatMessage,
+          {
+            id: 'user-3',
+            author: { role: 'user' },
+            content: { parts: ['Prompt 3'] },
+            create_time: 210,
+          } as ChatMessage,
+          {
+            id: 'asst-3',
+            author: { role: 'assistant' },
+            content: { parts: ['Reply 3'] },
+            create_time: 220,
+          } as ChatMessage,
+        ],
+      });
+
+      let map = store.getCollapsedMessageMap();
+      expect(map.size).toBe(1);
+      expect(map.get('user-2')).toBe('user-3');
+
+      // Page 1 arrives later (older messages: user-1a interrupted, followed by user-1b)
+      store.handleConversationData({
+        messages: [
+          {
+            id: 'user-1a',
+            author: { role: 'user' },
+            content: { parts: ['Interrupted 1'] },
+            create_time: 100,
+          } as ChatMessage,
+          {
+            id: 'user-1b',
+            author: { role: 'user' },
+            content: { parts: ['Prompt 1b'] },
+            create_time: 110,
+          } as ChatMessage,
+          {
+            id: 'asst-1',
+            author: { role: 'assistant' },
+            content: { parts: ['Reply 1'] },
+            create_time: 120,
+          } as ChatMessage,
+        ],
+      });
+
+      map = store.getCollapsedMessageMap();
+      expect(map.size).toBe(2);
+      expect(map.get('user-1a')).toBe('user-1b');
+      expect(map.get('user-2')).toBe('user-3');
+    });
+
+    it('migrates collapsed message mapping on new-chat route promotion', () => {
+      let currentKey = 'new-chat:/';
+      const store = createConversationStore({
+        getCurrentRouteKey: () => currentKey,
+      });
+
+      store.syncRouteState();
+
+      // Data arrives on new-chat route
+      store.handleConversationData({
+        messages: [
+          {
+            id: 'user-stop',
+            author: { role: 'user' },
+            content: { parts: ['Stopped'] },
+            create_time: 100,
+          } as ChatMessage,
+          {
+            id: 'user-final',
+            author: { role: 'user' },
+            content: { parts: ['Final'] },
+            create_time: 110,
+          } as ChatMessage,
+          {
+            id: 'asst-final',
+            author: { role: 'assistant' },
+            content: { parts: ['Reply'] },
+            create_time: 120,
+          } as ChatMessage,
+        ],
+      });
+
+      expect(store.getCollapsedMessageMap().get('user-stop')).toBe('user-final');
+
+      // Route transition from new-chat to permanent ID
+      currentKey = 'c/perm-123';
+      const transition = store.syncRouteState();
+      expect(transition.shouldPreserveMessages).toBe(true);
+
+      // Collapsed map should now be accessible under the permanent route key
+      expect(store.getCollapsedMessageMap('c/perm-123').get('user-stop')).toBe(
+        'user-final'
+      );
+      // And the old new-chat key mapping was cleaned up
+      expect(store.getCollapsedMessageMap('new-chat:/').size).toBe(0);
+    });
+
+    it('clears collapsed mapping when resetting route without preserving messages', () => {
+      const store = createConversationStore({
+        getCurrentRouteKey: () => 'conv-reset',
+      });
+
+      store.handleConversationData({
+        messages: [
+          {
+            id: 'u1',
+            author: { role: 'user' },
+            content: { parts: ['Prompt 1'] },
+            create_time: 100,
+          } as ChatMessage,
+          {
+            id: 'u2',
+            author: { role: 'user' },
+            content: { parts: ['Prompt 2'] },
+            create_time: 110,
+          } as ChatMessage,
+          {
+            id: 'a2',
+            author: { role: 'assistant' },
+            content: { parts: ['Reply'] },
+            create_time: 120,
+          } as ChatMessage,
+        ],
+      });
+
+      expect(store.getCollapsedMessageMap().size).toBe(1);
+
+      store.resetForCurrentRoute({ preserveMessages: false });
+      expect(store.getCollapsedMessageMap().size).toBe(0);
+    });
+
+    it('clears collapsed mapping on setMessages and full reset', () => {
+      const store = createConversationStore({
+        getCurrentRouteKey: () => 'conv-reset-all',
+      });
+
+      store.handleConversationData({
+        messages: [
+          {
+            id: 'u1',
+            author: { role: 'user' },
+            content: { parts: ['Prompt 1'] },
+            create_time: 100,
+          } as ChatMessage,
+          {
+            id: 'u2',
+            author: { role: 'user' },
+            content: { parts: ['Prompt 2'] },
+            create_time: 110,
+          } as ChatMessage,
+          {
+            id: 'a2',
+            author: { role: 'assistant' },
+            content: { parts: ['Reply'] },
+            create_time: 120,
+          } as ChatMessage,
+        ],
+      });
+
+      expect(store.getCollapsedMessageMap().size).toBe(1);
+
+      store.setMessages([]);
+      expect(store.getCollapsedMessageMap().size).toBe(0);
+    });
+  });
 });

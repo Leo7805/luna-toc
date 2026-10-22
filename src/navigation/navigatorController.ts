@@ -129,6 +129,7 @@ export const navigatorController = (() => {
 
   const activePromptTracker = createActivePromptTracker({
     getMessages: () => conversationStore.getMessages(),
+    getCollapsedMessageMap: () => conversationStore.getCollapsedMessageMap(),
     onActiveIndexChange: (_index, changed) => {
       const nav = getNavigationState();
       if (nav.state === 'jumping') {

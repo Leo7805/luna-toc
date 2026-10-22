@@ -11,6 +11,10 @@ export interface ActivePromptTrackerOptions {
    */
   getMessages: () => Array<{ id: string }>;
   /**
+   * Optional mapping of collapsed user message IDs to surviving TOC message IDs.
+   */
+  getCollapsedMessageMap?: () => ReadonlyMap<string, string>;
+  /**
    * Called when active viewport index is updated.
    * @param index The active prompt index.
    * @param changed True if the index is different from the previous active index.
@@ -87,16 +91,22 @@ export function createActivePromptTracker(
     return activeNavigatorIndex;
   }
 
-  function findConversationIndexByElement(element: HTMLElement): number {
+  function getMessageIdFromElement(element: HTMLElement): string | null {
     const platform = resolvePlatform();
-    const id =
-      platform.navigation.getMessageIdFromElement?.(element) ??
-      (platform.config.selectors.messageId
-        ? element.getAttribute(platform.config.selectors.messageId) ||
-          element
-            .closest<HTMLElement>(`[${platform.config.selectors.messageId}]`)
-            ?.getAttribute(platform.config.selectors.messageId)
-        : null);
+    return (
+      (platform.navigation.getMessageIdFromElement?.(element) ??
+        (platform.config.selectors.messageId
+          ? element.getAttribute(platform.config.selectors.messageId) ||
+            element
+              .closest<HTMLElement>(`[${platform.config.selectors.messageId}]`)
+              ?.getAttribute(platform.config.selectors.messageId)
+          : null)) ??
+      null
+    );
+  }
+
+  function findConversationIndexByElement(element: HTMLElement): number {
+    const id = getMessageIdFromElement(element);
     if (!id) return -1;
     return options.getMessages().findIndex((message) => message.id === id);
   }
@@ -143,11 +153,14 @@ export function createActivePromptTracker(
       )
     );
 
+    const collapsedMap = options.getCollapsedMessageMap?.();
+
     interface VisibleCandidate {
       index: number;
       top: number;
     }
-    const visibleCandidates: VisibleCandidate[] = [];
+    const directVisibleCandidates: VisibleCandidate[] = [];
+    const collapsedVisibleCandidates: VisibleCandidate[] = [];
 
     let latestAboveTop: number | null = null;
     let lowestMountedIndex: number | null = null;
@@ -155,7 +168,24 @@ export function createActivePromptTracker(
     const viewportBottom = containerBottom;
 
     for (const element of renderedPromptElements) {
-      const index = findConversationIndexByElement(element);
+      let index = findConversationIndexByElement(element);
+      let isCollapsed = false;
+
+      if (index === -1 && collapsedMap && collapsedMap.size > 0) {
+        const id = getMessageIdFromElement(element);
+        if (id) {
+          const survivingId = collapsedMap.get(id);
+          if (survivingId) {
+            index = options
+              .getMessages()
+              .findIndex((message) => message.id === survivingId);
+            if (index !== -1) {
+              isCollapsed = true;
+            }
+          }
+        }
+      }
+
       if (index === -1) continue;
 
       if (lowestMountedIndex === null || index < lowestMountedIndex) {
@@ -171,7 +201,7 @@ export function createActivePromptTracker(
         }
       }
 
-      // Rule A candidate evaluation: is element visible within the scroll container viewport?
+      // Rule A / Rule C candidate evaluation: is element visible within the scroll container viewport?
       const entryThreshold = Math.min(16, Math.max(1, rect.height * 0.5));
       const isVisible =
         Boolean(container) &&
@@ -180,16 +210,24 @@ export function createActivePromptTracker(
         rect.top <= viewportBottom - entryThreshold;
 
       if (isVisible) {
-        visibleCandidates.push({ index, top: rect.top });
+        if (isCollapsed) {
+          collapsedVisibleCandidates.push({ index, top: rect.top });
+        } else {
+          directVisibleCandidates.push({ index, top: rect.top });
+        }
       }
     }
 
     let nextIndex: number | null = null;
 
-    // Rule A: Visible TOC Prompt First (visually topmost among visible valid prompts)
-    if (visibleCandidates.length > 0) {
-      visibleCandidates.sort((a, b) => a.top - b.top);
-      nextIndex = visibleCandidates[0].index;
+    // Rule A: Directly visible valid TOC Prompt (visually topmost)
+    if (directVisibleCandidates.length > 0) {
+      directVisibleCandidates.sort((a, b) => a.top - b.top);
+      nextIndex = directVisibleCandidates[0].index;
+    } else if (collapsedVisibleCandidates.length > 0) {
+      // Rule C: Visible collapsed prompt mapped to surviving valid TOC entry
+      collapsedVisibleCandidates.sort((a, b) => a.top - b.top);
+      nextIndex = collapsedVisibleCandidates[0].index;
     } else {
       // Rule B: Fallback to existing top-boundary ownership algorithm unchanged
       const isAtTop = Boolean(

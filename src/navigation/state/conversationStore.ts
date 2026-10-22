@@ -4,6 +4,7 @@
  */
 import {
   createNavigatorMessage,
+  extractCollapsedUserMessageMap,
   extractUserMessages,
   type ChatMessage,
   type ConversationData,
@@ -41,6 +42,7 @@ export interface ConversationStore {
   isNewChatRouteKey(routeKey: string): boolean;
   getMessages(): NavigatorMessage[];
   setMessages(messages: NavigatorMessage[]): void;
+  getCollapsedMessageMap(routeKey?: string): ReadonlyMap<string, string>;
   appendNavigatorMessage(newMessage: ChatMessage, routeKey?: string): boolean;
   handleConversationData(
     data: ConversationData,
@@ -81,11 +83,13 @@ export function createConversationStore(
   const navigationSnapshotStore =
     createNavigationSnapshotStore<NavigatorMessage>();
 
+  const EMPTY_COLLAPSED_MAP: ReadonlyMap<string, string> = new Map();
   let conversationMessages: NavigatorMessage[] = [];
   const accumulatedConversationMessages = new Map<
     string,
     Map<string, ChatMessage>
   >();
+  const accumulatedCollapsedMaps = new Map<string, Map<string, string>>();
   let currentConversationKey: string | null = null;
   let pendingNewChatRouteKey: string | null = null;
   let pendingNewChatMessage: ChatMessage | null = null;
@@ -119,6 +123,14 @@ export function createConversationStore(
 
   function setMessages(messages: NavigatorMessage[]): void {
     conversationMessages = messages;
+    accumulatedCollapsedMaps.delete(getCurrentConversationKey());
+  }
+
+  function getCollapsedMessageMap(
+    routeKey?: string
+  ): ReadonlyMap<string, string> {
+    const targetKey = routeKey || getCurrentConversationKey();
+    return accumulatedCollapsedMaps.get(targetKey) || EMPTY_COLLAPSED_MAP;
   }
 
   function clearPendingNewChat(): void {
@@ -229,6 +241,10 @@ export function createConversationStore(
       data.current_node
     );
     conversationMessages = extractUserMessages(mergedData);
+    accumulatedCollapsedMaps.set(
+      conversationKey,
+      extractCollapsedUserMessageMap(mergedData)
+    );
     cacheConversationMessages(conversationKey);
     return conversationMessages;
   }
@@ -323,6 +339,16 @@ export function createConversationStore(
       }
       accumulatedConversationMessages.delete(previousConversationKey);
 
+      const previousCollapsed =
+        accumulatedCollapsedMaps.get(previousConversationKey);
+      if (previousCollapsed && previousCollapsed.size > 0) {
+        accumulatedCollapsedMaps.set(
+          nextConversationKey,
+          new Map(previousCollapsed)
+        );
+      }
+      accumulatedCollapsedMaps.delete(previousConversationKey);
+
       if (
         navigationSnapshotStore.copySnapshot(
           previousConversationKey,
@@ -362,6 +388,7 @@ export function createConversationStore(
   ): void {
     if (!resetOptions.preserveMessages) {
       conversationMessages = resetOptions.nextMessages || [];
+      accumulatedCollapsedMaps.delete(getCurrentConversationKey());
     }
   }
 
@@ -376,6 +403,7 @@ export function createConversationStore(
   function reset(): void {
     conversationMessages = [];
     accumulatedConversationMessages.clear();
+    accumulatedCollapsedMaps.clear();
     currentConversationKey = null;
     clearPendingNewChat();
   }
@@ -386,6 +414,7 @@ export function createConversationStore(
     isNewChatRouteKey,
     getMessages,
     setMessages,
+    getCollapsedMessageMap,
     appendNavigatorMessage,
     handleConversationData,
     handleNewUserMessage,
