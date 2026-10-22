@@ -639,6 +639,7 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 }
 
 .navigator-item-main {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 3px;
@@ -715,6 +716,10 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   place-items: center;
 }
 
+.navigator-outline-indicator:not(:empty) {
+  margin-right: 21px;
+}
+
 .navigator-outline-indicator:empty {
   display: none;
 }
@@ -789,27 +794,58 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 }
 
 .navigator-mark-btn {
-  flex: 0 0 18px;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
   width: 18px;
   height: 18px;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 4px;
   background: transparent;
   color: var(--ct-text-muted);
   cursor: pointer;
   display: grid;
   opacity: 0;
+  pointer-events: none;
   place-items: center;
   transition:
     color 120ms ease,
-    opacity 120ms ease;
+    opacity 120ms ease,
+    background 120ms ease;
 }
 
 .navigator-item:hover .navigator-mark-btn,
 .navigator-mark-btn:focus-visible,
 .navigator-mark-btn.navigator-mark-btn-active {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.navigator-mark-btn:focus-visible {
+  background-color: var(--ct-bg-sidebar-solid);
+  box-shadow: -4px 0 6px var(--ct-bg-sidebar-solid);
+}
+
+.navigator-item:hover .navigator-mark-btn {
+  background-color: var(--ct-bg-item-hover);
+  background-image: none;
+  box-shadow: -4px 0 6px var(--ct-bg-item-hover);
+}
+
+.navigator-item.navigator-item-marked .navigator-mark-btn {
+  background-color: var(--ct-bg-sidebar-solid);
+  background-image: linear-gradient(var(--ct-bg-item-marked), var(--ct-bg-item-marked));
+  box-shadow: -4px 0 6px var(--ct-bg-sidebar-solid);
+}
+
+.navigator-item.navigator-item-active .navigator-mark-btn,
+.navigator-item.navigator-item-active.navigator-item-marked .navigator-mark-btn {
+  background-color: var(--ct-bg-item-active);
+  background-image: none;
+  box-shadow: -4px 0 6px var(--ct-bg-item-active);
 }
 
 .navigator-mark-btn:hover {
