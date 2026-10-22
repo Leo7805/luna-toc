@@ -58,6 +58,8 @@ function bindToggleButton(): void {
     handleAutoHideEnter();
     if (sidebar && Number.isFinite(event.clientY) && event.clientY >= 0) {
       placeJumpControlsAtPointer(sidebar, event.clientY);
+      sidebar.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: event.clientY }));
+      setJumpControlsVisible(true);
     }
   });
   button.addEventListener('focus', handleAutoHideEnter);
