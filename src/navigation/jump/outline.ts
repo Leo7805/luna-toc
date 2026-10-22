@@ -315,9 +315,7 @@ function updateAllPromptItems(): void {
 function updatePromptItemState(entry: PromptItemEntry, index: number): void {
   const outline = outlineCache.getCachedEntries(index);
   const isCurrent = index === currentPromptIndex;
-  const isMarkExpanded =
-    expandedPromptOutlines.has(index) && isPromptMarked(index);
-  const hasVisibleOutline = (isCurrent || isMarkExpanded) && outline.length > 0;
+  const hasVisibleOutline = isCurrent && outline.length > 0;
   const isExpanded = expandedPromptOutlines.has(index) && hasVisibleOutline;
 
   entry.item.classList.toggle('navigator-item-has-outline', hasVisibleOutline);
