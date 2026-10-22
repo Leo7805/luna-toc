@@ -29,14 +29,35 @@ const INITIAL_SETTINGS: ThemeSettingsValue = {
 export function PopupApp(): React.JSX.Element {
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
   const [chatGPTTheme, setChatGPTTheme] = useState<ResolvedTheme>('dark');
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    void readThemeSettings().then(setSettings);
-    void readResolvedChatGPTTheme().then(setChatGPTTheme);
-    const unsubscribeSettings = subscribeThemeSettings(setSettings);
+    let isMounted = true;
+    void readThemeSettings()
+      .then((loadedSettings) => {
+        if (!isMounted) return;
+        setSettings(loadedSettings);
+        setIsLoaded(true);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setIsLoaded(true);
+      });
+    void readResolvedChatGPTTheme().then((theme) => {
+      if (!isMounted) return;
+      setChatGPTTheme(theme);
+    });
+    const unsubscribeSettings = subscribeThemeSettings((newSettings) => {
+      if (!isMounted) return;
+      setSettings(newSettings);
+    });
     const unsubscribeResolvedTheme =
-      subscribeResolvedChatGPTTheme(setChatGPTTheme);
+      subscribeResolvedChatGPTTheme((newTheme) => {
+        if (!isMounted) return;
+        setChatGPTTheme(newTheme);
+      });
     return () => {
+      isMounted = false;
       unsubscribeSettings();
       unsubscribeResolvedTheme();
     };
@@ -61,6 +82,7 @@ export function PopupApp(): React.JSX.Element {
       <ThemeSettings
         settings={settings}
         resolvedTheme={resolvedTheme}
+        isLoaded={isLoaded}
         onChange={updateSettings}
       />
 
