@@ -56,6 +56,28 @@ describe('prompt outlines', () => {
     ]);
   });
 
+  it('renders three outline indentation levels with missing native ranks', () => {
+    setPromptMessages([createMessage('prompt-three-levels')]);
+    renderConversation('prompt-three-levels', [
+      ['h2', 'First'],
+      ['h4', 'Second without H3'],
+      ['h6', 'Third without H5'],
+    ]);
+
+    const item = document.createElement('div');
+    document.body.append(item);
+    const { outlineList } = createPromptItem({
+      item, index: 0, messageId: 'prompt-three-levels',
+    });
+    item.appendChild(outlineList);
+    expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: true });
+    scheduleBuild(0, 1);
+    const rows = [...outlineList.querySelectorAll<HTMLElement>('.navigator-outline-item')];
+    expect(rows.map((row) => row.dataset.level)).toEqual(['1', '2', '3']);
+    expect(rows.map((row) => row.textContent))
+      .toEqual(['First', 'Second without H3', 'Third without H5']);
+  });
+
   it('invalidates an outline when the prompt index receives a new message ID', () => {
     setPromptMessages([createMessage('prompt-a')]);
     renderConversation('prompt-a', [['h2', 'Original']]);

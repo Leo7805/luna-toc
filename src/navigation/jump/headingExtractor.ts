@@ -1,7 +1,7 @@
 /**
  * Extracts per-prompt answer heading outlines from rendered ChatGPT DOM elements.
  * Resolves user messages, locates following assistant responses in DOM order,
- * and normalizes Markdown headings into a two-level hierarchy.
+ * and normalizes the first three existing Markdown heading levels.
  */
 import { getActivePlatform } from '@/platforms';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
@@ -22,7 +22,7 @@ function platform() {
 }
 
 /**
- * Extracts the two-level heading outline from a rendered prompt answer.
+ * Extracts up to three present heading levels from a rendered prompt answer.
  * @param {number} index Prompt index in the main LunaTOC navigator.
  * @param {string | null} [messageId] Expected prompt message ID, if known.
  * @returns {Array<OutlineEntry>} List of extracted heading descriptors.
@@ -212,7 +212,7 @@ function isAccessibilityHeading(heading: HTMLElement): boolean {
 }
 
 /**
- * Extracts the highest heading level and the next level from an answer.
+ * Extracts up to three existing levels, skipping absent heading ranks.
  */
 function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
   const headings = Array.from(
@@ -225,22 +225,21 @@ function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
 
   if (!headings.length) return [];
 
-  const baseLevel = Math.min(
-    ...headings.map((heading) => getHeadingLevel(heading))
+  // H2/H4/H6 is a valid three-level outline even though H3 and H5 are absent.
+  // Keep document order, compact indentation, and stable native heading tags.
+  const presentLevels = [...new Set(headings.map(getHeadingLevel))]
+    .sort((a, b) => a - b)
+    .slice(0, 3);
+  const normalizedLevels = new Map(
+    presentLevels.map((headingLevel, index) => [headingLevel, index + 1])
   );
-  const childLevel = baseLevel + 1;
-
   const occurrenceByDescriptor = new Map<string, number>();
 
   return headings
-    .filter((heading) => {
-      const level = getHeadingLevel(heading);
-
-      return level === baseLevel || level === childLevel;
-    })
+    .filter((heading) => normalizedLevels.has(getHeadingLevel(heading)))
     .map((heading) => {
       const headingLevel = getHeadingLevel(heading);
-      const level = headingLevel === baseLevel ? 1 : 2;
+      const level = normalizedLevels.get(headingLevel)!;
       const text = heading.textContent.trim();
       const descriptorKey = `${headingLevel}\u0000${text}`;
       const occurrence = occurrenceByDescriptor.get(descriptorKey) || 0;

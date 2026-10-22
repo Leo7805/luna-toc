@@ -33,12 +33,12 @@
 
 ## 目录与导航
 
-- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单固定按「复制」「添加」「收藏／取消收藏」排序；「添加」始终打开原有提示词编辑保存流程，「收藏」按会话状态切换标签，侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单。收藏复用 `src/features/conversationPrompts/promptMark.ts` 的会话存储与状态标记，不再显示行内旗子；目录菜单不读取或删除已保存的提示词，复制使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
+- `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单按「复制文字」「添加tips」「返回顶部」排列，再附加既有「修改文字／恢复原文」操作；移除收藏／取消收藏菜单项，但不破坏历史收藏存储。添加始终打开原有提示词编辑保存流程；返回顶部仅滚动 `#navigator-list`，不重置搜索或滚动 ChatGPT 正文。侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单；复制仍使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
 - `src/features/conversationPrompts/tocAliasStore.ts` 将自定义目录标题按永久会话 ID、消息 ID 写入 Chrome 本地存储；仅覆盖显示，导航和复制始终基于原始消息。`src/features/conversationPrompts/tocRenameEditor.ts` 与 `src/components/navigation/TocRenameDialog.tsx` 提供重命名弹窗、取消与错误恢复。目录搜索同时覆盖原文和别名，恢复原文时移除本地覆盖。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
-- `src/navigation/jump/outline.ts` 和 `outlineNavigation.ts` 提取并定位已渲染回答的标题，避免使用已脱离 DOM 的缓存元素。点击目录项时仍执行精确跳转，并切换该项回答标题的展开状态：首次展开、再次点击收起、再点击重新展开；对于虚拟化回答，重复点击可取消尚未完成的展开请求。
+- `src/navigation/jump/headingExtractor.ts` 选取实际出现的前三种标题级别（以 HTML 标题序号从浅到深排序），跳过不存在的级别并压缩为三级展示；`src/navigation/jump/outline.ts` 与 `outlineNavigation.ts` 渲染与定位已挂载回答的标题，避免使用已脱离 DOM 的缓存元素。点击目录项时仍执行精确跳转，并切换该项回答标题的展开状态：首次展开、再次点击收起、再点击重新展开；对于虚拟化回答，重复点击可取消尚未完成的展开请求。
 
 页面结构或接口发生变化时，先更新 ChatGPT 平台适配层，再验证导航行为。
 

@@ -42,7 +42,7 @@ let pendingOutlineIndex: number | null = null;
 let outlineBuildVersion = 0;
 
 /**
- * Extracts the two-level heading outline from a rendered prompt answer.
+ * Extracts up to three existing heading levels from a rendered prompt answer.
  * @param {number} index Prompt index in the main LunaTOC navigator.
  * @returns {Array<OutlineEntry>}
  */

@@ -17,11 +17,11 @@ describe('headingExtractor', () => {
     document.body.textContent = '';
   });
 
-  it('normalizes base heading level to 1 and child heading level to 2', () => {
+  it('normalizes three consecutive heading levels to 1, 2 and 3', () => {
     renderConversation('prompt-1', [
       ['h2', 'Main Heading'],
       ['h3', 'Sub Heading'],
-      ['h4', 'Deep Sub Heading (Excluded)'],
+      ['h4', 'Deep Sub Heading'],
       ['h2', 'Another Main'],
     ]);
 
@@ -34,8 +34,45 @@ describe('headingExtractor', () => {
     }))).toEqual([
       { level: 1, headingLevel: 2, text: 'Main Heading' },
       { level: 2, headingLevel: 3, text: 'Sub Heading' },
+      { level: 3, headingLevel: 4, text: 'Deep Sub Heading' },
       { level: 1, headingLevel: 2, text: 'Another Main' },
     ]);
+  });
+
+  it('skips absent heading ranks but includes the next three present levels', () => {
+    renderConversation('prompt-gaps', [
+      ['h4', 'Middle'],
+      ['h2', 'Top'],
+      ['h6', 'Deep'],
+      ['h4', 'More middle'],
+    ]);
+    const outline = getPromptOutline(0, 'prompt-gaps');
+    expect(outline.map(({ headingLevel, level, text }) => ({ headingLevel, level, text })))
+      .toEqual([
+        { headingLevel: 4, level: 2, text: 'Middle' },
+        { headingLevel: 2, level: 1, text: 'Top' },
+        { headingLevel: 6, level: 3, text: 'Deep' },
+        { headingLevel: 4, level: 2, text: 'More middle' },
+      ]);
+  });
+
+  it('displays one existing rank even if the first ranks do not exist', () => {
+    renderConversation('prompt-only-h5', [['h5', 'Only heading']]);
+    expect(getPromptOutline(0, 'prompt-only-h5')
+      .map(({ level, headingLevel, text }) => ({ level, headingLevel, text })))
+      .toEqual([{ level: 1, headingLevel: 5, text: 'Only heading' }]);
+  });
+
+  it('keeps the three shallowest existing ranks when four or more are present', () => {
+    renderConversation('prompt-four-levels', [
+      ['h5', 'Excluded fourth rank'],
+      ['h3', 'Second rank'],
+      ['h4', 'Third rank'],
+      ['h2', 'First rank'],
+    ]);
+    expect(getPromptOutline(0, 'prompt-four-levels')
+      .map(({ headingLevel, level }) => ({ headingLevel, level })))
+      .toEqual([{ headingLevel: 3, level: 2 }, { headingLevel: 4, level: 3 }, { headingLevel: 2, level: 1 }]);
   });
 
   it('tracks occurrence indices for duplicate headings at the same level', () => {

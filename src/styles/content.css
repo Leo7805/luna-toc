@@ -644,7 +644,12 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 
 .navigator-outline-item[data-level='2'] {
   padding-left: 22px;
-  color: #94a3b8;
+  color: var(--ct-text-outline-l2);
+}
+
+.navigator-outline-item[data-level='3'] {
+  padding-left: 32px;
+  color: var(--ct-text-secondary);
 }
 
 .navigator-outline-item:hover {

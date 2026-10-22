@@ -3,7 +3,7 @@
  * and status band state for the LunaTOC sidebar.
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
-import { isPromptMarked, togglePromptMark } from '@/features/conversationPrompts/promptMark';
+import { isPromptMarked } from '@/features/conversationPrompts/promptMark';
 import { copyPromptText } from '@/features/conversationPrompts/copyPrompt';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
@@ -207,6 +207,20 @@ export function createTocListRenderer(
     }
   }
 
+  /**
+   * Scrolls the directory panel to the top without moving the ChatGPT thread,
+   * clearing its search filter, or altering navigation state.
+   */
+  function returnToSidebarTop(): void {
+    const list = document.getElementById('navigator-list');
+    if (!list) return;
+    if (typeof list.scrollTo === 'function') {
+      list.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      list.scrollTop = 0;
+    }
+  }
+
   function createNavigatorItem(
     message: NavigatorMessage,
     index: number
@@ -262,13 +276,9 @@ export function createTocListRenderer(
       promptContextMenuController.show(
         { left, top },
         [
-          { id: 'copy-prompt', label: '复制', icon: 'copy' },
-          { id: 'save-prompt', label: '添加', icon: 'bookmark-plus' },
-          {
-            id: 'mark-prompt',
-            label: isPromptMarked(message.id) ? '取消收藏' : '收藏',
-            icon: 'bookmark-plus',
-          },
+          { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
+          { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
+          { id: 'return-to-top', label: '返回顶部', icon: 'arrow-up' },
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
             ? [{ id: 'rename-toc', label: '修改文字', icon: 'pencil-line' as const }]
             : []),
@@ -277,8 +287,8 @@ export function createTocListRenderer(
             : []),
         ],
         (itemId) => {
-          if (itemId === 'mark-prompt') {
-            togglePromptMark(item, message.id);
+          if (itemId === 'return-to-top') {
+            returnToSidebarTop();
           } else if (itemId === 'copy-prompt') {
             void copyPromptText(message.text).catch((error: unknown) => {
               console.warn('[LunaTOC] Failed to copy prompt text', error);
