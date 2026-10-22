@@ -10,7 +10,8 @@ const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
 // A short grace period retains portal hover without delayed collapse.
 const AUTO_HIDE_DELAY_MS = 60;
-const EDGE_TOOL_DWELL_MS = 500;
+/** Time the pointer must remain at the right edge after the initial sidebar reveal. */
+export const EDGE_TOOL_DWELL_MS = 250;
 const EDGE_TOOL_THRESHOLD_PX = 12;
 const LAYOUT_MODE_STORAGE_KEY = 'chatToc:activeSidebarLayoutMode';
 

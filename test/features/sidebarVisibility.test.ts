@@ -7,6 +7,7 @@ import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import { initializeChatGptSideBySide, disposeChatGptSideBySide, setChatGptSideBySideEnabled } from '@/features/sidebar/chatGptSideBySide';
 import {
+  EDGE_TOOL_DWELL_MS,
   initializeSidebarVisibility,
   setSidebarHidden,
   setSidebarPinned,
@@ -81,7 +82,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(-1);
 
-    // The invisible footprint cannot bypass the 500ms edge dwell.
+    // The invisible footprint cannot bypass the 250ms edge dwell.
     panel.dispatchEvent(new Event('pointerenter'));
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
@@ -90,7 +91,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 2, clientY: 400,
     }));
-    vi.advanceTimersByTime(499);
+    vi.advanceTimersByTime(249);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     vi.advanceTimersByTime(1);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
@@ -116,7 +117,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(dock.inert).toBe(false);
   });
 
-  it('opens the sidebar on first edge contact, then reveals tools only after a second 500ms dwell', () => {
+  it('opens the sidebar on first edge contact, then reveals tools only after a second 250ms dwell', () => {
     vi.useFakeTimers();
     const { sidebar, trigger, panel } = setup();
     Object.defineProperty(sidebar, 'clientHeight', { configurable: true, value: 800 });
@@ -136,7 +137,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 3, clientY: 150,
     }));
-    vi.advanceTimersByTime(499);
+    vi.advanceTimersByTime(249);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
     expect(panel.style.top).toBe('');
     vi.advanceTimersByTime(1);
@@ -145,7 +146,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(0);
   });
 
-  it('cancels pending right-edge reveal when the pointer leaves before 500ms', () => {
+  it('cancels pending right-edge reveal when the pointer leaves before 250ms', () => {
     vi.useFakeTimers();
     const { sidebar, trigger, panel } = setup();
     initializeSidebarVisibility(sidebar, trigger);
@@ -154,11 +155,11 @@ describe('sidebar reveal handle and right-side tools', () => {
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 2, clientY: 310,
     }));
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(200);
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 50, clientY: 310,
     }));
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(200);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 2, clientY: 380,
@@ -171,6 +172,10 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
   });
 
+  it('uses exactly a 250ms dwell threshold', () => {
+    expect(EDGE_TOOL_DWELL_MS).toBe(250);
+  });
+
   it('cancels delayed reveal when the sidebar closes during the dwell', () => {
     vi.useFakeTimers();
     const { sidebar, trigger, panel } = setup();
@@ -181,7 +186,7 @@ describe('sidebar reveal handle and right-side tools', () => {
       bubbles: true, clientX: window.innerWidth - 2, clientY: 400,
     }));
     setSidebarHidden(true);
-    vi.advanceTimersByTime(600);
+    vi.advanceTimersByTime(300);
     expect(panel.getAttribute('aria-hidden')).toBe('true');
   });
 

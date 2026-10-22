@@ -245,8 +245,15 @@ html[data-theme='light'] {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 80vh;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.25) transparent;
+  /* Preserve wheel, trackpad and touch scrolling without a visible track. */
+  scrollbar-width: none;
+}
+
+/* Chrome and older WebKit versions need an explicit scrollbar rule. */
+#navigator-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .navigator-header {
