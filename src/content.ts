@@ -5,6 +5,7 @@
 import { initializeApplication } from '@/app/applicationShell';
 import { initializeConversationLifecycle } from '@/navigation/lifecycle/conversationLifecycle';
 import { observeExternalOverlays } from '@/features/externalOverlay';
+import { initializeChatGptNativeNavigationLinks } from '@/features/chatGptNativeNavigationLinks';
 import { startPageHookMismatchBridge, startChatGptConfigSync } from '@/features/contractAlert/pageHookBridge';
 import { initializeReactHost } from '@/reactHost/reactHost';
 
@@ -25,7 +26,10 @@ startPageHookMismatchBridge();
 startChatGptConfigSync();
 
 // Keep host-page fullscreen media controls above every LunaTOC surface.
-void waitForBody().then(() => observeExternalOverlays());
+void waitForBody().then(() => {
+  observeExternalOverlays();
+  initializeChatGptNativeNavigationLinks();
+});
 
 function waitForBody(): Promise<HTMLElement> {
   return new Promise((resolve) => {
