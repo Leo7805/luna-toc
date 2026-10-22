@@ -13,6 +13,8 @@ const AUTO_HIDE_DELAY_MS = 60;
 /** Time the pointer must remain at the right edge after the initial sidebar reveal. */
 export const EDGE_TOOL_DWELL_MS = 50;
 const EDGE_TOOL_THRESHOLD_PX = 12;
+/** Keep revealed right-edge tools visible briefly after the pointer moves away. */
+export const EDGE_TOOL_HIDE_DELAY_MS = 1000;
 const LAYOUT_MODE_STORAGE_KEY = 'chatToc:activeSidebarLayoutMode';
 
 let sidebar: HTMLElement | null = null;
@@ -23,6 +25,7 @@ let isHidden = true;
 let activeLayoutMode: SidebarLayoutMode | null = null;
 let hideTimer = 0;
 let edgeToolTimer = 0;
+let edgeToolHideTimer = 0;
 let edgePointerY = 0;
 // The first edge hit opens the sidebar, but cannot arm the toolbar until exit.
 let mustLeaveEdgeBeforeTools = false;
@@ -39,6 +42,7 @@ export function initializeSidebarVisibility(
   onOpened = options.onOpened ?? null;
   activeLayoutMode = null;
   clearEdgeToolTimer();
+  clearEdgeToolHideTimer();
   mustLeaveEdgeBeforeTools = false;
   sidebar = sidebarElement;
   toggleBtn = toggleButton;
@@ -100,9 +104,7 @@ function bindAutoHide(): void {
   sidebar.addEventListener('pointerenter', () => clearHideTimer());
   sidebar.addEventListener('pointerleave', () => {
     clearEdgeToolTimer();
-    if (!sidebar?.querySelector('.navigator-jump-controls')?.contains(document.activeElement)) {
-      setJumpControlsVisible(false);
-    }
+    scheduleJumpControlsHide();
     scheduleAutoHide();
   });
 
@@ -110,15 +112,18 @@ function bindAutoHide(): void {
   controls?.addEventListener('pointerenter', () => {
     // Preserve buttons already revealed by the dwell timer, never bypass it.
     clearEdgeToolTimer();
+    clearEdgeToolHideTimer();
   });
-  controls?.addEventListener('pointerleave', () => {
-    setJumpControlsVisible(false);
+  controls?.addEventListener('pointerleave', scheduleJumpControlsHide);
+  controls?.addEventListener('focusin', () => {
+    clearEdgeToolHideTimer();
+    setJumpControlsVisible(true);
   });
-  controls?.addEventListener('focusin', () => setJumpControlsVisible(true));
   controls?.addEventListener('focusout', (event) => {
     if (event.relatedTarget instanceof Node && controls.contains(event.relatedTarget)) {
       return;
     }
+    clearEdgeToolHideTimer();
     setJumpControlsVisible(false);
   });
 
@@ -131,10 +136,11 @@ function bindAutoHide(): void {
     if (!atEdge) {
       mustLeaveEdgeBeforeTools = false;
       clearEdgeToolTimer();
-      if (!controls?.contains(document.activeElement)) setJumpControlsVisible(false);
+      scheduleJumpControlsHide();
       return;
     }
     if (isHidden || mustLeaveEdgeBeforeTools) return;
+    clearEdgeToolHideTimer();
     edgePointerY = event.clientY;
     if (controls?.classList.contains('navigator-jump-controls-visible') ||
         edgeToolTimer) return;
@@ -155,6 +161,7 @@ function bindAutoHide(): void {
  * itself remains hit-testable so moving back over its footprint reveals it.
  */
 function setJumpControlsVisible(visible: boolean): void {
+  if (!visible) clearEdgeToolHideTimer();
   const controls = sidebar?.querySelector<HTMLElement>('.navigator-jump-controls');
   if (!controls) return;
 
@@ -176,6 +183,7 @@ function scheduleAutoHide(): void {
   if (isPinned) return;
 
   clearHideTimer();
+  const controlsVisible = sidebar?.querySelector('.navigator-jump-controls-visible');
   hideTimer = window.setTimeout(() => {
     if (
       isPointerInside(sidebar) ||
@@ -187,7 +195,7 @@ function scheduleAutoHide(): void {
     }
 
     setSidebarHidden(true);
-  }, AUTO_HIDE_DELAY_MS);
+  }, controlsVisible ? EDGE_TOOL_HIDE_DELAY_MS : AUTO_HIDE_DELAY_MS);
 }
 
 /**
@@ -308,6 +316,7 @@ export function setSidebarHidden(hidden: boolean): void {
   isHidden = hidden;
   if (hidden) {
     clearEdgeToolTimer();
+    clearEdgeToolHideTimer();
     mustLeaveEdgeBeforeTools = false;
   }
 
@@ -330,6 +339,24 @@ export function setSidebarHidden(hidden: boolean): void {
   setJumpControlsVisible(false);
   syncChatGptSideBySide();
   if (justOpened) onOpened?.();
+}
+
+/** Starts a cancellable 1s grace period after leaving the edge/buttons. */
+function scheduleJumpControlsHide(): void {
+  const controls = sidebar?.querySelector<HTMLElement>('.navigator-jump-controls');
+  if (!controls?.classList.contains('navigator-jump-controls-visible') ||
+      controls.contains(document.activeElement) || edgeToolHideTimer) return;
+  edgeToolHideTimer = window.setTimeout(() => {
+    edgeToolHideTimer = 0;
+    setJumpControlsVisible(false);
+  }, EDGE_TOOL_HIDE_DELAY_MS);
+}
+
+/** Cancels a pending toolbar hide when the pointer returns. */
+function clearEdgeToolHideTimer(): void {
+  if (!edgeToolHideTimer) return;
+  window.clearTimeout(edgeToolHideTimer);
+  edgeToolHideTimer = 0;
 }
 
 /** Cancels any right-edge dwell without changing the sidebar visibility. */

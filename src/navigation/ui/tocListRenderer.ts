@@ -341,9 +341,9 @@ export function createTocListRenderer(
   }
 
   /**
-   * Scrolls only the sidebar's expanded outline to its first or last heading.
-   * Rechecks the live row because a route change or rerender can replace it
-   * after the context menu was opened.
+   * Aligns the expanded prompt row below the visible top bar, or reveals the
+   * entire next directory row at the bottom. If no next row exists, aligns
+   * the final answer heading instead. Never scrolls the ChatGPT conversation.
    */
   function scrollExpandedOutlineBoundary(
     message: NavigatorMessage,
@@ -357,15 +357,22 @@ export function createTocListRenderer(
     const outline = row.querySelector<HTMLElement>('.navigator-outline-list');
     if (!outline || outline.hidden) return;
     const headings = outline.querySelectorAll<HTMLElement>('.navigator-outline-item');
-    const target = edge === 'top' ? headings[0] : headings[headings.length - 1];
-    if (!target || typeof list.scrollTo !== 'function') return;
+    if (!headings.length || typeof list.scrollTo !== 'function') return;
 
     const boundary = list.getBoundingClientRect();
-    const heading = target.getBoundingClientRect();
-    const padding = 12;
-    const delta = edge === 'top'
-      ? heading.top - boundary.top - padding
-      : heading.bottom - boundary.bottom + padding;
+    const topBar = list.parentElement?.querySelector<HTMLElement>('.navigator-topbar');
+    const visibleTop = Math.max(boundary.top, topBar?.getBoundingClientRect().bottom ?? boundary.top);
+    const padding = 8;
+    let delta: number;
+    if (edge === 'top') {
+      // The prompt itself must remain fully visible under the frosted top bar.
+      delta = row.getBoundingClientRect().top - visibleTop - padding;
+    } else {
+      // navigatorItems uses original indices; find the next *visible* row.
+      const nextRow = navigatorItems.slice(index + 1).find((candidate) => candidate?.isConnected);
+      const anchor = nextRow ?? headings[headings.length - 1];
+      delta = anchor.getBoundingClientRect().bottom - boundary.bottom + padding;
+    }
     list.scrollTo({ top: Math.max(0, list.scrollTop + delta), behavior: 'auto' });
   }
 

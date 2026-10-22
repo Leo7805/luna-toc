@@ -8,6 +8,7 @@ import { promptContextMenuController } from '@/features/myPrompts/promptContextM
 import { initializeChatGptSideBySide, disposeChatGptSideBySide, setChatGptSideBySideEnabled } from '@/features/sidebar/chatGptSideBySide';
 import {
   EDGE_TOOL_DWELL_MS,
+  EDGE_TOOL_HIDE_DELAY_MS,
   initializeSidebarVisibility,
   setSidebarHidden,
   setSidebarPinned,
@@ -100,6 +101,10 @@ describe('sidebar reveal handle and right-side tools', () => {
     panel.dispatchEvent(new Event('pointermove', { bubbles: true }));
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
     panel.dispatchEvent(new Event('pointerleave'));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    vi.advanceTimersByTime(999);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    vi.advanceTimersByTime(1);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
 
     sidebar.dispatchEvent(new Event('pointerenter'));
@@ -172,8 +177,54 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
   });
 
-  it('uses exactly a 50ms dwell threshold', () => {
+  it('keeps 50ms reveal and sets a 1s hide grace period', () => {
     expect(EDGE_TOOL_DWELL_MS).toBe(50);
+    expect(EDGE_TOOL_HIDE_DELAY_MS).toBe(1000);
+  });
+
+  it('cancels pending toolbar hide on pointer return and restarts 1s after leaving again', () => {
+    vi.useFakeTimers();
+    const { sidebar, trigger, panel } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 20 }));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 2, clientY: 320,
+    }));
+    vi.advanceTimersByTime(50);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+
+    sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 20 }));
+    vi.advanceTimersByTime(700);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+
+    panel.dispatchEvent(new Event('pointerenter'));
+    vi.advanceTimersByTime(400);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    panel.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(999);
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    vi.advanceTimersByTime(1);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('keeps the toolbar/sidebar available for 1s when leaving the open sidebar', () => {
+    vi.useFakeTimers();
+    const { sidebar, trigger, panel } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 20 }));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 2, clientY: 310,
+    }));
+    vi.advanceTimersByTime(50);
+    sidebar.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(999);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('false');
+    expect(panel.getAttribute('aria-hidden')).toBe('false');
+    vi.advanceTimersByTime(1);
+    expect(sidebar.getAttribute('aria-hidden')).toBe('true');
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('cancels delayed reveal when the sidebar closes during the dwell', () => {

@@ -307,13 +307,19 @@ describe('tocListRenderer', () => {
       .toEqual(['copy-prompt', 'save-prompt']);
   });
 
-  it('scrolls only #navigator-list to the first and last expanded headings', () => {
+  it('aligns the full prompt row below the frosted topbar and shows the next prompt at bottom', () => {
     const onItemClick = vi.fn();
     const scrollTo = vi.fn();
     listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
     listElement.scrollTop = 400;
     vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
       top: 100, bottom: 500, height: 400,
+    } as DOMRect);
+    const topbar = document.createElement('div');
+    topbar.className = 'navigator-topbar';
+    listElement.before(topbar);
+    vi.spyOn(topbar, 'getBoundingClientRect').mockReturnValue({
+      top: 0, bottom: 180,
     } as DOMRect);
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
@@ -323,6 +329,13 @@ describe('tocListRenderer', () => {
     renderer.render();
     const row = listElement.children[1] as HTMLElement;
     const headings = showOutline(row);
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+      top: 220, bottom: 970,
+    } as DOMRect);
+    const nextRow = listElement.children[2] as HTMLElement;
+    vi.spyOn(nextRow, 'getBoundingClientRect').mockReturnValue({
+      top: 988, bottom: 1022,
+    } as DOMRect);
     vi.spyOn(headings[0], 'getBoundingClientRect').mockReturnValue({
       top: 220, bottom: 248,
     } as DOMRect);
@@ -333,10 +346,12 @@ describe('tocListRenderer', () => {
     expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
       .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
     promptContextMenuController.select('return-to-top');
-    expect(scrollTo).toHaveBeenLastCalledWith({ top: 508, behavior: 'auto' });
+    // The entire question row, not just its first heading, sits below the overlay.
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 432, behavior: 'auto' });
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('return-to-bottom');
-    expect(scrollTo).toHaveBeenLastCalledWith({ top: 837, behavior: 'auto' });
+    // Reveal the *whole* next directory row rather than aligning the last heading.
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 930, behavior: 'auto' });
     expect(scrollTo).toHaveBeenCalledTimes(2);
     expect(onItemClick).not.toHaveBeenCalled();
     expect(renderer.getSearchQuery()).toBe('');
@@ -378,8 +393,56 @@ describe('tocListRenderer', () => {
     } as DOMRect);
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('return-to-bottom');
-    expect(scrollTo).toHaveBeenCalledWith({ top: 372, behavior: 'auto' });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 368, behavior: 'auto' });
     expect(renderer.getSearchQuery()).toBe('Third prompt');
+  });
+
+  it('aligns the last expanded heading at the bottom when no following directory exists', () => {
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    listElement.scrollTop = 200;
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 110, bottom: 500,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => [mockMessages[0]],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+    const row = listElement.children[0] as HTMLElement;
+    const headings = showOutline(row);
+    vi.spyOn(headings[2], 'getBoundingClientRect').mockReturnValue({
+      top: 885, bottom: 920,
+    } as DOMRect);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('return-to-bottom');
+    expect(scrollTo).toHaveBeenCalledWith({ top: 628, behavior: 'auto' });
+  });
+
+  it('reveals the next visible prompt after a filtered-out middle row', () => {
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      getDisplayText: (message) => message.id === 'msg-2' ? message.text : 'shared marker',
+    });
+    renderer.setSearchQuery('shared marker');
+    const row = listElement.children[0] as HTMLElement;
+    const nextRow = listElement.children[1] as HTMLElement;
+    showOutline(row);
+    vi.spyOn(nextRow, 'getBoundingClientRect').mockReturnValue({
+      top: 720, bottom: 754,
+    } as DOMRect);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('return-to-bottom');
+    expect(scrollTo).toHaveBeenCalledWith({ top: 262, behavior: 'auto' });
+    expect(renderer.getSearchQuery()).toBe('shared marker');
   });
 
   it('keeps long prompt text intact for CSS truncation and opens actions only on right-click', () => {
