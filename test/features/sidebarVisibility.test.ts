@@ -81,8 +81,18 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.getAttribute('aria-hidden')).toBe('true');
     expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(-1);
 
-    // The invisible footprint reveals the tools only after leaving and re-entering.
+    // The invisible footprint cannot bypass the 500ms edge dwell.
     panel.dispatchEvent(new Event('pointerenter'));
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: 20, clientY: 400,
+    }));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 2, clientY: 400,
+    }));
+    vi.advanceTimersByTime(499);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    vi.advanceTimersByTime(1);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
     expect(panel.getAttribute('aria-hidden')).toBe('false');
 
@@ -106,7 +116,8 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(dock.inert).toBe(false);
   });
 
-  it('positions and reveals all three controls on the first right-edge pointer entry', () => {
+  it('opens the sidebar on first edge contact, then reveals tools only after a second 500ms dwell', () => {
+    vi.useFakeTimers();
     const { sidebar, trigger, panel } = setup();
     Object.defineProperty(sidebar, 'clientHeight', { configurable: true, value: 800 });
     Object.defineProperty(panel, 'offsetHeight', { configurable: true, value: 132 });
@@ -114,17 +125,64 @@ describe('sidebar reveal handle and right-side tools', () => {
 
     trigger.dispatchEvent(new MouseEvent('pointerenter', { clientY: 410 }));
     expect(sidebar.getAttribute('aria-hidden')).toBe('false');
-    expect(panel.style.top).toBe('344px');
-    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
-    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(0);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 3, clientY: 410,
+    }));
+    vi.advanceTimersByTime(1000);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
 
     sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 10, clientY: 450 }));
-    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 3, clientY: 150,
     }));
+    vi.advanceTimersByTime(499);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    expect(panel.style.top).toBe('');
+    vi.advanceTimersByTime(1);
     expect(panel.style.top).toBe('84px');
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    expect(panel.querySelector<HTMLButtonElement>('#jump-chat-top-btn')!.tabIndex).toBe(0);
+  });
+
+  it('cancels pending right-edge reveal when the pointer leaves before 500ms', () => {
+    vi.useFakeTimers();
+    const { sidebar, trigger, panel } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new MouseEvent('pointerenter', { clientY: 300 }));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 30 }));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 2, clientY: 310,
+    }));
+    vi.advanceTimersByTime(400);
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 50, clientY: 310,
+    }));
+    vi.advanceTimersByTime(400);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 2, clientY: 380,
+    }));
+    vi.advanceTimersByTime(499);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    setSidebarHidden(true);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+  });
+
+  it('cancels delayed reveal when the sidebar closes during the dwell', () => {
+    vi.useFakeTimers();
+    const { sidebar, trigger, panel } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    trigger.dispatchEvent(new Event('pointerenter'));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 30 }));
+    sidebar.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true, clientX: window.innerWidth - 2, clientY: 400,
+    }));
+    setSidebarHidden(true);
+    vi.advanceTimersByTime(600);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('reveals and focuses navigation buttons through the sidebar keyboard shortcut', () => {

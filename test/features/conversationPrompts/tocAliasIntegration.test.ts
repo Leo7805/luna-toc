@@ -53,9 +53,9 @@ describe('renamed TOC entries', () => {
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map((item) => item.label))
-      .toEqual(['复制文字', '添加tips', '修改文字', '回到顶部', '回到底部', '恢复原文']);
+      .toEqual(['复制文字', '添加tips', '编辑文字', '回到顶部', '回到底部', '恢复原文']);
     promptContextMenuController.select('rename-toc');
-    const input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    const input = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     expect(input).not.toBeNull();
     expect(input.value).toBe(prompt.text);
     input.click();
@@ -83,11 +83,11 @@ describe('renamed TOC entries', () => {
       getDisplayText: () => alias ?? prompt.text,
     });
     renderer.render();
-    const open = (): HTMLInputElement => {
+    const open = (): HTMLTextAreaElement => {
       document.querySelector<HTMLElement>('.navigator-item')!
         .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
       promptContextMenuController.select('rename-toc');
-      return document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+      return document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     };
     let input = open();
     input.value = 'Do not save';
@@ -118,20 +118,77 @@ describe('renamed TOC entries', () => {
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('rename-toc');
-    let input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    let input = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     input.value = 'Retained draft';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     renderer.render();
-    input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    input = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     expect(input.value).toBe('Retained draft');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent)
       .toBe('保存失败，请重试'));
-    input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    input = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     expect(input.value).toBe('Retained draft');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await vi.waitFor(() => expect(rename).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(document.querySelector('.navigator-item-inline-input')).toBeNull());
+  });
+
+  it('expands the textarea to the full wrapped text on open and during edits', async () => {
+    const longText = 'A long line that should wrap naturally in the directory '.repeat(5);
+    const renderer = createTocListRenderer({
+      getMessages: () => [{ ...prompt, text: longText }],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: async () => undefined,
+    });
+    const height = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'scrollHeight');
+    Object.defineProperty(HTMLTextAreaElement.prototype, 'scrollHeight', {
+      configurable: true, get() { return this.value.length > 160 ? 180 : 60; },
+    });
+    try {
+      renderer.render();
+      document.querySelector<HTMLElement>('.navigator-item')!
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      expect(promptContextMenuController.getSnapshot()?.items[2]?.label).toBe('编辑文字');
+      promptContextMenuController.select('rename-toc');
+      const editor = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
+      expect(editor.tagName).toBe('TEXTAREA');
+      expect(editor.value).toBe(longText);
+      expect(editor.rows).toBe(1);
+      expect(editor.getAttribute('aria-multiline')).toBe('true');
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+      expect(editor.style.height).toBe('182px');
+      editor.value = 'Short title';
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(editor.style.height).toBe('62px');
+    } finally {
+      if (height) Object.defineProperty(HTMLTextAreaElement.prototype, 'scrollHeight', height);
+      else delete (HTMLTextAreaElement.prototype as { scrollHeight?: number }).scrollHeight;
+    }
+  });
+
+  it('supports Shift+Enter for a line break and Enter to save', async () => {
+    const rename = vi.fn(async () => undefined);
+    const renderer = createTocListRenderer({
+      getMessages: () => [prompt],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: rename,
+    });
+    renderer.render();
+    document.querySelector<HTMLElement>('.navigator-item')!
+      .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('rename-toc');
+    const editor = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
+    const multiline = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    editor.dispatchEvent(multiline);
+    expect(multiline.defaultPrevented).toBe(false);
+    expect(rename).not.toHaveBeenCalled();
+    editor.value = 'First line\nSecond line';
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'First line\nSecond line'));
   });
 
   it('closes the editor when the conversation is reset without saving', () => {
@@ -146,7 +203,7 @@ describe('renamed TOC entries', () => {
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('rename-toc');
-    const input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    const input = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     input.value = 'Unsaved';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     renderer.resetList();

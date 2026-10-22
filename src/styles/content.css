@@ -594,7 +594,7 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   overflow: hidden;
 }
 
-/* Inline TOC rename uses the title's own space, not an overlay or modal. */
+/* Multi-line title editor grows with wrapped content inside its own TOC row. */
 .navigator-item.navigator-item-editing {
   cursor: text;
 }
@@ -604,14 +604,21 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   flex: 1 1 0;
   width: 100%;
   min-width: 0;
-  height: 24px;
-  padding: 1px 6px;
+  min-height: 28px;
+  height: auto;
+  padding: 3px 6px;
   border: 1px solid var(--ct-border-input);
   border-radius: 5px;
   outline-offset: 1px;
   background: var(--ct-bg-input);
   color: var(--ct-text-item);
   font: inherit;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  resize: none;
+  vertical-align: top;
 }
 
 .navigator-item-inline-input:focus-visible {

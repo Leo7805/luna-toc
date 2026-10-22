@@ -272,6 +272,7 @@ describe('tocListRenderer', () => {
     listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
       .toEqual(['copy-prompt', 'save-prompt', 'rename-toc', 'return-to-top', 'return-to-bottom']);
+    expect(promptContextMenuController.getSnapshot()?.items[2].label).toBe('编辑文字');
   });
 
   it('keeps rename unavailable for temporary conversations', () => {

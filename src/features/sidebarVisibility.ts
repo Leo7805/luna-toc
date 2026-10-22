@@ -10,6 +10,8 @@ const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
 // A short grace period retains portal hover without delayed collapse.
 const AUTO_HIDE_DELAY_MS = 60;
+const EDGE_TOOL_DWELL_MS = 500;
+const EDGE_TOOL_THRESHOLD_PX = 12;
 const LAYOUT_MODE_STORAGE_KEY = 'chatToc:activeSidebarLayoutMode';
 
 let sidebar: HTMLElement | null = null;
@@ -19,6 +21,10 @@ let isPinned = false;
 let isHidden = true;
 let activeLayoutMode: SidebarLayoutMode | null = null;
 let hideTimer = 0;
+let edgeToolTimer = 0;
+let edgePointerY = 0;
+// The first edge hit opens the sidebar, but cannot arm the toolbar until exit.
+let mustLeaveEdgeBeforeTools = false;
 let onOpened: (() => void) | null = null;
 /**
  * @param {HTMLElement} sidebarElement
@@ -31,6 +37,8 @@ export function initializeSidebarVisibility(
 ): void {
   onOpened = options.onOpened ?? null;
   activeLayoutMode = null;
+  clearEdgeToolTimer();
+  mustLeaveEdgeBeforeTools = false;
   sidebar = sidebarElement;
   toggleBtn = toggleButton;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
@@ -69,28 +77,38 @@ function bindToggleButton(): void {
   if (!toggleBtn) return;
   const button = toggleBtn;
 
-  button.addEventListener('pointerenter', (event) => {
+  button.addEventListener('pointerenter', () => {
+    // First right-edge contact is reserved for opening the sidebar.
+    mustLeaveEdgeBeforeTools = true;
+    clearEdgeToolTimer();
     handleAutoHideEnter();
-    if (sidebar && Number.isFinite(event.clientY) && event.clientY >= 0) {
-      placeJumpControlsAtPointer(sidebar, event.clientY);
-      setJumpControlsVisible(true);
-    }
   });
   button.addEventListener('focus', handleAutoHideEnter);
   button.addEventListener('pointerleave', scheduleAutoHide);
 
-  button.addEventListener('click', handleAutoHideEnter);
+  button.addEventListener('click', () => {
+    mustLeaveEdgeBeforeTools = true;
+    clearEdgeToolTimer();
+    handleAutoHideEnter();
+  });
 }
 
 function bindAutoHide(): void {
   if (!sidebar) return;
 
   sidebar.addEventListener('pointerenter', () => clearHideTimer());
-  sidebar.addEventListener('pointerleave', scheduleAutoHide);
+  sidebar.addEventListener('pointerleave', () => {
+    clearEdgeToolTimer();
+    if (!sidebar?.querySelector('.navigator-jump-controls')?.contains(document.activeElement)) {
+      setJumpControlsVisible(false);
+    }
+    scheduleAutoHide();
+  });
 
   const controls = sidebar.querySelector<HTMLElement>('.navigator-jump-controls');
   controls?.addEventListener('pointerenter', () => {
-    setJumpControlsVisible(true);
+    // Preserve buttons already revealed by the dwell timer, never bypass it.
+    clearEdgeToolTimer();
   });
   controls?.addEventListener('pointerleave', () => {
     setJumpControlsVisible(false);
@@ -103,18 +121,28 @@ function bindAutoHide(): void {
     setJumpControlsVisible(false);
   });
 
-  // The group follows the height where the pointer reaches the right edge.
-  // Once the pointer enters the buttons, keep their position stable for clicks.
+  // The first edge hit opens the sidebar. Subsequent edge dwell is required
+  // before the toolbar appears; leaving the edge cancels the pending reveal.
   sidebar.addEventListener('pointermove', (event) => {
     if (event.target instanceof Node && controls?.contains(event.target)) return;
-    if (event.clientX >= window.innerWidth - 12 &&
-        event.clientX <= window.innerWidth && Number.isFinite(event.clientY)) {
-      if (sidebar) placeJumpControlsAtPointer(sidebar, event.clientY);
-      setJumpControlsVisible(true);
+    const atEdge = event.clientX >= window.innerWidth - EDGE_TOOL_THRESHOLD_PX &&
+      event.clientX <= window.innerWidth && Number.isFinite(event.clientY);
+    if (!atEdge) {
+      mustLeaveEdgeBeforeTools = false;
+      clearEdgeToolTimer();
+      if (!controls?.contains(document.activeElement)) setJumpControlsVisible(false);
       return;
     }
-    if (controls?.contains(document.activeElement)) return;
-    setJumpControlsVisible(false);
+    if (isHidden || mustLeaveEdgeBeforeTools) return;
+    edgePointerY = event.clientY;
+    if (controls?.classList.contains('navigator-jump-controls-visible') ||
+        edgeToolTimer) return;
+    edgeToolTimer = window.setTimeout(() => {
+      edgeToolTimer = 0;
+      if (isHidden || mustLeaveEdgeBeforeTools || !sidebar) return;
+      placeJumpControlsAtPointer(sidebar, edgePointerY);
+      setJumpControlsVisible(true);
+    }, EDGE_TOOL_DWELL_MS);
   });
 
   document.addEventListener('pointerover', handleDocumentPointerOver, true);
@@ -277,6 +305,10 @@ function finishInitializing(): void {
 export function setSidebarHidden(hidden: boolean): void {
   const justOpened = isHidden && !hidden;
   isHidden = hidden;
+  if (hidden) {
+    clearEdgeToolTimer();
+    mustLeaveEdgeBeforeTools = false;
+  }
 
   // The menu lives in a separate React portal, outside the collapsing sidebar.
   // Explicitly dismiss it so no orphaned actions remain visible or interactive.
@@ -297,6 +329,13 @@ export function setSidebarHidden(hidden: boolean): void {
   setJumpControlsVisible(false);
   syncChatGptSideBySide();
   if (justOpened) onOpened?.();
+}
+
+/** Cancels any right-edge dwell without changing the sidebar visibility. */
+function clearEdgeToolTimer(): void {
+  if (!edgeToolTimer) return;
+  window.clearTimeout(edgeToolTimer);
+  edgeToolTimer = 0;
 }
 
 function clearHideTimer(): void {

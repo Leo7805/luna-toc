@@ -93,6 +93,7 @@ export function createTocListRenderer(
     error: string;
   }
   let editing: InlineEditState | null = null;
+  let editorResizeObserver: ResizeObserver | null = null;
 
   function getSearchQuery(): string {
     return searchQuery;
@@ -108,6 +109,8 @@ export function createTocListRenderer(
   }
 
   function resetList(): void {
+    editorResizeObserver?.disconnect();
+    editorResizeObserver = null;
     editing = null;
     navigatorItems = [];
     searchQuery = '';
@@ -220,8 +223,8 @@ export function createTocListRenderer(
   }
 
   /**
-   * Replaces the selected title directly in its sidebar row with a single-line
-   * editor. Its state survives re-renders triggered by streaming messages.
+   * Expands a multi-line editor inside the current directory row, preserving
+   * the entire title and draft across ordinary streaming re-renders.
    */
   function mountInlineEditor(
     item: HTMLElement,
@@ -230,13 +233,21 @@ export function createTocListRenderer(
     message: NavigatorMessage,
     state: InlineEditState
   ): void {
-    const input = document.createElement('input');
-    input.type = 'text';
+    const input = document.createElement('textarea');
     input.className = 'navigator-item-inline-input';
-    input.setAttribute('aria-label', '修改目录文字');
+    input.setAttribute('aria-label', '编辑目录文字');
+    input.setAttribute('aria-multiline', 'true');
+    input.rows = 1;
     input.maxLength = 240;
     input.value = state.value;
     input.disabled = state.saving;
+
+    /** Recalculate height after wrapping, typing and sidebar width changes. */
+    const fitContent = (): void => {
+      input.style.height = 'auto';
+      // Allow full text to wrap; the sidebar list itself can scroll for long titles.
+      input.style.height = `${Math.max(28, input.scrollHeight + 2)}px`;
+    };
     item.classList.add('navigator-item-editing');
     itemMain.replaceChild(input, itemText);
 
@@ -288,6 +299,7 @@ export function createTocListRenderer(
     input.addEventListener('contextmenu', (event) => event.stopPropagation());
     input.addEventListener('input', () => {
       state.value = input.value;
+      fitContent();
       state.error = '';
       errorElement.remove();
       input.removeAttribute('aria-invalid');
@@ -297,7 +309,7 @@ export function createTocListRenderer(
       if (event.key === 'Escape') {
         event.preventDefault();
         cancel();
-      } else if (event.key === 'Enter' && !event.isComposing) {
+      } else if (event.key === 'Enter' && !event.isComposing && !event.shiftKey) {
         event.preventDefault();
         save();
       }
@@ -311,8 +323,23 @@ export function createTocListRenderer(
       }
     });
 
+    // Do not focus again during a pending write; fit after DOM insertion.
     queueMicrotask(() => {
-      if (editing !== state || !input.isConnected || state.saving) return;
+      if (editing !== state || !input.isConnected) return;
+      fitContent();
+      if (typeof ResizeObserver !== 'undefined') {
+        let previousWidth = input.clientWidth;
+        editorResizeObserver?.disconnect();
+        editorResizeObserver = new ResizeObserver(() => {
+          if (editing !== state || !input.isConnected) return;
+          const width = input.clientWidth;
+          if (width === previousWidth) return;
+          previousWidth = width;
+          fitContent();
+        });
+        editorResizeObserver.observe(itemMain);
+      }
+      if (state.saving) return;
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
     });
@@ -381,7 +408,7 @@ export function createTocListRenderer(
           { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
           { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
-            ? [{ id: 'rename-toc', label: '修改文字', icon: 'pencil-line' as const }]
+            ? [{ id: 'rename-toc', label: '编辑文字', icon: 'pencil-line' as const }]
             : []),
           { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
           { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
@@ -417,7 +444,7 @@ export function createTocListRenderer(
     };
 
     item.addEventListener('contextmenu', (event) => {
-      if (event.target instanceof HTMLInputElement) return;
+      if (event.target instanceof HTMLTextAreaElement) return;
       event.preventDefault();
       event.stopPropagation();
       showItemMenu(event.clientX, event.clientY);
@@ -448,6 +475,8 @@ export function createTocListRenderer(
       startSettleTimer();
     }
 
+    editorResizeObserver?.disconnect();
+    editorResizeObserver = null;
     list.innerHTML = '';
     navigatorItems = [];
     resetPromptItems();

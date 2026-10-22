@@ -1,5 +1,5 @@
 /**
- * Creates the minimal, unlabeled, viewport-centered sidebar reveal handle.
+ * Creates the minimal, unlabeled, full-height right-edge sidebar reveal handle.
  *
  * This handle replaces the movable dock. Its fixed position is intentionally
  * independent of saved positions from previous versions.
@@ -7,7 +7,7 @@
 
 /**
  * Creates the accessible right-edge trigger without visible text or icons.
- * The 5 × 45px dimensions and vertical centering are defined in content.css.
+ * The invisible 6px-wide, full-height activation area is defined in content.css.
  * @returns {HTMLButtonElement} The sidebar reveal handle.
  */
 export function createSidebarToggleButton(): HTMLButtonElement {
