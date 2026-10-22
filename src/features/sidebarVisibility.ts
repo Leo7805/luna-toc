@@ -4,6 +4,7 @@
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { SidebarLayoutMode } from '@/features/sidebar/sidebarPreferences';
 import { syncChatGptSideBySide } from '@/features/sidebar/chatGptSideBySide';
+import { placeJumpControlsAtPointer } from '@/features/sidebar/jumpControlsPosition';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
@@ -71,7 +72,7 @@ function bindToggleButton(): void {
   button.addEventListener('pointerenter', (event) => {
     handleAutoHideEnter();
     if (sidebar && Number.isFinite(event.clientY) && event.clientY >= 0) {
-      sidebar.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: event.clientY }));
+      placeJumpControlsAtPointer(sidebar, event.clientY);
       setJumpControlsVisible(true);
     }
   });
@@ -108,7 +109,7 @@ function bindAutoHide(): void {
     if (event.target instanceof Node && controls?.contains(event.target)) return;
     if (event.clientX >= window.innerWidth - 12 &&
         event.clientX <= window.innerWidth && Number.isFinite(event.clientY)) {
-      sidebar?.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: event.clientY }));
+      if (sidebar) placeJumpControlsAtPointer(sidebar, event.clientY);
       setJumpControlsVisible(true);
       return;
     }

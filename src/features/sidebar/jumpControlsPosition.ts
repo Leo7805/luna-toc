@@ -4,6 +4,7 @@
  */
 const EDGE_PADDING_PX = 12;
 const FALLBACK_CLUSTER_HEIGHT_PX = 132;
+const lastPointerBySidebar = new WeakMap<HTMLElement, number>();
 
 /** Centers the cluster vertically at a pointer coordinate and clamps to viewport. */
 export function clampJumpControlsTop(
@@ -19,27 +20,22 @@ export function clampJumpControlsTop(
 export function placeJumpControlsAtPointer(sidebar: HTMLElement, pointerY: number): void {
   const controls = sidebar.querySelector<HTMLElement>('.navigator-jump-controls');
   if (!controls || !Number.isFinite(pointerY)) return;
+  lastPointerBySidebar.set(sidebar, pointerY);
   const height = sidebar.clientHeight || window.innerHeight;
   const groupHeight = controls.offsetHeight || FALLBACK_CLUSTER_HEIGHT_PX;
   controls.style.bottom = 'auto';
   controls.style.top = `${clampJumpControlsTop(pointerY, height, groupHeight)}px`;
 }
 
-/** Initializes a safe middle position; new pointer entries override it. */
+/** Initializes a centered fallback and reapplies the last pointer height on resize. */
 export function initializeJumpControlsPosition(sidebar: HTMLElement): () => void {
-  let pointerY = (sidebar.clientHeight || window.innerHeight) / 2;
-  const onResize = (): void => placeJumpControlsAtPointer(sidebar, pointerY);
+  const onResize = (): void => {
+    const center = (sidebar.clientHeight || window.innerHeight) / 2;
+    placeJumpControlsAtPointer(sidebar, lastPointerBySidebar.get(sidebar) ?? center);
+  };
   // Remove the retired drag-position preference once.
   try { sessionStorage.removeItem('chatToc:jumpControlsBottom'); } catch {}
   onResize();
-  const onEdgePosition = (event: Event): void => {
-    pointerY = (event as CustomEvent<number>).detail;
-    onResize();
-  };
-  sidebar.addEventListener('luna-toc-edge-position', onEdgePosition);
   window.addEventListener('resize', onResize);
-  return () => {
-    sidebar.removeEventListener('luna-toc-edge-position', onEdgePosition);
-    window.removeEventListener('resize', onResize);
-  };
+  return () => { window.removeEventListener('resize', onResize); };
 }

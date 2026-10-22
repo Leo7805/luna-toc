@@ -41,7 +41,7 @@ describe('jump control pointer positioning', () => {
     placeJumpControlsAtPointer(sidebar, 100);
     expect(rail.style.top).toBe('34px');
     expect(rail.style.bottom).toBe('auto');
-    sidebar.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: 740 }));
+    placeJumpControlsAtPointer(sidebar, 740);
     expect(rail.style.top).toBe('656px');
     Object.defineProperty(sidebar, 'clientHeight', { configurable: true, value: 200 });
     window.dispatchEvent(new Event('resize'));
