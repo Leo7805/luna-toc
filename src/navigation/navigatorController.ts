@@ -16,7 +16,6 @@ import type {
 } from '@/features/conversationPrompts/message';
 import { getActiveConversationOwner } from './lifecycle/conversationOwner';
 import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
-import { tocRenameEditorController } from '@/features/conversationPrompts/tocRenameEditor';
 import { isPermanentConversationId } from './lifecycle/protocol';
 import { initializeFollow } from './follow/follow';
 import {
@@ -113,19 +112,14 @@ export const navigatorController = (() => {
       tocAliasStore.get(getCurrentConversationKey(), message.id) ?? message.text,
     isRenamed: (message) => tocAliasStore.get(getCurrentConversationKey(), message.id) !== null,
     canRename: () => isPermanentConversationId(getCurrentConversationKey()),
-    onRenamePrompt: (message) => {
+    onRenamePrompt: async (message, title) => {
       const routeKey = getCurrentConversationKey();
-      tocRenameEditorController.open(
-        tocAliasStore.get(routeKey, message.id) ?? message.text,
-        async (title) => {
-          if (getCurrentConversationKey() !== routeKey ||
-              !conversationStore.getMessages().some((item) => item.id === message.id)) {
-            throw new Error('Conversation changed while editing title');
-          }
-          await tocAliasStore.update(routeKey, message.id,
-            title === message.text ? null : title, getActiveConversationOwner());
-        }
-      );
+      if (!isPermanentConversationId(routeKey) ||
+          !conversationStore.getMessages().some((item) => item.id === message.id)) {
+        throw new Error('Conversation changed while editing title');
+      }
+      await tocAliasStore.update(routeKey, message.id,
+        title === message.text ? null : title, getActiveConversationOwner());
     },
     onRestorePrompt: (message) => {
       void tocAliasStore.update(getCurrentConversationKey(), message.id,
@@ -404,7 +398,6 @@ export const navigatorController = (() => {
     activePromptTracker.reset();
     resetOutline();
     tocListRenderer.resetList();
-    tocRenameEditorController.close();
     void tocAliasStore.load(getCurrentConversationKey()).catch(() => undefined);
     previewTooltip.hide();
     onRouteChanged();

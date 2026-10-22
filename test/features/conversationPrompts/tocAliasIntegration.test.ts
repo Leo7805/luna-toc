@@ -37,13 +37,14 @@ describe('renamed TOC entries', () => {
     renderer.setSearchQuery('Short');
     expect(document.querySelectorAll('.navigator-item')).toHaveLength(1);
   });
-  it('offers rename and restore only when an alias is present', () => {
-    const rename = vi.fn();
+  it('places inline rename third and keeps restore only for renamed entries', async () => {
+    const rename = vi.fn(async () => undefined);
     const restore = vi.fn();
+    const onItemClick = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => [prompt],
       getActiveIndex: () => null,
-      onItemClick: vi.fn(),
+      onItemClick,
       onRenamePrompt: rename,
       onRestorePrompt: restore,
       isRenamed: () => true,
@@ -52,13 +53,105 @@ describe('renamed TOC entries', () => {
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map((item) => item.label))
-      .toEqual(['复制文字', '添加tips', '回到顶部', '回到底部', '修改文字', '恢复原文']);
+      .toEqual(['复制文字', '添加tips', '修改文字', '回到顶部', '回到底部', '恢复原文']);
     promptContextMenuController.select('rename-toc');
-    expect(rename).toHaveBeenCalledWith(prompt);
-    renderer.render();
+    const input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe(prompt.text);
+    input.click();
+    expect(onItemClick).not.toHaveBeenCalled();
+    input.value = 'Custom display title';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Custom display title'));
+    await vi.waitFor(() => expect(document.querySelector('.navigator-item-inline-input')).toBeNull());
+    expect(prompt.text).toBe('Original ChatGPT question');
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('restore-toc');
     expect(restore).toHaveBeenCalledWith(prompt);
+  });
+
+  it('cancels with Escape, saves on blur, and preserves the original message', async () => {
+    let alias: string | null = null;
+    const rename = vi.fn(async (_message: NavigatorMessage, label: string) => { alias = label; });
+    const renderer = createTocListRenderer({
+      getMessages: () => [prompt],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: rename,
+      getDisplayText: () => alias ?? prompt.text,
+    });
+    renderer.render();
+    const open = (): HTMLInputElement => {
+      document.querySelector<HTMLElement>('.navigator-item')!
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      promptContextMenuController.select('rename-toc');
+      return document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    };
+    let input = open();
+    input.value = 'Do not save';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(rename).not.toHaveBeenCalled();
+    expect(document.querySelector('.navigator-item-text')?.textContent).toBe(prompt.text);
+    input = open();
+    input.value = 'Saved when blurred';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('blur'));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Saved when blurred'));
+    await vi.waitFor(() => expect(document.querySelector('.navigator-item-text')?.textContent)
+      .toBe('Saved when blurred'));
+  });
+
+  it('preserves drafts over navigation renders and allows retry on rejected saves', async () => {
+    const rename = vi.fn()
+      .mockRejectedValueOnce(new Error('Storage unavailable'))
+      .mockResolvedValueOnce(undefined);
+    const renderer = createTocListRenderer({
+      getMessages: () => [prompt],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: rename,
+    });
+    renderer.render();
+    document.querySelector<HTMLElement>('.navigator-item')!
+      .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('rename-toc');
+    let input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    input.value = 'Retained draft';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    renderer.render();
+    input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    expect(input.value).toBe('Retained draft');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent)
+      .toBe('保存失败，请重试'));
+    input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    expect(input.value).toBe('Retained draft');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(document.querySelector('.navigator-item-inline-input')).toBeNull());
+  });
+
+  it('closes the editor when the conversation is reset without saving', () => {
+    const rename = vi.fn(async () => undefined);
+    const renderer = createTocListRenderer({
+      getMessages: () => [prompt],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: rename,
+    });
+    renderer.render();
+    document.querySelector<HTMLElement>('.navigator-item')!
+      .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('rename-toc');
+    const input = document.querySelector<HTMLInputElement>('.navigator-item-inline-input')!;
+    input.value = 'Unsaved';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    renderer.resetList();
+    renderer.render();
+    expect(document.querySelector('.navigator-item-inline-input')).toBeNull();
+    expect(rename).not.toHaveBeenCalled();
   });
 });

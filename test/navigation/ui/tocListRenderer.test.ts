@@ -260,6 +260,34 @@ describe('tocListRenderer', () => {
     expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
+  it('renders the rename item third when this action is enabled', () => {
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: async () => undefined,
+      canRename: () => true,
+    });
+    renderer.render();
+    listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
+      .toEqual(['copy-prompt', 'save-prompt', 'rename-toc', 'return-to-top', 'return-to-bottom']);
+  });
+
+  it('keeps rename unavailable for temporary conversations', () => {
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      onRenamePrompt: async () => undefined,
+      canRename: () => false,
+    });
+    renderer.render();
+    listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
+      .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
+  });
+
   it('targets the right-clicked prompt boundaries without scrolling the sidebar', () => {
     const onJumpToPromptBoundary = vi.fn();
     const onItemClick = vi.fn();

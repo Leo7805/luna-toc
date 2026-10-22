@@ -42,7 +42,7 @@ export interface TocListRendererOptions {
   ) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   getDisplayText?: (message: NavigatorMessage) => string;
-  onRenamePrompt?: (message: NavigatorMessage) => void;
+  onRenamePrompt?: (message: NavigatorMessage, label: string) => Promise<void>;
   onRestorePrompt?: (message: NavigatorMessage) => void;
   isRenamed?: (message: NavigatorMessage) => boolean;
   canRename?: () => boolean;
@@ -86,6 +86,13 @@ export function createTocListRenderer(
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
   let hasScrolledInitialActive = false;
+  interface InlineEditState {
+    messageId: string;
+    value: string;
+    saving: boolean;
+    error: string;
+  }
+  let editing: InlineEditState | null = null;
 
   function getSearchQuery(): string {
     return searchQuery;
@@ -101,6 +108,7 @@ export function createTocListRenderer(
   }
 
   function resetList(): void {
+    editing = null;
     navigatorItems = [];
     searchQuery = '';
     hasScrolledInitialActive = false;
@@ -211,6 +219,105 @@ export function createTocListRenderer(
     }
   }
 
+  /**
+   * Replaces the selected title directly in its sidebar row with a single-line
+   * editor. Its state survives re-renders triggered by streaming messages.
+   */
+  function mountInlineEditor(
+    item: HTMLElement,
+    itemMain: HTMLElement,
+    itemText: HTMLElement,
+    message: NavigatorMessage,
+    state: InlineEditState
+  ): void {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'navigator-item-inline-input';
+    input.setAttribute('aria-label', '修改目录文字');
+    input.maxLength = 240;
+    input.value = state.value;
+    input.disabled = state.saving;
+    item.classList.add('navigator-item-editing');
+    itemMain.replaceChild(input, itemText);
+
+    const errorElement = document.createElement('div');
+    errorElement.className = 'navigator-item-inline-error';
+    errorElement.setAttribute('role', 'alert');
+    if (state.error) {
+      errorElement.textContent = state.error;
+      input.setAttribute('aria-invalid', 'true');
+      item.insertBefore(errorElement, itemMain.nextSibling);
+    }
+
+    const cancel = (): void => {
+      if (editing !== state || state.saving) return;
+      editing = null;
+      render();
+    };
+
+    const save = (): void => {
+      if (editing !== state || state.saving) return;
+      const title = input.value.trim();
+      if (!title) {
+        state.error = '目录文字不能为空';
+        input.setAttribute('aria-invalid', 'true');
+        errorElement.textContent = state.error;
+        if (!errorElement.isConnected) item.insertBefore(errorElement, itemMain.nextSibling);
+        return;
+      }
+      if (title === (options.getDisplayText?.(message) ?? message.text)) {
+        cancel();
+        return;
+      }
+      state.saving = true;
+      input.disabled = true;
+      void Promise.resolve(options.onRenamePrompt?.(message, title)).then(() => {
+        if (editing !== state) return;
+        editing = null;
+        render();
+      }).catch(() => {
+        if (editing !== state) return;
+        state.saving = false;
+        state.error = '保存失败，请重试';
+        render();
+      });
+    };
+
+    input.addEventListener('click', (event) => event.stopPropagation());
+    input.addEventListener('pointerdown', (event) => event.stopPropagation());
+    input.addEventListener('contextmenu', (event) => event.stopPropagation());
+    input.addEventListener('input', () => {
+      state.value = input.value;
+      state.error = '';
+      errorElement.remove();
+      input.removeAttribute('aria-invalid');
+    });
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancel();
+      } else if (event.key === 'Enter' && !event.isComposing) {
+        event.preventDefault();
+        save();
+      }
+    });
+    input.addEventListener('blur', () => {
+      if (!input.isConnected || editing !== state || state.saving) return;
+      if (!input.value.trim()) {
+        cancel();
+      } else {
+        save();
+      }
+    });
+
+    queueMicrotask(() => {
+      if (editing !== state || !input.isConnected || state.saving) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
+
   function createNavigatorItem(
     message: NavigatorMessage,
     index: number
@@ -246,13 +353,19 @@ export function createTocListRenderer(
       item.appendChild(outlineControls.outlineList);
     }
 
+    if (editing?.messageId === message.id) {
+      mountInlineEditor(item, itemMain, itemText, message, editing);
+    }
+
     const showTooltip = (event: MouseEvent): void => {
+      if (editing?.messageId === message.id) return;
       if (isElementTextTruncated(itemText)) {
         previewTooltip.show(displayText, event, itemMain);
       }
     };
 
     item.addEventListener('click', (event) => {
+      if (editing?.messageId === message.id) return;
       options.onItemClick(message, index);
       if (item.matches(':hover')) showTooltip(event);
     });
@@ -267,11 +380,11 @@ export function createTocListRenderer(
         [
           { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
           { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
-          { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
-          { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
             ? [{ id: 'rename-toc', label: '修改文字', icon: 'pencil-line' as const }]
             : []),
+          { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
+          { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
           ...(options.onRestorePrompt && options.isRenamed?.(message)
             ? [{ id: 'restore-toc', label: '恢复原文', icon: 'pencil-line' as const }]
             : []),
@@ -288,7 +401,14 @@ export function createTocListRenderer(
           } else if (itemId === 'save-prompt') {
             options.onSavePrompt?.(message);
           } else if (itemId === 'rename-toc') {
-            options.onRenamePrompt?.(message);
+            editing = {
+              messageId: message.id,
+              value: options.getDisplayText?.(message) ?? message.text,
+              saving: false,
+              error: '',
+            };
+            previewTooltip.hide();
+            render();
           } else if (itemId === 'restore-toc') {
             options.onRestorePrompt?.(message);
           }
@@ -297,6 +417,7 @@ export function createTocListRenderer(
     };
 
     item.addEventListener('contextmenu', (event) => {
+      if (event.target instanceof HTMLInputElement) return;
       event.preventDefault();
       event.stopPropagation();
       showItemMenu(event.clientX, event.clientY);

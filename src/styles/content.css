@@ -594,6 +594,36 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
   overflow: hidden;
 }
 
+/* Inline TOC rename uses the title's own space, not an overlay or modal. */
+.navigator-item.navigator-item-editing {
+  cursor: text;
+}
+
+.navigator-item-inline-input {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 1px 6px;
+  border: 1px solid var(--ct-border-input);
+  border-radius: 5px;
+  outline-offset: 1px;
+  background: var(--ct-bg-input);
+  color: var(--ct-text-item);
+  font: inherit;
+}
+
+.navigator-item-inline-input:focus-visible {
+  outline: 2px solid currentColor;
+}
+
+.navigator-item-inline-error {
+  padding: 2px 6px 2px 20px;
+  color: #ed7777;
+  font-size: 12px;
+}
+
 .navigator-item:hover {
   background: var(--ct-bg-item-hover);
 }
