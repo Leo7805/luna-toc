@@ -55,6 +55,7 @@ export interface PromptNavigationOptions {
 
 export interface JumpMessageOptions {
   mode?: 'target-driven' | 'viewport-driven';
+  alignToTopEdge?: boolean;
 }
 
 let getVirtualSearchContext: () => VirtualSearchContext = () => ({
@@ -343,8 +344,15 @@ function finishIndependentVirtualJump(
       const scrollTop = container.scrollTop;
       const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
 
-      // Target is above expected offset but container is clamped at minimum scroll boundary
-      if (diff < -SUBPIXEL_TOLERANCE_PX && scrollTop <= SUBPIXEL_TOLERANCE_PX) {
+      // Target is above expected offset but container is clamped at minimum scroll boundary.
+      // Guard against false positive: element must still be within visible bounds
+      // (currentOffset >= -SUBPIXEL_TOLERANCE_PX). If currentOffset < -SUBPIXEL_TOLERANCE_PX,
+      // the prompt is clipped above the top edge and cannot be considered bounded.
+      if (
+        diff < -SUBPIXEL_TOLERANCE_PX &&
+        currentOffset >= -SUBPIXEL_TOLERANCE_PX &&
+        scrollTop <= SUBPIXEL_TOLERANCE_PX
+      ) {
         return 'bounded';
       }
 
@@ -389,6 +397,31 @@ function finishIndependentVirtualJump(
     return cleanup;
   };
 
+  const performFinalTopScroll = () => {
+    if (!options.alignToTopEdge) return;
+    if (jumpVersion !== navigationJumpVersion) return;
+    const scrollContainer = platform().navigation.getScrollContainer();
+    if (!scrollContainer || !scrollContainer.isConnected) return;
+
+    const targetElement = findRenderedChatGptPrompt(message.id);
+    if (!targetElement || !targetElement.isConnected) return;
+
+    scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
+
+    scheduleFrame(() => {
+      if (jumpVersion !== navigationJumpVersion) return;
+      if (!scrollContainer.isConnected) return;
+
+      const verifiedPrompt = findRenderedChatGptPrompt(message.id);
+      if (!verifiedPrompt || !verifiedPrompt.isConnected) return;
+
+      if (scrollContainer.scrollTop > 0) {
+        scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
+      }
+      highlightMatchedElement(verifiedPrompt);
+    });
+  };
+
   if (scrollTargetIntoView(target)) {
     if (jumpVersion !== navigationJumpVersion) return;
 
@@ -396,6 +429,7 @@ function finishIndependentVirtualJump(
 
     // Fast path: already-mounted targets complete synchronously with zero delay
     if (!requiresStabilization) {
+      performFinalTopScroll();
       logChatGptNavigationEvent(
         createChatGptNavigationJumpId(),
         'JUMP_FINISHED',
@@ -448,6 +482,7 @@ function finishIndependentVirtualJump(
           scheduleFrame(stabilizeStep);
           return;
         }
+        performFinalTopScroll();
         logChatGptNavigationEvent(
           createChatGptNavigationJumpId(),
           'JUMP_FINISHED',
@@ -467,6 +502,7 @@ function finishIndependentVirtualJump(
       // evalResult is 'aligned' or 'bounded'
       consecutiveAlignedFrames += 1;
       if (consecutiveAlignedFrames >= REQUIRED_STABLE_FRAMES) {
+        performFinalTopScroll();
         logChatGptNavigationEvent(
           createChatGptNavigationJumpId(),
           'JUMP_FINISHED',
@@ -481,6 +517,7 @@ function finishIndependentVirtualJump(
       if (totalChecks < MAX_TOTAL_CHECKS) {
         scheduleFrame(stabilizeStep);
       } else {
+        performFinalTopScroll();
         // Upper bound reached without satisfying continuous stability requirements
         logChatGptNavigationEvent(
           createChatGptNavigationJumpId(),

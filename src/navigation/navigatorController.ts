@@ -399,11 +399,15 @@ export const navigatorController = (() => {
    * Reuses independent virtual navigation without TOC click side effects.
    */
   function jumpToFirstPrompt(): void {
+    const isComplete = conversationStore.isConversationComplete();
     const messages = conversationStore.getMessages();
     const firstMessage = messages[0];
     if (firstMessage) {
       setNavigationIdle();
-      jumpToMessage(firstMessage, 0, { mode: 'viewport-driven' });
+      jumpToMessage(firstMessage, 0, {
+        mode: 'viewport-driven',
+        alignToTopEdge: isComplete,
+      });
     } else {
       cancelActiveNavigationSearch();
       setNavigationIdle();

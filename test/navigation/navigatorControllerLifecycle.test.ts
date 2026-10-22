@@ -2095,7 +2095,7 @@ describe('navigatorController lifecycle and coordination', () => {
       expect(jumpToMessageSpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'p-0' }),
         0,
-        { mode: 'viewport-driven' }
+        { mode: 'viewport-driven', alignToTopEdge: true }
       );
 
       // 2. Display index is no longer locked to 49
@@ -2157,7 +2157,7 @@ describe('navigatorController lifecycle and coordination', () => {
       expect(jumpToMessageSpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'p-0' }),
         0,
-        { mode: 'viewport-driven' }
+        { mode: 'viewport-driven', alignToTopEdge: true }
       );
     });
 
@@ -2410,6 +2410,59 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // Cancelled exactly once, without redundant duplicate increments
       expect(cancelSpy).toHaveBeenCalledOnce();
+    });
+
+    it('To Top during incomplete backfill sets alignToTopEdge to false', async () => {
+      const platform = getActivePlatform();
+      controller.detach();
+      setLoading(true);
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/test-incomplete-backfill',
+        },
+      });
+
+      controller.detach();
+      setLoading(false);
+      controller.init();
+      controller.attach();
+
+      // Emit conversationData without conversationEnded (backfill in progress, isComplete is false)
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey: 'test-incomplete-backfill',
+            payload: {
+              messages: [
+                {
+                  id: 'p-mid',
+                  author: { role: 'user' },
+                  content: { parts: ['Midway Prompt'] },
+                  create_time: 100,
+                },
+              ],
+            },
+          },
+          source: window,
+        })
+      );
+
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      const jumpToMessageSpy = vi.spyOn(promptNavModule, 'jumpToMessage').mockImplementation(() => {});
+
+      controller.jumpToEdge('top');
+
+      // alignToTopEdge must be false while backfill is incomplete
+      expect(jumpToMessageSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p-mid' }),
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: false }
+      );
     });
   });
 });

@@ -773,6 +773,336 @@ describe('prompt navigation strategy', () => {
       expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
     });
 
+    it('does not classify prompt clipped above viewport as bounded when scrollTop is 0', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn();
+      container.scrollTop = 0;
+      Object.defineProperty(container, 'scrollHeight', { value: 1000, configurable: true });
+      Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true });
+      container.getBoundingClientRect = () =>
+        ({ top: 0, bottom: 600, left: 0, right: 800, width: 800, height: 600 } as DOMRect);
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      // Prompt is clipped 60px above visible viewport, while container is at scrollTop = 0
+      const targetPrompt = document.createElement('div');
+      let promptTop = -60;
+      targetPrompt.scrollIntoView = vi.fn(() => {
+        promptTop = 16;
+      });
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: promptTop, bottom: promptTop + 100, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 0,
+        topOffsetPx: 0,
+        turnCount: 427,
+      });
+
+      jumpToMessage({ id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 }, 0);
+      container.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+      for (let i = 0; i < 5; i++) {
+        await Promise.resolve();
+      }
+
+      // Initial scroll attempt
+      expect(targetPrompt.scrollIntoView).toHaveBeenCalledTimes(1);
+      promptTop = -60; // Simulate displacement above top edge
+
+      // Must evaluate to 'correctable' and realign, NOT terminate as 'bounded'
+      expect(await stepFrame()).toBe(true);
+      expect(targetPrompt.scrollIntoView).toHaveBeenCalledTimes(2);
+      expect(promptTop).toBe(16);
+
+      // Settles cleanly across 3 stable frames
+      expect(await stepFrame()).toBe(true);
+      expect(await stepFrame()).toBe(true);
+      expect(await stepFrame()).toBe(true);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(0);
+    });
+
+    it('executes final physical scroll to top:0 after unmounted Prompt #1 is mounted and stabilized when alignToTopEdge is enabled', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn((opts: any) => {
+        if (typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+      container.scrollTop = 1200;
+      Object.defineProperty(container, 'scrollHeight', { value: 15000, configurable: true });
+      Object.defineProperty(container, 'clientHeight', { value: 800, configurable: true });
+      container.getBoundingClientRect = () =>
+        ({ top: 0, bottom: 800, left: 0, right: 800, width: 800, height: 800 } as DOMRect);
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: 16, bottom: 116, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 0,
+        topOffsetPx: 1200,
+        turnCount: 500,
+      });
+
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: true }
+      );
+
+      container.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+      for (let i = 0; i < 5; i++) {
+        await Promise.resolve();
+      }
+
+      // Flush 3 stable frames to complete post-mount stabilization
+      expect(await stepFrame()).toBe(true);
+      expect(await stepFrame()).toBe(true);
+      expect(await stepFrame()).toBe(true);
+
+      // Final physical scroll was executed after target resolution
+      expect(container.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+      expect(container.scrollTop).toBe(0);
+    });
+
+    it('executes final physical scroll to top:0 on already-mounted Prompt #1 fast path when alignToTopEdge is enabled', () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn((opts: any) => {
+        if (typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+      container.scrollTop = 500;
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: 16, bottom: 116, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+      document.body.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: true }
+      );
+
+      expect(container.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+      expect(container.scrollTop).toBe(0);
+    });
+
+    it('executes final physical scroll to top:0 when stabilization exhausts retry budget but target is mounted', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn((opts: any) => {
+        if (typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+      container.scrollTop = 500;
+      Object.defineProperty(container, 'scrollHeight', { value: 6000, configurable: true });
+      Object.defineProperty(container, 'clientHeight', { value: 800, configurable: true });
+      container.getBoundingClientRect = () =>
+        ({ top: 0, bottom: 800, left: 0, right: 800, width: 800, height: 800 } as DOMRect);
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      // Target persistently fails to stabilize (diff is always 134px > tolerance)
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: 150, bottom: 250, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 0,
+        topOffsetPx: 1200,
+        turnCount: 500,
+      });
+
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: true }
+      );
+
+      container.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+      for (let i = 0; i < 5; i++) {
+        await Promise.resolve();
+      }
+
+      // Step until all bounded check frames exhaust
+      while (await stepFrame()) {
+        // drain checks
+      }
+
+      // Assert terminal exhaustion branch was reached
+      expect(mocks.logEvent).toHaveBeenCalledWith(
+        'jump-id-stub',
+        'JUMP_FINISHED',
+        expect.objectContaining({ status: 'alignment-unstable' }),
+        undefined
+      );
+      expect(container.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+      expect(container.scrollTop).toBe(0);
+    });
+
+    it('does not execute final physical scroll if target is lost/disconnected during stabilization', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn();
+      container.scrollTop = 1200;
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 0,
+        topOffsetPx: 1200,
+        turnCount: 500,
+      });
+
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: true }
+      );
+
+      // Target mounts initially, then disconnects immediately
+      container.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+      for (let i = 0; i < 5; i++) {
+        await Promise.resolve();
+      }
+      targetPrompt.remove();
+      mocks.findPrompt.mockReturnValue(null);
+
+      while (await stepFrame()) {
+        // drain checks
+      }
+
+      expect(container.scrollTo).not.toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+    });
+
+    it('pending navigation cancellation before target mount prevents final physical-top scroll', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn();
+      container.scrollTop = 1200;
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: 16, bottom: 116, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+
+      // Target is unmounted while virtual search begins
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 0,
+        topOffsetPx: 1200,
+        turnCount: 500,
+      });
+
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: true }
+      );
+
+      // User cancels via wheel/touch browse intent while navigation is still pending
+      cancelActiveNavigationSearch();
+
+      // Target mounts later after cancellation
+      container.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+
+      while (await stepFrame()) {
+        // drain queue
+      }
+
+      expect(container.scrollTo).not.toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+    });
+
+    it('user cancellation after initial physical scroll prevents verification frame from overriding user interaction', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn((opts: any) => {
+        if (typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+      container.scrollTop = 500;
+      document.body.appendChild(container);
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: 16, bottom: 116, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+      document.body.appendChild(targetPrompt);
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+
+      // Already-mounted fast path executes initial physical scroll immediately
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0,
+        { mode: 'viewport-driven', alignToTopEdge: true }
+      );
+      expect(container.scrollTo).toHaveBeenCalledTimes(1);
+      expect(container.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+
+      // User scrolls down to 400px before the scheduled verification frame fires
+      container.scrollTop = 400;
+      cancelActiveNavigationSearch();
+
+      // Run the scheduled verification frame
+      expect(await stepFrame()).toBe(true);
+
+      // Verification frame must abort and NOT override user position back to 0
+      expect(container.scrollTo).toHaveBeenCalledTimes(1);
+      expect(container.scrollTop).toBe(400);
+    });
+
+    it('ordinary Click Prompt navigation without alignToTopEdge does not scroll to physical top:0', async () => {
+      const container = document.createElement('div');
+      container.scrollTo = vi.fn();
+      container.scrollTop = 600;
+      mocks.getContainer.mockReturnValue(container);
+
+      const targetPrompt = document.createElement('div');
+      targetPrompt.scrollIntoView = vi.fn();
+      targetPrompt.getBoundingClientRect = () =>
+        ({ top: 16, bottom: 116, left: 0, right: 800, width: 800, height: 100 } as DOMRect);
+
+      mocks.findPrompt.mockReturnValue(targetPrompt);
+
+      // Normal Click Prompt without alignToTopEdge
+      jumpToMessage(
+        { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
+        0
+      );
+
+      while (await stepFrame()) {
+        // drain queue
+      }
+
+      expect(container.scrollTo).not.toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+    });
+
     it('already-mounted Prompt #1 retains its correct direct-jump behaviour without extra scrolls or delay', () => {
       const container = document.createElement('div');
       container.getBoundingClientRect = () =>

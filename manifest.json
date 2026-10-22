@@ -53,5 +53,6 @@
             "run_at": "document_start",
             "world": "ISOLATED"
         }
-    ]
+    ],
+    "version_name": "1.13.5-d2"
 }
