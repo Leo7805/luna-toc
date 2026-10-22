@@ -404,7 +404,7 @@ describe('tocListRenderer', () => {
 
     text.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
-      .toEqual(['复制文字', '添加tips', '回到顶部', '回到底部']);
+      .toEqual(['复制文字', '添加tips']);
     promptContextMenuController.close();
   });
 
