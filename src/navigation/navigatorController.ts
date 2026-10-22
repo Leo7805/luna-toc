@@ -100,11 +100,6 @@ export const navigatorController = (() => {
     onItemClick: (message, index) => {
       handleNavigatorItemClick(message, index);
     },
-    onJumpToPromptBoundary: (message, _index, edge) => {
-      const index = conversationStore.getMessages().findIndex((entry) => entry.id === message.id);
-      if (index === -1) return;
-      jumpToMessage(message, index, edge);
-    },
     onSavePrompt: (message) => {
       onSavePrompt(message);
     },

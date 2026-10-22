@@ -22,6 +22,22 @@ describe('tocListRenderer', () => {
     hintElement = document.querySelector('.navigator-hint')!;
   });
 
+  /** Expands heading rows in the sidebar without invoking ChatGPT navigation. */
+  function showOutline(row: HTMLElement, count = 3): HTMLElement[] {
+    const outline = row.querySelector<HTMLElement>('.navigator-outline-list')!;
+    outline.hidden = false;
+    row.setAttribute('aria-expanded', 'true');
+    row.classList.add('navigator-item-outline-expanded');
+    const headings = Array.from({ length: count }, (_, index) => {
+      const heading = document.createElement('div');
+      heading.className = 'navigator-outline-item';
+      heading.textContent = `Heading ${index + 1}`;
+      outline.appendChild(heading);
+      return heading;
+    });
+    return headings;
+  }
+
   const mockMessages: NavigatorMessage[] = [
     { id: 'msg-1', text: 'First user prompt', canMatchByText: true, createTime: 100 },
     { id: 'msg-2', text: 'Second user prompt', canMatchByText: true, createTime: 200 },
@@ -228,7 +244,7 @@ describe('tocListRenderer', () => {
     expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
   });
 
-  it('offers per-prompt top and bottom actions and keeps add available on repeated clicks', () => {
+  it('shows no outline-boundary commands while the sidebar answer outline is collapsed', () => {
     const onSavePrompt = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
@@ -239,28 +255,18 @@ describe('tocListRenderer', () => {
     renderer.render();
     const item = listElement.children[1] as HTMLElement;
     expect(item.dispatchEvent(new MouseEvent('contextmenu', {
-      bubbles: true,
-      cancelable: true,
-      clientX: 70,
-      clientY: 90,
+      bubbles: true, cancelable: true, clientX: 70, clientY: 90,
     }))).toBe(false);
-    expect(promptContextMenuController.getSnapshot()?.items).toEqual([
-      { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
-      { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
-      { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
-      { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
-    ]);
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toEqual(['copy-prompt', 'save-prompt']);
     promptContextMenuController.select('save-prompt');
     expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
     item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
-      .toEqual(['复制文字', '添加tips', '回到顶部', '回到底部']);
-    promptContextMenuController.select('save-prompt');
-    expect(onSavePrompt).toHaveBeenCalledTimes(2);
-    expect(promptContextMenuController.getSnapshot()).toBeNull();
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ label }) => label))
+      .toEqual(['复制文字', '添加tips']);
   });
 
-  it('renders the rename item third when this action is enabled', () => {
+  it('includes edit third but hides outline jumps until headings are expanded', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
@@ -269,13 +275,25 @@ describe('tocListRenderer', () => {
       canRename: () => true,
     });
     renderer.render();
-    listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
-      .toEqual(['copy-prompt', 'save-prompt', 'rename-toc', 'return-to-top', 'return-to-bottom']);
+    const row = listElement.children[0] as HTMLElement;
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toEqual(['copy-prompt', 'save-prompt', 'rename-toc']);
     expect(promptContextMenuController.getSnapshot()?.items[2].label).toBe('编辑文字');
+    promptContextMenuController.close();
+
+    showOutline(row);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toEqual(['copy-prompt', 'save-prompt', 'rename-toc', 'return-to-top', 'return-to-bottom']);
+    promptContextMenuController.close();
+    row.querySelector<HTMLElement>('.navigator-outline-list')!.hidden = true;
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toEqual(['copy-prompt', 'save-prompt', 'rename-toc']);
   });
 
-  it('keeps rename unavailable for temporary conversations', () => {
+  it('keeps edit unavailable for temporary conversations', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
@@ -285,48 +303,83 @@ describe('tocListRenderer', () => {
     });
     renderer.render();
     listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
-      .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toEqual(['copy-prompt', 'save-prompt']);
   });
 
-  it('targets the right-clicked prompt boundaries without scrolling the sidebar', () => {
-    const onJumpToPromptBoundary = vi.fn();
+  it('scrolls only #navigator-list to the first and last expanded headings', () => {
     const onItemClick = vi.fn();
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    listElement.scrollTop = 400;
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500, height: 400,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick,
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    const headings = showOutline(row);
+    vi.spyOn(headings[0], 'getBoundingClientRect').mockReturnValue({
+      top: 220, bottom: 248,
+    } as DOMRect);
+    vi.spyOn(headings[2], 'getBoundingClientRect').mockReturnValue({
+      top: 897, bottom: 925,
+    } as DOMRect);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
+      .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
+    promptContextMenuController.select('return-to-top');
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 508, behavior: 'auto' });
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('return-to-bottom');
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 837, behavior: 'auto' });
+    expect(scrollTo).toHaveBeenCalledTimes(2);
+    expect(onItemClick).not.toHaveBeenCalled();
+    expect(renderer.getSearchQuery()).toBe('');
+  });
+
+  it('does not scroll after an expanded outline collapses while its menu is open', () => {
     const scrollTo = vi.fn();
     listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
-      onItemClick,
-      onJumpToPromptBoundary,
+      onItemClick: vi.fn(),
     });
     renderer.render();
-    const item = listElement.children[1] as HTMLElement;
-    item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
-      .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
-    promptContextMenuController.select('return-to-top');
-    expect(onJumpToPromptBoundary).toHaveBeenCalledWith(mockMessages[1], 1, 'top');
-    item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    const row = listElement.children[1] as HTMLElement;
+    showOutline(row);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    row.setAttribute('aria-expanded', 'false');
     promptContextMenuController.select('return-to-bottom');
-    expect(onJumpToPromptBoundary).toHaveBeenCalledWith(mockMessages[1], 1, 'bottom');
-    expect(onItemClick).not.toHaveBeenCalled();
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(renderer.getSearchQuery()).toBe('');
   });
 
-  it('keeps the selected original index with a filtered directory', () => {
-    const onJumpToPromptBoundary = vi.fn();
+  it('scrolls expanded headings under the filtered directory original index', () => {
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500,
+    } as DOMRect);
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
       onItemClick: vi.fn(),
-      onJumpToPromptBoundary,
     });
     renderer.setSearchQuery('Third prompt');
-    listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    const row = listElement.children[0] as HTMLElement;
+    const headings = showOutline(row);
+    vi.spyOn(headings[2], 'getBoundingClientRect').mockReturnValue({
+      top: 820, bottom: 860,
+    } as DOMRect);
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('return-to-bottom');
-    expect(onJumpToPromptBoundary).toHaveBeenCalledWith(mockMessages[2], 2, 'bottom');
+    expect(scrollTo).toHaveBeenCalledWith({ top: 372, behavior: 'auto' });
+    expect(renderer.getSearchQuery()).toBe('Third prompt');
   });
 
   it('keeps long prompt text intact for CSS truncation and opens actions only on right-click', () => {

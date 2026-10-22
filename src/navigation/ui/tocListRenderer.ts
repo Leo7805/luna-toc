@@ -35,11 +35,6 @@ export interface TocListRendererOptions {
   getMessages: () => NavigatorMessage[];
   getActiveIndex: () => number | null;
   onItemClick: (message: NavigatorMessage, index: number) => void;
-  onJumpToPromptBoundary?: (
-    message: NavigatorMessage,
-    index: number,
-    edge: 'top' | 'bottom'
-  ) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   getDisplayText?: (message: NavigatorMessage) => string;
   onRenamePrompt?: (message: NavigatorMessage, label: string) => Promise<void>;
@@ -345,6 +340,35 @@ export function createTocListRenderer(
     });
   }
 
+  /**
+   * Scrolls only the sidebar's expanded outline to its first or last heading.
+   * Rechecks the live row because a route change or rerender can replace it
+   * after the context menu was opened.
+   */
+  function scrollExpandedOutlineBoundary(
+    message: NavigatorMessage,
+    index: number,
+    edge: 'top' | 'bottom'
+  ): void {
+    if (options.getMessages()[index]?.id !== message.id) return;
+    const row = navigatorItems[index];
+    const list = document.getElementById('navigator-list');
+    if (!row?.isConnected || !list || row.getAttribute('aria-expanded') !== 'true') return;
+    const outline = row.querySelector<HTMLElement>('.navigator-outline-list');
+    if (!outline || outline.hidden) return;
+    const headings = outline.querySelectorAll<HTMLElement>('.navigator-outline-item');
+    const target = edge === 'top' ? headings[0] : headings[headings.length - 1];
+    if (!target || typeof list.scrollTo !== 'function') return;
+
+    const boundary = list.getBoundingClientRect();
+    const heading = target.getBoundingClientRect();
+    const padding = 12;
+    const delta = edge === 'top'
+      ? heading.top - boundary.top - padding
+      : heading.bottom - boundary.bottom + padding;
+    list.scrollTo({ top: Math.max(0, list.scrollTop + delta), behavior: 'auto' });
+  }
+
   function createNavigatorItem(
     message: NavigatorMessage,
     index: number
@@ -402,6 +426,9 @@ export function createTocListRenderer(
      */
     const showItemMenu = (left: number, top: number): void => {
       previewTooltip.hide();
+      const expandedOutline = item.getAttribute('aria-expanded') === 'true' &&
+        !outlineControls.outlineList.hidden &&
+        !!outlineControls.outlineList.querySelector('.navigator-outline-item');
       promptContextMenuController.show(
         { left, top },
         [
@@ -410,15 +437,19 @@ export function createTocListRenderer(
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
             ? [{ id: 'rename-toc', label: '编辑文字', icon: 'pencil-line' as const }]
             : []),
-          { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
-          { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
+          ...(expandedOutline
+            ? [
+                { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' as const },
+                { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' as const },
+              ]
+            : []),
           ...(options.onRestorePrompt && options.isRenamed?.(message)
             ? [{ id: 'restore-toc', label: '恢复原文', icon: 'pencil-line' as const }]
             : []),
         ],
         (itemId) => {
           if (itemId === 'return-to-top' || itemId === 'return-to-bottom') {
-            options.onJumpToPromptBoundary?.(
+            scrollExpandedOutlineBoundary(
               message, index, itemId === 'return-to-top' ? 'top' : 'bottom'
             );
           } else if (itemId === 'copy-prompt') {
