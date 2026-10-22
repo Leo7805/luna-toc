@@ -628,7 +628,9 @@ export async function renderMyPrompts(
           await requirePromptStore().update((prompts) =>
             prompts.filter((p) => p.id !== item.id)
           );
-          void requirePromptUsageStore().remove(item.id).catch(() => undefined);
+          void requirePromptUsageStore().remove(item.id).catch(() => {
+            console.warn('[LunaTOC] Prompt deleted; usage cleanup will retry on next startup');
+          });
           onRefresh();
         } catch (error) {
           await showPromptModal({

@@ -63,6 +63,8 @@ export interface ConversationStore {
   cacheConversationMessages(key: string): void;
   isConversationComplete(routeKey?: string): boolean;
   markConversationComplete(routeKey?: string): void;
+  markConversationIncomplete(routeKey?: string): void;
+  deleteConversation(routeKey: string): void;
   resetForCurrentRoute(options?: {
     preserveMessages?: boolean;
     nextMessages?: NavigatorMessage[];
@@ -146,6 +148,23 @@ export function createConversationStore(
   function markConversationComplete(routeKey?: string): void {
     const targetKey = routeKey || getCurrentConversationKey();
     navigationSnapshotStore.setComplete(targetKey, true);
+  }
+
+
+  /** Removes all cached state for a confirmed-deleted conversation. */
+  function deleteConversation(routeKey: string): void {
+    accumulatedConversationMessages.delete(routeKey);
+    freshSnapshotAppliedAt.delete(routeKey);
+    navigationSnapshotStore.deleteConversation(routeKey);
+    if (currentConversationKey === routeKey) {
+      conversationMessages = [];
+      clearPendingNewChat();
+    }
+  }
+
+  /** A failed refresh invalidates completeness without deleting user data. */
+  function markConversationIncomplete(routeKey?: string): void {
+    navigationSnapshotStore.setComplete(routeKey || getCurrentConversationKey(), false);
   }
 
   function getCachedConversationMessages(
@@ -248,7 +267,7 @@ export function createConversationStore(
     for (const message of branch) if (message.id) map.set(message.id, message);
     accumulatedConversationMessages.set(routeKey, map);
     conversationMessages = next;
-    if (changed) cacheConversationMessages(routeKey);
+    navigationSnapshotStore.replacePrompts(routeKey, next, true);
     return changed;
   }
 
@@ -350,9 +369,11 @@ export function createConversationStore(
       ) {
         cacheConversationMessages(nextConversationKey);
       }
-      navigationSnapshotStore.replacePrompts(previousConversationKey, []);
+      navigationSnapshotStore.deleteConversation(previousConversationKey);
+      freshSnapshotAppliedAt.delete(previousConversationKey);
     }
 
+    if (!shouldPreserveMessages) accumulatedConversationMessages.delete(previousConversationKey);
     const cachedMessages = getCachedConversationMessages(nextConversationKey);
     if (isNewChatRouteTransition) {
       pendingNewChatRouteKey = previousConversationKey;
@@ -396,6 +417,7 @@ export function createConversationStore(
     conversationMessages = [];
     accumulatedConversationMessages.clear();
     freshSnapshotAppliedAt.clear();
+    navigationSnapshotStore.clear();
     currentConversationKey = null;
     clearPendingNewChat();
   }
@@ -417,6 +439,8 @@ export function createConversationStore(
     cacheConversationMessages,
     isConversationComplete,
     markConversationComplete,
+    markConversationIncomplete,
+    deleteConversation,
     resetForCurrentRoute,
     getPendingNewChatRouteKey,
     getPendingNewChatMessage,

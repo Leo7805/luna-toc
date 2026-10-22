@@ -26,6 +26,11 @@ initializePromptLibrary({
   insertIntoChatGPTInput,
 });
 
+// Reconcile orphaned usage entries once when the extension loads.
+void promptsStore.getAll()
+  .then((prompts) => promptUsageStore.reconcile(prompts.map((prompt) => prompt.id)))
+  .catch(() => undefined);
+
 initializePromptAutocomplete({
   getMyPrompts,
   getPromptUsage: promptUsageStore.getAll,

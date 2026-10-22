@@ -18,6 +18,7 @@ export interface PromptUsageStore {
   recordUse(promptId: string): Promise<void>;
   remove(promptId: string): Promise<void>;
   clear(): Promise<void>;
+  reconcile(validPromptIds: string[]): Promise<void>;
 }
 
 /**
@@ -33,6 +34,17 @@ export function createPromptUsageStore(): PromptUsageStore {
   let writeQueue = Promise.resolve();
 
   const copyCache = (): PromptUsageMap => ({ ...cache });
+
+  const persist = async (next: PromptUsageMap): Promise<void> => {
+    const previous = cache;
+    cache = next;
+    try {
+      await writeUsage(next);
+    } catch (error) {
+      cache = previous;
+      throw error;
+    }
+  };
 
   const hydrate = (): Promise<PromptUsageMap> => {
     if (!hydratePromise) {
@@ -58,14 +70,14 @@ export function createPromptUsageStore(): PromptUsageStore {
       writeQueue = writeQueue.catch(() => undefined).then(async () => {
         await hydrate();
         const previous = cache[promptId];
-        cache = {
+        const next = {
           ...cache,
           [promptId]: {
             usageCount: (previous?.usageCount ?? 0) + 1,
             lastUsedAt: Date.now(),
           },
         };
-        await writeUsage(cache);
+        await persist(next);
       });
       return writeQueue;
     },
@@ -75,20 +87,37 @@ export function createPromptUsageStore(): PromptUsageStore {
         if (!cache[promptId]) return;
         const nextUsage = { ...cache };
         delete nextUsage[promptId];
-        cache = nextUsage;
-        await writeUsage(cache);
+        await persist(nextUsage);
       });
       return writeQueue;
     },
     clear: () => {
       writeQueue = writeQueue.catch(() => undefined).then(async () => {
         await hydrate();
-        cache = {};
-        await writeUsage(cache);
+        await persist({});
+      });
+      return writeQueue;
+    },
+    reconcile: (validPromptIds) => {
+      writeQueue = writeQueue.catch(() => undefined).then(async () => {
+        await hydrate();
+        const next = filterUsageForPrompts(cache, validPromptIds);
+        if (Object.keys(next).length !== Object.keys(cache).length) {
+          await persist(next);
+        }
       });
       return writeQueue;
     },
   };
+}
+
+/** Removes usage statistics for saved prompts that no longer exist. */
+export function filterUsageForPrompts(
+  usage: PromptUsageMap,
+  validPromptIds: readonly string[]
+): PromptUsageMap {
+  const valid = new Set(validPromptIds);
+  return Object.fromEntries(Object.entries(usage).filter(([id]) => valid.has(id)));
 }
 
 function isContextValid(): boolean {

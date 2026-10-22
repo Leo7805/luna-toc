@@ -26,7 +26,10 @@
 - `src/pageHook/conversationRefresh.ts` 在侧边栏展开时获取当前分支。优先尝试具有父节点关系的完整会话映射；回退时要求分页数据完整。
 - `src/navigation/state/activeBranch.ts` 按 `current_node` 和 `parent` 解析活动分支；缺少分支信息的扁平消息仅按接口提供的顺序处理。
 - `src/navigation/state/conversationStore.ts` 管理缓存和会话状态。主动刷新的快照为权威结果；刷新前已经开始的分页请求不得再恢复旧分支。
-- `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新。
+- `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新；刷新失败会将缓存标为未验证，成功删除则清空当前视图。
+- `src/navigation/jump/navigationSnapshotStore.ts` 限制标签页内快照数量，提供逐会话删除和全量重置；会话切换不保留无界的原始分页消息集合。
+- `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话 API 校验本地引用，并识别成功的 DELETE 或 `is_visible=false` 会话删除请求；归档不作为删除。
+- `src/navigation/lifecycle/conversationLifecycle.ts` 处理校验与删除通知，只清理由同一账号明确绑定且确认不存在的会话收藏；旧版无归属收藏及网络失败结果不做破坏性处理。没有后台轮询。
 
 ## 目录与导航
 
@@ -43,6 +46,7 @@
 - `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离，同一扩展上下文内的变更采用串行更新。
 - `src/features/myPrompts/promptLibrary.ts` 实现增删改、Markdown 导入导出，并使用存储层原子转换接口。
 - `src/features/myPrompts/promptAutocomplete.ts` 在 ChatGPT 的 ProseMirror 输入框上提供 `#`、`//` 补全。
+- `src/features/myPrompts/promptUsageStore.ts` 在启动时按现存提示词 ID 清理孤立使用统计，并在写入失败时回滚内存状态。
 - 原有浏览器存储键继续兼容已有数据，不因产品显示名称变化而更名。
 
 Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签页同时修改同一组提示词时仍需避免冲突。

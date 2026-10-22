@@ -15,6 +15,7 @@ This document is the master registry for tracking bugs and regressions in LunaTO
 
 | ID | Date | Bug | Area | Root Cause | Fix | Commit | Showcase |
 |---|---|---|---|---|---|---|---|
+| B013 | 2026-10-22 | 会话删除后目录关联数据和导航缓存残留 | Navigation / Lifecycle | 本地收藏与导航快照没有统一逐会话清理，启动无法确认已删除会话；提示词使用统计删除后可能孤立。 | 新增启动时账号绑定校验、成功删除通知、快照容量限制与删除接口、未验证快照状态，并对独立提示词统计进行本地核对。 | — | Yes |
 | B012 | 2026-10-21 | 全透明默认背景降低侧边栏可读性 | Sidebar / Appearance | B011 将背景和顶部栏改为完全透明，内容与网页文字叠加影响观感。 | 恢复 v1.13.16 的浅蓝/深蓝半透明底色和背景模糊，保留 B010 的快速收起优化。 | — | No |
 | B011 | 2026-10-21 | 默认背景仍显示微蓝色 | Sidebar / Appearance | 默认预设返回空覆盖值，CSS 回落到原有蓝色半透明背景且保留 backdrop-filter。 | 明确使用透明背景及顶部栏覆盖，禁用默认模式的背景模糊，默认色卡显示透明。 | — | No |
 | B010 | 2026-10-21 | 鼠标离开侧边栏后自动收起迟缓 | Sidebar / Auto-hide | 300ms 收起延迟叠加 160ms 滑出动画。 | 缩短为 60ms 延迟和 100ms 动画，保持固定与悬停保护。 | — | No |

@@ -23,6 +23,8 @@ export interface NavigationSnapshotStore<TPrompt> {
     sourceConversationKey: string,
     targetConversationKey: string
   ): number | null;
+  deleteConversation(conversationKey: string): void;
+  clear(): void;
 }
 
 /**
@@ -35,10 +37,20 @@ export interface NavigationSnapshotStore<TPrompt> {
 export function createNavigationSnapshotStore<
   TPrompt
 >(): NavigationSnapshotStore<TPrompt> {
+  const MAX_SNAPSHOTS = 8;
   const snapshots = new Map<
     string,
     ConversationNavigationSnapshot<TPrompt>
   >();
+
+  function saveSnapshot(key: string, snapshot: ConversationNavigationSnapshot<TPrompt>): void {
+    snapshots.delete(key);
+    snapshots.set(key, snapshot);
+    if (snapshots.size > MAX_SNAPSHOTS) {
+      const oldestKey = snapshots.keys().next().value;
+      if (oldestKey) snapshots.delete(oldestKey);
+    }
+  }
 
   function replacePrompts(
     conversationKey: string,
@@ -52,7 +64,7 @@ export function createNavigationSnapshotStore<
         ? isComplete
         : (previousSnapshot?.isComplete ?? false);
 
-    snapshots.set(conversationKey, {
+    saveSnapshot(conversationKey, {
       prompts: structuredClone(prompts),
       revision,
       isComplete: nextIsComplete,
@@ -66,7 +78,7 @@ export function createNavigationSnapshotStore<
     if (previousSnapshot) {
       previousSnapshot.isComplete = isComplete;
     } else {
-      snapshots.set(conversationKey, {
+      saveSnapshot(conversationKey, {
         prompts: [],
         revision: 1,
         isComplete,
@@ -101,7 +113,7 @@ export function createNavigationSnapshotStore<
         snapshots.get(targetConversationKey)?.revision ?? 0
       ) + 1;
 
-    snapshots.set(targetConversationKey, {
+    saveSnapshot(targetConversationKey, {
       prompts: structuredClone(sourceSnapshot.prompts),
       revision,
       isComplete: sourceSnapshot.isComplete ?? false,
@@ -116,6 +128,8 @@ export function createNavigationSnapshotStore<
     isComplete,
     getSnapshot,
     copySnapshot,
+    deleteConversation: (conversationKey) => { snapshots.delete(conversationKey); },
+    clear: () => { snapshots.clear(); },
   };
 }
 

@@ -480,4 +480,29 @@ describe('conversationStore', () => {
     expect(transitionPerm.isComplete).toBe(true);
     expect(store.isConversationComplete('c-perm-migration-key')).toBe(true);
   });
+  it('invalidates incomplete refreshes without discarding cached prompts', () => {
+    const store = createConversationStore({ getCurrentRouteKey: () => 'conversation-123' });
+    store.setCurrentConversationKey('conversation-123');
+    store.handleConversationData({
+      messages: [{
+        id: 'question-1', author: { role: 'user' },
+        content: { parts: ['Original question'] }, create_time: 1,
+      }],
+    });
+    store.markConversationComplete();
+    store.markConversationIncomplete();
+    expect(store.isConversationComplete()).toBe(false);
+    expect(store.getCachedConversationMessages('conversation-123')).toHaveLength(1);
+    store.deleteConversation('conversation-123');
+    expect(store.getCachedConversationMessages('conversation-123')).toEqual([]);
+    expect(store.getMessages()).toEqual([]);
+  });
+
+  it('does not retain reset navigation snapshots', () => {
+    const store = createConversationStore({ getCurrentRouteKey: () => 'conversation-123' });
+    store.setCurrentConversationKey('conversation-123');
+    store.markConversationComplete();
+    store.reset();
+    expect(store.isConversationComplete('conversation-123')).toBe(false);
+  });
 });

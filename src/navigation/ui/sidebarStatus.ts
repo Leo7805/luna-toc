@@ -18,7 +18,8 @@ export type SidebarStatusState =
   | 'jumping'
   | 'complete'
   | 'empty'
-  | 'failed';
+  | 'failed'
+  | 'stale';
 
 let currentStatusMode: SidebarStatusState = 'idle';
 let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -95,6 +96,9 @@ export function setSidebarStatus(options: {
     case 'empty':
       // Definitively empty chat: persistent, no linger timer.
       text = '暂无提示词';
+      break;
+    case 'stale':
+      text = '目录缓存未验证，请重新打开目录刷新';
       break;
     case 'failed':
       // A jump could not resolve its target (e.g. the prompt is too far

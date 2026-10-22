@@ -65,6 +65,7 @@ export const navigatorController = (() => {
   let isAttached = false;
   let refreshSequence = 0;
   let refreshPending = false;
+  let refreshFailed = false;
   let lastRefreshRequestedAt = 0;
   let reportedPromptCount = -1;
   let onPromptCountChanged = (_count: number) => {};
@@ -292,6 +293,7 @@ export const navigatorController = (() => {
    */
   function render(options: RenderOptions = {}): void {
     tocListRenderer.render(options);
+    if (refreshFailed) setSidebarStatus({ state: 'stale' });
   }
 
   /**
@@ -388,6 +390,7 @@ export const navigatorController = (() => {
     if (!transition.isTransition) return;
     refreshSequence += 1;
     refreshPending = false;
+    refreshFailed = false;
 
     const isEnteringNewChat =
       conversationStore.isNewChatRouteKey(nextConversationKey) &&
@@ -419,6 +422,18 @@ export const navigatorController = (() => {
     }
   }
 
+  /** Clears navigation and UI state only after confirmed conversation deletion. */
+  function handleConversationDeleted(routeKey: string): void {
+    conversationStore.deleteConversation(routeKey);
+    if (routeKey !== getCurrentConversationKey()) return;
+    refreshSequence += 1;
+    refreshPending = false;
+    refreshFailed = false;
+    setLoading(false);
+    clearSettleTimer();
+    resetStateForCurrentRoute();
+  }
+
   function isSidebarVisible(): boolean {
     return document.getElementById('luna-toc-sidebar')?.getAttribute('aria-hidden') === 'false';
   }
@@ -442,6 +457,7 @@ export const navigatorController = (() => {
 
     onTitleChanged();
 
+    refreshFailed = false;
     conversationStore.handleConversationData(
       data,
       getCurrentConversationKey(),
@@ -461,9 +477,13 @@ export const navigatorController = (() => {
         if (requestId !== refreshSequence || routeKey !== getCurrentConversationKey()) return;
         refreshPending = false;
         if (!payload || !Array.isArray((payload as ConversationSnapshot).messages)) {
+          conversationStore.markConversationIncomplete(routeKey);
+          refreshFailed = true;
+          setSidebarStatus({ state: 'stale' });
           console.warn('[LunaTOC] Conversation TOC refresh returned no complete snapshot');
           return;
         }
+        refreshFailed = false;
         const changed = conversationStore.replaceWithFreshSnapshot(payload, routeKey);
         if (changed) {
           resetOutline();
@@ -532,6 +552,7 @@ export const navigatorController = (() => {
     getCurrentConversationKey,
     getJumpProgress,
     init,
+    handleConversationDeleted,
     jumpToAbsoluteEdge,
     jumpToEdge,
     jumpToLastPrompt,

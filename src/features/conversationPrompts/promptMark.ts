@@ -11,6 +11,8 @@ interface PromptMarkOptions {
 
 let conversationKey: string | null = null;
 let markedPromptIds = new Set<string>();
+let activeOwnerId: string | null = null;
+const MARK_OWNER_PREFIX = 'chatToc:markOwner:';
 let onMarkChanged: () => void = () => {};
 
 /**
@@ -91,10 +93,13 @@ function load(): Set<string> {
  */
 function save(): void {
   try {
-    sessionStorage.setItem(
-      getStorageKey(),
-      JSON.stringify([...markedPromptIds])
-    );
+    if (markedPromptIds.size === 0) {
+      sessionStorage.removeItem(getStorageKey());
+      sessionStorage.removeItem(getOwnerKey(conversationKey));
+      return;
+    }
+    sessionStorage.setItem(getStorageKey(), JSON.stringify([...markedPromptIds]));
+    if (activeOwnerId) sessionStorage.setItem(getOwnerKey(conversationKey), activeOwnerId);
   } catch {}
 }
 
@@ -104,4 +109,54 @@ function save(): void {
  */
 function getStorageKey(): string {
   return `${STORAGE_PREFIX}${conversationKey}`;
+}
+
+/** Associates subsequent mark writes with the authenticated ChatGPT user. */
+export function setPromptMarkOwner(ownerId: string | null): void {
+  activeOwnerId = ownerId;
+}
+
+/** Returns the account binding for a previously saved mark collection. */
+export function getPromptMarkOwner(routeKey: string): string | null {
+  try {
+    return sessionStorage.getItem(getOwnerKey(routeKey));
+  } catch {
+    return null;
+  }
+}
+
+/** Lists permanent conversation identifiers referenced by marks. */
+export function getStoredMarkConversationIds(): string[] {
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key?.startsWith(STORAGE_PREFIX)) continue;
+      const routeKey = key.slice(STORAGE_PREFIX.length);
+      if (/^[A-Za-z0-9_-]{8,128}$/.test(routeKey) && !routeKey.startsWith('local-')) {
+        keys.push(routeKey);
+      }
+    }
+  } catch {
+    return [];
+  }
+  return keys;
+}
+
+/** Removes deleted-conversation marks and their account binding. */
+export function clearPromptMarksForConversation(routeKey: string): void {
+  try {
+    sessionStorage.removeItem(STORAGE_PREFIX + routeKey);
+    sessionStorage.removeItem(getOwnerKey(routeKey));
+  } catch {
+    return;
+  }
+  if (conversationKey === routeKey) {
+    markedPromptIds.clear();
+    onMarkChanged();
+  }
+}
+
+function getOwnerKey(routeKey: string | null): string {
+  return MARK_OWNER_PREFIX + routeKey;
 }

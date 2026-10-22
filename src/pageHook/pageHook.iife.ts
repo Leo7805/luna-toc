@@ -30,6 +30,11 @@ import {
 } from './conversationCapture';
 import { installConversationBackfill } from './conversationBackfill';
 import { installConversationRefresh } from './conversationRefresh';
+import {
+  getDeletionTarget,
+  installConversationLifecycle,
+  publishConfirmedDeletion,
+} from './conversationLifecycle';
 import { installHistoryHook } from './historyHook';
 import { installTitleObserver } from './titleObserver';
 
@@ -50,6 +55,7 @@ import { installTitleObserver } from './titleObserver';
   installConversationBackfill({ originalFetch, platform });
   installContractAlerts({ originalFetch });
   const observeRefreshHeaders = installConversationRefresh(originalFetch, platform);
+  installConversationLifecycle(originalFetch);
   installHistoryHook(platform.pageHook.messages.routeChanged);
   installTitleObserver(platform.pageHook.messages.titleChanged);
 
@@ -69,6 +75,7 @@ import { installTitleObserver } from './titleObserver';
 
   window.fetch = async function (...args) {
     const requestMeta = inspectFetchRequest(args, platform);
+    const pendingDeletedConversation = getDeletionTarget(args);
 
     try {
       if (requestMeta?.isConversationGet) {
@@ -100,6 +107,7 @@ import { installTitleObserver } from './titleObserver';
     });
     const requestStartedAt = Date.now();
     const response = await originalFetch(...fetchArgs);
+    publishConfirmedDeletion(response, pendingDeletedConversation);
 
     try {
       if (requestMeta?.isConversationGet) {

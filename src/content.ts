@@ -3,9 +3,13 @@
  * from the Chrome Content Script entry.
  */
 import { initializeApplication } from '@/app/applicationShell';
+import { initializeConversationLifecycle } from '@/navigation/lifecycle/conversationLifecycle';
 import { observeExternalOverlays } from '@/features/externalOverlay';
 import { startPageHookMismatchBridge, startChatGptConfigSync } from '@/features/contractAlert/pageHookBridge';
 import { initializeReactHost } from '@/reactHost/reactHost';
+
+// Start the one-time reconciliation listener before sidebar setup.
+initializeConversationLifecycle();
 
 // Start the existing sidebar and browser-integration features.
 void initializeApplication();

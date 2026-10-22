@@ -157,4 +157,16 @@ describe('conversation snapshot store', () => {
     store.setComplete('conv-1', false);
     expect(store.isComplete('conv-1')).toBe(false);
   });
+  it('evicts old snapshots and clears explicitly deleted conversation entries', () => {
+    const store = createNavigationSnapshotStore<TestPrompt>();
+    for (let index = 0; index < 10; index += 1) {
+      store.replacePrompts('conv-' + index, [{ id: 'p-' + index, text: 'test' }]);
+    }
+    expect(store.getSnapshot('conv-0')).toBeNull();
+    expect(store.getSnapshot('conv-9')).not.toBeNull();
+    store.deleteConversation('conv-9');
+    expect(store.getSnapshot('conv-9')).toBeNull();
+    store.clear();
+    expect(store.getSnapshot('conv-8')).toBeNull();
+  });
 });
