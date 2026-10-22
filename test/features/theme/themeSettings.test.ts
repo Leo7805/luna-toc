@@ -1,6 +1,10 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  getChatGPTTheme,
+  observeChatGPTTheme,
+} from '@/features/theme/chatGptTheme';
+import {
   applyTheme,
   readThemeSettings,
   subscribeThemeSettings,
@@ -148,5 +152,124 @@ describe('Theme settings persistence', () => {
     });
 
     unsubscribe();
+  });
+});
+
+describe('ChatGPT theme detection and observation', () => {
+  it('detects light theme from html[data-theme="light"]', () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    expect(getChatGPTTheme()).toBe('light');
+  });
+
+  it('detects dark theme from html[data-theme="dark"]', () => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    expect(getChatGPTTheme()).toBe('dark');
+  });
+
+  it('prioritises data-theme over conflicting system preference and legacy class', () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('dark'),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    // data-theme light with dark class and dark system preference
+    document.documentElement.className = 'dark';
+    document.documentElement.setAttribute('data-theme', 'light');
+    expect(getChatGPTTheme()).toBe('light');
+
+    // data-theme dark with light class and light system preference
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    document.documentElement.className = 'light';
+    document.documentElement.setAttribute('data-theme', 'dark');
+    expect(getChatGPTTheme()).toBe('dark');
+  });
+
+  it('falls back to dark CSS class when data-theme is missing or unrecognized', () => {
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.className = 'dark';
+    expect(getChatGPTTheme()).toBe('dark');
+
+    document.documentElement.className = 'light';
+    expect(getChatGPTTheme()).toBe('light');
+
+    document.documentElement.setAttribute('data-theme', 'auto');
+    document.documentElement.className = 'dark';
+    expect(getChatGPTTheme()).toBe('dark');
+  });
+
+  it('triggers observer when data-theme changes from light to dark', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const listener = vi.fn();
+    const cleanup = observeChatGPTTheme(listener);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenLastCalledWith('light');
+
+    document.documentElement.setAttribute('data-theme', 'dark');
+    await Promise.resolve();
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith('dark');
+
+    cleanup();
+  });
+
+  it('triggers observer when data-theme changes from dark to light', async () => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const listener = vi.fn();
+    const cleanup = observeChatGPTTheme(listener);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenLastCalledWith('dark');
+
+    document.documentElement.setAttribute('data-theme', 'light');
+    await Promise.resolve();
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith('light');
+
+    cleanup();
+  });
+
+  it('disconnects observer on cleanup', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const listener = vi.fn();
+    const cleanup = observeChatGPTTheme(listener);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    document.documentElement.setAttribute('data-theme', 'dark');
+    await Promise.resolve();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves manual theme mode independently of ChatGPT theme changes', () => {
+    // User selected manual dark theme with followChatGPT OFF
+    applyTheme('dark');
+    expect(document.documentElement.dataset.lunatocTheme).toBe('dark');
+
+    // ChatGPT changes between light and dark
+    document.documentElement.setAttribute('data-theme', 'light');
+    expect(document.documentElement.dataset.lunatocTheme).toBe('dark');
+
+    document.documentElement.setAttribute('data-theme', 'dark');
+    expect(document.documentElement.dataset.lunatocTheme).toBe('dark');
   });
 });
