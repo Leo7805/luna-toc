@@ -437,6 +437,68 @@ describe('tocListRenderer', () => {
     expect(renderer.getSearchQuery()).toBe('');
   });
 
+  it('places a prompt hidden above the frosted topbar first after collapsing its outline', () => {
+    const onItemClick = vi.fn();
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    listElement.scrollTop = 520;
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500,
+    } as DOMRect);
+    const topbar = document.createElement('div');
+    topbar.className = 'navigator-topbar';
+    listElement.before(topbar);
+    vi.spyOn(topbar, 'getBoundingClientRect').mockReturnValue({
+      top: 0, bottom: 180,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick,
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    showOutline(row);
+    vi.spyOn(row.querySelector<HTMLElement>('.navigator-item-main')!, 'getBoundingClientRect')
+      .mockReturnValue({ top: 130, bottom: 158 } as DOMRect);
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+      top: 130, bottom: 730,
+    } as DOMRect);
+
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('collapse-outline');
+
+    expect(scrollTo).toHaveBeenCalledOnce();
+    expect(scrollTo).toHaveBeenCalledWith({ top: 462, behavior: 'auto' });
+    expect(renderer.getNavigatorItems()[1]).toBe(row);
+    expect(onItemClick).not.toHaveBeenCalled();
+  });
+
+  it('does not move a visible prompt when collapsing headings clipped below', () => {
+    const scrollTo = vi.fn();
+    listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
+    vi.spyOn(listElement, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 500,
+    } as DOMRect);
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+    const row = listElement.children[1] as HTMLElement;
+    showOutline(row);
+    vi.spyOn(row.querySelector<HTMLElement>('.navigator-item-main')!, 'getBoundingClientRect')
+      .mockReturnValue({ top: 200, bottom: 228 } as DOMRect);
+    vi.spyOn(row.querySelector<HTMLElement>('.navigator-outline-list')!, 'getBoundingClientRect')
+      .mockReturnValue({ top: 228, bottom: 720 } as DOMRect);
+
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('collapse-outline');
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
   it('does not scroll after an expanded outline collapses while its menu is open', () => {
     const scrollTo = vi.fn();
     listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];

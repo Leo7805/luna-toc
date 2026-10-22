@@ -10,6 +10,12 @@ Before making any code changes:
 4. Propose a solution.
 5. Wait for user approval.
 
+## Repository Delivery Policy
+
+1. Implement requested changes directly on `main`; do not create a branch or pull request.
+2. Group each requested change into one commit so the main-branch workflow runs once.
+3. Keep exactly one published GitHub Release, using the existing workflow to replace older releases.
+
 ## Communication
 
 1. Before making changes, explain the proposed approach and affected files.

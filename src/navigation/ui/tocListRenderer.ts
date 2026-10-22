@@ -495,7 +495,28 @@ export function createTocListRenderer(
                 navigatorItems[index] === item && item.isConnected &&
                 item.getAttribute('aria-expanded') === 'true' &&
                 !outlineControls.outlineList.hidden) {
+              const list = document.getElementById('navigator-list');
+              const listTop = list?.getBoundingClientRect().top;
+              const topBarBottom = list?.parentElement
+                ?.querySelector<HTMLElement>('.navigator-topbar')
+                ?.getBoundingClientRect().bottom;
+              const visibleTop = listTop === undefined
+                ? null : Math.max(listTop, topBarBottom ?? listTop);
+              const question = item.querySelector<HTMLElement>('.navigator-item-main') ?? item;
+              const hiddenAbove = visibleTop !== null &&
+                question.getBoundingClientRect().top < visibleTop;
+
               collapsePromptOutline(index);
+
+              if (hiddenAbove && list && visibleTop !== null &&
+                  typeof list.scrollTo === 'function') {
+                // Re-measure after collapsing because removing headings can shift the viewport.
+                const delta = item.getBoundingClientRect().top - visibleTop - 8;
+                list.scrollTo({
+                  top: Math.max(0, list.scrollTop + delta),
+                  behavior: 'auto',
+                });
+              }
             }
           } else if (itemId === 'copy-prompt') {
             void copyPromptText(message.text).catch((error: unknown) => {
