@@ -14,10 +14,7 @@ import type {
   ConversationData,
   NavigatorMessage,
 } from '@/features/conversationPrompts/message';
-import {
-  initializePromptMark,
-  getActivePromptMarkOwner,
-} from '@/features/conversationPrompts/promptMark';
+import { getActiveConversationOwner } from './lifecycle/conversationOwner';
 import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import { tocRenameEditorController } from '@/features/conversationPrompts/tocRenameEditor';
 import { isPermanentConversationId } from './lifecycle/protocol';
@@ -44,7 +41,6 @@ import {
   handlePromptNavigation,
   resetOutline,
   scheduleBuild,
-  syncMarkState,
 } from './jump/outline';
 import { setSidebarStatus } from './ui/sidebarStatus';
 import { previewTooltip } from '@/features/tooltip';
@@ -105,6 +101,11 @@ export const navigatorController = (() => {
     onItemClick: (message, index) => {
       handleNavigatorItemClick(message, index);
     },
+    onJumpToPromptBoundary: (message, _index, edge) => {
+      const index = conversationStore.getMessages().findIndex((entry) => entry.id === message.id);
+      if (index === -1) return;
+      jumpToMessage(message, index, edge);
+    },
     onSavePrompt: (message) => {
       onSavePrompt(message);
     },
@@ -122,13 +123,13 @@ export const navigatorController = (() => {
             throw new Error('Conversation changed while editing title');
           }
           await tocAliasStore.update(routeKey, message.id,
-            title === message.text ? null : title, getActivePromptMarkOwner());
+            title === message.text ? null : title, getActiveConversationOwner());
         }
       );
     },
     onRestorePrompt: (message) => {
       void tocAliasStore.update(getCurrentConversationKey(), message.id,
-        null, getActivePromptMarkOwner()).catch((error: unknown) => {
+        null, getActiveConversationOwner()).catch((error: unknown) => {
         console.warn('[LunaTOC] Failed to restore TOC title', error);
       });
     },
@@ -191,7 +192,6 @@ export const navigatorController = (() => {
     onSavePrompt = options.onSavePrompt || onSavePrompt;
     onTitleChanged = options.onTitleChanged || onTitleChanged;
     conversationStore.setCurrentConversationKey(getCurrentConversationKey());
-    initMarkedPrompts();
     tocAliasStore.subscribe((routeKey) => {
       if (routeKey === getCurrentConversationKey()) render();
     });
@@ -385,13 +385,6 @@ export const navigatorController = (() => {
     }
   }
 
-  function initMarkedPrompts(): void {
-    initializePromptMark({
-      conversationKey: getCurrentConversationKey(),
-      onMarkChanged: syncMarkState,
-    });
-  }
-
   /**
    * Resets route-scoped navigation state while optionally preserving prompts
    * captured before a new chat receives its permanent conversation URL.
@@ -406,7 +399,6 @@ export const navigatorController = (() => {
       nextMessages,
     });
 
-    initMarkedPrompts();
     activePromptTracker.reset();
     resetOutline();
     tocListRenderer.resetList();

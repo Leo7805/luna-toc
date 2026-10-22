@@ -1,13 +1,8 @@
 /**
- * Connects browser-page lifecycle events with tab-local TOC marks and caches.
+ * Connects browser-page lifecycle events with local TOC titles and caches.
  * Performs one validation per page load and does not schedule background polls.
  */
-import {
-  clearPromptMarksForConversation,
-  getPromptMarkOwner,
-  getStoredMarkConversationIds,
-  setPromptMarkOwner,
-} from '@/features/conversationPrompts/promptMark';
+import { setActiveConversationOwner } from './conversationOwner';
 import { navigatorController } from '@/navigation/navigatorController';
 import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import {
@@ -19,7 +14,7 @@ import {
 
 let installed = false;
 
-/** Starts a single authenticated startup reconciliation for saved marks. */
+/** Starts a single authenticated startup reconciliation for saved TOC titles. */
 export function initializeConversationLifecycle(): void {
   if (installed) return;
   installed = true;
@@ -34,40 +29,30 @@ export function initializeConversationLifecycle(): void {
       missingIds?: unknown;
     } | null;
     if (data?.type === TOC_CONVERSATION_DELETED && isPermanentConversationId(data.routeKey)) {
-      clearPromptMarksForConversation(data.routeKey);
       void tocAliasStore.removeConversation(data.routeKey).catch(() => undefined);
       navigatorController.handleConversationDeleted(data.routeKey);
     }
     if (data?.type !== TOC_LIFECYCLE_CHECK_RESULT || data.requestId !== requestId) return;
     const ownerId = typeof data.ownerId === 'string' && data.ownerId ? data.ownerId : null;
-    setPromptMarkOwner(ownerId);
+    setActiveConversationOwner(ownerId);
     if (!ownerId || !Array.isArray(data.missingIds)) return;
     for (const routeKey of data.missingIds) {
       if (!isPermanentConversationId(routeKey)) continue;
       // Never remove data that belongs to an unknown or different account.
-      const markedForAccount = getPromptMarkOwner(routeKey) === ownerId;
-      if (markedForAccount) clearPromptMarksForConversation(routeKey);
       void tocAliasStore.owner(routeKey).then((savedOwner) => {
         if (savedOwner !== ownerId) return;
         return tocAliasStore.removeConversation(routeKey).then(() => {
           navigatorController.handleConversationDeleted(routeKey);
         });
       }).catch(() => undefined);
-      if (markedForAccount) navigatorController.handleConversationDeleted(routeKey);
     }
   });
-  // Resolve both session marks and persisted titles before the single startup check.
+  // Only persisted titles need reconciliation; marking has been removed.
   void tocAliasStore.references().then((aliasIds) => {
     window.postMessage({
       type: TOC_LIFECYCLE_CHECK_REQUEST,
       requestId,
-      conversationIds: [...new Set([...getStoredMarkConversationIds(), ...aliasIds])],
+      conversationIds: aliasIds,
     }, location.origin);
-  }).catch(() => {
-    window.postMessage({
-      type: TOC_LIFECYCLE_CHECK_REQUEST,
-      requestId,
-      conversationIds: getStoredMarkConversationIds(),
-    }, location.origin);
-  });
+  }).catch(() => undefined);
 }

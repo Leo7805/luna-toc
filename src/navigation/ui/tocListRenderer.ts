@@ -3,7 +3,6 @@
  * and status band state for the LunaTOC sidebar.
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
-import { isPromptMarked } from '@/features/conversationPrompts/promptMark';
 import { copyPromptText } from '@/features/conversationPrompts/copyPrompt';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
@@ -36,6 +35,11 @@ export interface TocListRendererOptions {
   getMessages: () => NavigatorMessage[];
   getActiveIndex: () => number | null;
   onItemClick: (message: NavigatorMessage, index: number) => void;
+  onJumpToPromptBoundary?: (
+    message: NavigatorMessage,
+    index: number,
+    edge: 'top' | 'bottom'
+  ) => void;
   onSavePrompt?: (message: NavigatorMessage) => void;
   getDisplayText?: (message: NavigatorMessage) => string;
   onRenamePrompt?: (message: NavigatorMessage) => void;
@@ -207,20 +211,6 @@ export function createTocListRenderer(
     }
   }
 
-  /**
-   * Scrolls the directory panel to the top without moving the ChatGPT thread,
-   * clearing its search filter, or altering navigation state.
-   */
-  function returnToSidebarTop(): void {
-    const list = document.getElementById('navigator-list');
-    if (!list) return;
-    if (typeof list.scrollTo === 'function') {
-      list.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      list.scrollTop = 0;
-    }
-  }
-
   function createNavigatorItem(
     message: NavigatorMessage,
     index: number
@@ -243,7 +233,6 @@ export function createTocListRenderer(
     const displayText = options.getDisplayText?.(message) ?? message.text;
     itemText.textContent = displayText.replace(/\s+/g, ' ');
 
-    item.classList.toggle('navigator-item-marked', isPromptMarked(message.id));
     const outlineControls = createPromptItem({
       item,
       index,
@@ -278,7 +267,8 @@ export function createTocListRenderer(
         [
           { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
           { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
-          { id: 'return-to-top', label: '返回顶部', icon: 'arrow-up' },
+          { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
+          { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
             ? [{ id: 'rename-toc', label: '修改文字', icon: 'pencil-line' as const }]
             : []),
@@ -287,8 +277,10 @@ export function createTocListRenderer(
             : []),
         ],
         (itemId) => {
-          if (itemId === 'return-to-top') {
-            returnToSidebarTop();
+          if (itemId === 'return-to-top' || itemId === 'return-to-bottom') {
+            options.onJumpToPromptBoundary?.(
+              message, index, itemId === 'return-to-top' ? 'top' : 'bottom'
+            );
           } else if (itemId === 'copy-prompt') {
             void copyPromptText(message.text).catch((error: unknown) => {
               console.warn('[LunaTOC] Failed to copy prompt text', error);

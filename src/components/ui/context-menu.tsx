@@ -3,6 +3,7 @@
  */
 import { useEffect, useRef } from 'react';
 import {
+  ArrowDownIcon,
   ArrowUpIcon,
   BookmarkPlusIcon,
   ClipboardIcon,
@@ -14,7 +15,7 @@ import {
 export interface ContextMenuItem {
   id: string;
   label: string;
-  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line' | 'arrow-up';
+  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line' | 'arrow-up' | 'arrow-down';
   variant?: 'default' | 'destructive';
   disabled?: boolean;
 }
@@ -35,8 +36,10 @@ function ContextMenuIcon({
 }: Pick<ContextMenuItem, 'icon'>): React.JSX.Element | null {
   if (!icon) return null;
   const Icon =
-    icon === 'arrow-up'
-      ? ArrowUpIcon
+    icon === 'arrow-down'
+      ? ArrowDownIcon
+      : icon === 'arrow-up'
+        ? ArrowUpIcon
       : icon === 'trash'
         ? Trash2Icon
       : icon === 'clipboard'

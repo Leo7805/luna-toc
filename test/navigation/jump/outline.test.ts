@@ -78,6 +78,20 @@ describe('prompt outlines', () => {
       .toEqual(['First', 'Second without H3', 'Third without H5']);
   });
 
+  it('collapses the previous answer when another prompt is selected', () => {
+    setPromptMessages([createMessage('prompt-first'), createMessage('prompt-second')]);
+    renderConversation('prompt-first', [['h2', 'First heading']]);
+    const first = document.createElement('div');
+    document.body.append(first);
+    const firstList = createPromptItem({ item: first, index: 0, messageId: 'prompt-first' }).outlineList;
+    first.append(firstList);
+    expect(handlePromptNavigation(0, null)).toEqual({ shouldBuild: true });
+    scheduleBuild(0, 1);
+    expect(firstList.hidden).toBe(false);
+    handlePromptNavigation(1, 0);
+    expect(firstList.hidden).toBe(true);
+  });
+
   it('invalidates an outline when the prompt index receives a new message ID', () => {
     setPromptMessages([createMessage('prompt-a')]);
     renderConversation('prompt-a', [['h2', 'Original']]);

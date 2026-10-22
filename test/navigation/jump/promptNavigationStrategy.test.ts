@@ -183,6 +183,50 @@ describe('prompt navigation strategy', () => {
     expect(target.style.outline).toBe('');
   });
 
+  it('scrolls to the bottom of the selected answer, not the whole conversation', () => {
+    const container = document.createElement('div');
+    const user = document.createElement('div');
+    user.setAttribute('data-chatgpt-search-unit-key', 'turn-1:user');
+    const answer = document.createElement('div');
+    answer.setAttribute('data-chatgpt-search-unit-key', 'turn-1:assistant');
+    const nextUser = document.createElement('div');
+    nextUser.setAttribute('data-chatgpt-search-unit-key', 'turn-2:user');
+    const nextAnswer = document.createElement('div');
+    nextAnswer.setAttribute('data-chatgpt-search-unit-key', 'turn-2:assistant');
+    user.scrollIntoView = vi.fn();
+    answer.scrollIntoView = vi.fn();
+    nextAnswer.scrollIntoView = vi.fn();
+    container.append(user, answer, nextUser, nextAnswer);
+    document.body.append(container);
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(user);
+
+    jumpToMessage({ id: 'prompt-1', text: 'Prompt', canMatchByText: true, createTime: 0 }, 0, 'bottom');
+    expect(answer.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'end' });
+    expect(nextAnswer.scrollIntoView).not.toHaveBeenCalled();
+    expect(user.scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('does not cross into the next prompt when the selected answer is absent', () => {
+    const container = document.createElement('div');
+    const user = document.createElement('div');
+    user.setAttribute('data-chatgpt-search-unit-key', 'turn-1:user');
+    const nextUser = document.createElement('div');
+    nextUser.setAttribute('data-chatgpt-search-unit-key', 'turn-2:user');
+    const nextAnswer = document.createElement('div');
+    nextAnswer.setAttribute('data-chatgpt-search-unit-key', 'turn-2:assistant');
+    user.scrollIntoView = vi.fn();
+    nextAnswer.scrollIntoView = vi.fn();
+    container.append(user, nextUser, nextAnswer);
+    document.body.append(container);
+    mocks.getContainer.mockReturnValue(container);
+    mocks.findPrompt.mockReturnValue(user);
+
+    jumpToMessage({ id: 'prompt-1', text: 'Prompt', canMatchByText: true, createTime: 0 }, 0, 'bottom');
+    expect(user.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'end' });
+    expect(nextAnswer.scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it('initiates virtual step-loading when target is not rendered in the DOM', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);

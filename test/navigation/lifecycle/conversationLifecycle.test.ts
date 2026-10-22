@@ -1,32 +1,24 @@
-/**
- * @vitest-environment jsdom
- * Exercises mark reconciliation without touching another account's records.
- */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+/** @vitest-environment jsdom */
+/** Tests account binding independent of removed prompt bookmarks. */
+import { afterEach, describe, expect, it } from 'vitest';
 import {
-  clearPromptMarksForConversation,
-  getPromptMarkOwner,
-  getStoredMarkConversationIds,
-  setPromptMarkOwner,
-} from '@/features/conversationPrompts/promptMark';
+  getActiveConversationOwner,
+  setActiveConversationOwner,
+} from '@/navigation/lifecycle/conversationOwner';
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
 
-describe('conversation-scoped mark cleanup', () => {
-  afterEach(() => { sessionStorage.clear(); vi.restoreAllMocks(); });
-  it('finds permanent conversation references without including temporary routes', () => {
-    sessionStorage.setItem('chatToc:marks:conversation-123', '["prompt-1"]');
-    sessionStorage.setItem('chatToc:marks:local-12345678', '["prompt-2"]');
-    sessionStorage.setItem('chatToc:marks:new-chat:/', '["prompt-3"]');
-    expect(getStoredMarkConversationIds()).toEqual(['conversation-123']);
-    expect(isPermanentConversationId('local-12345678')).toBe(false);
+describe('conversation ownership', () => {
+  afterEach(() => setActiveConversationOwner(null));
+
+  it('allows a verified account owner or an unverified state', () => {
+    setActiveConversationOwner('account-1');
+    expect(getActiveConversationOwner()).toBe('account-1');
+    setActiveConversationOwner(null);
+    expect(getActiveConversationOwner()).toBeNull();
   });
-  it('removes both a mark collection and its account binding', () => {
-    sessionStorage.setItem('chatToc:marks:conversation-123', '["prompt-1"]');
-    sessionStorage.setItem('chatToc:markOwner:conversation-123', 'account-1');
-    expect(getPromptMarkOwner('conversation-123')).toBe('account-1');
-    clearPromptMarksForConversation('conversation-123');
-    expect(sessionStorage.getItem('chatToc:marks:conversation-123')).toBeNull();
-    expect(getPromptMarkOwner('conversation-123')).toBeNull();
-    setPromptMarkOwner(null);
+
+  it('rejects temporary route identities for persistent TOC data', () => {
+    expect(isPermanentConversationId('local-12345678')).toBe(false);
+    expect(isPermanentConversationId('conversation-123')).toBe(true);
   });
 });

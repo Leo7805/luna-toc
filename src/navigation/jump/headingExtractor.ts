@@ -103,7 +103,7 @@ function getAnswerContainerForPrompt(
 /**
  * Finds the next mounted assistant message element following a user message.
  */
-function findNextAssistantMessage(
+export function findNextAssistantMessage(
   userMessage: HTMLElement
 ): HTMLElement | null {
   const userSelector = platform().config.selectors.userMessage;

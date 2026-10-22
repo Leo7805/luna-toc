@@ -10,7 +10,6 @@ html[data-theme='dark'] {
   --ct-bg-sidebar-solid: #101827;
   --ct-bg-item-hover: #18243a;
   --ct-bg-item-active: #1d2c50;
-  --ct-bg-item-marked: rgba(234, 179, 8, 0.12);
   --ct-bg-icon-btn-hover: #18243a;
   --ct-bg-icon-btn-active: #1d2c50;
   --ct-bg-jump-controls: rgba(16, 24, 39, 0.45);
@@ -46,7 +45,6 @@ html[data-theme='dark'] {
   --ct-text-item-active: #ffffff;
   --ct-text-item-index: #8fa2bc;
   --ct-text-item-index-active: #7f91ff;
-  --ct-text-item-marked: #fde68a;
   --ct-text-outline: #dce6f5;
   --ct-text-outline-l2: #8fa2bc;
   --ct-text-modal: #dce6f5;
@@ -87,7 +85,6 @@ html[data-theme='dark'] {
   --ct-sidebar-shadow: none;
   --ct-select-color-scheme: dark;
   --ct-modal-overlay-bg: rgba(0, 0, 0, 0.65);
-  --ct-active-item-box-shadow-mark: inset 3px 0 0 #facc15;
   --ct-active-item-box-shadow-outline:
     inset 0 0 0 1px #7f91ff, inset 3px 0 0 #7f91ff;
 
@@ -105,7 +102,6 @@ html[data-theme='light'] {
   --ct-bg-sidebar-solid: #eef5ff;
   --ct-bg-item-hover: #e6f0fd;
   --ct-bg-item-active: #dce9ff;
-  --ct-bg-item-marked: rgba(217, 165, 20, 0.1);
   --ct-bg-icon-btn-hover: #e6f0fd;
   --ct-bg-icon-btn-active: #dce9ff;
   --ct-bg-jump-controls: rgba(238, 245, 255, 0.65);
@@ -141,7 +137,6 @@ html[data-theme='light'] {
   --ct-text-item-active: #23456f;
   --ct-text-item-index: #7087a6;
   --ct-text-item-index-active: #526ef5;
-  --ct-text-item-marked: #8a6708;
   --ct-text-outline: #23456f;
   --ct-text-outline-l2: #6c82a0;
   --ct-text-modal: #23456f;
@@ -608,17 +603,6 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 
 .navigator-item:hover {
   background: var(--ct-bg-item-hover);
-}
-
-.navigator-item.navigator-item-marked {
-  background: var(--ct-bg-item-marked);
-  color: var(--ct-text-item-marked);
-}
-
-.navigator-item.navigator-item-active.navigator-item-marked {
-  background: var(--ct-bg-item-active);
-  box-shadow: var(--ct-active-item-box-shadow-mark);
-  color: var(--ct-text-item-active);
 }
 
 .navigator-item.navigator-item-active.navigator-item-outline-expanded {

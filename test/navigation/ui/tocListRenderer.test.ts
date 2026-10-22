@@ -6,7 +6,6 @@ import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
 import { setLoading } from '@/navigation/loading/promptLoadingState';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
-import { initializePromptMark, isPromptMarked } from '@/features/conversationPrompts/promptMark';
 
 describe('tocListRenderer', () => {
   let listElement: HTMLElement;
@@ -229,7 +228,7 @@ describe('tocListRenderer', () => {
     expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
   });
 
-  it('offers 复制文字 / 添加tips / 返回顶部 in order and keeps add available on repeated clicks', () => {
+  it('offers per-prompt top and bottom actions and keeps add available on repeated clicks', () => {
     const onSavePrompt = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
@@ -248,76 +247,57 @@ describe('tocListRenderer', () => {
     expect(promptContextMenuController.getSnapshot()?.items).toEqual([
       { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
       { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
-      { id: 'return-to-top', label: '返回顶部', icon: 'arrow-up' },
+      { id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' },
+      { id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' },
     ]);
     promptContextMenuController.select('save-prompt');
     expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
     item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
-      .toEqual(['复制文字', '添加tips', '返回顶部']);
+      .toEqual(['复制文字', '添加tips', '回到顶部', '回到底部']);
     promptContextMenuController.select('save-prompt');
     expect(onSavePrompt).toHaveBeenCalledTimes(2);
     expect(promptContextMenuController.getSnapshot()).toBeNull();
   });
 
-  it('removes marking from the menu without deleting existing saved marks', () => {
-    const conversationKey = 'toc-menu-test';
-    const storageKey = `chatToc:marks:${conversationKey}`;
-    sessionStorage.setItem(storageKey, JSON.stringify(['msg-2']));
-    initializePromptMark({ conversationKey });
-
-    try {
-      const renderer = createTocListRenderer({
-        getMessages: () => mockMessages,
-        getActiveIndex: () => null,
-        onItemClick: vi.fn(),
-      });
-      renderer.render();
-      const row = listElement.children[1] as HTMLElement;
-      expect(row.classList.contains('navigator-item-marked')).toBe(true);
-      row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-      expect(promptContextMenuController.getSnapshot()?.items.map((item) => item.id))
-        .toEqual(['copy-prompt', 'save-prompt', 'return-to-top']);
-      expect(isPromptMarked('msg-2')).toBe(true);
-      expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual(['msg-2']);
-    } finally {
-      sessionStorage.removeItem(storageKey);
-      initializePromptMark({ conversationKey: 'toc-menu-reset' });
-      promptContextMenuController.close();
-    }
-  });
-
-  it('scrolls the sidebar list to the top without navigating or resetting search', () => {
+  it('targets the right-clicked prompt boundaries without scrolling the sidebar', () => {
+    const onJumpToPromptBoundary = vi.fn();
+    const onItemClick = vi.fn();
     const scrollTo = vi.fn();
     listElement.scrollTo = scrollTo as unknown as HTMLElement['scrollTo'];
-    const onItemClick = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
       onItemClick,
+      onJumpToPromptBoundary,
     });
-    renderer.setSearchQuery('prompt');
-    const row = listElement.children[0] as HTMLElement;
-    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    renderer.render();
+    const item = listElement.children[1] as HTMLElement;
+    item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(promptContextMenuController.getSnapshot()?.items.map((action) => action.id))
+      .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
     promptContextMenuController.select('return-to-top');
-    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
-    expect(renderer.getSearchQuery()).toBe('prompt');
+    expect(onJumpToPromptBoundary).toHaveBeenCalledWith(mockMessages[1], 1, 'top');
+    item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    promptContextMenuController.select('return-to-bottom');
+    expect(onJumpToPromptBoundary).toHaveBeenCalledWith(mockMessages[1], 1, 'bottom');
     expect(onItemClick).not.toHaveBeenCalled();
-    expect(promptContextMenuController.getSnapshot()).toBeNull();
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(renderer.getSearchQuery()).toBe('');
   });
 
-  it('returns to the top when scrollTo is unavailable', () => {
-    listElement.scrollTop = 200;
-    Object.defineProperty(listElement, 'scrollTo', { configurable: true, value: undefined });
+  it('keeps the selected original index with a filtered directory', () => {
+    const onJumpToPromptBoundary = vi.fn();
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
       getActiveIndex: () => null,
       onItemClick: vi.fn(),
+      onJumpToPromptBoundary,
     });
-    renderer.render();
+    renderer.setSearchQuery('Third prompt');
     listElement.children[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    promptContextMenuController.select('return-to-top');
-    expect(listElement.scrollTop).toBe(0);
+    promptContextMenuController.select('return-to-bottom');
+    expect(onJumpToPromptBoundary).toHaveBeenCalledWith(mockMessages[2], 2, 'bottom');
   });
 
   it('keeps long prompt text intact for CSS truncation and opens actions only on right-click', () => {
@@ -342,7 +322,7 @@ describe('tocListRenderer', () => {
 
     text.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
-      .toEqual(['复制文字', '添加tips', '返回顶部']);
+      .toEqual(['复制文字', '添加tips', '回到顶部', '回到底部']);
     promptContextMenuController.close();
   });
 

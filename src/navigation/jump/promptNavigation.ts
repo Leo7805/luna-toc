@@ -6,6 +6,7 @@ import { keepFollowing } from '../follow/follow';
 import { getActivePlatform } from '@/platforms';
 import { loadUntilMountedViaViewport } from './viewportWalker';
 import { executeAbsoluteEdgeJump } from './edgeNavigation';
+import { findNextAssistantMessage } from './headingExtractor';
 
 function platform() {
   return getActivePlatform();
@@ -158,9 +159,13 @@ function highlightMatchedElement(element: HTMLElement): void {
  * @param message Target message representation.
  * @param index 0-indexed position in the conversation.
  */
-export function jumpToMessage(message: NavigatorMessage, index: number): void {
+export function jumpToMessage(
+  message: NavigatorMessage,
+  index: number,
+  edge: 'top' | 'bottom' = 'top'
+): void {
   cancelActiveNavigationSearch();
-  jumpWithIndependentVirtualNavigation(message, index);
+  jumpWithIndependentVirtualNavigation(message, index, edge);
 }
 
 /**
@@ -168,7 +173,8 @@ export function jumpToMessage(message: NavigatorMessage, index: number): void {
  */
 function jumpWithIndependentVirtualNavigation(
   message: NavigatorMessage,
-  index: number
+  index: number,
+  edge: 'top' | 'bottom' = 'top'
 ): void {
   const jumpId = createChatGptNavigationJumpId();
   const context = getVirtualSearchContext();
@@ -229,7 +235,7 @@ function jumpWithIndependentVirtualNavigation(
     if (isJumpVizDebugEnabled()) {
       logMountedPromptViz('fast-path');
     }
-    finishIndependentVirtualJump(renderedTarget, message, index);
+    finishIndependentVirtualJump(renderedTarget, message, index, edge);
     return;
   }
 
@@ -249,7 +255,7 @@ function jumpWithIndependentVirtualNavigation(
     if (myNavVersion !== navigationJumpVersion) return;
     if (loaded) {
       clearJumpProgress();
-      finishIndependentVirtualJump(loaded, message, index);
+      finishIndependentVirtualJump(loaded, message, index, edge);
       return;
     }
 
@@ -274,7 +280,8 @@ function jumpWithIndependentVirtualNavigation(
 function finishIndependentVirtualJump(
   target: HTMLElement,
   message: NavigatorMessage,
-  index: number
+  index: number,
+  edge: 'top' | 'bottom'
 ): void {
   const jumpVersion = ++navigationJumpVersion;
   const targetAttempts = 8;
@@ -288,13 +295,35 @@ function finishIndependentVirtualJump(
     const previousScrollMarginTop = el.style.scrollMarginTop;
     el.style.scrollMarginTop = `${platform().navigation.promptTopOffsetPx}px`;
 
-    el.scrollIntoView({ behavior: 'auto', block: 'start' });
+    if (edge === 'bottom') {
+      const assistant = findNextAssistantMessage(el);
+      const landing = assistant ?? el;
+      landing.scrollIntoView({ behavior: 'auto', block: 'end' });
+    } else {
+      el.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
     el.style.scrollMarginTop = previousScrollMarginTop;
     highlightMatchedElement(el);
     return true;
   };
 
   if (scrollTargetIntoView(target)) {
+    // A virtualized or generating answer might mount shortly after its prompt.
+    // Never scroll into the next user's turn when the answer is unavailable.
+    if (edge === 'bottom' && !findNextAssistantMessage(target)) {
+      const retryAnswer = (attempts: number): void => {
+        if (jumpVersion !== navigationJumpVersion || attempts === 0) return;
+        const fresh = findRenderedChatGptPrompt(message.id);
+        if (!fresh?.isConnected) return;
+        const answer = findNextAssistantMessage(fresh);
+        if (answer?.isConnected) {
+          answer.scrollIntoView({ behavior: 'auto', block: 'end' });
+        } else {
+          window.setTimeout(() => retryAnswer(attempts - 1), 200);
+        }
+      };
+      window.setTimeout(() => retryAnswer(6), 200);
+    }
     logChatGptNavigationEvent(
       createChatGptNavigationJumpId(),
       'JUMP_FINISHED',

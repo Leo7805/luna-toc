@@ -3,7 +3,6 @@
  * headings, manages accordion UI state, and dispatches outline navigation.
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
-import { isPromptMarked as isMessageMarked } from '@/features/conversationPrompts/promptMark';
 import {
   cancelOutlineNavigation,
   jumpToOutlineEntry,
@@ -193,8 +192,7 @@ export function syncActivePrompt(index: number): void {
 }
 
 /**
- * Makes a prompt the current outline owner and hides unmarked outlines
- * from other prompts.
+ * Makes a prompt the current outline owner and collapses other outlines.
  * @param {number} index Prompt index.
  */
 function setCurrentPrompt(index: number): void {
@@ -209,9 +207,7 @@ function setCurrentPrompt(index: number): void {
  */
 function collapseAllExcept(index: number | null): void {
   expandedPromptOutlines.forEach((expandedIndex) => {
-    if (expandedIndex !== index && !isPromptMarked(expandedIndex)) {
-      expandedPromptOutlines.delete(expandedIndex);
-    }
+    if (expandedIndex !== index) expandedPromptOutlines.delete(expandedIndex);
   });
 }
 
@@ -221,25 +217,6 @@ function collapseAllExcept(index: number | null): void {
 export function collapseAll(): void {
   expandedPromptOutlines.clear();
   updateAllPromptItems();
-}
-
-/**
- * Reapplies expanded-outline rules after mark state changes.
- */
-export function syncMarkState(): void {
-  collapseAllExcept(currentPromptIndex);
-  updateAllPromptItems();
-}
-
-/**
- * Returns whether a prompt row is currently marked.
- * @param {number} index Prompt index.
- * @returns {boolean}
- */
-function isPromptMarked(index: number): boolean {
-  const messageId = outlineCache.getPromptMessageId(index);
-
-  return Boolean(messageId && isMessageMarked(messageId));
 }
 
 /**
