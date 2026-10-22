@@ -164,7 +164,7 @@ describe('sidebar reveal handle and right-side tools', () => {
     sidebar.dispatchEvent(new MouseEvent('pointermove', {
       bubbles: true, clientX: window.innerWidth - 2, clientY: 380,
     }));
-    vi.advanceTimersByTime(499);
+    vi.advanceTimersByTime(249);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
     vi.advanceTimersByTime(1);
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);

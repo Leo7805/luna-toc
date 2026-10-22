@@ -1,7 +1,14 @@
 /** @vitest-environment node */
 /** Guards the TOC-only scrollbar styling while preserving scroll navigation. */
-import css from '@/styles/content.css?raw';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+let css = '';
+beforeAll(async () => {
+  const { readFileSync } = await vi.importActual<{
+    readFileSync: (path: URL, encoding: 'utf8') => string;
+  }>('node:fs');
+  css = readFileSync(new URL('../../src/styles/content.css', import.meta.url), 'utf8');
+});
 
 describe('TOC list scrollbar', () => {
   it('hides the track in modern browsers without disabling scrolling', () => {
@@ -13,7 +20,7 @@ describe('TOC list scrollbar', () => {
     expect(css).toMatch(/#navigator-list::-webkit-scrollbar\s*\{[^}]*display:\s*none;/);
   });
 
-  it('does not change unrelated scroll surfaces', () => {
+  it('does not disable scrolling', () => {
     expect(css).not.toMatch(/#navigator-list\s*\{[^}]*overflow-y:\s*hidden;/);
   });
 });
