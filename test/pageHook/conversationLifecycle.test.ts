@@ -44,11 +44,9 @@ describe('ChatGPT conversation lifecycle page hook', () => {
     }
   });
 
-  it('reports missing IDs only with a confirmed signed-in session', async () => {
+  it('verifies the signed-in user but never treats a possible 404 as a deletion', async () => {
     const fetcher = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ user: { id: 'account-1' } }) })
-      .mockResolvedValueOnce({ status: 404 })
-      .mockResolvedValueOnce({ status: 200 });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ user: { id: 'account-1' } }) });
     installConversationLifecycle(fetcher as unknown as typeof fetch);
     const seen: unknown[] = [];
     const listener = (event: MessageEvent) => {
@@ -61,14 +59,13 @@ describe('ChatGPT conversation lifecycle page hook', () => {
         data: {
           type: TOC_LIFECYCLE_CHECK_REQUEST,
           requestId: 101,
-          conversationIds: ['deleted-conv-123', 'retained-conv-123', 'local-123', 'deleted-conv-123'],
         },
       }));
       await vi.waitFor(() => expect(seen).toHaveLength(1));
       expect(seen[0]).toMatchObject({
-        requestId: 101, ownerId: 'account-1', missingIds: ['deleted-conv-123'],
+        requestId: 101, ownerId: 'account-1',
       });
-      expect(fetcher).toHaveBeenCalledTimes(3);
+      expect(fetcher).toHaveBeenCalledTimes(1);
     } finally {
       window.removeEventListener('message', listener);
     }

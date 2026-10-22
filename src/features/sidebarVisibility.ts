@@ -4,7 +4,6 @@
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { SidebarLayoutMode } from '@/features/sidebar/sidebarPreferences';
 import { syncChatGptSideBySide } from '@/features/sidebar/chatGptSideBySide';
-import { placeJumpControlsAtPointer } from '@/features/sidebar/jumpControlsPosition';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
@@ -38,8 +37,23 @@ export function initializeSidebarVisibility(
   bindPinButton();
   bindToggleButton();
   bindAutoHide();
+  bindKeyboardTools();
   loadPinnedState();
   finishInitializing();
+}
+
+/** Exposes right-edge tools to keyboard-only users when the sidebar is open. */
+function bindKeyboardTools(): void {
+  sidebar?.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (!event.altKey || !event.shiftKey || event.key.toLowerCase() !== 'j' ||
+        isHidden) return;
+    const controls = sidebar?.querySelector<HTMLElement>('.navigator-jump-controls');
+    const firstButton = controls?.querySelector<HTMLButtonElement>('button');
+    if (!firstButton) return;
+    event.preventDefault();
+    setJumpControlsVisible(true);
+    firstButton.focus();
+  });
 }
 
 function bindPinButton(): void {
@@ -57,7 +71,6 @@ function bindToggleButton(): void {
   button.addEventListener('pointerenter', (event) => {
     handleAutoHideEnter();
     if (sidebar && Number.isFinite(event.clientY) && event.clientY >= 0) {
-      placeJumpControlsAtPointer(sidebar, event.clientY);
       sidebar.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: event.clientY }));
       setJumpControlsVisible(true);
     }
@@ -95,7 +108,6 @@ function bindAutoHide(): void {
     if (event.target instanceof Node && controls?.contains(event.target)) return;
     if (event.clientX >= window.innerWidth - 12 &&
         event.clientX <= window.innerWidth && Number.isFinite(event.clientY)) {
-      placeJumpControlsAtPointer(sidebar!, event.clientY);
       sidebar?.dispatchEvent(new CustomEvent('luna-toc-edge-position', { detail: event.clientY }));
       setJumpControlsVisible(true);
       return;

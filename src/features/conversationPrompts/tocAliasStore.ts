@@ -13,6 +13,8 @@ interface AliasRecord {
 /** Creates a tab-local alias cache backed by Chrome extension storage. */
 export function createTocAliasStore(onChanged: (routeKey: string) => void = () => {}) {
   const loaded = new Map<string, AliasRecord>();
+  const loading = new Map<string, Promise<void>>();
+  const deleted = new Set<string>();
   const listeners = new Set<(routeKey: string) => void>();
   const notify = (routeKey: string): void => { onChanged(routeKey); listeners.forEach((fn) => fn(routeKey)); };
   let writeQueue = Promise.resolve();
@@ -21,16 +23,23 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
 
   /** Loads saved labels for a conversation, guarding against concurrent writes. */
   async function load(routeKey: string): Promise<void> {
-    if (!isPermanentConversationId(routeKey) || loaded.has(routeKey)) return;
-    const data = await chrome.storage.local.get(storageKey(routeKey));
-    if (loaded.has(routeKey)) return;
-    loaded.set(routeKey, normalizeRecord(data[storageKey(routeKey)]));
-    notify(routeKey);
+    if (!isPermanentConversationId(routeKey) || loaded.has(routeKey) || deleted.has(routeKey)) return;
+    const existing = loading.get(routeKey);
+    if (existing) return existing;
+    const pending = (async () => {
+      const data = await chrome.storage.local.get(storageKey(routeKey));
+      if (!loaded.has(routeKey) && !deleted.has(routeKey)) {
+        loaded.set(routeKey, normalizeRecord(data[storageKey(routeKey)]));
+        notify(routeKey);
+      }
+    })();
+    loading.set(routeKey, pending);
+    try { await pending; } finally { loading.delete(routeKey); }
   }
 
   /** Returns the override for a message without changing its original text. */
   function get(routeKey: string, messageId: string): string | null {
-    return loaded.get(routeKey)?.aliases[messageId] ?? null;
+    return deleted.has(routeKey) ? null : loaded.get(routeKey)?.aliases[messageId] ?? null;
   }
 
   /** Writes or restores one alias with serialized updates and failure rollback. */
@@ -40,8 +49,11 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
     }
     const label = text?.trim() || null;
     if (label && label.length > 240) return Promise.reject(new Error('Title exceeds 240 characters'));
-    writeQueue = writeQueue.catch(() => undefined).then(async () => {
+    if (deleted.has(routeKey)) return Promise.reject(new Error('Conversation has been deleted'));
+    const job = writeQueue.catch(() => undefined).then(async () => {
+      if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
       await load(routeKey);
+      if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
       const previous = loaded.get(routeKey)!;
       const aliases = { ...previous.aliases };
       if (label) aliases[messageId] = label;
@@ -56,19 +68,31 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
           await chrome.storage.local.remove(storageKey(routeKey));
         }
       } catch (error) {
-        loaded.set(routeKey, previous);
-        notify(routeKey);
+        if (!deleted.has(routeKey)) {
+          loaded.set(routeKey, previous);
+          notify(routeKey);
+        }
         throw error;
       }
     });
-    return writeQueue;
+    writeQueue = job.catch(() => undefined);
+    return job;
   }
 
-  /** Removes all overrides when ChatGPT confirms the parent conversation was deleted. */
-  async function removeConversation(routeKey: string): Promise<void> {
+  /** Tombstones and removes a deleted conversation after any pending writes. */
+  function removeConversation(routeKey: string): Promise<void> {
+    if (!isPermanentConversationId(routeKey)) return Promise.resolve();
+    // Reject newly queued updates immediately, then remove after previous writes.
+    deleted.add(routeKey);
     loaded.delete(routeKey);
-    await chrome.storage.local.remove(storageKey(routeKey));
     notify(routeKey);
+    const job = writeQueue.catch(() => undefined).then(async () => {
+      await chrome.storage.local.remove(storageKey(routeKey));
+      loaded.delete(routeKey);
+      notify(routeKey);
+    });
+    writeQueue = job.catch(() => undefined);
+    return job;
   }
 
   /** Finds local conversation references for the one-time startup validator. */
@@ -77,13 +101,13 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
     return Object.keys(values)
       .filter((key) => key.startsWith(PREFIX))
       .map((key) => key.slice(PREFIX.length))
-      .filter(isPermanentConversationId);
+      .filter((routeKey) => isPermanentConversationId(routeKey) && !deleted.has(routeKey));
   }
 
   /** Returns the persisted owner binding, if one exists. */
   async function owner(routeKey: string): Promise<string | null> {
     if (!loaded.has(routeKey)) await load(routeKey);
-    return loaded.get(routeKey)?.ownerId ?? null;
+    return deleted.has(routeKey) ? null : loaded.get(routeKey)?.ownerId ?? null;
   }
 
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
@@ -92,6 +116,7 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
       for (const [key, change] of Object.entries(changes)) {
         if (!key.startsWith(PREFIX)) continue;
         const routeKey = key.slice(PREFIX.length);
+        if (deleted.has(routeKey)) continue;
         loaded.set(routeKey, normalizeRecord(change.newValue));
         notify(routeKey);
       }

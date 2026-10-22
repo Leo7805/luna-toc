@@ -255,7 +255,12 @@ export function createConversationStore(
     if (branch === null) return false;
     // Requests begun before this authoritative snapshot must not reintroduce
     // superseded branches when their paginated responses arrive late.
+    freshSnapshotAppliedAt.delete(routeKey);
     freshSnapshotAppliedAt.set(routeKey, Date.now());
+    if (freshSnapshotAppliedAt.size > 8) {
+      const oldest = freshSnapshotAppliedAt.keys().next().value;
+      if (oldest) freshSnapshotAppliedAt.delete(oldest);
+    }
     const next = extractUserMessages({ messages: branch });
     const previous = conversationMessages;
     const changed = previous.length !== next.length || previous.some((m, i) =>

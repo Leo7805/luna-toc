@@ -29,7 +29,7 @@ export function placeJumpControlsAtPointer(sidebar: HTMLElement, pointerY: numbe
 export function initializeJumpControlsPosition(sidebar: HTMLElement): () => void {
   let pointerY = (sidebar.clientHeight || window.innerHeight) / 2;
   const onResize = (): void => placeJumpControlsAtPointer(sidebar, pointerY);
-  // Old drag positioning is obsolete and should not be carried into this mode.
+  // Remove the retired drag-position preference once.
   try { sessionStorage.removeItem('chatToc:jumpControlsBottom'); } catch {}
   onResize();
   const onEdgePosition = (event: Event): void => {

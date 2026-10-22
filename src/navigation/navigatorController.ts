@@ -177,6 +177,9 @@ export const navigatorController = (() => {
     window.setTimeout(() => {
       if (refreshSequence === requestId && refreshPending) {
         refreshPending = false;
+        conversationStore.markConversationIncomplete(routeKey);
+        refreshFailed = true;
+        render();
         console.warn('[LunaTOC] Conversation TOC refresh timed out');
       }
     }, 15000);
@@ -228,11 +231,10 @@ export const navigatorController = (() => {
           state: 'empty',
           promptCount: 0,
         });
+      } else if (refreshFailed) {
+        setSidebarStatus({ state: 'stale', promptCount });
       } else {
-        setSidebarStatus({
-          state: 'complete',
-          promptCount,
-        });
+        setSidebarStatus({ state: 'complete', promptCount });
       }
     });
     setOnSettleTimeout(() => markLoadingComplete());
@@ -485,7 +487,8 @@ export const navigatorController = (() => {
 
     onTitleChanged();
 
-    refreshFailed = false;
+    // Incoming paginated data is not an authoritative complete snapshot.
+    // It may predate the last verified branch; never clear its failure state.
     conversationStore.handleConversationData(
       data,
       getCurrentConversationKey(),
@@ -511,11 +514,21 @@ export const navigatorController = (() => {
           console.warn('[LunaTOC] Conversation TOC refresh returned no complete snapshot');
           return;
         }
-        refreshFailed = false;
         const changed = conversationStore.replaceWithFreshSnapshot(payload, routeKey);
+        if (!conversationStore.isConversationComplete(routeKey)) {
+          refreshFailed = true;
+          setSidebarStatus({ state: 'stale' });
+          return;
+        }
+        refreshFailed = false;
         if (changed) {
           resetOutline();
           render({ refreshObservers: true });
+        } else {
+          setSidebarStatus({
+            state: 'complete',
+            promptCount: conversationStore.getMessages().length,
+          });
         }
         return;
       }

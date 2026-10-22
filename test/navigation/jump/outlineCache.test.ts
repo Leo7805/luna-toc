@@ -16,6 +16,7 @@ import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 function createHeadingEntry(text: string, isConnected = true): OutlineEntry {
   const element = document.createElement('h2');
   element.textContent = text;
+  element.dataset.sectionId = 'sec-0';
   if (isConnected) {
     document.body.appendChild(element);
   }

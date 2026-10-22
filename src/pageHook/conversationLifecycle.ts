@@ -52,8 +52,8 @@ export function publishConfirmedDeletion(
 }
 
 /**
- * Installs a startup-only validator. A 404/410 is actionable only when the
- * content script can prove the mark was recorded for the same signed-in user.
+ * Installs startup account validation. HTTP 404/410 cannot prove deletion:
+ * unsupported endpoints and access restrictions may appear indistinguishable.
  */
 export function installConversationLifecycle(originalFetch: typeof fetch): void {
   window.addEventListener('message', (event: MessageEvent) => {
@@ -61,17 +61,13 @@ export function installConversationLifecycle(originalFetch: typeof fetch): void 
     const data = event.data as {
       type?: unknown;
       requestId?: unknown;
-      conversationIds?: unknown;
     } | null;
     if (data?.type !== TOC_LIFECYCLE_CHECK_REQUEST ||
-        !Number.isSafeInteger(data.requestId) ||
-        !Array.isArray(data.conversationIds)) return;
+        !Number.isSafeInteger(data.requestId)) return;
 
     const requestId = data.requestId as number;
-    const conversationIds = [...new Set(
-      data.conversationIds.filter(isPermanentConversationId)
-    )];
-    void validateConversations(originalFetch, conversationIds).then((result) => {
+    // Verify identity only; ambiguous GET results never destroy local content.
+    void validateConversations(originalFetch).then((result) => {
       window.postMessage({
         type: TOC_LIFECYCLE_CHECK_RESULT,
         requestId,
@@ -81,42 +77,26 @@ export function installConversationLifecycle(originalFetch: typeof fetch): void 
   });
 }
 
-/** Uses only the authenticated session and direct per-ID checks, never a partial recent-chat list. */
+/** Reads the authenticated session; no uncertain 404 can erase a saved alias. */
 async function validateConversations(
-  originalFetch: typeof fetch,
-  conversationIds: string[]
-): Promise<{ ownerId: string | null; missingIds: string[] }> {
+  originalFetch: typeof fetch
+): Promise<{ ownerId: string | null }> {
   let ownerId: string | null = null;
   try {
     const sessionResponse = await originalFetch(
       new URL('/api/auth/session', location.origin).toString(),
       { method: 'GET', credentials: 'include' }
     );
-    if (!sessionResponse.ok) return { ownerId: null, missingIds: [] };
+    if (!sessionResponse.ok) return { ownerId: null };
     const session: unknown = await sessionResponse.json();
-    if (!session || typeof session !== 'object') return { ownerId: null, missingIds: [] };
+    if (!session || typeof session !== 'object') return { ownerId: null };
     const user = (session as { user?: { id?: unknown } }).user;
-    if (typeof user?.id !== 'string' || !user.id) return { ownerId: null, missingIds: [] };
+    if (typeof user?.id !== 'string' || !user.id) return { ownerId: null };
     ownerId = user.id;
   } catch {
-    return { ownerId: null, missingIds: [] };
+    return { ownerId: null };
   }
 
-  const missingIds: string[] = [];
-  // Limit concurrent requests so opening ChatGPT cannot flood its API.
-  for (let offset = 0; offset < conversationIds.length; offset += 4) {
-    const batch = conversationIds.slice(offset, offset + 4);
-    await Promise.all(batch.map(async (routeKey) => {
-      try {
-        const response = await originalFetch(
-          new URL('/backend-api/conversation/' + encodeURIComponent(routeKey), location.origin).toString(),
-          { method: 'GET', credentials: 'include' }
-        );
-        if (response.status === 404 || response.status === 410) missingIds.push(routeKey);
-      } catch {
-        // Offline, throttling and API failures are inconclusive.
-      }
-    }));
-  }
-  return { ownerId, missingIds };
+  // Only an observed successful ChatGPT deletion mutation is conclusive.
+  return { ownerId };
 }

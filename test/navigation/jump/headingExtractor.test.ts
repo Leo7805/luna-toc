@@ -103,6 +103,26 @@ describe('headingExtractor', () => {
     expect(outline.map(({ text }) => text)).toEqual(['Valid Heading']);
   });
 
+  it('ignores hidden and aria-hidden titles before choosing the three heading ranks', () => {
+    const user = renderUserMessage('prompt-hidden-headings');
+    const assistant = renderAssistantMessage('answer-hidden-headings', []);
+    assistant.innerHTML = [
+      '<h1 hidden>Hidden top</h1>',
+      '<section aria-hidden="true"><h2>Not visible</h2></section>',
+      '<h3 style="display: none">CSS hidden</h3>',
+      '<h4>Real first level</h4>',
+      '<h5>Real second level</h5>',
+      '<h6>Real third level</h6>',
+    ].join('');
+    document.body.append(user, assistant);
+    expect(getPromptOutline(0, 'prompt-hidden-headings').map(({ text, level }) => ({ text, level })))
+      .toEqual([
+        { text: 'Real first level', level: 1 },
+        { text: 'Real second level', level: 2 },
+        { text: 'Real third level', level: 3 },
+      ]);
+  });
+
   it('returns empty array when user message or assistant message is missing', () => {
     const outline = getPromptOutline(0, 'nonexistent-prompt');
     expect(outline).toEqual([]);

@@ -34,6 +34,27 @@ describe('TOC alias storage', () => {
     expect(store.get('conversation-123', 'message-1')).toBeNull();
     expect(saved['chatToc:aliases:v1:conversation-123']).toBeUndefined();
   });
+  it('serializes delete after in-flight saves and rejects subsequent updates', async () => {
+    const store = createTocAliasStore();
+    await store.load('conversation-123');
+    let releaseWrite: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    vi.mocked(chrome.storage.local.set).mockImplementationOnce(async (value) => {
+      await gate;
+      Object.assign(saved, value);
+    });
+    const pendingWrite = store.update('conversation-123', 'msg-1', 'pending', 'account-1');
+    await vi.waitFor(() => expect(chrome.storage.local.set).toHaveBeenCalled());
+    const deletion = store.removeConversation('conversation-123');
+    expect(store.get('conversation-123', 'msg-1')).toBeNull();
+    await expect(store.update('conversation-123', 'msg-2', 'new', 'account-1')).rejects.toThrow();
+    releaseWrite();
+    await pendingWrite;
+    await deletion;
+    expect(saved['chatToc:aliases:v1:conversation-123']).toBeUndefined();
+    expect(await store.references()).toEqual([]);
+  });
+
   it('rejects temporary conversations and keeps storage independent', async () => {
     const store = createTocAliasStore();
     await expect(store.update('local-123456', 'msg-1', 'ignored', null)).rejects.toThrow();

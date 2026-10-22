@@ -26,7 +26,6 @@ export function initializeConversationLifecycle(): void {
       requestId?: unknown;
       routeKey?: unknown;
       ownerId?: unknown;
-      missingIds?: unknown;
     } | null;
     if (data?.type === TOC_CONVERSATION_DELETED && isPermanentConversationId(data.routeKey)) {
       void tocAliasStore.removeConversation(data.routeKey).catch(() => undefined);
@@ -35,24 +34,11 @@ export function initializeConversationLifecycle(): void {
     if (data?.type !== TOC_LIFECYCLE_CHECK_RESULT || data.requestId !== requestId) return;
     const ownerId = typeof data.ownerId === 'string' && data.ownerId ? data.ownerId : null;
     setActiveConversationOwner(ownerId);
-    if (!ownerId || !Array.isArray(data.missingIds)) return;
-    for (const routeKey of data.missingIds) {
-      if (!isPermanentConversationId(routeKey)) continue;
-      // Never remove data that belongs to an unknown or different account.
-      void tocAliasStore.owner(routeKey).then((savedOwner) => {
-        if (savedOwner !== ownerId) return;
-        return tocAliasStore.removeConversation(routeKey).then(() => {
-          navigatorController.handleConversationDeleted(routeKey);
-        });
-      }).catch(() => undefined);
-    }
+
   });
-  // Only persisted titles need reconciliation; marking has been removed.
-  void tocAliasStore.references().then((aliasIds) => {
-    window.postMessage({
-      type: TOC_LIFECYCLE_CHECK_REQUEST,
-      requestId,
-      conversationIds: aliasIds,
-    }, location.origin);
-  }).catch(() => undefined);
+  // Capture account identity only. A missing GET result is not proof of deletion.
+  window.postMessage({
+    type: TOC_LIFECYCLE_CHECK_REQUEST,
+    requestId,
+  }, location.origin);
 }

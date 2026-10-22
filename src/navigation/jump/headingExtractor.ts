@@ -208,7 +208,12 @@ function getCenteredRenderedUserMessage(
  * Checks whether a heading element is for accessibility / screen readers only.
  */
 function isAccessibilityHeading(heading: HTMLElement): boolean {
-  return heading.closest('.sr-only') !== null;
+  if (heading.closest('.sr-only, [hidden], [aria-hidden="true"], [inert], pre, code')) {
+    return true;
+  }
+  const style = window.getComputedStyle(heading);
+  return style.display === 'none' || style.visibility === 'hidden' ||
+    style.visibility === 'collapse';
 }
 
 /**

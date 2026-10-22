@@ -127,6 +127,24 @@ describe('sidebar reveal handle and right-side tools', () => {
     expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
   });
 
+  it('reveals and focuses navigation buttons through the sidebar keyboard shortcut', () => {
+    const { sidebar, trigger, panel } = setup();
+    initializeSidebarVisibility(sidebar, trigger);
+    const hidden = new KeyboardEvent('keydown', {
+      key: 'J', altKey: true, shiftKey: true, bubbles: true, cancelable: true,
+    });
+    sidebar.dispatchEvent(hidden);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(false);
+    trigger.dispatchEvent(new Event('pointerenter'));
+    const shortcut = new KeyboardEvent('keydown', {
+      key: 'J', altKey: true, shiftKey: true, bubbles: true, cancelable: true,
+    });
+    sidebar.dispatchEvent(shortcut);
+    expect(shortcut.defaultPrevented).toBe(true);
+    expect(panel.classList.contains('navigator-jump-controls-visible')).toBe(true);
+    expect(document.activeElement?.id).toBe('jump-chat-top-btn');
+  });
+
   it('cancels quick auto-hide when the pointer reenters the sidebar', () => {
     vi.useFakeTimers();
     const { sidebar, trigger } = setup();

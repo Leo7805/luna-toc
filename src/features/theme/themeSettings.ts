@@ -21,7 +21,12 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
     LEGACY_THEME_KEY,
   ]);
   const settings = normalizeThemeSettings(result[SETTINGS_KEY]);
-  if (settings) return settings;
+  if (settings) {
+    if (result[LEGACY_THEME_KEY] !== undefined) {
+      await chrome.storage.local.remove(LEGACY_THEME_KEY).catch(() => undefined);
+    }
+    return settings;
+  }
 
   const legacyTheme = result[LEGACY_THEME_KEY];
   if (legacyTheme === 'dark' || legacyTheme === 'light') {
@@ -30,6 +35,7 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
       manualTheme: legacyTheme,
     };
     await writeThemeSettings(migratedSettings);
+    await chrome.storage.local.remove(LEGACY_THEME_KEY).catch(() => undefined);
     return migratedSettings;
   }
 

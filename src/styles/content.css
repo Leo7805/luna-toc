@@ -13,7 +13,6 @@ html[data-theme='dark'] {
   --ct-bg-icon-btn-hover: #18243a;
   --ct-bg-icon-btn-active: #1d2c50;
   --ct-bg-jump-controls: rgba(16, 24, 39, 0.45);
-  --ct-jump-reveal-bg: rgba(3, 10, 23, 0.3);
   --ct-bg-jump-btn-hover: rgba(255, 255, 255, 0.08);
   --ct-bg-input: #0b111d;
   --ct-bg-select: #162033;
@@ -70,8 +69,6 @@ html[data-theme='dark'] {
   --ct-accent-outline-indicator: #7f91ff;
 
   /* Flag / Bookmark (gold) */
-  --ct-flag-color: #f0c341;
-  --ct-flag-hover: #f6cf5a;
 
   /* Floating toggle button */
   --ct-toggle-btn-color: #7f91ff;
@@ -105,7 +102,6 @@ html[data-theme='light'] {
   --ct-bg-icon-btn-hover: #e6f0fd;
   --ct-bg-icon-btn-active: #dce9ff;
   --ct-bg-jump-controls: rgba(238, 245, 255, 0.65);
-  --ct-jump-reveal-bg: rgba(141, 164, 197, 0.23);
   --ct-bg-jump-btn-hover: rgba(82, 110, 245, 0.08);
   --ct-bg-input: #e4eefc;
   --ct-bg-select: #e4eefc;
@@ -162,8 +158,6 @@ html[data-theme='light'] {
   --ct-accent-outline-indicator: #526ef5;
 
   /* Flag / Bookmark (gold) */
-  --ct-flag-color: #d9a514;
-  --ct-flag-hover: #c2930e;
 
   /* Floating toggle button */
   --ct-toggle-btn-color: #526ef5;
@@ -176,7 +170,6 @@ html[data-theme='light'] {
   --ct-sidebar-box-shadow-jump: 0 10px 30px rgba(82, 110, 245, 0.1);
   --ct-sidebar-shadow: -4px 0 24px rgba(35, 69, 111, 0.08);
   --ct-modal-overlay-bg: rgba(0, 0, 0, 0.4);
-  --ct-active-item-box-shadow-mark: inset 3px 0 0 #d9a514;
   --ct-active-item-box-shadow-outline:
     inset 0 0 0 1px #526ef5, inset 3px 0 0 #526ef5;
   --ct-select-color-scheme: light;

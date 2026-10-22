@@ -74,7 +74,11 @@ export function getReusablePromptOutline(
     return null;
   }
 
-  if (cachedOutline.entries.every(({ element }) => element.isConnected)) {
+  if (cachedOutline.entries.every(({ element, text, sectionId }) =>
+    element.isConnected &&
+    (element.textContent ?? '').trim() === text &&
+    (element.dataset.sectionId || '') === sectionId
+  )) {
     return cachedOutline;
   }
 

@@ -1,7 +1,7 @@
 /**
  * Provides a reusable floating context menu for LunaTOC feature surfaces.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -30,6 +30,18 @@ interface ContextMenuProps {
 
 const MENU_GAP = 8;
 const MENU_WIDTH = 220;
+
+/** Fits a measured popup inside the visible viewport without assuming its height. */
+export function fitContextMenuPosition(
+  desired: { left: number; top: number },
+  size: { width: number; height: number },
+  viewport: { width: number; height: number }
+): { left: number; top: number } {
+  return {
+    left: Math.max(MENU_GAP, Math.min(desired.left, viewport.width - size.width - MENU_GAP)),
+    top: Math.max(MENU_GAP, Math.min(desired.top, viewport.height - size.height - MENU_GAP)),
+  };
+}
 
 function ContextMenuIcon({
   icon,
@@ -86,21 +98,34 @@ export function ContextMenu({
     };
   }, [onClose]);
 
-  const left = Math.min(
-    position.left,
-    window.innerWidth - MENU_WIDTH - MENU_GAP
-  );
-  const top = Math.min(position.top, window.innerHeight - 52 - MENU_GAP);
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+    const update = (): void => {
+      const fitted = fitContextMenuPosition(
+        position,
+        { width: menu.offsetWidth || MENU_WIDTH, height: menu.offsetHeight },
+        { width: window.innerWidth, height: window.innerHeight }
+      );
+      menu.style.left = `${fitted.left}px`;
+      menu.style.top = `${fitted.top}px`;
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [position.left, position.top, items.length]);
 
   return (
     <div
       ref={menuRef}
       role="menu"
       aria-label={ariaLabel}
-      className="fixed z-[var(--ct-z-popover,1020)] w-55 rounded-lg border border-border bg-popover p-1 shadow-xl"
+      className="fixed z-[var(--ct-z-popover,1020)] w-55 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-xl"
       style={{
-        left: Math.max(MENU_GAP, left),
-        top: Math.max(MENU_GAP, top),
+        left: Math.max(MENU_GAP, Math.min(position.left, window.innerWidth - MENU_WIDTH - MENU_GAP)),
+        top: MENU_GAP,
+        maxHeight: `calc(100vh - ${2 * MENU_GAP}px)`,
+        maxWidth: `calc(100vw - ${2 * MENU_GAP}px)`,
       }}
     >
       {items.map((item) => {
