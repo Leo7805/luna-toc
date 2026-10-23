@@ -4,49 +4,31 @@
  */
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {existsSync,mkdtempSync,rmSync,mkdirSync} from 'node:fs';
+import {existsSync,mkdtempSync,rmSync,mkdirSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {chromium} from 'playwright';
 
 const dist=resolve('dist');
 const conversationId='luna-stage-9-e2e';
-const url='https://chatgpt.com/c/'+conversationId;
-const html=[
-'<!doctype html><html lang="zh"><head><meta charset="UTF-8"><title>测试会话 - ChatGPT</title>',
-'<style>body{margin:0;font-family:Arial}#root{display:flex;height:100vh}',
-'#native-nav{width:170px;background:#eee;flex-shrink:0}',
-'main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto}',
-'#thread{flex:1;overflow:auto;padding:20px}article{padding:24px}',
-'#thread-bottom-container{padding:12px;border-top:1px solid #999}',
-'.ProseMirror{border:1px solid #999;min-height:40px}</style></head><body>',
-'<div id="root"><nav id="native-nav"><a href="/c/luna-stage-9-e2e">会话</a></nav>',
-'<main id="chat-main"><div id="thread">',
-'<article data-turn="user" data-testid="conversation-turn-1" data-message-id="user-1"><div data-message-author-role="user">第一条测试问题</div></article>',
-'<article data-turn="assistant" data-message-id="answer-1"><h2>回答一</h2></article>',
-'<article data-turn="user" data-testid="conversation-turn-2" data-message-id="user-2"><div data-message-author-role="user">第二条测试问题</div></article>',
-'<article data-turn="assistant" data-message-id="answer-2"><h3>回答二</h3></article>',
-'</div><div id="thread-bottom-container"><div class="ProseMirror" contenteditable="true" role="textbox" id="prompt-textarea"></div></div></main></div>',
-'<script>window.addEventListener("load",()=>fetch("/backend-api/conversations/luna-stage-9-e2e?num_turns=4").catch(()=>{}))</script>',
-'</body></html>'
-].join('');
-const items=[
-  {id:'user-1',author:{role:'user'},content:{parts:['第一条测试问题']},parent:null,create_time:1},
-  {id:'answer-1',author:{role:'assistant'},content:{parts:['回答一']},parent:'user-1',create_time:2},
-  {id:'user-2',author:{role:'user'},content:{parts:['第二条测试问题']},parent:'answer-1',create_time:3},
-  {id:'answer-2',author:{role:'assistant'},content:{parts:['回答二']},parent:'user-2',create_time:4},
-];
-const payload=JSON.stringify({messages:items,current_node:'answer-2',
-  page_info:{has_previous_page:false,has_next_page:false}});
+function createHtml(messageCount=2){
+ const messages=Array.from({length:messageCount},(_,index)=>{const n=index+1;const question=n===1?'第一条测试问题':n===2?'第二条测试问题':`第${n}条测试问题`;return `<article data-turn="user" data-testid="conversation-turn-${n}" data-message-id="user-${n}"><div data-message-author-role="user">${question}</div></article><article data-turn="assistant" data-message-id="answer-${n}"><h2>回答${n}</h2></article>`;}).join('');
+ return ['<!doctype html><html lang="zh"><head><meta charset="UTF-8"><title>测试会话 - ChatGPT</title>','<style>body{margin:0;font-family:Arial}#root{display:flex;height:100vh}','#native-nav{width:170px;background:#eee;flex-shrink:0}','main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto}','#thread{flex:1;overflow:auto;padding:20px}article{padding:24px}','#thread-bottom-container{padding:12px;border-top:1px solid #999}','.ProseMirror{border:1px solid #999;min-height:40px}</style></head><body>',`<div id="root"><nav id="native-nav"><a href="/c/${conversationId}">会话</a></nav>`,`<main id="chat-main"><div id="thread">${messages}</div>`,'<div id="thread-bottom-container"><div class="ProseMirror" contenteditable="true" role="textbox" id="prompt-textarea"></div></div></main></div>','<script>window.addEventListener("load",()=>fetch("/backend-api/conversations/"+location.pathname.split("/").pop()+"?num_turns=4").catch(()=>{}))</script>','</body></html>'].join('');
+}
+const html=createHtml(2),largeHtml=createHtml(500);
+function createPayload(count){const messages=[];let parent=null;for(let n=1;n<=count;n++){messages.push({id:`user-${n}`,author:{role:'user'},content:{parts:[n===1?'第一条测试问题':n===2?'第二条测试问题':`第${n}条测试问题`]},parent,create_time:n*2-1});messages.push({id:`answer-${n}`,author:{role:'assistant'},content:{parts:[`回答${n}`]},parent:`user-${n}`,create_time:n*2});parent=`answer-${n}`;}return {messages,current_node:parent,page_info:{has_previous_page:false,has_next_page:false}};}
+const payload=JSON.stringify(createPayload(2)),largePayload=JSON.stringify(createPayload(500));
 
 /** Intercept the real extension's host origin; all other HTTP traffic is denied. */
 async function installFixture(context){
   await context.route('https://chatgpt.com/**',async route=>{
     const p=new URL(route.request().url()).pathname;
     if(route.request().isNavigationRequest()){
-      await route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html});
+      const path=new URL(route.request().url()).pathname;
+       await route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:path.includes('luna-stage-10-large-e2e')?largeHtml:html});
     }else if(/^\/backend-api\/conversations\/[^/]+$/.test(p)){
-      await route.fulfill({status:200,contentType:'application/json',body:payload});
+      const id=p.split('/').pop();
+       await route.fulfill({status:200,contentType:'application/json',body:id==='luna-stage-10-large-e2e'?largePayload:payload});
     }else if(p==='/backend-api/me'||p==='/backend-api/accounts/check'){
       await route.fulfill({status:401,contentType:'application/json',body:'{}'});
     }else{
@@ -141,6 +123,49 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       assert.equal(await page.locator('#luna-toc-sidebar').count(),1);
       await page.reload({waitUntil:'domcontentloaded'});
       await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached'});
+    });
+
+    await t.test('500-message synthetic conversation builds a TOC and supports far jumps',{timeout:60000},async()=>{
+      const started=Date.now();
+      await page.goto('https://chatgpt.com/c/luna-stage-10-large-e2e',{waitUntil:'domcontentloaded'});
+      await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
+      await page.evaluate(async()=>fetch('/backend-api/conversations/luna-stage-10-large-e2e?num_turns=500'));
+      await page.waitForFunction(()=>document.querySelectorAll('.navigator-item').length===500,{timeout:20000});
+      const tocBuildMs=Date.now()-started,jumpStarted=Date.now();
+      await page.locator('.navigator-item').last().click();
+      await page.waitForFunction(()=>{const target=document.querySelector('[data-message-id="user-500"]');if(!target)return false;const rect=target.getBoundingClientRect();return rect.top>=0&&rect.bottom<=window.innerHeight;},{timeout:15000});
+      console.log('[LunaTOC browser synthetic]',JSON.stringify({messages:500,environment:'headless Chromium fixture; no live ChatGPT',tocBuildMs,farJumpMs:Date.now()-jumpStarted}));
+    });
+    await t.test('backup export and restore use the shared background writer',async()=>{
+      const settings=await context.newPage();
+      try{
+        const optionsPage=await worker.evaluate(()=>chrome.runtime.getManifest().options_ui.page);
+        await settings.goto('chrome-extension://'+extensionId+'/'+optionsPage);
+        await worker.evaluate(async()=>chrome.storage.local.set({
+          'lumaToc:myPromptsV1':[{id:'e2e-prompt',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
+          'lunaToc:promptUsageV1':{'e2e-prompt':{usageCount:2,lastUsedAt:3}},
+          'chatToc:themeSettings':{followChatGPT:false,manualTheme:'light'},
+          'chatToc:sidebarPreferences':{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
+        }));
+        const downloadPromise=settings.waitForEvent('download');
+        await settings.getByRole('button',{name:'导出本地数据'}).click();
+        const download=await downloadPromise,filePath=await download.path();
+        assert.ok(filePath,'backup download should complete');
+        const backup=JSON.parse(readFileSync(filePath,'utf8'));
+        assert.equal(backup.data.prompts[0].id,'e2e-prompt');
+        assert.equal(backup.data.promptUsage['e2e-prompt'].usageCount,2);
+        await worker.evaluate(async()=>chrome.storage.local.set({'lumaToc:myPromptsV1':[{id:'temporary',title:'temporary',content:'temporary',createdAt:1,updatedAt:2}]}));
+        await settings.locator('input[type="file"]').setInputFiles({name:'luna-toc-e2e-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+        await settings.locator('.settings-backup-preview').waitFor({state:'visible'});
+        settings.on('dialog',dialog=>dialog.accept());
+        await settings.getByRole('button',{name:'确认恢复'}).click();
+        await settings.getByText(/恢复成功/).waitFor({state:'visible',timeout:15000});
+        const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:themeSettings','chatToc:sidebarPreferences']));
+        assert.equal(restored['lumaToc:myPromptsV1'][0].id,'e2e-prompt');
+        assert.equal(restored['lunaToc:promptUsageV1']['e2e-prompt'].usageCount,2);
+        assert.deepEqual(restored['chatToc:themeSettings'],backup.data.theme);
+        assert.deepEqual(restored['chatToc:sidebarPreferences'],backup.data.sidebar);
+      }finally{await settings.close();}
     });
   }catch(error){
     if(page&&!page.isClosed()){
