@@ -96,7 +96,7 @@ describe('Sidebar Search Lifecycle and Focus Styling', () => {
     searchInput.dispatchEvent(new Event('input'));
 
     // Switch view
-    viewModeBtn.click();
+    sidebarController.toggleViewMode();
     expect(searchInput.style.display).toBe('none');
 
     // Re-rendering or typing does not accidentally reopen it

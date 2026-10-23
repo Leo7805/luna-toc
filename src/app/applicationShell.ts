@@ -30,7 +30,6 @@ import { initializeCustomTocTitles } from '@/features/customTocTitles/customTocT
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
 import { initFloatingPanel } from '@/features/sidebar/FloatingPanel';
-import { createJumpToEdgeControls } from '@/features/sidebar/jumpToEdgeControls';
 
 /**
  * Resolves when document.body exists during document_start execution.
@@ -91,13 +90,7 @@ async function createSidebar(): Promise<HTMLElement> {
         aria-live="polite"
         role="status"
       ></div>
-      <div class="navigator-jump-controls">
-        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="Switch to My Prompts" title="Switch to My Prompts">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
-          </svg>
-        </button>
-      </div>
+      <div class="navigator-jump-controls"></div>
       <div id="navigator-list"></div>
       <div id="myprompts-list" class="navigator-list" style="display: none;"></div>
     `;
@@ -236,7 +229,6 @@ export async function initializeApplication(): Promise<void> {
   const sidebar = await createSidebar();
   sidebarController.init();
   initSidebarResize(sidebar);
-  createJumpToEdgeControls(() => sidebarController.isMyPromptsView());
   initFloatingPanel();
 
   const toggleButton = createSidebarToggleButton();

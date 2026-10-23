@@ -11,6 +11,7 @@ import { CustomTocTitleDialogHost } from '@/components/custom-toc-titles/CustomT
 import { ConfirmDialogHost } from '@/components/my-prompts/ConfirmDialog';
 import { SidebarHeader } from '@/components/sidebar-header/SidebarHeader';
 import { SidebarStatus } from '@/components/sidebar-status/SidebarStatus';
+import { SidebarJumpControls } from '@/components/sidebar-jump/SidebarJumpControls';
 import { MyPromptsView } from '@/components/my-prompts/MyPromptsView';
 import {
   setReactPortalContainer,
@@ -66,6 +67,7 @@ export async function initializeReactHost(): Promise<void> {
       <ConfirmDialogHost />
       <SidebarHeader />
       <SidebarStatus />
+      <SidebarJumpControls />
       <MyPromptsView />
     </>
   );

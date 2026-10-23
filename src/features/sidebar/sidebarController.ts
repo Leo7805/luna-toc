@@ -173,23 +173,9 @@ export const sidebarController = (() => {
    * Switches the sidebar view and synchronizes its controls with the rendered panel.
    */
   function setViewMode(nextViewMode: ViewMode): void {
-    const button = document.getElementById(
-      'toggle-view-mode-btn'
-    ) as HTMLButtonElement | null;
-    if (!button) return;
-
     previewTooltip.hide();
     viewMode = nextViewMode;
     const isMyPrompts = viewMode === 'myPrompts';
-
-    button.classList.toggle('mode-myprompts-active', isMyPrompts);
-    button.setAttribute(
-      'aria-label',
-      isMyPrompts ? 'Switch to Table of Contents' : 'Switch to My Prompts'
-    );
-    button.title = isMyPrompts
-      ? 'Switch to Table of Contents'
-      : 'Switch to My Prompts';
 
     if (!isMyPrompts) {
       promptContextMenuController.close();
@@ -407,13 +393,6 @@ export const sidebarController = (() => {
     ) as HTMLButtonElement | null;
     if (titleBtn && !titleBtn.dataset.reactManaged) {
       titleBtn.addEventListener('click', handleTitleClick);
-    }
-
-    const toggleViewModeBtn = document.getElementById(
-      'toggle-view-mode-btn'
-    ) as HTMLButtonElement | null;
-    if (toggleViewModeBtn) {
-      toggleViewModeBtn.addEventListener('click', toggleViewMode);
     }
   }
 
