@@ -95,6 +95,9 @@ describe('TOC synthetic performance baseline', () => {
       ).length;
       removeSpy.mockRestore();
       addSpy.mockRestore();
+      // The highlighted row can change without touching all other rows.
+      expect(activeClassRemoveCalls).toBeLessThanOrEqual(transitions);
+      expect(activeClassAddCalls).toBe(transitions);
 
       const searchMissMs = duration(() => renderer.setSearchQuery('synthetic-no-match-987654321'));
       expect(list.children.length).toBe(0);
