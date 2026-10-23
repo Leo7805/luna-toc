@@ -149,6 +149,28 @@ describe('My Prompts serial cross-tab persistence', () => {
     expect(current.map((prompt) => prompt.title)).toEqual(['from A', 'from B']);
   });
 
+
+  it('rejects an overlapping same-record race even without a UI-level guard', async () => {
+    const tabA = createPromptStore();
+    const tabB = createPromptStore();
+    const outcomes = await Promise.allSettled([
+      tabA.update((prompts) => {
+        prompts[0].title = 'Edited by A'; prompts[0].updatedAt = 3; return prompts;
+      }),
+      tabB.update((prompts) => {
+        prompts[0].title = 'Edited by B'; prompts[0].updatedAt = 4; return prompts;
+      }),
+    ]);
+    expect(outcomes.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const failed = outcomes.find((result) => result.status === 'rejected');
+    expect(failed).toMatchObject({
+      status: 'rejected',
+      reason: expect.objectContaining({ message: expect.stringContaining('conflicting edits') }),
+    });
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect((await tabA.getAll())[0].title).toBe('Edited by A');
+  });
+
   it('same-record stale editor guard refuses to silently overwrite the other edit', async () => {
     const tabA = createPromptStore();
     const tabB = createPromptStore();
