@@ -6,6 +6,10 @@ import {
   createPromptWriteCoordinator,
 } from '@/features/myPrompts/promptWriteCoordinator';
 import {
+  TOC_ALIAS_COMMIT_TYPE,
+  createTocAliasWriteCoordinator,
+} from '@/features/conversationPrompts/tocAliasWriteCoordinator';
+import {
   TOOLBAR_COMPATIBILITY_WARNING,
   toolbarWarningKey,
   type ToolbarCompatibilityWarning,
@@ -59,6 +63,21 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   }
   void promptCoordinator.commit(message).then(sendResponse, () =>
     sendResponse({ ok: false, error: 'Prompt storage writer unavailable' })
+  );
+  return true;
+});
+
+/** Serializes TOC alias mutations and confirmed deletion fences across tabs. */
+const tocAliasCoordinator = createTocAliasWriteCoordinator();
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  if (!message || typeof message !== 'object' ||
+      (message as { type?: unknown }).type !== TOC_ALIAS_COMMIT_TYPE) return;
+  if (sender.id !== chrome.runtime.id) {
+    sendResponse({ ok: false, error: 'Untrusted extension message sender' });
+    return false;
+  }
+  void tocAliasCoordinator.commit(message).then(sendResponse, () =>
+    sendResponse({ ok: false, error: 'TOC alias writer unavailable' })
   );
   return true;
 });
