@@ -1,12 +1,18 @@
 /** Pure regression tests for the conservative toolbar warning conditions. */
 import { describe, expect, it } from 'vitest';
-import { missingChatGptDomMarkers } from '@/features/contractAlert/healthSignals';
+import { canInspectChatGptDom, missingChatGptDomMarkers } from '@/features/contractAlert/healthSignals';
 import { parseToolbarWarning, toolbarWarningKey } from '@/features/contractAlert/toolbarWarning';
 
 describe('toolbar compatibility fallback', () => {
   it('ignores new chats and conversations without rendered turns', () => {
     expect(missingChatGptDomMarkers('/', true, false, false)).toEqual([]);
     expect(missingChatGptDomMarkers('/c/12345678', false, false, false)).toEqual([]);
+  });
+
+  it('only treats rendered conversation turns as recovery evidence', () => {
+    expect(canInspectChatGptDom('/', true)).toBe(false);
+    expect(canInspectChatGptDom('/c/12345678', false)).toBe(false);
+    expect(canInspectChatGptDom('/g/p-abc/c/12345678', true)).toBe(true);
   });
 
   it('identifies missing selectors on standalone and project chat routes', () => {
