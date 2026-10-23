@@ -4,7 +4,6 @@
  * Repeatable synthetic TOC performance workloads. Time values are diagnostics
  * for the runner, not universal browser performance guarantees.
  */
-import { performance } from 'node:perf_hooks';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
 import { resetOutline } from '@/navigation/jump/outline';
@@ -105,7 +104,7 @@ describe('TOC synthetic performance baseline', () => {
 
       const result: TocPerformanceResult = {
         workload,
-        environment: 'Node ' + process.version + ' / Vitest jsdom (synthetic, no ChatGPT network)',
+        environment: 'Vitest/jsdom synthetic workload (runner-specific, no ChatGPT network)',
         coldRenderMs: Number(coldRenderMs.toFixed(3)),
         reusedRenderMedianMs: Number(median(reusedRenderSamples).toFixed(3)),
         searchMissMs: Number(searchMissMs.toFixed(3)),
