@@ -43,7 +43,12 @@ import {
 } from './jump/outline';
 import { setSidebarStatus } from './ui/sidebarStatus';
 import { previewTooltip } from '@/features/tooltip';
-import { TOC_REFRESH_REQUEST, TOC_REFRESH_RESULT } from './refresh/refreshProtocol';
+import {
+  TOC_REFRESH_CANCEL,
+  TOC_REFRESH_REQUEST,
+  TOC_REFRESH_RESULT,
+  TOC_REFRESH_TIMEOUT_MS,
+} from './refresh/refreshProtocol';
 import type { ConversationSnapshot } from './state/activeBranch';
 
 export type { RenderOptions };
@@ -66,6 +71,8 @@ export const navigatorController = (() => {
   let isAttached = false;
   let refreshSequence = 0;
   let refreshPending = false;
+  let refreshRouteKey: string | null = null;
+  let refreshTimeoutId: number | null = null;
   let refreshFailed = false;
   let lastRefreshRequestedAt = 0;
   let reportedPromptCount = -1;
@@ -149,6 +156,20 @@ export const navigatorController = (() => {
     render({ completed: true });
   }
 
+  /** Cancels the exact outstanding page-hook request, including on route changes. */
+  function cancelPendingRefresh(): void {
+    if (!refreshPending || refreshRouteKey === null) return;
+    window.postMessage({
+      type: TOC_REFRESH_CANCEL,
+      routeKey: refreshRouteKey,
+      requestId: refreshSequence,
+    }, location.origin);
+    refreshPending = false;
+    refreshRouteKey = null;
+    if (refreshTimeoutId !== null) window.clearTimeout(refreshTimeoutId);
+    refreshTimeoutId = null;
+  }
+
   /**
    * Initializes data and route listeners before the page hook starts emitting.
    * @param {Object} [options]
@@ -163,18 +184,21 @@ export const navigatorController = (() => {
     // Coalesce repeated pointer transitions and existing requests.
     if (refreshPending || now - lastRefreshRequestedAt < 500) return;
     refreshPending = true;
+    refreshRouteKey = routeKey;
     lastRefreshRequestedAt = now;
     const requestId = ++refreshSequence;
     window.postMessage({ type: TOC_REFRESH_REQUEST, routeKey, requestId }, location.origin);
-    window.setTimeout(() => {
+    refreshTimeoutId = window.setTimeout(() => {
       if (refreshSequence === requestId && refreshPending) {
-        refreshPending = false;
+        cancelPendingRefresh();
+        // Invalidate even an already-queued response that arrives after timeout.
+        refreshSequence += 1;
         conversationStore.markConversationIncomplete(routeKey);
         refreshFailed = true;
         render();
         console.warn('[LunaTOC] Conversation TOC refresh timed out');
       }
-    }, 15000);
+    }, TOC_REFRESH_TIMEOUT_MS);
   }
 
   function init(options: NavigatorControllerOptions = {}): void {
@@ -424,8 +448,8 @@ export const navigatorController = (() => {
     const nextConversationKey = getCurrentConversationKey();
     const transition = conversationStore.syncRouteState(nextConversationKey);
     if (!transition.isTransition) return;
+    cancelPendingRefresh();
     refreshSequence += 1;
-    refreshPending = false;
     refreshFailed = false;
 
     const isEnteringNewChat =
@@ -462,8 +486,8 @@ export const navigatorController = (() => {
   function handleConversationDeleted(routeKey: string): void {
     conversationStore.deleteConversation(routeKey);
     if (routeKey !== getCurrentConversationKey()) return;
+    cancelPendingRefresh();
     refreshSequence += 1;
-    refreshPending = false;
     refreshFailed = false;
     setLoading(false);
     clearSettleTimer();
@@ -511,8 +535,12 @@ export const navigatorController = (() => {
       if (event.data?.type === TOC_REFRESH_RESULT) {
         if (event.origin !== location.origin) return;
         const { requestId, routeKey, payload } = event.data;
-        if (requestId !== refreshSequence || routeKey !== getCurrentConversationKey()) return;
+        if (!refreshPending || requestId !== refreshSequence ||
+            routeKey !== getCurrentConversationKey()) return;
         refreshPending = false;
+        refreshRouteKey = null;
+        if (refreshTimeoutId !== null) window.clearTimeout(refreshTimeoutId);
+        refreshTimeoutId = null;
         if (!payload || !Array.isArray((payload as ConversationSnapshot).messages)) {
           conversationStore.markConversationIncomplete(routeKey);
           refreshFailed = true;
