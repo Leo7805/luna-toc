@@ -492,8 +492,9 @@ async function savePromptEditorValues(
       } else {
         const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
         if (!existingPrompt) throw new Error('提示词已在其他标签页删除，请重新打开编辑器。');
-        if (existingPrompt.updatedAt !== item.updatedAt ||
-            existingPrompt.title !== item.title || existingPrompt.content !== item.content) {
+        if ((item.updatedAt !== undefined && existingPrompt.updatedAt !== item.updatedAt) ||
+            (item.title !== undefined && existingPrompt.title !== item.title) ||
+            (item.content !== undefined && existingPrompt.content !== item.content)) {
           throw new Error('提示词已在其他标签页修改，请重新打开编辑器。');
         }
         existingPrompt.title = title;
@@ -506,7 +507,7 @@ async function savePromptEditorValues(
     await showPromptModal({
       title: '保存提示词',
       message: error instanceof Error && error.message.includes('其他标签页')
-        ? error.message : '无法保存此提示词。',
+        ? error.message : '无法保存此提示词，请检查扩展状态后重试。',
     });
     throw error;
   }
