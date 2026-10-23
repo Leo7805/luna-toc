@@ -116,11 +116,14 @@ export const navigatorController = (() => {
       await tocAliasStore.update(routeKey, message.id,
         title === message.text ? null : title, getActiveConversationOwner(), expectedAlias);
     },
-    onRestorePrompt: (message, expectedAlias) => {
-      void tocAliasStore.update(getCurrentConversationKey(), message.id,
-        null, getActiveConversationOwner(), expectedAlias).catch((error: unknown) => {
-        console.warn('[LunaTOC] Failed to restore TOC title', error);
-      });
+    onRestorePrompt: async (message, expectedAlias) => {
+      const routeKey = getCurrentConversationKey();
+      if (!isPermanentConversationId(routeKey) ||
+          !conversationStore.getMessages().some((item) => item.id === message.id)) {
+        throw new Error('Conversation changed while restoring title');
+      }
+      await tocAliasStore.update(routeKey, message.id,
+        null, getActiveConversationOwner(), expectedAlias);
     },
     onPromptCountReported: (count) => {
       if (count === reportedPromptCount) return;
