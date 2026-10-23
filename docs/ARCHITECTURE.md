@@ -69,3 +69,9 @@
 ## 本地数据备份与恢复
 
 `src/features/backup/localBackup.ts` 提供本地 JSON v1 备份、字段校验、合并/覆盖恢复与失败回滚；只读取明确许可的本地键（提示词、使用统计、目录别名、主题、侧边栏偏好），不导出 ChatGPT 对话或凭证。`src/components/options/LocalBackupSettings.tsx` 将选择文件、内容预览和二次确认放在扩展设置页；原 Markdown 提示词导入导出保持不变。普通目录编辑已经通过后台串行协调；备份恢复仍属于单独的批量本地写入，并非同一事务。显式恢复旧会话别名会移除其删除标记；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
+
+## 阶段九：自动化浏览器验收与供应链审查
+
+浏览器端到端测试使用 `test/browser/extension.test.mjs`，通过 Playwright 启动带独立配置文件的 Chromium 并加载构建后的 `dist/`。对 `chatgpt.com` 的页面和会话 API 请求全部使用固定模拟数据处理，其他外部 HTTP 请求被阻止；覆盖目录、搜索、侧边栏、键盘、布局、SPA 路由、异常请求和刷新。自动化不访问真实账号，不能代替真实 ChatGPT 兼容性验收。
+
+`test/browser/manifest-audit.test.mjs`、`scripts/audit-extension.mjs` 约束扩展权限和可注入域名，核对源及打包 Manifest，并生成锁文件许可证清单；GitHub Actions 在同一只读 CI 中执行 `npm audit --audit-level=high`，发现高危以上漏洞就阻断检查。浏览器专用 Playwright 精确版本仅在生产包构建后临时安装，不改动依赖锁文件。执行说明见 `test/browser/README.md`。
