@@ -178,7 +178,8 @@ jobs:
           cp package-lock.json "$RUNNER_TEMP/original-lock.json"
           npm uninstall shadcn --package-lock-only --ignore-scripts --no-audit --no-fund
           npm ci --ignore-scripts --no-audit --no-fund
-          npm update vite vitest @vitest/mocker nanoid postcss source-map-js undici --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/npm-tool" npm@11 --ignore-scripts --no-audit --no-fund
+          node "$RUNNER_TEMP/npm-tool/node_modules/npm/bin/npm-cli.js" audit fix --package-lock-only --ignore-scripts --no-fund || true
           npm ci --ignore-scripts --no-audit --no-fund
           npm audit --json > "$RUNNER_TEMP/after-audit.json" || true
           node --input-type=module <<'NODE'
