@@ -22,6 +22,27 @@ let isPinned = true;
 let isHidden = false;
 let hideTimer = 0;
 const pinListeners = new Set<() => void>();
+const hiddenListeners = new Set<() => void>();
+
+/**
+ * Returns whether the sidebar is currently hidden.
+ * @returns {boolean}
+ */
+export function isSidebarHidden(): boolean {
+  return isHidden;
+}
+
+/**
+ * Subscribes to sidebar hidden state changes.
+ * @param {() => void} listener
+ * @returns {() => void} Unsubscribe function.
+ */
+export function subscribeSidebarHidden(listener: () => void): () => void {
+  hiddenListeners.add(listener);
+  return () => {
+    hiddenListeners.delete(listener);
+  };
+}
 
 /**
  * Returns whether the sidebar is currently pinned.
@@ -49,20 +70,23 @@ export function subscribeSidebarPinned(listener: () => void): () => void {
     pinListeners.delete(listener);
   };
 }
+
 /**
  * @param {HTMLElement} sidebarElement
- * @param {HTMLButtonElement} toggleButton
+ * @param {HTMLButtonElement} [toggleButton]
  */
 export function initializeSidebarVisibility(
   sidebarElement: HTMLElement,
-  toggleButton: HTMLButtonElement
+  toggleButton?: HTMLButtonElement | null
 ): void {
   sidebar = sidebarElement;
-  toggleBtn = toggleButton;
+  toggleBtn = toggleButton ?? null;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
 
   bindPinButton();
-  bindToggleButton();
+  if (toggleBtn) {
+    bindToggleButton();
+  }
   bindAutoHide();
   loadPinnedState();
   finishInitializing();
@@ -93,32 +117,34 @@ function bindToggleButton(): void {
 }
 
 function bindAutoHide(): void {
-  if (!sidebar || !toggleBtn) return;
+  if (!sidebar) return;
 
   sidebar.addEventListener('pointerenter', handleAutoHideEnter);
-  toggleBtn.addEventListener('pointerenter', handleAutoHideEnter);
+  toggleBtn?.addEventListener('pointerenter', handleAutoHideEnter);
   sidebar.addEventListener('pointerleave', scheduleAutoHide);
-  toggleBtn.addEventListener('pointerleave', scheduleAutoHide);
+  toggleBtn?.addEventListener('pointerleave', scheduleAutoHide);
 
   document.addEventListener('pointerover', handleDocumentPointerOver, true);
   document.addEventListener('pointerout', handleDocumentPointerOut, true);
 }
 
-function handleAutoHideEnter(): void {
+export function handleAutoHideEnter(): void {
   if (isPinned) return;
 
   clearHideTimer();
   setSidebarHidden(false);
 }
 
-function scheduleAutoHide(): void {
+export function scheduleAutoHide(): void {
   if (isPinned) return;
 
   clearHideTimer();
   hideTimer = window.setTimeout(() => {
+    const currentToggleBtn =
+      toggleBtn ?? document.getElementById('luna-toc-toggle-btn');
     if (
       isPointerInside(sidebar) ||
-      isPointerInside(toggleBtn) ||
+      isPointerInside(currentToggleBtn) ||
       isPointerInsidePreviewTooltip() ||
       isPointerInsideContextMenu()
     ) {
@@ -142,11 +168,13 @@ export function setSidebarPinned(
 
   updatePinButtonState();
 
+  const currentToggleBtn =
+    toggleBtn ?? document.getElementById('luna-toc-toggle-btn');
   if (isPinned) {
     setSidebarHidden(false);
   } else if (
     !isPointerInside(sidebar) &&
-    !isPointerInside(toggleBtn) &&
+    !isPointerInside(currentToggleBtn) &&
     !isPointerInsidePreviewTooltip() &&
     !isPointerInsideContextMenu()
   ) {
@@ -230,26 +258,93 @@ function finishInitializing(): void {
 }
 
 /**
+ * Safely moves focus outside the sidebar if an element inside the sidebar currently has focus,
+ * preventing browser "Blocked aria-hidden on an element because its descendant retained focus" warnings.
+ *
+ * @param {HTMLElement} sidebarEl
+ */
+function evictFocusFromSidebar(sidebarEl: HTMLElement): void {
+  const activeEl = document.activeElement;
+  if (!activeEl || !sidebarEl.contains(activeEl)) {
+    return;
+  }
+
+  // Prefer focusing the floating moon toggle button so keyboard users can easily reopen
+  const toggleBtnEl =
+    toggleBtn ?? document.getElementById('luna-toc-toggle-btn');
+  if (
+    toggleBtnEl instanceof HTMLElement &&
+    toggleBtnEl.isConnected &&
+    typeof toggleBtnEl.focus === 'function' &&
+    !toggleBtnEl.hasAttribute('disabled') &&
+    toggleBtnEl.getAttribute('aria-hidden') !== 'true' &&
+    !('inert' in toggleBtnEl && (toggleBtnEl as any).inert)
+  ) {
+    try {
+      toggleBtnEl.focus();
+    } catch {}
+  }
+
+  // After calling focus(), verify the active element has actually left the Sidebar.
+  // If focus remains inside, use the blur fallback.
+  if (document.activeElement && sidebarEl.contains(document.activeElement)) {
+    if (typeof (document.activeElement as HTMLElement).blur === 'function') {
+      try {
+        (document.activeElement as HTMLElement).blur();
+      } catch {}
+    }
+  }
+}
+
+/**
  * @param {boolean} hidden
  */
 export function setSidebarHidden(hidden: boolean): void {
   isHidden = hidden;
+
+  if (isHidden && sidebar) {
+    evictFocusFromSidebar(sidebar);
+  }
 
   sidebar?.classList.toggle('luna-toc-navigator-hidden', isHidden);
   sidebar?.setAttribute('aria-hidden', String(isHidden));
   if (sidebar && 'inert' in sidebar) {
     sidebar.inert = isHidden;
   }
-  toggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
-  toggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
+  const currentToggleBtn =
+    toggleBtn ?? document.getElementById('luna-toc-toggle-btn');
+  currentToggleBtn?.classList.toggle('luna-toc-sidebar-hidden', isHidden);
+  currentToggleBtn?.classList.toggle('luna-toc-sidebar-visible', !isHidden);
   setWideViewportSpoofEnabled(!isHidden);
+
+  hiddenListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (error) {
+      console.error('Error in hidden listener:', error);
+    }
+  });
 }
 
-function clearHideTimer(): void {
+export function clearHideTimer(): void {
   if (!hideTimer) return;
 
   window.clearTimeout(hideTimer);
   hideTimer = 0;
+}
+
+/**
+ * Resets sidebar visibility state and listeners for testing isolation.
+ */
+export function resetVisibilityForTesting(): void {
+  isPinned = true;
+  isHidden = false;
+  clearHideTimer();
+  sidebar = null;
+  toggleBtn = null;
+  pinBtn = null;
+  pinListeners.clear();
+  hiddenListeners.clear();
 }
 
 /**

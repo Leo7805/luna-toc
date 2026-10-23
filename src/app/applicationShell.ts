@@ -5,7 +5,6 @@
  */
 import { myPrompts } from '@/features/myPrompts/myPrompts';
 import { initializeSidebarVisibility } from '@/features/sidebarVisibility';
-import { createSidebarToggleButton } from '@/features/SidebarToggleButton';
 import { buttonTooltip, previewTooltip } from '@/features/tooltip';
 import {
   getChatGPTTheme,
@@ -231,8 +230,7 @@ export async function initializeApplication(): Promise<void> {
   initSidebarResize(sidebar);
   initFloatingPanel();
 
-  const toggleButton = createSidebarToggleButton();
-  initializeSidebarVisibility(sidebar, toggleButton);
+  initializeSidebarVisibility(sidebar);
   previewTooltip.init({
     anchorSelector: '#navigator-list, #myprompts-list',
   });

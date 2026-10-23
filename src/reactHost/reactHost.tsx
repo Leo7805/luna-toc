@@ -12,6 +12,7 @@ import { ConfirmDialogHost } from '@/components/my-prompts/ConfirmDialog';
 import { SidebarHeader } from '@/components/sidebar-header/SidebarHeader';
 import { SidebarStatus } from '@/components/sidebar-status/SidebarStatus';
 import { SidebarJumpControls } from '@/components/sidebar-jump/SidebarJumpControls';
+import { SidebarToggleButton } from '@/components/sidebar-toggle/SidebarToggleButton';
 import { MyPromptsView } from '@/components/my-prompts/MyPromptsView';
 import {
   setReactPortalContainer,
@@ -69,6 +70,7 @@ export async function initializeReactHost(): Promise<void> {
       <SidebarStatus />
       <SidebarJumpControls />
       <MyPromptsView />
+      <SidebarToggleButton />
     </>
   );
 }
