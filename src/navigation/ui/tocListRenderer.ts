@@ -609,6 +609,7 @@ export function createTocListRenderer(
       const signature = JSON.stringify([
         message.id, message.text, message.createTime, message.canMatchByText,
         message.answerId, displayText,
+        editing?.messageId === message.id ? 'editing' : 'display',
       ]);
       const prior = previousRows.get(key);
       const oldOutline = prior?.element.parentElement === list &&
@@ -617,7 +618,7 @@ export function createTocListRenderer(
         : null;
       const item = oldOutline && prior
         ? prior.element : createNavigatorItem(message, index);
-      if (oldOutline) registerPromptItem(index, item, oldOutline);
+      if (oldOutline) registerPromptItem(index, item, oldOutline, false);
       navigatorItems[index] = item;
       nextRows.set(key, { element: item, signature });
       if (list.children[position] !== item) {

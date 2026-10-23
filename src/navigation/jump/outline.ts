@@ -103,11 +103,12 @@ export function createPromptItem({
 export function registerPromptItem(
   index: number,
   item: HTMLElement,
-  outlineList: HTMLDivElement
+  outlineList: HTMLDivElement,
+  refreshState = true
 ): void {
   const entry = { item, outlineList };
   promptItems.set(index, entry);
-  updatePromptItemState(entry, index);
+  if (refreshState) updatePromptItemState(entry, index);
 }
 
 /**

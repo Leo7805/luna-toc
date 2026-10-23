@@ -345,7 +345,8 @@ export function createConversationStore(
         nextKey: nextConversationKey,
         isNewChatRouteTransition: false,
         shouldPreserveMessages: false,
-        cachedMessages: getCachedConversationMessages(nextConversationKey),
+        // No route transition consumes a snapshot; avoid deep-cloning it.
+        cachedMessages: [],
         isComplete: navigationSnapshotStore.isComplete(nextConversationKey),
       };
     }
