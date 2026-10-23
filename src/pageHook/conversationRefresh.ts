@@ -4,6 +4,7 @@
  * MAIN/ISOLATED messaging boundary.
  */
 import type { Platform } from '@/platforms';
+import type { ConversationData } from '@/features/conversationPrompts/message';
 import { extractActiveBranchMessages, type ConversationSnapshot } from '@/navigation/state/activeBranch';
 import {
   TOC_REFRESH_CANCEL,
