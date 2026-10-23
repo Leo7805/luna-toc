@@ -1,174 +1,77 @@
-# Verify and publish LunaTOC-SC from main, retaining only the latest release.
-name: LunaTOC-SC build and release
+# Publish only after a maintainer explicitly dispatches this workflow on main.
+# Historical releases, tags and branches are never deleted or overwritten.
+name: LunaTOC-SC manual release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
+    inputs:
+      confirm_publish:
+        description: 'I approve publishing a new GitHub pre-release from main'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: chrome-preview-${{ github.ref }}
+  group: luna-toc-manual-release
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
-    name: Verify, package and publish
+  verify:
+    name: Re-run verification before release
+    if: github.ref == 'refs/heads/main' && inputs.confirm_publish == true
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish pre-release (explicit approval only)
+    needs: verify
+    if: github.ref == 'refs/heads/main' && inputs.confirm_publish == true
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
 
     steps:
-      - name: Check out source
+      - name: Check out verified revision
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type-check
-        run: npm run typecheck
-
-      - name: Run tests
-        run: npm test
-
-      - name: Build Chrome extension
-        run: npm run build
-
-      - name: Verify built extension files
-        run: |
-          node --input-type=module <<'NODE'
-          import { existsSync, readFileSync, statSync } from 'node:fs';
-          import { resolve, relative, isAbsolute } from 'node:path';
-
-          const dist = resolve('dist');
-          const manifestPath = resolve(dist, 'manifest.json');
-          if (!existsSync(manifestPath)) {
-            throw new Error('dist/manifest.json is missing');
-          }
-          const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-          if (manifest.manifest_version !== 3) {
-            throw new Error('Expected a Manifest V3 extension');
-          }
-
-          const files = [
-            ...Object.values(manifest.icons ?? {}),
-            ...Object.values(manifest.action?.default_icon ?? {}),
-            manifest.action?.default_popup,
-            manifest.options_ui?.page,
-            manifest.background?.service_worker,
-            manifest.side_panel?.default_path,
-            ...(manifest.content_scripts ?? []).flatMap((script) => [
-              ...(script.js ?? []),
-              ...(script.css ?? []),
-            ]),
-          ].filter(Boolean);
-
-          if (files.length === 0) {
-            throw new Error('No extension assets were declared');
-          }
-          for (const file of files) {
-            const target = resolve(dist, file);
-            const pathFromDist = relative(dist, target);
-            if (pathFromDist.startsWith('..') || isAbsolute(pathFromDist) ||
-                !existsSync(target) || !statSync(target).isFile()) {
-              throw new Error(`Missing or invalid extension asset: ${file}`);
-            }
-          }
-          console.log(`Manifest V3 validated with ${files.length} referenced assets`);
-          NODE
-
-      - name: Create ready-to-load ZIP
-        run: |
-          (cd dist && zip -q -r ../luna-toc-sc-chrome.zip .)
-          unzip -tq luna-toc-sc-chrome.zip
-          unzip -Z1 luna-toc-sc-chrome.zip | grep -Fxq manifest.json
-          sha256sum luna-toc-sc-chrome.zip > luna-toc-sc-chrome.zip.sha256
-
-      - name: Upload Actions artifact
-        uses: actions/upload-artifact@v4
+      - name: Download verified ZIP
+        uses: actions/download-artifact@v4
         with:
           name: luna-toc-sc-chrome
-          path: |
-            luna-toc-sc-chrome.zip
-            luna-toc-sc-chrome.zip.sha256
-          if-no-files-found: error
-          retention-days: 30
 
-      - name: Publish GitHub pre-release
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Verify downloaded package
+        run: |
+          sha256sum -c luna-toc-sc-chrome.zip.sha256
+          unzip -tq luna-toc-sc-chrome.zip
+          unzip -Z1 luna-toc-sc-chrome.zip | grep -Fxq manifest.json
+
+      - name: Publish immutable GitHub pre-release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           COMMIT_SHA: ${{ github.sha }}
-        shell: bash
         run: |
+          set -euo pipefail
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json', 'utf8')).version")"
           tag="v${version}-preview.${COMMIT_SHA:0:12}"
+
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" luna-toc-sc-chrome.zip luna-toc-sc-chrome.zip.sha256 --clobber
-          else
-            gh release create "$tag" \
-              luna-toc-sc-chrome.zip \
-              luna-toc-sc-chrome.zip.sha256 \
-              --target "$COMMIT_SHA" \
-              --title "LunaTOC-SC v${version} (${COMMIT_SHA:0:12})" \
-              --prerelease \
-              --notes "Unpacked Chrome extension built from the default branch at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract it, and load the extracted folder via chrome://extensions (Developer mode). Automated typecheck, tests, and build checks passed. This is a development preview, not a Chrome Web Store package."
+            echo "Release $tag already exists; refusing to overwrite it." >&2
+            exit 1
           fi
 
-      # Retain exactly one publicly listed installable version on main.
-      - name: Remove superseded releases and tags
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json', 'utf8')).version")"
-          keep_tag="v${version}-preview.${COMMIT_SHA:0:12}"
-          gh release view "$keep_tag" >/dev/null
-
-          while IFS= read -r old_tag; do
-            if [[ -n "$old_tag" && "$old_tag" != "$keep_tag" ]]; then
-              echo "Removing superseded release: $old_tag"
-              gh release delete "$old_tag" --cleanup-tag --yes
-            fi
-          done < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
-
-          # Releases and bare Git tags are distinct objects in GitHub.
-          while IFS= read -r old_ref; do
-            if [[ -n "$old_ref" && "$old_ref" != "refs/tags/$keep_tag" ]]; then
-              echo "Removing orphaned tag: $old_ref"
-              gh api --method DELETE "repos/$GH_REPO/git/$old_ref"
-            fi
-          done < <(gh api "repos/$GH_REPO/git/matching-refs/tags" --jq '.[].ref')
-
-
-      # Remove both obsolete layout branches only after a successful main
-      # release job. Pull requests are closed separately before this run.
-      - name: Remove retired layout experiment branches
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          for branch in feat/chatgpt-side-by-side feature/chatgpt-side-by-side-layout; do
-            if gh api "repos/$GH_REPO/git/ref/heads/$branch" >/dev/null 2>&1; then
-              echo "Removing retired branch: $branch"
-              gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch"
-            fi
-          done
+          gh release create "$tag" \
+            luna-toc-sc-chrome.zip \
+            luna-toc-sc-chrome.zip.sha256 \
+            --target "$COMMIT_SHA" \
+            --title "LunaTOC-SC v${version} (${COMMIT_SHA:0:12})" \
+            --prerelease \
+            --notes "Chrome extension built and verified from main at ${COMMIT_SHA}. Download luna-toc-sc-chrome.zip, extract, and load via chrome://extensions (Developer mode). Previous Releases and Git tags are preserved. This is a development preview, not a Chrome Web Store package."
