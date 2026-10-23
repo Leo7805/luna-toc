@@ -7,6 +7,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
 import { resetOutline } from '@/navigation/jump/outline';
+import { readMountedWithSidebarIdx } from '@/platforms/chatgpt/virtualSearchAdapter';
 import { setLoading } from '@/navigation/loading/promptLoadingState';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
@@ -117,6 +118,34 @@ describe('TOC synthetic performance baseline', () => {
         transitions,
       };
       console.info('[LunaTOC performance] ' + JSON.stringify(result));
+    });
+  }
+
+  for (const workload of [100, 500, 2000]) {
+    it('records mounted prompt index lookup with a distant final ID in ' + workload + ' prompts', () => {
+      const messages = createMessages(workload);
+      const host = document.createElement('div');
+      for (const index of [0, workload - 1]) {
+        const bubble = document.createElement('div');
+        bubble.setAttribute('data-chatgpt-search-unit-key', messages[index].id + ':user');
+        bubble.setAttribute('data-chatgpt-search-message-ids', messages[index].id);
+        host.appendChild(bubble);
+      }
+      document.body.appendChild(host);
+
+      const lookupSamples = Array.from({ length: 10 }, () =>
+        duration(() => {
+          const mounted = readMountedWithSidebarIdx(messages, host);
+          expect(mounted.map((entry) => entry.sidebarIdx)).toEqual([0, workload - 1]);
+        })
+      );
+      console.info('[LunaTOC mounted-index performance] ' + JSON.stringify({
+        workload,
+        mountedCount: 2,
+        targetIndex: workload - 1,
+        lookupMedianMs: Number(median(lookupSamples).toFixed(3)),
+        environment: 'Vitest/jsdom; mounted ID resolution only, not a scrolling jump',
+      }));
     });
   }
 });
