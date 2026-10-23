@@ -6,6 +6,8 @@ import {
   createLocalBackup, parseLocalBackup, restoreLocalBackup, summarizeLocalBackup,
   type LocalBackup,
 } from '@/features/backup/localBackup';
+import { createPromptWriteCoordinator, PROMPT_COMMIT_TYPE } from '@/features/myPrompts/promptWriteCoordinator';
+import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 const PROMPTS = 'lumaToc:myPromptsV1';
 const USAGE = 'lunaToc:promptUsageV1';
@@ -252,6 +254,25 @@ describe('versioned local backup', () => {
     await expect(restoreLocalBackup(sample(), 'replace', box.storage))
       .rejects.toThrow('已回滚');
     expect(box.state).toEqual(original);
+  });
+
+  it('serializes backup restore before a stale prompt commit and rejects the stale write', async () => {
+    const original = prompt('old');
+    const backup = sample();
+    backup.data.prompts = [prompt('restored')];
+    backup.data.promptUsage = { restored: { usageCount: 1, lastUsedAt: 3 } };
+    const box = storageHarness({ [PROMPTS]: [original] });
+    const queue = createSerialWriteQueue();
+    const promptWriter = createPromptWriteCoordinator(box.storage, queue);
+
+    const restore = queue.run(() => restoreLocalBackup(backup, 'replace', box.storage));
+    const staleCommit = promptWriter.commit({
+      type: PROMPT_COMMIT_TYPE, expected: [original], next: [prompt('stale')],
+    });
+
+    await restore;
+    await expect(staleCommit).resolves.toEqual({ ok: false, conflict: true });
+    expect(box.state[PROMPTS]).toEqual([prompt('restored')]);
   });
 
 });

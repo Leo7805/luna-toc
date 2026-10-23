@@ -108,3 +108,12 @@
 ## D26 — 无账号的 Chromium 端到端测试与供应链门槛（阶段九）
 
 采用 Playwright Chromium 持久浏览器上下文加载真实构建的 MV3 扩展；用固定 HTML/API 响应模拟 ChatGPT 而不连接正式页面与真实账户。对比仅使用 jsdom 的方案，这可以覆盖真实内容脚本注入、浏览器存储、设置同步和布局渲染，同时避免测试依赖 ChatGPT 登录与实时 DOM。代价是 CI 下载浏览器的时间和模拟结构的覆盖局限；真实 ChatGPT 页面与编辑历史仍需后续独立验收，不能标为通过。为保持现有锁文件和生产依赖稳定，Playwright 作为固定版本的 CI 临时测试工具在构建后安装；升级时需专门审查兼容性与许可证。保留只读 GitHub Actions 权限，CI 对包内 Manifest 权限、源 Manifest 权限、锁文件许可证及完整性字段进行审查，并通过 npm 公告库阻断高危已知依赖漏洞；审查输出必须留档且不能视为零漏洞承诺。回退：移除新 CI 步骤和测试脚本的阶段提交，恢复原有 Vitest 与构建检查，扩展产物格式与用户数据不变。
+
+
+## D27 — Shared serial queue for all current local-data mutations
+
+Stage 10 introduces one rejection-safe queue in the Manifest V3 background worker. Prompt list commits, TOC alias commits, usage counters, theme/sidebar preferences, and backup export/restore all use the same queue. Prompt usage reconciliation reads the latest persisted prompt list rather than trusting a stale tab-local list. Backup restore estimates post-restore storage usage before the first write and rejects over-quota restores. This avoids interleaving among current extension write paths but is not a Chrome Storage transaction; old-version scripts and any future direct writers can bypass it. Rollback remains compensating rather than atomic.
+
+## D28 — Keep CI verification separate from publication and protect main administratively
+
+CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection is not active as of 2026-10-24; the available GitHub connector has no branch-protection write operation, so an administrator must configure the rule through GitHub settings. Until verified active, this remains a merge-governance blocker rather than a completed change.

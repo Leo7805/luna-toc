@@ -17,6 +17,8 @@ assert.match(ci, /^  workflow_call:\s*$/m, 'manual release must reuse verificati
 assert.match(ci, /actions\/checkout@v7\b/, 'CI must use a supported checkout runtime');
 assert.match(ci, /actions\/setup-node@v7\b/, 'CI must use a supported setup-node runtime');
 assert.match(ci, /actions\/upload-artifact@v7\b/, 'CI must use a supported artifact uploader');
+assert.match(release, /actions\/checkout@v7\b/, 'release must use a supported checkout runtime');
+assert.match(release, /actions\/setup-node@v7\b/, 'release must use a supported setup-node runtime');
 assert.match(release, /actions\/download-artifact@v8\b/, 'release must use a supported artifact downloader');
 assert.doesNotMatch(ci + release, /actions\/(?:checkout|setup-node|upload-artifact|download-artifact)@v4\b/,
   'deprecated Node.js 20-era actions must not be reintroduced');
