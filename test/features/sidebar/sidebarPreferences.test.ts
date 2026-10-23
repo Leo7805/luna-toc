@@ -22,13 +22,26 @@ const set = vi.fn(async (payload: Record<string, unknown>) => {
     ), 'local');
   }
 });
+const sendMessage = vi.fn((message: { action: string; settings?: unknown },
+  callback: (response: { ok: boolean; error?: string }) => void) => {
+  if (message.action !== 'sidebar' || !message.settings) {
+    callback({ ok: false, error: 'unexpected message' });
+    return;
+  }
+  void set({ [SIDEBAR_SETTINGS_KEY]: message.settings }).then(
+    () => callback({ ok: true }),
+    (error: unknown) => callback({ ok: false, error: error instanceof Error ? error.message : 'write failed' })
+  );
+});
 
 beforeEach(() => {
   onChangedListeners.clear();
   for (const key of Object.keys(saved)) delete saved[key];
   get.mockClear();
   set.mockClear();
+  sendMessage.mockClear();
   vi.stubGlobal('chrome', {
+    runtime: { id: 'test-extension', lastError: null, sendMessage },
     storage: {
       local: { get, set },
       onChanged: {
