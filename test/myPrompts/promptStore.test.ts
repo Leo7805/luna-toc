@@ -45,10 +45,9 @@ beforeEach(() => {
   });
   writeSpy = vi.fn(async (values: Record<string, unknown>) => {
     if (writeError) throw new Error(writeError);
-    const prior = copy(data[PROMPT_STORAGE_KEY] ?? []);
     Object.assign(data, copy(values));
     for (const listener of listeners) {
-      listener({ [PROMPT_STORAGE_KEY]: { newValue: copy(values[PROMPT_STORAGE_KEY]), oldValue: prior } }, 'local');
+      listener({ [PROMPT_STORAGE_KEY]: { newValue: copy(values[PROMPT_STORAGE_KEY]) } }, 'local');
     }
   });
   vi.stubGlobal('chrome', {
