@@ -30,6 +30,7 @@ let edgePointerY = 0;
 // The first edge hit opens the sidebar, but cannot arm the toolbar until exit.
 let mustLeaveEdgeBeforeTools = false;
 let onOpened: (() => void) | null = null;
+let onClosed: (() => void) | null = null;
 /**
  * @param {HTMLElement} sidebarElement
  * @param {HTMLButtonElement} toggleButton
@@ -37,9 +38,10 @@ let onOpened: (() => void) | null = null;
 export function initializeSidebarVisibility(
   sidebarElement: HTMLElement,
   toggleButton: HTMLButtonElement,
-  options: { onOpened?: () => void } = {}
+  options: { onOpened?: () => void; onClosed?: () => void } = {}
 ): void {
   onOpened = options.onOpened ?? null;
+  onClosed = options.onClosed ?? null;
   activeLayoutMode = null;
   clearEdgeToolTimer();
   clearEdgeToolHideTimer();
@@ -313,6 +315,7 @@ function finishInitializing(): void {
  */
 export function setSidebarHidden(hidden: boolean): void {
   const justOpened = isHidden && !hidden;
+  const justClosed = !isHidden && hidden;
   isHidden = hidden;
   if (hidden) {
     clearEdgeToolTimer();
@@ -339,6 +342,7 @@ export function setSidebarHidden(hidden: boolean): void {
   setJumpControlsVisible(false);
   syncChatGptSideBySide();
   if (justOpened) onOpened?.();
+  if (justClosed) onClosed?.();
 }
 
 /** Starts a cancellable 400ms grace period after leaving the edge/buttons. */

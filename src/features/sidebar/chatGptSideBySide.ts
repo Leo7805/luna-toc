@@ -94,16 +94,20 @@ export function setChatGptSideBySideEnabled(enabled: boolean): void {
  * Narrow viewports retain the existing overlay layout.
  */
 export function syncChatGptSideBySide(): void {
+  // Avoid layout reads and DOM queries when the side-by-side view is inactive.
+  if (!layoutEnabled || !sidebar ||
+      sidebar.classList.contains('luna-toc-navigator-hidden') ||
+      sidebar.getAttribute('aria-hidden') === 'true') {
+    restoreChatSurface();
+    return;
+  }
+  const width = getSidebarWidthPx(sidebar);
+  if (width <= 0 || window.innerWidth - width < MIN_AVAILABLE_CHAT_WIDTH_PX) {
+    restoreChatSurface();
+    return;
+  }
   const chatSurface = getChatGptChatSurface();
-  const width = sidebar ? getSidebarWidthPx(sidebar) : 0;
-  const isOpen = Boolean(
-    sidebar &&
-    !sidebar.classList.contains('luna-toc-navigator-hidden') &&
-    sidebar.getAttribute('aria-hidden') !== 'true'
-  );
-  const canReserve = layoutEnabled && isOpen && width > 0 &&
-    window.innerWidth - width >= MIN_AVAILABLE_CHAT_WIDTH_PX &&
-    chatSurface !== null;
+  const canReserve = chatSurface !== null;
 
   if (!canReserve || !chatSurface) {
     restoreChatSurface();
@@ -136,6 +140,9 @@ export function initializeChatGptSideBySide(element: HTMLElement): void {
 
   if (document.body) {
     chatTreeObserver = new MutationObserver(() => {
+      if (!layoutEnabled || !sidebar ||
+          sidebar.classList.contains('luna-toc-navigator-hidden') ||
+          sidebar.getAttribute('aria-hidden') === 'true') return;
       if (!currentChatSurface?.isConnected) syncChatGptSideBySide();
     });
     chatTreeObserver.observe(document.body, {

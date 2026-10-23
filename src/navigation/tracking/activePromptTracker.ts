@@ -53,7 +53,10 @@ export function createActivePromptTracker(
     return activeNavigatorIndex;
   }
 
-  function findConversationIndexByElement(element: HTMLElement): number {
+  function findConversationIndexByElement(
+    element: HTMLElement,
+    indexByMessageId: ReadonlyMap<string, number> = buildMessageIndex()
+  ): number {
     const platform = resolvePlatform();
     const id =
       platform.navigation.getMessageIdFromElement?.(element) ??
@@ -64,7 +67,11 @@ export function createActivePromptTracker(
             ?.getAttribute(platform.config.selectors.messageId)
         : null);
     if (!id) return -1;
-    return options.getMessages().findIndex((message) => message.id === id);
+    return indexByMessageId.get(id) ?? -1;
+  }
+
+  function buildMessageIndex(): Map<string, number> {
+    return new Map(options.getMessages().map((message, index) => [message.id, index]));
   }
 
   function checkActivePrompt(): void {
@@ -92,9 +99,11 @@ export function createActivePromptTracker(
 
     let latestAboveTop: number | null = null;
     let lowestMountedIndex: number | null = null;
+    // Index messages once per check rather than linearly scanning for each DOM node.
+    const indexByMessageId = buildMessageIndex();
 
     for (const element of elements) {
-      const index = findConversationIndexByElement(element);
+      const index = findConversationIndexByElement(element, indexByMessageId);
       if (index === -1) continue;
 
       if (lowestMountedIndex === null || index < lowestMountedIndex) {

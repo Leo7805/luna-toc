@@ -2,11 +2,24 @@
  * Tests isolated conversationStore state, pagination accumulation,
  * chronological sorting, snapshot caching, and route transition migrations.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createConversationStore } from '@/navigation/state/conversationStore';
 import type { ChatMessage, ConversationData } from '@/features/conversationPrompts/message';
 
 describe('conversationStore', () => {
+  it('skips snapshot deep clones for unchanged routes', () => {
+    const store = createConversationStore({ getCurrentRouteKey: () => 'same-route' });
+    store.setCurrentConversationKey('same-route');
+    store.setMessages([{ id: 'a', text: 'hello', canMatchByText: true, createTime: 1 }]);
+    store.cacheConversationMessages('same-route');
+    const cloneSpy = vi.spyOn(globalThis, 'structuredClone');
+    const transition = store.syncRouteState('same-route');
+    expect(transition.isTransition).toBe(false);
+    expect(transition.cachedMessages).toEqual([]);
+    expect(cloneSpy).not.toHaveBeenCalled();
+    cloneSpy.mockRestore();
+  });
+
   it('uses injected route resolver when provided', () => {
     let activeRoute = 'custom-route-1';
     const store = createConversationStore({

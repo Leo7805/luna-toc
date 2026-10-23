@@ -254,10 +254,12 @@ export async function initializeApplication(): Promise<void> {
   initializeChatGptSideBySide(sidebar);
   initializeSidebarVisibility(sidebar, toggleButton, {
     onOpened: () => {
+      navigatorController.resumeActivePromptTracking();
       if (!sidebarController.isMyPromptsView()) {
         navigatorController.refreshCurrentConversation();
       }
     },
+    onClosed: () => navigatorController.pauseActivePromptTracking(),
   });
   const applyPreferences = (preferences: SidebarPreferences): void => {
     currentSidebarPreferences = preferences;

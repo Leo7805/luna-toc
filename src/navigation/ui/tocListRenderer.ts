@@ -10,6 +10,7 @@ import {
   collapseAll,
   collapsePromptOutline,
   createPromptItem,
+  registerPromptItem,
   resetPromptItems,
   setPromptMessages,
   syncActivePrompt,
@@ -81,6 +82,8 @@ export function createTocListRenderer(
   const EMPTY_HINT_TEXT = '等待提示词...';
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
+  // Retain unchanged rows and their answer-heading DOM between renders.
+  let renderedRows = new Map<string, { element: HTMLElement; signature: string }>();
   let hasScrolledInitialActive = false;
   interface InlineEditState {
     messageId: string;
@@ -109,6 +112,7 @@ export function createTocListRenderer(
     editorResizeObserver = null;
     editing = null;
     navigatorItems = [];
+    renderedRows.clear();
     searchQuery = '';
     hasScrolledInitialActive = false;
   }
@@ -574,7 +578,8 @@ export function createTocListRenderer(
 
     editorResizeObserver?.disconnect();
     editorResizeObserver = null;
-    list.innerHTML = '';
+    const previousRows = renderedRows;
+    const nextRows = new Map<string, { element: HTMLElement; signature: string }>();
     navigatorItems = [];
     resetPromptItems();
     const conversationMessages = options.getMessages();
@@ -598,11 +603,31 @@ export function createTocListRenderer(
       hint.textContent = hasQuery ? '没有匹配的提示词。' : EMPTY_HINT_TEXT;
     }
 
-    visibleMessages.forEach(({ message, index }) => {
-      const item = createNavigatorItem(message, index);
+    visibleMessages.forEach(({ message, index }, position) => {
+      const key = `${index}:${message.id}`;
+      const displayText = options.getDisplayText?.(message) ?? message.text;
+      const signature = JSON.stringify([
+        message.id, message.text, message.createTime, message.canMatchByText,
+        message.answerId, displayText,
+      ]);
+      const prior = previousRows.get(key);
+      const oldOutline = prior?.element.parentElement === list &&
+          prior.signature === signature && editing?.messageId !== message.id
+        ? prior.element.querySelector<HTMLDivElement>('.navigator-outline-list')
+        : null;
+      const item = oldOutline && prior
+        ? prior.element : createNavigatorItem(message, index);
+      if (oldOutline) registerPromptItem(index, item, oldOutline);
       navigatorItems[index] = item;
-      list.appendChild(item);
+      nextRows.set(key, { element: item, signature });
+      if (list.children[position] !== item) {
+        list.insertBefore(item, list.children[position] ?? null);
+      }
     });
+    while (list.children.length > visibleMessages.length) {
+      list.lastElementChild?.remove();
+    }
+    renderedRows = nextRows;
 
     if (refreshObservers || completed === true) {
       options.onRefreshObservers?.();

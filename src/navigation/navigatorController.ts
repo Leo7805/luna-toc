@@ -128,7 +128,7 @@ export const navigatorController = (() => {
       onPromptCountChanged(count);
     },
     onRefreshObservers: () => {
-      if (isAttached) {
+      if (isAttached && shouldTrackActivePrompt()) {
         activePromptTracker.checkActivePrompt();
       }
     },
@@ -364,8 +364,23 @@ export const navigatorController = (() => {
     resetJumpProgress();
   }
 
+  // The tracker is only useful while the TOC is visible. With no sidebar
+  // (unit-test and early-boot contexts), retain the previous tracking behavior.
+  function shouldTrackActivePrompt(): boolean {
+    const sidebar = document.getElementById('luna-toc-sidebar');
+    return !sidebar || sidebar.getAttribute('aria-hidden') !== 'true';
+  }
+
   function initActivePromptTracking(): void {
-    activePromptTracker.initTracking();
+    if (shouldTrackActivePrompt()) activePromptTracker.initTracking();
+  }
+
+  function pauseActivePromptTracking(): void {
+    activePromptTracker.disconnect();
+  }
+
+  function resumeActivePromptTracking(): void {
+    if (isAttached) initActivePromptTracking();
   }
 
   function flushPendingNewChatMessage(): void {
@@ -587,6 +602,8 @@ export const navigatorController = (() => {
     jumpToLastPrompt,
     render,
     refreshCurrentConversation,
+    pauseActivePromptTracking,
+    resumeActivePromptTracking,
     resetView,
     setJumpProgress,
     setSearchQuery,

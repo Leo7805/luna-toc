@@ -59,6 +59,44 @@ describe('tocListRenderer', () => {
     expect(listElement.children[1].classList.contains('navigator-item-active')).toBe(false);
   });
 
+  it('reuses unchanged rows and replaces only a modified row', () => {
+    let messages = mockMessages.map((message) => ({ ...message }));
+    const onItemClick = vi.fn();
+    const renderer = createTocListRenderer({
+      getMessages: () => messages,
+      getActiveIndex: () => null,
+      onItemClick,
+    });
+    renderer.render();
+    const first = listElement.children[0];
+    const second = listElement.children[1];
+    renderer.render();
+    expect(listElement.children[0]).toBe(first);
+    expect(listElement.children[1]).toBe(second);
+    messages = messages.map((message, index) =>
+      index === 1 ? { ...message, text: 'Updated second prompt' } : message);
+    renderer.render();
+    expect(listElement.children[0]).toBe(first);
+    expect(listElement.children[1]).not.toBe(second);
+    expect(listElement.children[1].textContent).toContain('Updated second prompt');
+    (listElement.children[1] as HTMLElement).click();
+    expect(onItemClick).toHaveBeenLastCalledWith(messages[1], 1);
+  });
+
+  it('preserves expanded heading DOM when unchanged', () => {
+    const renderer = createTocListRenderer({
+      getMessages: () => mockMessages,
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+    const first = listElement.children[0] as HTMLElement;
+    const headings = showOutline(first, 2);
+    renderer.render();
+    expect(listElement.children[0]).toBe(first);
+    expect(first.querySelectorAll('.navigator-outline-item')[0]).toBe(headings[0]);
+  });
+
   it('filters rows by search query and updates hint when no match found', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,

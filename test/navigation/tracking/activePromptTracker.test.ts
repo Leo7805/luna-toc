@@ -81,6 +81,22 @@ describe('activePromptTracker', () => {
     { id: 'msg-2' },
   ];
 
+  it('indexes many mounted prompts and preserves active position', () => {
+    const messages = Array.from({ length: 300 }, (_, index) => ({ id: `msg-${index}` }));
+    for (let index = 0; index < 300; index += 1) {
+      createPromptElement(`msg-${index}`, index * 50 - 14000, index * 50 - 13950);
+    }
+    const tracker = createActivePromptTracker({
+      getMessages: () => messages,
+      getPlatform: () => mockPlatform,
+    });
+    tracker.checkActivePrompt();
+    expect(tracker.getActiveIndex()).toBe(280);
+    expect(tracker.findConversationIndexByElement(
+      document.querySelector('[data-message-id="msg-299"]') as HTMLElement
+    )).toBe(299);
+  });
+
   it('finds conversation index from direct and ancestor elements', () => {
     const tracker = createActivePromptTracker({
       getMessages: () => sampleMessages,

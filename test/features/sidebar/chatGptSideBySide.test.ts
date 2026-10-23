@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  * Regression tests for real ChatGPT main-column targeting and fallback.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // @ts-expect-error Vitest runs on Node; browser tsconfig intentionally omits Node typings.
 import { readFileSync } from 'node:fs';
 import {
@@ -108,6 +108,16 @@ describe('ChatGPT app beside LunaTOC sidebar', () => {
     expect(main.classList.contains(SIDE_BY_SIDE)).toBe(true);
     setChatGptSideBySideEnabled(false);
     expect(main.classList.contains(SIDE_BY_SIDE)).toBe(false);
+  });
+
+  it('does not scan the chat DOM for streaming mutations in overlay mode', async () => {
+    const { main, sidebar } = setupHost();
+    initializeChatGptSideBySide(sidebar);
+    const scan = vi.spyOn(document.body, 'querySelectorAll');
+    main.querySelector('#thread')!.appendChild(document.createElement('span'));
+    await Promise.resolve();
+    expect(scan).not.toHaveBeenCalled();
+    scan.mockRestore();
   });
 
   it('falls back to overlay in narrow windows and reapplies layout on resize', () => {

@@ -333,7 +333,7 @@ export function createConversationStore(
         nextKey: nextConversationKey,
         isNewChatRouteTransition: false,
         shouldPreserveMessages: false,
-        cachedMessages: getCachedConversationMessages(nextConversationKey),
+        cachedMessages: [],
         isComplete: navigationSnapshotStore.isComplete(nextConversationKey),
       };
     }

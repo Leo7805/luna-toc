@@ -95,12 +95,19 @@ export function createPromptItem({
   outlineList: HTMLDivElement;
 } {
   const outlineList = document.createElement('div');
-  const entry = { item, outlineList };
+  registerPromptItem(index, item, outlineList);
+  return { outlineList };
+}
 
+/** Registers an existing row after a keyed TOC reconciliation. */
+export function registerPromptItem(
+  index: number,
+  item: HTMLElement,
+  outlineList: HTMLDivElement
+): void {
+  const entry = { item, outlineList };
   promptItems.set(index, entry);
   updatePromptItemState(entry, index);
-
-  return { outlineList };
 }
 
 /**
