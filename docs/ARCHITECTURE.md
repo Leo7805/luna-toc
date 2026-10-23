@@ -65,3 +65,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 ## 工具栏兼容性兜底
 
 `src/features/contractAlert/toolbarMonitor.ts` 在 ISOLATED world 常驻，复用现有接口 mismatch 记录，并以页面钩子 PING/PONG 和已渲染对话的关键 DOM 标记二次采样作保守兜底；不发额外网络请求。`src/background.ts` 在 MV3 service worker 中按标签页写入 `chrome.storage.session`，设置浏览器 action `!` 标记，`src/components/popup/PopupApp.tsx` 显示升级指引。整页重新加载清除旧标记；其他标签页不受影响。开发者模态诊断开关仍独立，用户工具栏告警默认启用。检测并不保证覆盖任意未知的未来结构变化。
+
+## 本地数据备份与恢复
+
+`src/features/backup/localBackup.ts` 提供本地 JSON v1 备份、字段校验、合并/覆盖恢复与失败回滚；只读取明确许可的本地键（提示词、使用统计、目录别名、主题、侧边栏偏好），不导出 ChatGPT 对话或凭证。`src/components/options/LocalBackupSettings.tsx` 将选择文件、内容预览和二次确认放在扩展设置页；原 Markdown 提示词导入导出保持不变。跨标签页并发写入未实现事务隔离，详见 [本地备份与恢复](LOCAL_BACKUP.md)。
