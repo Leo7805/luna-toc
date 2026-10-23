@@ -3,7 +3,7 @@
  * from the developer dialog: manually dismissing a dialog is not recovery.
  */
 import { APP_CONFIG, type ChatGptContractId } from '@/config/config';
-import { getActivePlatform } from '@/platforms';
+import { CHATGPT_MESSAGE_TYPES } from '@/platforms/chatgpt/messages';
 import { canInspectChatGptDom, missingChatGptDomMarkers } from './healthSignals';
 import { dismissAllMismatches, dismissMismatch, recordMismatch, subscribeMismatches } from './detector';
 import { PAGE_HOOK_RECOVERY_MESSAGE_TYPE } from './pageHookBridge';
@@ -24,7 +24,7 @@ const DOM_MARKER_IDS = [
 export function startToolbarCompatibilityMonitor(): () => void {
   const active = new Map<ChatGptContractId, string>();
   const healthyStreak = new Map<ChatGptContractId, number>();
-  const routeChangedType = getActivePlatform().pageHook.messages.routeChanged;
+  const routeChangedType = CHATGPT_MESSAGE_TYPES.routeChanged;
   let pathname = location.pathname;
   let revision = 0;
   let sentSignature: string | null = null;
