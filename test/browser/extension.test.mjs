@@ -133,6 +133,11 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.evaluate(async()=>fetch('/backend-api/conversations/luna-stage-10-large-e2e?num_turns=500'));
       await page.waitForFunction(()=>document.querySelectorAll('.navigator-item').length===500,undefined,{timeout:20000});
       const tocBuildMs=Date.now()-started,jumpStarted=Date.now();
+      const sidebar=page.locator('#luna-toc-sidebar');
+      if(await sidebar.getAttribute('aria-hidden')!=='false'){
+        await page.locator('#luna-toc-toggle-btn').click({force:true});
+        await page.locator('#luna-toc-sidebar[aria-hidden="false"]').waitFor({state:'visible'});
+      }
       const lastItem=page.locator('.navigator-item').last();
       await lastItem.evaluate(element=>element.scrollIntoView({block:'nearest',inline:'nearest'}));
       await lastItem.click();
