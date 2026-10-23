@@ -18,8 +18,8 @@ assert.match(ci, /actions\/checkout@v7\b/, 'CI must use a supported checkout run
 assert.match(ci, /actions\/setup-node@v7\b/, 'CI must use a supported setup-node runtime');
 assert.match(ci, /actions\/upload-artifact@v7\b/, 'CI must use a supported artifact uploader');
 assert.match(release, /actions\/download-artifact@v8\b/, 'release must use a supported artifact downloader');
-assert.doesNotMatch(ci + release, /actions\\/(?:checkout|setup-node|upload-artifact|download-artifact)@v4\\b/,
 assert.doesNotMatch(ci + release, /actions\/(?:checkout|setup-node|upload-artifact|download-artifact)@v4\b/,
+  'deprecated Node.js 20-era actions must not be reintroduced');
 assert.match(ci, /^permissions:\n  contents: read\s*$/m, 'CI must be read-only');
 assert.doesNotMatch(ci, /\bgh\s+release\s+(?:create|upload|edit)\b/i, 'CI must not publish Releases');
 
