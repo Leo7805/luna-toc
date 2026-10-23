@@ -110,13 +110,7 @@ async function retryEdgeUntilSettled(
     }
 
     if (edge === 'bottom') {
-      const currentBottomTarget = isReverse
-        ? 0
-        : Math.max(0, container.scrollHeight - container.clientHeight);
-      const isAtBottom =
-        Math.abs(container.scrollTop - currentBottomTarget) <=
-        EDGE_JUMP_BOTTOM_TOLERANCE_PX;
-      if (isAtBottom) return;
+      if (isPageAtBottom(container, EDGE_JUMP_BOTTOM_TOLERANCE_PX)) return;
       continue;
     }
 
@@ -166,5 +160,33 @@ export function executeAbsoluteEdgeJump(
     options.firstPromptId ?? null,
     options.isCancelled,
     options.onFirstPromptVisible
+  );
+}
+
+/**
+ * Checks whether the chat scroll container is currently scrolled to the bottom.
+ *
+ * @param targetContainer Optional scroll container override.
+ * @param tolerancePx Tolerance in pixels for fractional zoom or subpixel scrolling.
+ * @returns True if the container is at or within tolerance of the bottom edge.
+ */
+export function isPageAtBottom(
+  targetContainer?: HTMLElement | null,
+  tolerancePx: number = EDGE_JUMP_BOTTOM_TOLERANCE_PX
+): boolean {
+  const threadContainer =
+    platform().navigation.getThreadScrollContainer?.() ?? null;
+  const scrollContainer = platform().navigation.getScrollContainer();
+  const container = targetContainer ?? (threadContainer ?? scrollContainer);
+  if (!container) return false;
+
+  const isReverse =
+    window.getComputedStyle(container).flexDirection === 'column-reverse';
+  const currentBottomTarget = isReverse
+    ? 0
+    : Math.max(0, container.scrollHeight - container.clientHeight);
+
+  return (
+    Math.abs(container.scrollTop - currentBottomTarget) <= tolerancePx
   );
 }

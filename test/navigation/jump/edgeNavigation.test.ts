@@ -3,7 +3,7 @@
  * Tests edgeNavigation functionality including column-reverse edge math, top-band detection, and retry settle loops.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { executeAbsoluteEdgeJump } from '@/navigation/jump/edgeNavigation';
+import { executeAbsoluteEdgeJump, isPageAtBottom } from '@/navigation/jump/edgeNavigation';
 
 describe('edgeNavigation', () => {
   let container: HTMLElement;
@@ -191,6 +191,42 @@ describe('edgeNavigation', () => {
       // Attempt 1 settle verified
       await vi.advanceTimersByTimeAsync(1600);
       expect(container.scrollTop).toBe(1200);
+    });
+  });
+
+  describe('isPageAtBottom', () => {
+    it('returns true when container is exactly at maxScrollTop in standard layout', () => {
+      container.style.flexDirection = 'column';
+      container.scrollTop = 1200; // scrollHeight (2000) - clientHeight (800)
+      expect(isPageAtBottom(container)).toBe(true);
+    });
+
+    it('returns true when container is within fractional tolerance of bottom', () => {
+      container.style.flexDirection = 'column';
+      container.scrollTop = 1198.5; // within 2px tolerance
+      expect(isPageAtBottom(container, 2)).toBe(true);
+    });
+
+    it('returns false when container is scrolled above bottom beyond tolerance', () => {
+      container.style.flexDirection = 'column';
+      container.scrollTop = 1195; // 5px above bottom
+      expect(isPageAtBottom(container, 2)).toBe(false);
+    });
+
+    it('returns true at scrollTop 0 for column-reverse layout', () => {
+      container.style.flexDirection = 'column-reverse';
+      container.scrollTop = 0;
+      expect(isPageAtBottom(container)).toBe(true);
+    });
+
+    it('returns false for column-reverse layout when scrolled into history', () => {
+      container.style.flexDirection = 'column-reverse';
+      container.scrollTop = -500;
+      expect(isPageAtBottom(container)).toBe(false);
+    });
+
+    it('returns false when container is null', () => {
+      expect(isPageAtBottom(null)).toBe(false);
     });
   });
 });

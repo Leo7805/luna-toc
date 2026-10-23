@@ -56,6 +56,9 @@ export interface TocListRenderer {
     item: HTMLElement,
     options?: { force?: boolean; behavior?: ScrollBehavior }
   ): boolean;
+  scrollLastItemIntoView(
+    options?: { force?: boolean; behavior?: ScrollBehavior }
+  ): boolean;
   ensureActiveItemVisible(): boolean;
   pickStatusBandState(completed: boolean | null): SidebarStatusState;
   createNavigatorItem(message: NavigatorMessage, index: number): HTMLElement;
@@ -232,6 +235,28 @@ export function createTocListRenderer(
       behavior: scrollOptions?.behavior ?? 'smooth',
     });
     return true;
+  }
+
+  /**
+   * Scrolls the last connected TOC item into view, preserving smooth behavior and
+   * returning true if the item was already visible or was scrolled into view.
+   *
+   * @param scrollOptions Optional scrolling configuration.
+   * @returns True if the item is visible or scrolled, false if no items exist.
+   */
+  function scrollLastItemIntoView(
+    scrollOptions?: { force?: boolean; behavior?: ScrollBehavior }
+  ): boolean {
+    for (let i = navigatorItems.length - 1; i >= 0; i--) {
+      const item = navigatorItems[i];
+      if (item?.isConnected) {
+        return scrollNavigatorItemIntoView(item, {
+          force: true,
+          behavior: scrollOptions?.behavior ?? 'smooth',
+        });
+      }
+    }
+    return false;
   }
 
   /**
@@ -467,6 +492,7 @@ export function createTocListRenderer(
     getNavigatorItems,
     updateActiveItemUI,
     scrollNavigatorItemIntoView,
+    scrollLastItemIntoView,
     ensureActiveItemVisible,
     pickStatusBandState,
     createNavigatorItem,

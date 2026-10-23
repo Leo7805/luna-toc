@@ -41,6 +41,7 @@ import {
   jumpToAbsoluteEdge as jumpToPageEdge,
   jumpToMessage,
   cancelActiveNavigationSearch,
+  isPageAtBottom,
 } from './jump/promptNavigation';
 import {
   handlePromptNavigation,
@@ -390,9 +391,13 @@ export const navigatorController = (() => {
       jumpToFirstPrompt();
       return;
     }
+    const alreadyAtBottom = isPageAtBottom();
     cancelActiveNavigationSearch();
     setNavigationIdle();
     jumpToPageEdge(edge, 'auto');
+    if (alreadyAtBottom) {
+      tocListRenderer.scrollLastItemIntoView();
+    }
   }
 
   /**

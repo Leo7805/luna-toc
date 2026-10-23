@@ -547,4 +547,151 @@ describe('tocListRenderer', () => {
       expect(scrollToMock).not.toHaveBeenCalled();
     });
   });
+
+  describe('scrollLastItemIntoView', () => {
+    it('returns false when no items exist', () => {
+      const renderer = createTocListRenderer({
+        getMessages: () => [],
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+      renderer.render();
+
+      expect(renderer.scrollLastItemIntoView()).toBe(false);
+    });
+
+    it('scrolls the last item into view when it is hidden below container', () => {
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+      renderer.render();
+
+      const scrollContainer = document.getElementById('navigator-list')!;
+      const scrollToMock = vi.fn();
+      scrollContainer.scrollTo = scrollToMock;
+
+      scrollContainer.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 300,
+        height: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const items = renderer.getNavigatorItems();
+      const lastItem = items[items.length - 1];
+      lastItem.getBoundingClientRect = () => ({
+        top: 500,
+        bottom: 540,
+        height: 40,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 500,
+        toJSON: () => {},
+      });
+
+      const result = renderer.scrollLastItemIntoView();
+      expect(result).toBe(true);
+      expect(scrollToMock).toHaveBeenCalledWith({
+        top: 320,
+        behavior: 'smooth',
+      });
+    });
+
+    it('does not scroll when the last item is already fully visible in viewport', () => {
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+      renderer.render();
+
+      const scrollContainer = document.getElementById('navigator-list')!;
+      const scrollToMock = vi.fn();
+      scrollContainer.scrollTo = scrollToMock;
+
+      scrollContainer.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 400,
+        height: 400,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const items = renderer.getNavigatorItems();
+      const lastItem = items[items.length - 1];
+      lastItem.getBoundingClientRect = () => ({
+        top: 100,
+        bottom: 140,
+        height: 40,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 100,
+        toJSON: () => {},
+      });
+
+      const result = renderer.scrollLastItemIntoView();
+      expect(result).toBe(true);
+      expect(scrollToMock).not.toHaveBeenCalled();
+    });
+
+    it('handles a single-item TOC gracefully', () => {
+      const singleMessage: NavigatorMessage[] = [mockMessages[0]];
+      const renderer = createTocListRenderer({
+        getMessages: () => singleMessage,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+      renderer.render();
+
+      const scrollContainer = document.getElementById('navigator-list')!;
+      const scrollToMock = vi.fn();
+      scrollContainer.scrollTo = scrollToMock;
+
+      scrollContainer.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 300,
+        height: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const items = renderer.getNavigatorItems();
+      items[0].getBoundingClientRect = () => ({
+        top: 400,
+        bottom: 440,
+        height: 40,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 400,
+        toJSON: () => {},
+      });
+
+      expect(renderer.scrollLastItemIntoView()).toBe(true);
+      expect(scrollToMock).toHaveBeenCalledWith({
+        top: 220,
+        behavior: 'smooth',
+      });
+    });
+  });
 });

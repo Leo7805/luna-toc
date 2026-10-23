@@ -7,7 +7,7 @@ import { getActivePlatform } from '@/platforms';
 import { executeViewportWalkerStrategy } from './strategies/viewportWalkerStrategy';
 import { tryVirtualLayoutStrategy } from './strategies/virtualLayoutStrategy';
 import type { JumpStrategyContext } from './strategies/types';
-import { executeAbsoluteEdgeJump } from './edgeNavigation';
+import { executeAbsoluteEdgeJump, isPageAtBottom } from './edgeNavigation';
 
 function platform() {
   return getActivePlatform();
@@ -638,3 +638,5 @@ export function jumpToAbsoluteEdge(
     onFirstPromptVisible: highlightMatchedElement,
   });
 }
+
+export { isPageAtBottom };

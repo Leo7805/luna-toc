@@ -2345,6 +2345,71 @@ describe('navigatorController lifecycle and coordination', () => {
       expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
     });
 
+    it('To Bottom single-click when main page is already at bottom triggers scrollLastItemIntoView fallback', async () => {
+      setupConversationWithPrompts(50, 'test-to-bottom-already-at-bottom');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      vi.spyOn(promptNavModule, 'isPageAtBottom').mockReturnValue(true);
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      const scrollContainer = document.getElementById('navigator-list')!;
+      const scrollToSpy = vi.fn();
+      scrollContainer.scrollTo = scrollToSpy;
+
+      scrollContainer.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 300,
+        height: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const items = document.querySelectorAll<HTMLElement>('.navigator-item');
+      const lastItem = items[items.length - 1];
+      lastItem.getBoundingClientRect = () => ({
+        top: 600,
+        bottom: 640,
+        height: 40,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 600,
+        toJSON: () => {},
+      });
+
+      controller.jumpToEdge('bottom');
+
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
+      expect(scrollToSpy).toHaveBeenCalledWith({
+        top: 420,
+        behavior: 'smooth',
+      });
+    });
+
+    it('To Bottom single-click when main page is not at bottom relies on tracker scroll without immediate fallback scroll', async () => {
+      setupConversationWithPrompts(50, 'test-to-bottom-not-at-bottom');
+      const promptNavModule = await import('@/navigation/jump/promptNavigation');
+      vi.spyOn(promptNavModule, 'isPageAtBottom').mockReturnValue(false);
+      const jumpToAbsoluteEdgeSpy = vi
+        .spyOn(promptNavModule, 'jumpToAbsoluteEdge')
+        .mockImplementation(() => {});
+
+      const scrollContainer = document.getElementById('navigator-list')!;
+      const scrollToSpy = vi.fn();
+      scrollContainer.scrollTo = scrollToSpy;
+
+      controller.jumpToEdge('bottom');
+
+      expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
+      expect(scrollToSpy).not.toHaveBeenCalled();
+    });
+
     it('To Bottom double-click supersedes previous physical-bottom jump and targets last prompt without TOC locking', async () => {
       setupConversationWithPrompts(50, 'test-to-bottom-double-click');
       const container = document.createElement('div');
