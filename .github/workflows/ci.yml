@@ -21,7 +21,7 @@ jobs:
   verify:
     name: Typecheck, test, build and package
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     steps:
       - name: Check out source
@@ -100,6 +100,29 @@ jobs:
           unzip -Z1 luna-toc-sc-chrome.zip | grep -Fxq manifest.json
           sha256sum luna-toc-sc-chrome.zip > luna-toc-sc-chrome.zip.sha256
           sha256sum -c luna-toc-sc-chrome.zip.sha256
+
+      - name: Check extension privilege boundaries and license metadata
+        run: npm run test:security
+
+      - name: Audit known npm dependency vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Install isolated Chromium test runner
+        run: npm run test:browser:setup
+
+      - name: Run headless Chromium extension tests
+        run: npm run test:browser
+
+      - name: Preserve browser and security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luna-stage09-audit
+          path: |
+            artifacts/browser/
+            artifacts/security/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
