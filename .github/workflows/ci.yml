@@ -104,14 +104,22 @@ jobs:
       - name: Check extension privilege boundaries and license metadata
         run: npm run test:security
 
+      - name: Audit known npm dependency vulnerabilities
+        id: dependency_audit
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
       - name: Install isolated Chromium test runner
         run: npm run test:browser:setup
 
       - name: Run headless Chromium extension tests
         run: npm run test:browser
 
-      - name: Audit known npm dependency vulnerabilities
-        run: npm audit --audit-level=high
+      - name: Enforce dependency vulnerability policy
+        if: steps.dependency_audit.outcome == 'failure'
+        run: |
+          echo 'High or critical npm dependency advisories remain. See the audit step.' >&2
+          exit 1
 
       - name: Preserve browser and security reports
         if: always()
