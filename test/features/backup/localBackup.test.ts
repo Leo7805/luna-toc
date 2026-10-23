@@ -195,6 +195,19 @@ describe('versioned local backup', () => {
     expect(box.state).toEqual(original);
   });
 
+  it('handles unusual but structurally valid alias keys without prototype collisions', async () => {
+    const incoming = sample();
+    incoming.data.aliases = Object.fromEntries([[
+      '__proto__', { ownerId: null, aliases: { 'message-1': 'safe value' } },
+    ]]);
+    const box = storageHarness({ [PROMPTS]: [prompt('saved')] });
+    await restoreLocalBackup(incoming, 'merge', box.storage);
+    expect(box.state['chatToc:aliases:v1:__proto__']).toEqual({
+      ownerId: null, aliases: { 'message-1': 'safe value' },
+    });
+    expect(Object.getPrototypeOf({})).toBe(Object.prototype);
+  });
+
   it('does not write if reading current storage fails', async () => {
     const box = storageHarness();
     box.failGet();
