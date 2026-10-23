@@ -322,8 +322,7 @@ async function assertStorageCapacity(
   ]);
   const encoder = new TextEncoder();
   const incomingBytes = Object.entries(nextValues).reduce((total, [key, value]) =>
-    total + encoder.encode(JSON.stringify(key)).byteLength +
-      encoder.encode(JSON.stringify(value)).byteLength, 0);
+    total + encoder.encode(JSON.stringify({ [key]: value })).byteLength, 0);
   const projected = Math.max(0, currentBytes - replacedBytes) + incomingBytes;
   if (!Number.isFinite(projected) || projected > quota) {
     throw new Error(

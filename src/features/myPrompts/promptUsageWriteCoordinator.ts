@@ -1,5 +1,6 @@
 /** Cross-tab read/modify/write coordinator for prompt usage statistics. */
 import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
+import { isPromptList, PROMPT_STORAGE_KEY } from './promptWriteCoordinator';
 import type { PromptUsage, PromptUsageMap } from './promptUsageStore';
 
 export const PROMPT_USAGE_COMMIT_TYPE = 'LUNA_TOC_PROMPT_USAGE_COMMIT_V1';
@@ -65,7 +66,7 @@ export function createPromptUsageWriteCoordinator(
     return queue.run(async (): Promise<PromptUsageCommitResponse> => {
       if (!isRequest(request)) return { ok: false, error: 'Invalid prompt usage request' };
       try {
-        const result = await storage.get(STORAGE_KEY);
+        const result = await storage.get([STORAGE_KEY, PROMPT_STORAGE_KEY]);
         const current = parseUsageMap(result[STORAGE_KEY]);
         const next: PromptUsageMap = { ...current };
         switch (request.action) {
@@ -80,7 +81,12 @@ export function createPromptUsageWriteCoordinator(
           case 'remove': delete next[request.promptId]; break;
           case 'clear': for (const id of Object.keys(next)) delete next[id]; break;
           case 'reconcile': {
-            const valid = new Set(request.validPromptIds);
+            // Use the latest persisted prompt list, not a potentially stale tab-local snapshot.
+            const persistedPrompts: unknown = result[PROMPT_STORAGE_KEY];
+            if (persistedPrompts !== undefined && !isPromptList(persistedPrompts)) {
+              throw new Error('Prompt storage contains invalid data; refusing to reconcile usage');
+            }
+            const valid = new Set((persistedPrompts === undefined ? [] : persistedPrompts).map((prompt) => prompt.id));
             for (const id of Object.keys(next)) if (!valid.has(id)) delete next[id];
             break;
           }
