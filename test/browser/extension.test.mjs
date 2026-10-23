@@ -82,7 +82,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
     await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
     // Host apps may fetch history before the asynchronous content UI is attached;
     // exercise another real window.fetch after the extension is ready.
-    await page.evaluate(async()=>{await fetch('/backend-api/conversations/"+conversationId+"/?num_turns=4');});
+    await page.evaluate(async id=>{await fetch('/backend-api/conversations/'+id+'?num_turns=4');},conversationId);
 
     await t.test('MAIN + ISOLATED content scripts build correct TOC',async()=>{
       await page.locator('.navigator-item').first().waitFor({state:'attached',timeout:5000}).catch(async error=>{
