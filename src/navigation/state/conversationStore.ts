@@ -227,22 +227,30 @@ export function createConversationStore(
     if (!Array.isArray(incomingMessages)) return conversationMessages;
 
     const conversationKey = routeKey || getCurrentConversationKey();
-    if (
-      typeof requestStartedAt === 'number' &&
-      requestStartedAt <= (freshSnapshotAppliedAt.get(conversationKey) ?? -1)
-    ) {
+    const verifiedAt = freshSnapshotAppliedAt.get(conversationKey);
+    if (verifiedAt !== undefined) {
+      // Normal paginated responses cannot prove the selected edit branch.
+      // Never union abandoned message IDs into a branch already verified by
+      // refresh, even if the host begins another request after that refresh.
+      if (typeof requestStartedAt !== 'number' || requestStartedAt <= verifiedAt) {
+        return conversationMessages;
+      }
+      const selected = getAccumulatedMessageMap(conversationKey);
+      for (const message of incomingMessages) {
+        if (message?.id && selected.has(message.id)) selected.set(message.id, message);
+      }
+      // The selected map stays in verified branch order (not timestamp order).
+      conversationMessages = extractUserMessages({ messages: [...selected.values()] });
+      cacheConversationMessages(conversationKey);
       return conversationMessages;
     }
-    const messageMap = getAccumulatedMessageMap(conversationKey);
 
+    const messageMap = getAccumulatedMessageMap(conversationKey);
     for (const message of incomingMessages) {
       if (message?.id) messageMap.set(message.id, message);
     }
 
-    const mergedData = buildMergedConversationData(
-      conversationKey,
-      data.current_node
-    );
+    const mergedData = buildMergedConversationData(conversationKey, data.current_node);
     conversationMessages = extractUserMessages(mergedData);
     cacheConversationMessages(conversationKey);
     return conversationMessages;
@@ -252,7 +260,10 @@ export function createConversationStore(
   function replaceWithFreshSnapshot(data: ConversationSnapshot, routeKey: string): boolean {
     if (routeKey !== getCurrentConversationKey()) return false;
     const branch = extractActiveBranchMessages(data);
-    if (branch === null) return false;
+    if (branch === null) {
+      markConversationIncomplete(routeKey);
+      return false;
+    }
     // Requests begun before this authoritative snapshot must not reintroduce
     // superseded branches when their paginated responses arrive late.
     freshSnapshotAppliedAt.delete(routeKey);

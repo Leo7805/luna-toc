@@ -35,6 +35,7 @@ import {
   initializePromptNavigation,
   jumpToAbsoluteEdge as jumpToPageEdge,
   jumpToMessage,
+  cancelPromptNavigation,
 } from './jump/promptNavigation';
 import {
   handlePromptNavigation,
@@ -427,6 +428,7 @@ export const navigatorController = (() => {
     preserveMessages = false,
     nextMessages = [],
   }: ResetRouteOptions = {}): void {
+    cancelPromptNavigation();
     conversationStore.resetForCurrentRoute({
       preserveMessages,
       nextMessages,
@@ -556,6 +558,7 @@ export const navigatorController = (() => {
         }
         refreshFailed = false;
         if (changed) {
+          cancelPromptNavigation();
           resetOutline();
           render({ refreshObservers: true });
         } else {

@@ -76,7 +76,7 @@ describe('navigation refresh cancellation lifecycle', () => {
         type: TOC_REFRESH_RESULT,
         routeKey,
         requestId: requests[1].requestId,
-        payload: { messages: [], page_info: { has_previous_page: false } },
+        payload: { messages: [], activeBranchVerified: true, page_info: { has_previous_page: false } },
       },
     }));
     expect(document.getElementById('luna-toc-status')?.textContent).not.toContain('未验证');

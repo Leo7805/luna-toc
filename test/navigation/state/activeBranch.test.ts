@@ -26,18 +26,71 @@ describe('extractActiveBranchMessages', () => {
     ]);
   });
 
-  it('rejects broken parent paths instead of clearing the TOC', () => {
+  it('rejects broken or unprovable mapping parent paths without clearing the TOC', () => {
     expect(extractActiveBranchMessages({
       messages: [],
       current_node: 'leaf',
       mapping: { leaf: { parent: 'missing', message: user('leaf') } },
     })).toBeNull();
+    expect(extractActiveBranchMessages({
+      messages: [],
+      current_node: 'leaf',
+      mapping: { leaf: { message: user('leaf') } },
+    })).toBeNull();
   });
 
-  it('works with flat messages from the paginated endpoint', () => {
+  it('rejects unlinked flat messages rather than guessing the active edit branch', () => {
+    expect(extractActiveBranchMessages({
+      messages: [user('a'), user('abandoned'), user('edited')],
+      current_node: 'edited',
+      page_info: { has_previous_page: false },
+    })).toBeNull();
     expect(extractActiveBranchMessages({
       messages: [user('a'), user('b')],
-    })?.map((m) => m.id)).toEqual(['a', 'b']);
+    })).toBeNull();
+  });
+
+  it('accepts only a prevalidated, de-duplicated branch from the page hook', () => {
+    expect(extractActiveBranchMessages({
+      activeBranchVerified: true,
+      messages: [user('a'), user('edited')],
+    })?.map((m) => m.id)).toEqual(['a', 'edited']);
+    expect(extractActiveBranchMessages({
+      activeBranchVerified: true,
+      messages: [user('a'), user('a')],
+    })).toBeNull();
+  });
+
+  it('accepts an explicitly complete empty conversation', () => {
+    expect(extractActiveBranchMessages({
+      messages: [], current_node: null,
+      page_info: { has_previous_page: false },
+    })).toEqual([]);
+  });
+
+  it('rejects missing links, loops, and conflicting parent fields', () => {
+    const missing = {
+      current_node: 'edited',
+      messages: [
+        { ...user('a'), parent: null },
+        { ...user('edited') },
+      ],
+    };
+    expect(extractActiveBranchMessages(missing)).toBeNull();
+    expect(extractActiveBranchMessages({
+      current_node: 'edited',
+      messages: [
+        { ...user('a'), parent: 'edited' },
+        { ...user('edited'), parent: 'a' },
+      ],
+    })).toBeNull();
+    expect(extractActiveBranchMessages({
+      current_node: 'edited',
+      messages: [
+        { ...user('a'), parent: null },
+        { ...user('edited'), parent: 'a', parent_id: 'abandoned' },
+      ],
+    })).toBeNull();
   });
 
   it('follows explicit parents in a flat response when available', () => {

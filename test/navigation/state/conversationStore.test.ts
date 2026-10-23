@@ -98,7 +98,7 @@ describe('conversationStore', () => {
       id: 'abandoned', author: { role: 'user' }, content: { parts: ['Old branch'] }, create_time: 1,
     };
     const staleRequestStartedAt = Date.now() - 1000;
-    expect(store.replaceWithFreshSnapshot({ messages: [current, {
+    expect(store.replaceWithFreshSnapshot({ activeBranchVerified: true, messages: [current, {
       id: 'answer', author: { role: 'assistant' }, content: { parts: ['Reply'] }, create_time: 2.5,
     }] }, 'conv-123')).toBe(true);
     store.handleConversationData({ messages: [abandoned] }, 'conv-123', staleRequestStartedAt);
@@ -108,7 +108,32 @@ describe('conversationStore', () => {
         id: 'new', author: { role: 'user' }, content: { parts: ['New message'] }, create_time: 3,
       }],
     }, 'conv-123', Date.now() + 1000);
+    // A newer unverified page must not reintroduce another branch.
+    expect(store.getMessages().map((message) => message.id)).toEqual(['active']);
+    // A directly observed user submission may still extend the active TOC.
+    store.handleNewUserMessage({
+      id: 'new', author: { role: 'user' },
+      content: { parts: ['New message'] }, create_time: 3,
+    }, 'conv-123');
     expect(store.getMessages().map((message) => message.id)).toEqual(['active', 'new']);
+  });
+
+  it('keeps prior prompts and invalidates completeness on uncertain refresh', () => {
+    const store = createConversationStore({ getCurrentRouteKey: () => 'conv-uncertain' });
+    store.setCurrentConversationKey('conv-uncertain');
+    const selected = { id: 'chosen', author: { role: 'user' }, content: { parts: ['Chosen'] } };
+    store.replaceWithFreshSnapshot({ activeBranchVerified: true, messages: [selected] }, 'conv-uncertain');
+    expect(store.isConversationComplete('conv-uncertain')).toBe(true);
+    const changed = store.replaceWithFreshSnapshot({
+      current_node: 'other', messages: [
+        { id: 'other', author: { role: 'user' }, content: { parts: ['Other edit'] } },
+      ],
+    }, 'conv-uncertain');
+    expect(changed).toBe(false);
+    expect(store.isConversationComplete('conv-uncertain')).toBe(false);
+    expect(store.getMessages().map((m) => m.id)).toEqual(['chosen']);
+    expect(store.getCachedConversationMessages('conv-uncertain').map((m) => m.id))
+      .toEqual(['chosen']);
   });
 
   it('deduplicates incoming user messages by message ID', () => {
