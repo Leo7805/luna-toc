@@ -77,11 +77,21 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
     const extensionId=new URL(worker.url()).host;
     assert.match(extensionId,/^[a-p]{32}$/);
     page=await context.newPage();
+    page.on('pageerror',error=>console.error('[fixture-pageerror]',error.message));
     await page.goto(url,{waitUntil:'domcontentloaded'});
     await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
+    // Host apps may fetch history before the asynchronous content UI is attached;
+    // exercise another real window.fetch after the extension is ready.
+    await page.evaluate(async()=>{await fetch('/backend-api/conversations/"+conversationId+"/?num_turns=4');});
 
     await t.test('MAIN + ISOLATED content scripts build correct TOC',async()=>{
-      await page.locator('.navigator-item').first().waitFor({state:'attached',timeout:15000});
+      await page.locator('.navigator-item').first().waitFor({state:'attached',timeout:5000}).catch(async error=>{
+        const diagnostic=await page.evaluate(()=>({url:location.href,status:document.getElementById('luna-toc-status')?.textContent,
+          list:document.getElementById('navigator-list')?.innerHTML.slice(0,500),
+          sidebar:document.getElementById('luna-toc-sidebar')?.className}));
+        console.error('[mock-TOC-diagnostic]',JSON.stringify(diagnostic));
+        throw error;
+      });
       assert.equal(await page.locator('.navigator-item').count(),2);
       assert.match(await page.locator('#navigator-list').innerText(),/第一条测试问题/);
       assert.match(await page.locator('#navigator-list').innerText(),/第二条测试问题/);
@@ -95,10 +105,14 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.locator('#navigator-search').fill('第二条');
       assert.equal(await page.locator('.navigator-item').count(),1);
       await page.locator('#navigator-search').fill('');
+      await page.locator('#luna-toc-sidebar-pin-btn').focus();
+      await page.keyboard.press('Alt+Shift+J');
+      await page.locator('.navigator-jump-controls-visible').waitFor({state:'attached'});
       await page.locator('#toggle-view-mode-btn').click();
       assert.match(await page.locator('#navigator-title').innerText(),/我的提示词/);
       await page.locator('#toggle-view-mode-btn').click();
-      await page.locator('#toggle-view-mode-btn').press('Alt+Shift+J');
+      await page.locator('#luna-toc-sidebar-pin-btn').focus();
+      await page.keyboard.press('Alt+Shift+J');
       assert.equal(await page.locator('.navigator-jump-controls button:focus').count(),1);
     });
 
