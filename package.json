@@ -13,7 +13,10 @@
     "version": "tsx scripts/version.ts && git add -- manifest.json",
     "stamp": "node scripts/stamp.mjs",
     "sbuild": "npm run stamp && npm run build",
-    "preversion": "npm run stamp -- clean"
+    "preversion": "npm run stamp -- clean",
+    "test:security": "node --test test/browser/manifest-audit.test.mjs && node scripts/audit-extension.mjs",
+    "test:browser:setup": "npm install --no-save --package-lock=false --ignore-scripts playwright@1.64.1 && npx playwright install --with-deps chromium",
+    "test:browser": "node --test test/browser/extension.test.mjs"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.7.1",
