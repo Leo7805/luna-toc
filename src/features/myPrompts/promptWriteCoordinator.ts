@@ -1,5 +1,6 @@
 /** Serializes My Prompts commits in the Manifest V3 background service worker. */
 import type { SavedPrompt } from './promptStore';
+import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 export const PROMPT_STORAGE_KEY = 'lumaToc:myPromptsV1'; // Never rename: existing users depend on it.
 export const PROMPT_COMMIT_TYPE = 'LUNA_TOC_PROMPTS_COMMIT_V1';
@@ -55,18 +56,16 @@ export function isPromptCommitRequest(value: unknown): value is PromptCommitRequ
 }
 
 /**
- * One queue across all extension tabs in this worker. A read/check/write stays
- * within one queued job. Storage itself offers no CAS outside this protocol;
- * backup restoration and older extension versions must not write concurrently.
+ * All extension-owned writes share the injected background queue. A read/check/write
+ * stays in one queued job so backup restoration cannot interleave with prompt commits.
  */
 export function createPromptWriteCoordinator(
-  storage: PromptStorage = chrome.storage.local
+  storage: PromptStorage = chrome.storage.local,
+  queue: SerialWriteQueue = createSerialWriteQueue()
 ): { commit(request: unknown): Promise<PromptCommitResponse> } {
-  let queue: Promise<void> = Promise.resolve();
-
   return {
     commit(request: unknown): Promise<PromptCommitResponse> {
-      const job = queue.catch(() => undefined).then(async (): Promise<PromptCommitResponse> => {
+      return queue.run(async (): Promise<PromptCommitResponse> => {
         if (!isPromptCommitRequest(request)) {
           return { ok: false, error: 'Invalid prompt update request' };
         }
@@ -92,9 +91,6 @@ export function createPromptWriteCoordinator(
           };
         }
       });
-      // A failed job must never poison the queue for subsequent tabs.
-      queue = job.then(() => undefined, () => undefined);
-      return job;
     },
   };
 }
