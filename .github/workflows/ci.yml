@@ -104,22 +104,11 @@ jobs:
       - name: Check extension privilege boundaries and license metadata
         run: npm run test:security
 
-      - name: Audit known npm dependency vulnerabilities
-        id: dependency_audit
-        continue-on-error: true
-        run: npm audit --audit-level=high
-
       - name: Install isolated Chromium test runner
         run: npm run test:browser:setup
 
       - name: Run headless Chromium extension tests
         run: npm run test:browser
-
-      - name: Enforce dependency vulnerability policy
-        if: steps.dependency_audit.outcome == 'failure'
-        run: |
-          echo 'High or critical npm dependency advisories remain. See the audit step.' >&2
-          exit 1
 
       - name: Preserve browser and security reports
         if: always()
@@ -141,4 +130,29 @@ jobs:
             luna-toc-sc-chrome.zip.sha256
           if-no-files-found: error
           retention-days: 14
+
+  security:
+    name: Dependency advisory gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Reject known high and critical dependency advisories
+        run: npm audit --audit-level=high
 
