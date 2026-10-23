@@ -44,7 +44,7 @@
 
 ## 我的提示词
 
-- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离；写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序进行读取、快照核对和保存。旧版存储键保持不变，其他标签页先保存时本标签页在最新数据上重算修改，最多有限次重试；同一提示词的过期编辑/删除在界面层拒绝覆盖。旧式整表替换 `saveAll()` 仅接受由同一存储实例的 `getAll()` 直接返回的数组（可原位编辑），并绑定其读取时快照；无法证明基准的数组拒绝替换。
+- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离；写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序进行读取、快照核对和保存。旧版存储键保持不变，其他标签页先保存时本标签页在最新数据上重算修改，最多有限次重试；同一提示词的过期编辑/删除在界面层拒绝覆盖；存储层在重试前还会比较本次修改涉及的记录，拒绝重叠编辑、允许独立记录的修改合并。旧式整表替换 `saveAll()` 仅接受由同一存储实例的 `getAll()` 直接返回的数组（可原位编辑），并绑定其读取时快照；无法证明基准的数组拒绝替换。
 - `src/features/myPrompts/promptLibrary.ts` 实现增删改、Markdown 导入导出，并使用存储层原子转换接口。
 - `src/features/myPrompts/promptAutocomplete.ts` 在 ChatGPT 的 ProseMirror 输入框上提供 `#`、`//` 补全。
 - `src/features/myPrompts/promptUsageStore.ts` 在启动时按现存提示词 ID 清理孤立使用统计，并在写入失败时回滚内存状态。
