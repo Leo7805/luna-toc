@@ -82,6 +82,8 @@ export function createTocListRenderer(
   const EMPTY_HINT_TEXT = '等待提示词...';
   let searchQuery = '';
   let navigatorItems: HTMLElement[] = [];
+  // Only one mounted row can be highlighted; avoid scanning the full list on scroll.
+  let highlightedItem: HTMLElement | null = null;
   // Retain unchanged rows and their answer-heading DOM between renders.
   let renderedRows = new Map<string, { element: HTMLElement; signature: string }>();
   let hasScrolledInitialActive = false;
@@ -113,6 +115,8 @@ export function createTocListRenderer(
     editorResizeObserver?.disconnect();
     editorResizeObserver = null;
     editing = null;
+    highlightedItem?.classList.remove('navigator-item-active');
+    highlightedItem = null;
     navigatorItems = [];
     renderedRows.clear();
     searchQuery = '';
@@ -205,14 +209,17 @@ export function createTocListRenderer(
   }
 
   function updateActiveItemUI(index: number, changed: boolean): void {
-    navigatorItems.forEach((item) => {
-      item?.classList.remove('navigator-item-active');
-    });
-
     const item = navigatorItems[index];
+    if (highlightedItem !== item) {
+      highlightedItem?.classList.remove('navigator-item-active');
+      highlightedItem = null;
+    }
     if (!item?.isConnected) return;
 
-    item.classList.add('navigator-item-active');
+    if (highlightedItem !== item) {
+      item.classList.add('navigator-item-active');
+      highlightedItem = item;
+    }
     if (changed) {
       syncActivePrompt(index);
     }
@@ -653,6 +660,15 @@ export function createTocListRenderer(
       list.lastElementChild?.remove();
     }
     renderedRows = nextRows;
+
+    // Reconcile reused, replaced and search-filtered rows with the tracker state.
+    const activeIndex = options.getActiveIndex();
+    const activeItem = activeIndex === null ? null : navigatorItems[activeIndex] ?? null;
+    if (highlightedItem !== activeItem) {
+      highlightedItem?.classList.remove('navigator-item-active');
+      highlightedItem = activeItem;
+      highlightedItem?.classList.add('navigator-item-active');
+    }
 
     if (refreshObservers || completed === true) {
       options.onRefreshObservers?.();
