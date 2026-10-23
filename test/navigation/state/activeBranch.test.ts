@@ -26,11 +26,16 @@ describe('extractActiveBranchMessages', () => {
     ]);
   });
 
-  it('rejects broken parent paths instead of clearing the TOC', () => {
+  it('rejects broken or unprovable mapping parent paths without clearing the TOC', () => {
     expect(extractActiveBranchMessages({
       messages: [],
       current_node: 'leaf',
       mapping: { leaf: { parent: 'missing', message: user('leaf') } },
+    })).toBeNull();
+    expect(extractActiveBranchMessages({
+      messages: [],
+      current_node: 'leaf',
+      mapping: { leaf: { message: user('leaf') } },
     })).toBeNull();
   });
 
