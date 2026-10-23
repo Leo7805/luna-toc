@@ -37,6 +37,7 @@ import {
 } from './conversationLifecycle';
 import { installHistoryHook } from './historyHook';
 import { installTitleObserver } from './titleObserver';
+import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contractAlert/toolbarWarning';
 
 (() => {
   const platform = getActivePlatform();
@@ -66,6 +67,10 @@ import { installTitleObserver } from './titleObserver';
       showCompatibilityAlert?: unknown;
       contractValues?: Record<string, unknown>;
     } | null;
+    if (data?.type === PAGE_HOOK_HEALTH_PING) {
+      window.postMessage({ type: PAGE_HOOK_HEALTH_PONG }, location.origin);
+      return;
+    }
     if (!data || data.type !== platform.pageHook.messages.configUpdate) return;
     if (data.contractValues && typeof data.contractValues === 'object') {
       setEffectiveContractValues(data.contractValues);

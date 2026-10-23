@@ -7,6 +7,7 @@ import { initializeConversationLifecycle } from '@/navigation/lifecycle/conversa
 import { observeExternalOverlays } from '@/features/externalOverlay';
 import { startPageHookMismatchBridge, startChatGptConfigSync } from '@/features/contractAlert/pageHookBridge';
 import { initializeReactHost } from '@/reactHost/reactHost';
+import { startToolbarCompatibilityMonitor } from '@/features/contractAlert/toolbarMonitor';
 
 // Start the one-time reconciliation listener before sidebar setup.
 initializeConversationLifecycle();
@@ -19,6 +20,9 @@ void initializeReactHost();
 
 // Forward page-hook contract-mismatch messages into the ISOLATED-world detector.
 startPageHookMismatchBridge();
+
+// Always send observed incompatibilities to Chrome's toolbar, independently of developer settings.
+startToolbarCompatibilityMonitor();
 
 // Sync the active contract values to the MAIN-world page-hook so its detection
 // compares observed paths against the developer's current expectations.

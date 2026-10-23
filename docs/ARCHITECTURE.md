@@ -61,3 +61,7 @@ Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签�
 ## 验收边界
 
 自动化单元测试不等于真实 ChatGPT 页面验收。手动验证重点为重复提问、含附件提问、长对话远距跳转、历史编辑分支、窄窗口布局和提示词写入失败。
+
+## 工具栏兼容性兜底
+
+`src/features/contractAlert/toolbarMonitor.ts` 在 ISOLATED world 常驻，复用现有接口 mismatch 记录，并以页面钩子 PING/PONG 和已渲染对话的关键 DOM 标记二次采样作保守兜底；不发额外网络请求。`src/background.ts` 在 MV3 service worker 中按标签页写入 `chrome.storage.session`，设置浏览器 action `!` 标记，`src/components/popup/PopupApp.tsx` 显示升级指引。整页重新加载清除旧标记；其他标签页不受影响。开发者模态诊断开关仍独立，用户工具栏告警默认启用。检测并不保证覆盖任意未知的未来结构变化。

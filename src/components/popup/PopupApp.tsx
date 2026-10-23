@@ -1,5 +1,5 @@
 /** Renders the complete extension popup and coordinates its theme state. */
-import { Info, Settings } from 'lucide-react';
+import { Info, Settings, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   readResolvedChatGPTTheme,
@@ -13,6 +13,7 @@ import {
   type ThemeSettings as ThemeSettingsValue,
 } from '@/features/theme/themeSettings';
 import { ThemeSettings } from './ThemeSettings';
+import { parseToolbarWarning, toolbarWarningKey, type ToolbarCompatibilityWarning } from '@/features/contractAlert/toolbarWarning';
 const PROJECT_URL = 'https://github.com/PyRookie1/luna-toc-sc';
 
 const INITIAL_SETTINGS: ThemeSettingsValue = {
@@ -24,6 +25,36 @@ const INITIAL_SETTINGS: ThemeSettingsValue = {
 export function PopupApp(): React.JSX.Element {
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
   const [chatGPTTheme, setChatGPTTheme] = useState<ResolvedTheme>('dark');
+  const [compatibilityWarning, setCompatibilityWarning] =
+    useState<ToolbarCompatibilityWarning | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    let sessionKey: string | null = null;
+
+    const refresh = async (): Promise<void> => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id === undefined) return;
+      sessionKey = toolbarWarningKey(tab.id);
+      const values = await chrome.storage.session.get(sessionKey);
+      if (active) setCompatibilityWarning(parseToolbarWarning(values[sessionKey]));
+    };
+    const onStorageChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: chrome.storage.AreaName
+    ): void => {
+      if (areaName === 'session' && sessionKey && sessionKey in changes) {
+        void refresh().catch(() => {});
+      }
+    };
+
+    void refresh().catch(() => {});
+    chrome.storage.onChanged.addListener(onStorageChange);
+    return () => {
+      active = false;
+      chrome.storage.onChanged.removeListener(onStorageChange);
+    };
+  }, []);
 
   useEffect(() => {
     void readThemeSettings().then(setSettings);
@@ -53,6 +84,24 @@ export function PopupApp(): React.JSX.Element {
 
   return (
     <main className="rounded-lg bg-[var(--p-bg-main)] p-3">
+      {compatibilityWarning && (
+        <aside role="alert" className="mb-3 rounded-md border border-amber-500/70 bg-[var(--p-bg-note)] p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--p-text-base)]">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+            ChatGPT 兼容性异常
+          </div>
+          <p className="mt-2 mb-1 text-xs leading-relaxed">
+            检测到 ChatGPT 页面或接口变化，当前扩展可能无法正常工作。请升级 LunaTOC-SC 至最新版，并刷新 ChatGPT。
+          </p>
+          <p className="mt-1 mb-2 text-[11px] leading-relaxed opacity-80">
+            {compatibilityWarning.detail}
+          </p>
+          <a href={`${PROJECT_URL}/releases`} target="_blank" rel="noopener noreferrer"
+            className="text-xs font-semibold text-[var(--p-accent)] underline">
+            查看新版并升级
+          </a>
+        </aside>
+      )}
       <ThemeSettings
         settings={settings}
         resolvedTheme={resolvedTheme}
