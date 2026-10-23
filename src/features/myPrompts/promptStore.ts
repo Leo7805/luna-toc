@@ -32,6 +32,25 @@ function isContextValid(): boolean {
   return typeof chrome !== 'undefined' && !!chrome.runtime?.id;
 }
 
+function samePrompt(left: SavedPrompt | undefined, right: SavedPrompt | undefined): boolean {
+  if (!left || !right) return left === right;
+  return left.id === right.id && left.title === right.title &&
+    left.content === right.content && left.createdAt === right.createdAt &&
+    left.updatedAt === right.updatedAt;
+}
+
+/** Finds IDs changed by a transform, so a conflict retry cannot clobber those same records. */
+function changedIds(before: SavedPrompt[], after: SavedPrompt[]): Set<string> {
+  const original = new Map(before.map((item) => [item.id, item]));
+  const changed = new Set<string>();
+  for (const item of after) {
+    if (!samePrompt(original.get(item.id), item)) changed.add(item.id);
+    original.delete(item.id);
+  }
+  for (const id of original.keys()) changed.add(id);
+  return changed;
+}
+
 function clone(prompts: SavedPrompt[]): SavedPrompt[] {
   return prompts.map((item) => ({ ...item }));
 }
@@ -184,7 +203,19 @@ export function createPromptStore(): PromptStore {
             publish(next);
             return;
           }
-          // Another tab won the race. Re-evaluate the transform on fresh data.
+          // A concurrent change to any of our edited IDs is a real conflict,
+          // not an excuse to silently use last-writer-wins on that record.
+          const updated = await readFresh();
+          const beforeIds = new Map(latest.map((item) => [item.id, item]));
+          const updatedIds = new Map(updated.map((item) => [item.id, item]));
+          const destructiveClear = latest.length > 0 && next.length === 0;
+          if ((destructiveClear && !equalPromptLists(latest, updated)) ||
+              [...changedIds(latest, next)].some((id) =>
+                !samePrompt(beforeIds.get(id), updatedIds.get(id)))) {
+            publish(updated);
+            throw new Error('Prompts changed in another tab; conflicting edits were not saved');
+          }
+          // Unrelated additions or edits can safely be replayed on the latest list.
         }
         const latest = await readFresh();
         publish(latest);
