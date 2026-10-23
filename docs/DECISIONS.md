@@ -544,3 +544,49 @@ Out of scope for this PR:
 - `Manifest.json` now lists `https://copilot.microsoft.com/*` in both MAIN
   and ISOLATED match arrays so the placeholder can be smoke-tested; expect
   `Error('Copilot platform not yet implemented')` if Copilot code paths run.
+
+---
+
+## ADR 12: Hybrid React 19 + Vanilla TypeScript UI Architecture
+* **Date**: 2026-10-24
+
+### Context
+LunaTOC required modernized interactive controls, rich modal interactions (MyPrompts editor, autocomplete popover, custom TOC title dialogs, search filtering), and cleaner component boundaries. However, ChatGPT conversations can span hundreds of turns, requiring sub-millisecond outline rendering, scroll follow tracking, and smooth 60fps drag resizing. We needed to determine whether to migrate the entire extension to React or establish an intentional hybrid boundary.
+
+### Decision
+Adopt a permanent **Hybrid React 19 + Vanilla TypeScript Architecture**:
+
+1. **React 19 Scope**: Exclusively owns all user-interactive widgets, stateful toolbars, and modal overlays:
+   - Sidebar Header (`#luna-toc-sidebar-pin-btn`, `#navigator-title`, `#search-toggle-btn`)
+   - Search Bar (`#navigator-search`)
+   - Status Banner (`#luna-toc-status`)
+   - Jump Controls (`#jump-chat-top-btn`, `#toggle-view-mode-btn`, `#jump-chat-bottom-btn`)
+   - MyPrompts Toolbar and List (`#myprompts-toolbar-container`, `#myprompts-list`)
+   - Floating Moon Button (`#luna-toc-toggle-btn`)
+   - Shadow DOM Dialogs (Autocomplete, Context Menu, Editor, Custom Title, Confirm)
+2. **Vanilla TypeScript Scope**: Permanently retains outer shell scaffolding, low-level browser integrations, and performance-critical navigation algorithms:
+   - Outer Sidebar Shell (`#luna-toc-sidebar`, `.navigator-topbar`, static portal slots)
+   - TOC List and Outline DOM Engine (`#navigator-list`, `tocListRenderer.ts`, `outline.ts`)
+   - Active Prompt Tracking (Rules A/B/C, transition lifecycle `idle`/`jumping`/`landed`/`failed`)
+   - Follow and Virtual Search Navigation (`follow.ts`, `promptNavigation.ts`, `virtualSearchController.ts`)
+   - Tooltip Services (`buttonTooltip`, `previewTooltip`)
+   - Drag and Resize Mechanics (horizontal shell resize, vertical jump panel clamping)
+   - Sidebar Visibility Coordination (`sidebarVisibility.ts`, `evictFocusFromSidebar()`)
+3. **Integration Boundary**:
+   - Single React Root created via `createRoot` inside an isolated Shadow DOM host (`#luna-toc-react-host`).
+   - Tailwind CSS inlined strictly into the Shadow Root, preventing CSS leaks into the host page or Light DOM.
+   - React components portal into static Light DOM container slots via `createPortal()`, maintaining 100% exclusive inner child ownership.
+   - Synchronous external store subscriptions via React 19 `useSyncExternalStore` (`sidebarController`, `sidebarVisibility`, `myPrompts`).
+   - Dual startup order resilience: React components return `null` until `sidebarController.subscribeReady` fires if React initializes before the Sidebar DOM.
+
+### Rationale
+- **Declarative UI where complexity is stateful**: Modals, form inputs, prompt sorting, and search filters thrive in React's component model and declarative state synchronization.
+- **Imperative DOM where performance is critical**: Rendering hundreds of conversation prompts with hierarchical heading outlines requires direct, fine-grained DOM operations and scroll anchoring without virtual DOM diffing overhead.
+- **Fluid Drag & Resize**: Direct CSS variable updates (`--navigator-width`) allow sidebar resizing to track mouse movements at full monitor refresh rate without triggering React reconciliation cycles across sibling components.
+- **Physical View Separation**: Toggling between TOC and MyPrompts view switches `style.display = 'none' | ''` between `#navigator-list` and `#myprompts-list`, retaining independent scroll positions without DOM destruction or scroll jumping.
+
+### Consequences
+- Pristine DOM separation: Zero mixed-child ownership. Vanilla never alters React-owned child nodes, attributes, or text content; React never mutates `#navigator-list` or outer shell scaffolding.
+- All temporary compatibility guards (`data-react-managed`) and legacy Vanilla event fallbacks (`bindSidebarControls`) are removed.
+- Focus and accessibility management are strictly isolated inside React `useEffect` hooks.
+- The decision to keep the TOC List and outer Sidebar Shell in Vanilla TypeScript is a permanent, finalized architectural boundary.

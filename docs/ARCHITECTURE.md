@@ -164,20 +164,87 @@ graph TD
 - [popup.tsx](../src/popup/popup.tsx): Mounts the React Popup application.
 - [options.tsx](../src/options/options.tsx): Mounts the full-page React settings application.
 
-### React UI Foundation
+### React UI Architecture & Integration Model
 
-- React is introduced incrementally: existing DOM-driven features remain unchanged until their individual UI boundaries are migrated.
-- [components/ui](../src/components/ui) contains shadcn/ui primitives; feature-specific and shared React components will live in sibling component directories.
-- [reactHost.tsx](../src/reactHost/reactHost.tsx) owns the React Shadow Root, injects the compiled Tailwind stylesheet, and exposes the internal Portal container.
-- [PromptEditorDialog.tsx](../src/components/my-prompts/PromptEditorDialog.tsx) renders the first migrated My Prompts interface while saving remains in the feature layer.
-- [PromptAutocomplete.tsx](../src/components/my-prompts/PromptAutocomplete.tsx) renders matched prompts at viewport coordinates supplied by the composer feature and keeps a single highlight owned by the most recent pointer or keyboard interaction.
-- [PopupApp.tsx](../src/components/popup/PopupApp.tsx) renders the extension Popup, including the follow-ChatGPT and manual theme controls.
-- [OptionsApp.tsx](../src/components/options/OptionsApp.tsx) renders the ChatGPT navigation strategy setting as immediately saved radio cards.
-- Popup layout and component styling use Tailwind utilities; `popup.css` remains the Tailwind entry and retains only theme tokens and document-level base rules.
-- `@/` resolves to the entire `src/` directory for browser code, React components, styles, and utilities.
-- Tailwind CSS is loaded as an inline string inside the React Shadow Root, so generated global rules cannot affect ChatGPT or the legacy Content Script UI.
-- shadcn theme variables are scoped to `.luna-toc-ui`, which is applied to both the React and Portal containers inside the Shadow Root.
-- The React host mirrors the document's `data-theme` value onto itself so Shadow DOM components follow LunaTOC theme changes without selecting across the boundary.
+LunaTOC employs a hybrid architecture combining React 19 + TypeScript for interactive UI widgets and modals with an optimized, imperative Vanilla TypeScript core for high-throughput conversation outline and navigation tasks.
+
+#### 1. React-Owned UI Components
+
+All user-interactive widgets, stateful toolbars, and modal overlays are rendered via React 19:
+
+- **Sidebar Header** (`src/components/sidebar-header/SidebarHeader.tsx`, `SidebarHeaderBar.tsx`):
+  Portals into Light DOM container `#navigator-header`. Exclusively owns `#luna-toc-sidebar-pin-btn` (pin/auto-hide toggle), `#navigator-title` (conversation title / reset view), and `#search-toggle-btn` (search expand/collapse).
+- **Search Bar** (`src/components/sidebar-header/SidebarSearchBar.tsx`):
+  Portals into Light DOM container `#navigator-search-container`. Exclusively owns `#navigator-search` (controlled input value, display visibility, and keyboard navigation). Focus and blur are cleanly isolated inside component lifecycle hooks.
+- **Status Banner** (`src/components/sidebar-status/SidebarStatus.tsx`):
+  Portals into Light DOM container `#luna-toc-status`. Exclusively owns banner text messages and animated `.jumping-dots` pulsing indicators.
+- **Jump Controls** (`src/components/sidebar-jump/SidebarJumpControls.tsx`):
+  Portals into Light DOM draggable container `.navigator-jump-controls`. Exclusively owns child navigation buttons:
+  - `#jump-chat-top-btn` (Jump to Top)
+  - `#toggle-view-mode-btn` (Toggle TOC / MyPrompts view)
+  - `#jump-chat-bottom-btn` (Jump to Bottom)
+- **MyPrompts Toolbar & List** (`src/components/my-prompts/MyPromptsView.tsx`, `MyPromptsToolbar.tsx`, `MyPromptsList.tsx`, `MyPromptsItemRow.tsx`):
+  Portals into Light DOM containers `#myprompts-toolbar-container` and `#myprompts-list`. Exclusively owns prompt sorting, search filtering, template cards, action buttons (`#myprompt-add-new-btn`, `.myprompt-canvas-btn`), and hover actions (Edit, Delete, Copy).
+- **Floating Moon Button** (`src/components/sidebar-toggle/SidebarToggleButton.tsx`):
+  Portals into `#luna-toc-toggle-container` (`display: contents` on `document.body`). Exclusively owns `#luna-toc-toggle-btn`, managing SVG icon presentation, 2D drag physics with touch/pointer capture, boundary clamping, and session persistence.
+- **Dialogs & Overlays** (Shadow DOM):
+  - `PromptAutocomplete.tsx`: Suggestion popover for ChatGPT composer matching `#` or `//`.
+  - `PromptContextMenu.tsx`: Context menu for saving and managing prompts.
+  - `PromptEditorDialog.tsx`: Modal editor for creating and editing prompt templates.
+  - `CustomTocTitleDialog.tsx`: Modal for assigning custom titles to TOC conversation items.
+  - `ConfirmDialog.tsx`: Modal for destructive confirmation prompts (e.g. deleting templates).
+
+#### 2. Vanilla TypeScript Responsibilities
+
+Performance-critical DOM operations, low-level browser integrations, and static shell scaffolding remain in Vanilla TypeScript:
+
+- **Outer Sidebar Shell** (`src/app/applicationShell.ts`):
+  Creates and owns `#luna-toc-sidebar`, `.navigator-topbar`, and static portal mount containers. Manages flex layout and CSS width variables (`--navigator-width`).
+- **TOC List and Outline Engine** (`src/navigation/ui/tocListRenderer.ts`, `src/features/navigation/outline.ts`):
+  Exclusive owner of `#navigator-list`. Imperatively renders and updates hundreds of prompt entries, numbers, custom titles, badges, and heading outline items with sub-millisecond layout overhead.
+- **Active Prompt Tracking** (`src/features/navigation/activePromptTracker.ts`, `src/features/navigation/navigationState.ts`):
+  Evaluates viewport tracking rules (Rules A/B/C) and transitions between `idle`, `jumping`, `landed`, and `failed` navigation states.
+- **Follow & Navigation Coordination** (`src/features/navigation/follow.ts`, `src/navigation/navigatorController.ts`, `src/features/navigation/virtualSearchController.ts`):
+  Coordinates chat container scroll events, virtual-list search planning, and physical edge navigation (`jumpToEdge`, `jumpToAbsoluteEdge`).
+- **Tooltip Services** (`src/features/tooltip.ts`):
+  Global singleton Vanilla tooltip engines (`buttonTooltip`, `previewTooltip`) attached to Light DOM elements using `data-tooltip` attributes.
+- **Drag & Resize Mechanics**:
+  - Horizontal sidebar resizing (`initSidebarResize` in `applicationShell.ts`): Direct mouse-drag interaction updating `--navigator-width` without triggering UI re-renders.
+  - Vertical Jump Controls repositioning (`src/features/sidebar/FloatingPanel.ts`): Manages pointer capture, vertical clamping, and `sessionStorage` persistence for `.navigator-jump-controls`.
+- **Sidebar Visibility & Accessibility** (`src/features/sidebarVisibility.ts`):
+  Coordinates auto-hide timers, pin state, media query spoofing, and focus eviction (`evictFocusFromSidebar()`) before applying `aria-hidden="true"` and `inert`.
+
+#### 3. Integration Model & Lifecycle
+
+- **Single Shared React Root**:
+  Mounted once in `src/reactHost/reactHost.tsx` via `createRoot` within an isolated Shadow DOM container (`#luna-toc-react-host`).
+- **Shadow DOM Isolation**:
+  Tailwind CSS (`src/styles/tailwind.css`) is loaded strictly as an inline string inside the Shadow Root. Global utility rules cannot collide with ChatGPT styles or Light DOM sidebar styles (`src/styles/content.css`).
+- **Light DOM Portals**:
+  React widgets render into static Light DOM container slots via `createPortal()`. Outer containers are created synchronously by `applicationShell.ts`; React holds exclusive ownership over inner child elements.
+- **Exclusive Child Ownership**:
+  No element has mixed ownership. Vanilla never alters React-owned child nodes, attributes, or text content; React never mutates `#navigator-list` or outer shell scaffolding.
+- **Store Subscriptions via `useSyncExternalStore`**:
+  React components subscribe directly to Vanilla store snapshots (`sidebarController.subscribeHeader`, `sidebarController.subscribeView`, `sidebarVisibility.subscribeSidebarPinned`, `sidebarVisibility.subscribeSidebarHidden`). This guarantees tear-free, synchronous updates without bidirectional coupling.
+- **Dual Startup Order Resilience**:
+  Startup order is completely decoupled:
+  - If React renders before the Sidebar DOM exists, components query `sidebarController.getReadySnapshot()` and return `null` until `isReady` triggers via `sidebarController.subscribeReady`.
+  - If the Sidebar DOM exists before React initializes, components detect existing portal containers and mount immediately on the first render.
+- **Isolated Focus & Accessibility**:
+  Imperative focus management (e.g. focusing `#navigator-search` upon opening) is encapsulated in React `useEffect` hooks, preserving clean separation between declarative state and imperative browser focus.
+
+#### 4. Architectural Rationale: Why the TOC List and Outer Shell Intentionally Remain Vanilla
+
+The decision to retain the TOC List and outer Sidebar Shell in Vanilla TypeScript is a deliberate, permanent architectural choice, not unfinished migration work:
+
+1. **Virtualization & Layout Throughput**:
+   Long ChatGPT conversations can contain hundreds of conversation prompts with hierarchical markdown headings. Vanilla DOM mutations via `tocListRenderer.ts` achieve sub-millisecond layout, fine-grained DOM node re-resolution, and immediate scroll anchoring without the memory and reconciliation overhead of a virtual DOM tree.
+2. **Smooth High-Frequency Resizing**:
+   The outer sidebar resizer directly updates the CSS variable `--navigator-width` on `#luna-toc-sidebar` during mousemove events. Keeping the shell imperative ensures that resizing runs at display refresh rate without triggering React reconciliation cycles across child components.
+3. **Scroll Retention & View Isolation**:
+   Toggling between TOC and MyPrompts view simply switches `style.display = 'none' | ''` between `#navigator-list` and `#myprompts-list` while preserving exact scroll positions (`tocScrollTop` / `myPromptsScrollTop`). This clean physical separation prevents DOM reconstruction and eliminates scroll-jumping artifacts.
+
+---
 
 ### Build Outputs
 
