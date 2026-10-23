@@ -181,11 +181,12 @@ describe('My Prompts serial cross-tab persistence', () => {
   it('rejects full replace when another tab changed the snapshot', async () => {
     const tabA = createPromptStore();
     const tabB = createPromptStore();
-    await tabB.getAll();
+    const observed = await tabB.getAll();
     // A concurrent edit not yet broadcast to B is still checked against Chrome storage.
     listeners.length = 0;
     await tabA.update((prompts) => [...prompts, make('new')]);
-    await expect(tabB.saveAll([])).rejects.toThrow('changed in another tab');
+    observed.length = 0;
+    await expect(tabB.saveAll(observed)).rejects.toThrow('changed in another tab');
     expect((await tabA.getAll()).length).toBe(2);
   });
 
