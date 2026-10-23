@@ -66,6 +66,9 @@ void getActiveContractValue;
 /** Message type posted by the page-hook when it observes a contract mismatch. */
 export const PAGE_HOOK_MISMATCH_MESSAGE_TYPE = 'LUNA_CONTRACT_MISMATCH';
 
+/** Posted after the page hook has positive evidence that a contract works again. */
+export const PAGE_HOOK_RECOVERY_MESSAGE_TYPE = 'LUNA_CONTRACT_RECOVERED';
+
 /** Message type posted by the content script to sync contract values to the page-hook. */
 export const CHATGPT_CONFIG_UPDATE_MESSAGE_TYPE = 'LUNA_CHATGPT_CONFIG_UPDATE';
 

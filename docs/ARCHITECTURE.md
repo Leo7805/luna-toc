@@ -64,7 +64,7 @@
 
 ## 工具栏兼容性兜底
 
-`src/features/contractAlert/toolbarMonitor.ts` 在 ISOLATED world 常驻，复用现有接口 mismatch 记录，并以页面钩子 PING/PONG 和已渲染对话的关键 DOM 标记二次采样作保守兜底；不发额外网络请求。`src/background.ts` 在 MV3 service worker 中按标签页写入 `chrome.storage.session`，设置浏览器 action `!` 标记，`src/components/popup/PopupApp.tsx` 显示升级指引。整页重新加载清除旧标记；其他标签页不受影响。开发者模态诊断开关仍独立，用户工具栏告警默认启用。检测并不保证覆盖任意未知的未来结构变化。
+`src/features/contractAlert/toolbarMonitor.ts` 在 ISOLATED world 常驻，复用现有接口 mismatch 记录，并以页面钩子 PING/PONG 和已渲染对话的关键 DOM 标记二次采样作保守兜底；不发额外网络请求。`src/background.ts` 在 MV3 service worker 中按标签页写入 `chrome.storage.session`，设置浏览器 action `!` 标记，`src/components/popup/PopupApp.tsx` 显示升级指引。整页重新加载清除旧标记；SPA 路由变化也会先清除旧异常并重新采样。内容脚本仅在真实恢复（页面钩子 PONG、接口契约正向匹配、连续两次已渲染 DOM 标记正常）或路由切换后发送健康状态；单纯关闭开发者弹窗不会取消工具栏告警。后台在同一标签页串行写入带修订号的异常/健康状态，并保留健康状态屏障，避免同文档旧消息使“!”再次出现；其他标签页不受影响。开发者模态诊断开关仍独立，用户工具栏告警默认启用。检测并不保证覆盖任意未知的未来结构变化。
 
 ## 本地数据备份与恢复
 

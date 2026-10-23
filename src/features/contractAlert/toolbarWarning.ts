@@ -2,6 +2,7 @@
  * Shared toolbar-warning protocol across content, background, and popup.
  */
 export const TOOLBAR_COMPATIBILITY_WARNING = 'LUNA_TOOLBAR_COMPATIBILITY_WARNING';
+export const TOOLBAR_COMPATIBILITY_HEALTHY = 'LUNA_TOOLBAR_COMPATIBILITY_HEALTHY';
 export const PAGE_HOOK_HEALTH_PING = 'LUNA_PAGE_HOOK_HEALTH_PING';
 export const PAGE_HOOK_HEALTH_PONG = 'LUNA_PAGE_HOOK_HEALTH_PONG';
 

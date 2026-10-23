@@ -11,42 +11,45 @@ import {
 } from '@/features/conversationPrompts/tocAliasWriteCoordinator';
 import {
   TOOLBAR_COMPATIBILITY_WARNING,
-  toolbarWarningKey,
-  type ToolbarCompatibilityWarning,
+  TOOLBAR_COMPATIBILITY_HEALTHY,
 } from '@/features/contractAlert/toolbarWarning';
+import { createToolbarWarningController } from '@/features/contractAlert/toolbarBackground';
 
+const toolbar = createToolbarWarningController(chrome.storage.session, chrome.action);
 chrome.runtime.onMessage.addListener((message: unknown, sender) => {
   if (!message || typeof message !== 'object') return;
-  const payload = message as { type?: unknown; detail?: unknown };
-  if (payload.type !== TOOLBAR_COMPATIBILITY_WARNING) return;
+  const payload = message as { type?: unknown; detail?: unknown; revision?: unknown };
+  const kind = payload.type === TOOLBAR_COMPATIBILITY_WARNING ? 'warning'
+    : payload.type === TOOLBAR_COMPATIBILITY_HEALTHY ? 'healthy' : null;
+  if (!kind) return;
   const tabId = sender.tab?.id;
   if (tabId === undefined ||
+      sender.frameId !== 0 ||
+      (sender.documentLifecycle && sender.documentLifecycle !== 'active') ||
       !/^https:\/\/(?:chatgpt\.com|chat\.openai\.com)(?:\/|$)/.test(sender.url ?? '') ||
-      typeof payload.detail !== 'string' || !payload.detail.trim()) return;
+      !Number.isSafeInteger(payload.revision) ||
+      (payload.revision as number) < 1 ||
+      (kind === 'warning' &&
+        (typeof payload.detail !== 'string' || !payload.detail.trim()))) return;
 
-  const warning: ToolbarCompatibilityWarning = {
-    detail: payload.detail.slice(0, 180),
-    observedAt: Date.now(),
-  };
-  void chrome.storage.session.set({ [toolbarWarningKey(tabId)]: warning })
-    .then(() => chrome.action.setBadgeBackgroundColor({ color: '#b91c1c', tabId }))
-    .then(() => chrome.action.setBadgeText({ text: '!', tabId }))
-    .catch(() => {
-      // The tab may be closed before its asynchronous badge update.
-    });
+  void toolbar.update(tabId, {
+    kind,
+    revision: payload.revision as number,
+    documentId: sender.documentId ?? '',
+    detail: kind === 'warning' ? (payload.detail as string).slice(0, 180) : undefined,
+  }).catch(() => {
+    // A tab can close or an extension context can expire during async updates.
+  });
 });
 
-/** Full navigation discards stale warnings until a new mismatch is detected. */
+/** Discard previous-document warnings during a full navigation. */
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status !== 'loading') return;
-  void Promise.all([
-    chrome.storage.session.remove(toolbarWarningKey(tabId)),
-    chrome.action.setBadgeText({ text: '', tabId }),
-  ]).catch(() => {});
+  void toolbar.clear(tabId).catch(() => {});
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  void chrome.storage.session.remove(toolbarWarningKey(tabId)).catch(() => {});
+  void toolbar.clear(tabId, false).catch(() => {});
 });
 
 /**

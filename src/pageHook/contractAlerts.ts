@@ -11,7 +11,10 @@
  * ChatGPT requests without going through the entry's `window.fetch` override.
  */
 import { getActiveContractValue, type ChatGptContractId } from '@/config/config';
-import { PAGE_HOOK_MISMATCH_MESSAGE_TYPE } from '@/features/contractAlert/pageHookBridge';
+import {
+  PAGE_HOOK_MISMATCH_MESSAGE_TYPE,
+  PAGE_HOOK_RECOVERY_MESSAGE_TYPE,
+} from '@/features/contractAlert/pageHookBridge';
 
 /**
  * Minimum number of times a given contract mismatch must be observed in a
@@ -130,6 +133,25 @@ export function reportContractMismatch(
   } catch {}
 }
 
+/** Positive evidence of recovery re-arms the next mismatch detection. */
+export function reportContractRecovered(contractId: ChatGptContractId): void {
+  if (!contractMismatchCounters.has(contractId)) return;
+  contractMismatchCounters.delete(contractId);
+  try {
+    window.postMessage({
+      type: PAGE_HOOK_RECOVERY_MESSAGE_TYPE,
+      contractId,
+    }, window.location.origin);
+  } catch {
+    // Page may be tearing down.
+  }
+}
+
+/** Reset one-route mismatch counters when SPA navigation changes the view. */
+export function resetContractMismatchCounters(): void {
+  contractMismatchCounters.clear();
+}
+
 /**
  * Builds a RegExp from a contract path template by escaping every regex
  * special character and substituting the `{id}` placeholder with a path
@@ -175,14 +197,15 @@ export async function probeNumTurnsBehavior(
       ? d100.messages.length
       : 0;
     // Identical 10/100 results are normal when a short chat fits one page.
-    if (
-      d10?.page_info?.has_previous_page === true &&
-      len10 > 0 && len100 > 0 && len100 - len10 < 5
-    ) {
-      reportContractMismatch(
-        'api.params.num-turns',
-        `num_turns=10 -> ${len10} messages, num_turns=100 -> ${len100} messages (delta ${len100 - len10})`
-      );
+    if (d10?.page_info?.has_previous_page === true && len10 > 0 && len100 > 0) {
+      if (len100 - len10 < 5) {
+        reportContractMismatch(
+          'api.params.num-turns',
+          `num_turns=10 -> ${len10} messages, num_turns=100 -> ${len100} messages (delta ${len100 - len10})`
+        );
+      } else {
+        reportContractRecovered('api.params.num-turns');
+      }
     }
   } catch {
     // Probe failures are non-fatal.

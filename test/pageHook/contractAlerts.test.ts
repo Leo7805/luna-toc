@@ -5,6 +5,9 @@ import {
   checkConversationPathAgainstContract,
   installContractAlerts,
   probeNumTurnsBehavior,
+  reportContractMismatch,
+  reportContractRecovered,
+  resetContractMismatchCounters,
   setEffectiveContractValues,
   setContractProbesEnabled,
   shouldRunContractProbes,
@@ -12,6 +15,7 @@ import {
 
 afterEach(() => {
   setContractProbesEnabled(false);
+  resetContractMismatchCounters();
   vi.restoreAllMocks();
 });
 
@@ -26,6 +30,32 @@ describe('compatibility diagnostics', () => {
     expect(shouldRunContractProbes()).toBe(true);
     setContractProbesEnabled(false);
     expect(shouldRunContractProbes()).toBe(false);
+  });
+
+  it('re-arms anomaly reporting after a verified recovery and after route reset', () => {
+    const post = vi.spyOn(window, 'postMessage');
+    reportContractMismatch('api.conversation.path', '/wrong');
+    expect(post).not.toHaveBeenCalled();
+    reportContractMismatch('api.conversation.path', '/wrong');
+    expect(post).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'LUNA_CONTRACT_MISMATCH',
+    }), location.origin);
+    post.mockClear();
+    reportContractRecovered('api.conversation.path');
+    expect(post).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'LUNA_CONTRACT_RECOVERED',
+      contractId: 'api.conversation.path',
+    }), location.origin);
+    post.mockClear();
+    reportContractMismatch('api.conversation.path', '/wrong-again');
+    expect(post).not.toHaveBeenCalled();
+    resetContractMismatchCounters();
+    reportContractMismatch('api.conversation.path', '/wrong-new-route');
+    expect(post).not.toHaveBeenCalled();
+    reportContractMismatch('api.conversation.path', '/wrong-new-route');
+    expect(post).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'LUNA_CONTRACT_MISMATCH',
+    }), location.origin);
   });
 
   it('does not flag an entirely loaded short conversation', async () => {
