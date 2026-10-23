@@ -220,6 +220,46 @@ describe('tocListRenderer', () => {
     expect(items[1].classList.contains('navigator-item-active')).toBe(true);
   });
 
+  it('reconciles the active row after rerender, replacement, search and reset', () => {
+    let activeIndex: number | null = 0;
+    let messages = mockMessages.map((message) => ({ ...message }));
+    const renderer = createTocListRenderer({
+      getMessages: () => messages,
+      getActiveIndex: () => activeIndex,
+      onItemClick: vi.fn(),
+      isFollowingMode: () => false,
+    });
+
+    renderer.render();
+    const firstRow = renderer.getNavigatorItems()[0];
+    activeIndex = 1;
+    renderer.render();
+    expect(renderer.getNavigatorItems()[0]).toBe(firstRow);
+    expect(firstRow.classList.contains('navigator-item-active')).toBe(false);
+    expect(renderer.getNavigatorItems()[1].classList.contains('navigator-item-active')).toBe(true);
+
+    const oldSecondRow = renderer.getNavigatorItems()[1];
+    messages = messages.map((message, index) =>
+      index === 1 ? { ...message, text: 'Updated second question' } : message
+    );
+    renderer.render();
+    expect(renderer.getNavigatorItems()[1]).not.toBe(oldSecondRow);
+    expect(oldSecondRow.classList.contains('navigator-item-active')).toBe(false);
+    expect(renderer.getNavigatorItems()[1].classList.contains('navigator-item-active')).toBe(true);
+
+    renderer.setSearchQuery('First user prompt');
+    expect(listElement.children.length).toBe(1);
+    expect(listElement.querySelector('.navigator-item-active')).toBeNull();
+    renderer.setSearchQuery('');
+    expect(renderer.getNavigatorItems()[1].classList.contains('navigator-item-active')).toBe(true);
+
+    const oldActiveRow = renderer.getNavigatorItems()[1];
+    renderer.resetList();
+    expect(oldActiveRow.classList.contains('navigator-item-active')).toBe(false);
+    renderer.render();
+    expect(renderer.getNavigatorItems()[1].classList.contains('navigator-item-active')).toBe(true);
+  });
+
   it('determines correct status band state', () => {
     const renderer = createTocListRenderer({
       getMessages: () => mockMessages,
