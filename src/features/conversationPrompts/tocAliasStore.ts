@@ -1,49 +1,89 @@
-/**
- * Persists user-defined TOC display labels independently of ChatGPT messages.
- * Entries are scoped by permanent conversation ID and optional ChatGPT account.
- */
+/** Per-tab TOC alias cache; every mutation is committed by the MV3 worker. */
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
+import {
+  TOC_ALIAS_PREFIX, TOC_ALIAS_DELETED_PREFIX, TOC_ALIAS_COMMIT_TYPE,
+  parseTocAliasRecord,
+  type TocAliasRecord, type TocAliasCommitRequest, type TocAliasCommitResponse,
+} from './tocAliasWriteCoordinator';
 
-const PREFIX = 'chatToc:aliases:v1:';
-interface AliasRecord {
-  ownerId: string | null;
-  aliases: Record<string, string>;
+const empty = (): TocAliasRecord => ({ ownerId: null, aliases: {} });
+const storageKey = (route: string) => TOC_ALIAS_PREFIX + route;
+const tombstoneKey = (route: string) => TOC_ALIAS_DELETED_PREFIX + route;
+
+function normalizeRecord(value: unknown): TocAliasRecord {
+  try { return parseTocAliasRecord(value) ?? empty(); }
+  catch { return empty(); }
 }
 
-/** Creates a tab-local alias cache backed by Chrome extension storage. */
+function sendCommit(request: TocAliasCommitRequest): Promise<TocAliasCommitResponse> {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+    return Promise.reject(new Error('Invalid extension context: alias not saved'));
+  }
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(request, (response: TocAliasCommitResponse | undefined) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message ?? 'TOC alias writer unavailable'));
+      } else if (response?.ok === true || (response?.ok === false &&
+        ('conflict' in response || 'error' in response))) {
+        resolve(response);
+      } else {
+        reject(new Error('TOC alias writer did not confirm the save'));
+      }
+    });
+  });
+}
+
+/** A store instance owns only its rendering cache, never an independent writer. */
 export function createTocAliasStore(onChanged: (routeKey: string) => void = () => {}) {
-  const loaded = new Map<string, AliasRecord>();
+  const loaded = new Map<string, TocAliasRecord>();
   const loading = new Map<string, Promise<void>>();
   const deleted = new Set<string>();
   const listeners = new Set<(routeKey: string) => void>();
-  const notify = (routeKey: string): void => { onChanged(routeKey); listeners.forEach((fn) => fn(routeKey)); };
-  let writeQueue = Promise.resolve();
+  const changesSeen = new Map<string, number>();
+  let writeQueue: Promise<void> = Promise.resolve();
 
-  const storageKey = (routeKey: string): string => PREFIX + routeKey;
+  const notify = (routeKey: string): void => {
+    onChanged(routeKey);
+    listeners.forEach((listener) => listener(routeKey));
+  };
+  const markEvent = (routeKey: string): void => {
+    changesSeen.set(routeKey, (changesSeen.get(routeKey) ?? 0) + 1);
+  };
 
-  /** Loads saved labels for a conversation, guarding against concurrent writes. */
-  async function load(routeKey: string): Promise<void> {
-    if (!isPermanentConversationId(routeKey) || loaded.has(routeKey) || deleted.has(routeKey)) return;
-    const existing = loading.get(routeKey);
-    if (existing) return existing;
-    const pending = (async () => {
-      const data = await chrome.storage.local.get(storageKey(routeKey));
-      if (!loaded.has(routeKey) && !deleted.has(routeKey)) {
-        loaded.set(routeKey, normalizeRecord(data[storageKey(routeKey)]));
-        notify(routeKey);
-      }
-    })();
-    loading.set(routeKey, pending);
-    try { await pending; } finally { loading.delete(routeKey); }
+  /** The deletion fence is read together with data on every cache miss. */
+  async function read(routeKey: string): Promise<void> {
+    const seen = changesSeen.get(routeKey) ?? 0;
+    const values = await chrome.storage.local.get([storageKey(routeKey), tombstoneKey(routeKey)]);
+    // A storage notification that arrived while reading has newer cache state.
+    if ((changesSeen.get(routeKey) ?? 0) !== seen) return;
+    if (Object.hasOwn(values, tombstoneKey(routeKey))) {
+      deleted.add(routeKey);
+      loaded.delete(routeKey);
+    } else {
+      deleted.delete(routeKey);
+      loaded.set(routeKey, normalizeRecord(values[storageKey(routeKey)]));
+    }
+    notify(routeKey);
   }
 
-  /** Returns the override for a message without changing its original text. */
+  async function load(routeKey: string): Promise<void> {
+    if (!isPermanentConversationId(routeKey) || loaded.has(routeKey) || deleted.has(routeKey)) return;
+    const pending = loading.get(routeKey);
+    if (pending) return pending;
+    const job = read(routeKey);
+    loading.set(routeKey, job);
+    try { await job; } finally { loading.delete(routeKey); }
+  }
+
   function get(routeKey: string, messageId: string): string | null {
     return deleted.has(routeKey) ? null : loaded.get(routeKey)?.aliases[messageId] ?? null;
   }
 
-  /** Writes or restores one alias with serialized updates and failure rollback. */
-  function update(routeKey: string, messageId: string, text: string | null, ownerId: string | null): Promise<void> {
+  /** expectedAlias is captured when the inline editor opens, not at save time. */
+  function update(
+    routeKey: string, messageId: string, text: string | null,
+    ownerId: string | null, expectedAlias?: string | null
+  ): Promise<void> {
     if (!isPermanentConversationId(routeKey) || !messageId) {
       return Promise.reject(new Error('Conversation must have a permanent ID'));
     }
@@ -54,40 +94,59 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
       if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
       await load(routeKey);
       if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
-      const previous = loaded.get(routeKey)!;
-      const aliases = { ...previous.aliases };
-      if (label) aliases[messageId] = label;
-      else delete aliases[messageId];
-      const next = { ownerId: ownerId ?? previous.ownerId, aliases };
-      loaded.set(routeKey, next);
-      notify(routeKey);
-      try {
-        if (Object.keys(aliases).length) {
-          await chrome.storage.local.set({ [storageKey(routeKey)]: next });
-        } else {
-          await chrome.storage.local.remove(storageKey(routeKey));
+      const expected = expectedAlias === undefined ? get(routeKey, messageId) : expectedAlias;
+      const beforeEvents = changesSeen.get(routeKey) ?? 0;
+      const response = await sendCommit({
+        type: TOC_ALIAS_COMMIT_TYPE, action: 'update',
+        routeKey, messageId, label, expected, ownerId,
+      });
+      if (!response.ok) {
+        if ('conflict' in response) {
+          // Show the new persisted value without retrying an overlapping edit.
+          await read(routeKey).catch(() => undefined);
+          throw new Error('TOC alias changed in another tab; reopen the editor');
         }
-      } catch (error) {
-        if (!deleted.has(routeKey)) {
-          loaded.set(routeKey, previous);
+        if (response.error === 'Conversation has been deleted') {
+          deleted.add(routeKey);
+          loaded.delete(routeKey);
           notify(routeKey);
         }
-        throw error;
+        throw new Error(response.error);
+      }
+      if (!('record' in response)) throw new Error('Unexpected TOC alias response');
+      if (!deleted.has(routeKey) && (changesSeen.get(routeKey) ?? 0) === beforeEvents) {
+        loaded.set(routeKey, response.record ?? empty());
+        notify(routeKey);
       }
     });
     writeQueue = job.catch(() => undefined);
     return job;
   }
 
-  /** Tombstones and removes a deleted conversation after any pending writes. */
+  /** A deletion is fenced in persistent storage before aliases are removed. */
   function removeConversation(routeKey: string): Promise<void> {
     if (!isPermanentConversationId(routeKey)) return Promise.resolve();
-    // Reject newly queued updates immediately, then remove after previous writes.
     deleted.add(routeKey);
     loaded.delete(routeKey);
     notify(routeKey);
     const job = writeQueue.catch(() => undefined).then(async () => {
-      await chrome.storage.local.remove(storageKey(routeKey));
+      try {
+        const response = await sendCommit({
+          type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey,
+        });
+        if (!response.ok) throw new Error('error' in response ? response.error : 'Deletion conflict');
+      } catch (error) {
+        // An unacknowledged write may have installed the tombstone already.
+        try {
+          const result = await chrome.storage.local.get(tombstoneKey(routeKey));
+          if (!Object.hasOwn(result, tombstoneKey(routeKey))) {
+            deleted.delete(routeKey);
+            loaded.delete(routeKey);
+            await load(routeKey);
+          }
+        } catch { /* Keep the conservative deletion fence until next storage event. */ }
+        throw error;
+      }
       loaded.delete(routeKey);
       notify(routeKey);
     });
@@ -95,30 +154,46 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
     return job;
   }
 
-  /** Finds local conversation references for the one-time startup validator. */
+  /** Never include conversations with an explicit successful deletion fence. */
   async function references(): Promise<string[]> {
     const values = await chrome.storage.local.get(null);
     return Object.keys(values)
-      .filter((key) => key.startsWith(PREFIX))
-      .map((key) => key.slice(PREFIX.length))
-      .filter((routeKey) => isPermanentConversationId(routeKey) && !deleted.has(routeKey));
+      .filter((key) => key.startsWith(TOC_ALIAS_PREFIX))
+      .map((key) => key.slice(TOC_ALIAS_PREFIX.length))
+      .filter((route) => isPermanentConversationId(route) &&
+        !deleted.has(route) && !Object.hasOwn(values, tombstoneKey(route)));
   }
 
-  /** Returns the persisted owner binding, if one exists. */
   async function owner(routeKey: string): Promise<string | null> {
-    if (!loaded.has(routeKey)) await load(routeKey);
+    await load(routeKey);
     return deleted.has(routeKey) ? null : loaded.get(routeKey)?.ownerId ?? null;
   }
 
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
+      // Process deletion fences before alias writes from the same event.
       for (const [key, change] of Object.entries(changes)) {
-        if (!key.startsWith(PREFIX)) continue;
-        const routeKey = key.slice(PREFIX.length);
-        if (deleted.has(routeKey)) continue;
-        loaded.set(routeKey, normalizeRecord(change.newValue));
-        notify(routeKey);
+        if (!key.startsWith(TOC_ALIAS_DELETED_PREFIX)) continue;
+        const route = key.slice(TOC_ALIAS_DELETED_PREFIX.length);
+        markEvent(route);
+        if (change.newValue !== undefined) {
+          deleted.add(route);
+          loaded.delete(route);
+          notify(route);
+        } else {
+          deleted.delete(route);
+          loaded.delete(route);
+          void load(route).catch(() => undefined);
+        }
+      }
+      for (const [key, change] of Object.entries(changes)) {
+        if (!key.startsWith(TOC_ALIAS_PREFIX)) continue;
+        const route = key.slice(TOC_ALIAS_PREFIX.length);
+        markEvent(route);
+        if (deleted.has(route)) continue;
+        loaded.set(route, normalizeRecord(change.newValue));
+        notify(route);
       }
     });
   }
@@ -132,20 +207,4 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
   };
 }
 
-/** Validates persisted shape before rendering externally sourced storage data. */
-function normalizeRecord(value: unknown): AliasRecord {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { ownerId: null, aliases: {} };
-  }
-  const raw = value as Record<string, unknown>;
-  const aliases = raw.aliases && typeof raw.aliases === 'object' && !Array.isArray(raw.aliases)
-    ? Object.fromEntries(Object.entries(raw.aliases).filter(
-      (entry): entry is [string, string] =>
-        typeof entry[1] === 'string' && !!entry[1].trim() && entry[1].length <= 240
-    ))
-    : {};
-  return { ownerId: typeof raw.ownerId === 'string' ? raw.ownerId : null, aliases };
-}
-
-/** Shared storage cache for navigation and page lifecycle observers. */
 export const tocAliasStore = createTocAliasStore();
