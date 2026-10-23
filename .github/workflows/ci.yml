@@ -104,14 +104,14 @@ jobs:
       - name: Check extension privilege boundaries and license metadata
         run: npm run test:security
 
-      - name: Audit known npm dependency vulnerabilities
-        run: npm audit --audit-level=high
-
       - name: Install isolated Chromium test runner
         run: npm run test:browser:setup
 
       - name: Run headless Chromium extension tests
         run: npm run test:browser
+
+      - name: Audit known npm dependency vulnerabilities
+        run: npm audit --audit-level=high
 
       - name: Preserve browser and security reports
         if: always()
