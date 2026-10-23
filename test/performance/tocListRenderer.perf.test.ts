@@ -133,11 +133,10 @@ describe('TOC synthetic performance baseline', () => {
       }
       document.body.appendChild(host);
 
+      const mounted = readMountedWithSidebarIdx(messages, host);
+      expect(mounted.map((entry) => entry.sidebarIdx)).toEqual([0, workload - 1]);
       const lookupSamples = Array.from({ length: 10 }, () =>
-        duration(() => {
-          const mounted = readMountedWithSidebarIdx(messages, host);
-          expect(mounted.map((entry) => entry.sidebarIdx)).toEqual([0, workload - 1]);
-        })
+        duration(() => { readMountedWithSidebarIdx(messages, host); })
       );
       console.info('[LunaTOC mounted-index performance] ' + JSON.stringify({
         workload,
