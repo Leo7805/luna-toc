@@ -1,17 +1,27 @@
 /**
  * @vitest-environment jsdom
  */
+import React, { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 // @ts-ignore
 import fs from 'node:fs';
 // @ts-ignore
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SidebarStatus } from '@/components/sidebar-status/SidebarStatus';
 import { sidebarController } from '@/features/sidebar/sidebarController';
-import { setSidebarStatus } from '@/navigation/ui/sidebarStatus';
+import {
+  resetStatusForTesting,
+  setSidebarStatus,
+} from '@/navigation/ui/sidebarStatus';
 import { navigatorController } from '@/navigation/navigatorController';
 import { myPrompts } from '@/features/myPrompts/myPrompts';
 import type { SavedPrompt } from '@/features/myPrompts/promptStore';
+
+(
+  globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Sidebar Status View Isolation', () => {
   let sidebar: HTMLDivElement;
@@ -24,6 +34,8 @@ describe('Sidebar Status View Isolation', () => {
   let myPromptsList: HTMLDivElement;
   let toolbarContainer: HTMLDivElement;
   let styleElement: HTMLStyleElement;
+  let rootContainer: HTMLDivElement;
+  let root: Root;
 
   const mockPrompts: SavedPrompt[] = [
     {
@@ -37,6 +49,7 @@ describe('Sidebar Status View Isolation', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    resetStatusForTesting();
 
     // Inject content.css so jsdom evaluates getComputedStyle against actual stylesheet rules
     // @ts-ignore
@@ -54,6 +67,8 @@ describe('Sidebar Status View Isolation', () => {
     statusElement = document.createElement('div');
     statusElement.id = 'luna-toc-status';
     statusElement.className = 'navigator-status';
+    statusElement.setAttribute('aria-live', 'polite');
+    statusElement.setAttribute('role', 'status');
 
     toggleButton = document.createElement('button');
     toggleButton.id = 'toggle-view-mode-btn';
@@ -80,6 +95,9 @@ describe('Sidebar Status View Isolation', () => {
     myPromptsList.id = 'myprompts-list';
     myPromptsList.style.display = 'none';
 
+    rootContainer = document.createElement('div');
+    rootContainer.id = 'luna-toc-react-root';
+
     sidebar.append(
       statusElement,
       toggleButton,
@@ -90,7 +108,7 @@ describe('Sidebar Status View Isolation', () => {
       tocList,
       myPromptsList
     );
-    document.body.appendChild(sidebar);
+    document.body.append(sidebar, rootContainer);
 
     sidebarController.init();
     sidebarController.setPromptCount(1);
@@ -98,11 +116,21 @@ describe('Sidebar Status View Isolation', () => {
 
     vi.spyOn(navigatorController, 'setSearchQuery').mockImplementation(() => {});
     vi.spyOn(myPrompts, 'getMyPromptsSnapshot').mockReturnValue(mockPrompts);
+
+    root = createRoot(rootContainer);
+    act(() => {
+      root.render(React.createElement(SidebarStatus));
+    });
   });
 
   afterEach(() => {
-    setSidebarStatus({ state: 'idle' });
-    sidebarController.setViewMode('toc');
+    act(() => {
+      root.unmount();
+      setSidebarStatus({ state: 'idle' });
+      resetStatusForTesting();
+      sidebarController.setViewMode('toc');
+      sidebarController.resetReadyForTesting();
+    });
     vi.useRealTimers();
     vi.restoreAllMocks();
     document.body.innerHTML = '';
@@ -113,7 +141,9 @@ describe('Sidebar Status View Isolation', () => {
     expect(sidebar.dataset.viewMode).toBe('toc');
     expect(sidebarController.getViewMode()).toBe('toc');
 
-    setSidebarStatus({ state: 'loading', promptCount: 10 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 10 });
+    });
 
     expect(statusElement.textContent).toBe('Loading... (10 so far)');
     expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
@@ -121,10 +151,14 @@ describe('Sidebar Status View Isolation', () => {
   });
 
   it('2. Switching to MyPrompts during loading hides the status element', () => {
-    setSidebarStatus({ state: 'loading', promptCount: 10 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 10 });
+    });
     expect(window.getComputedStyle(statusElement).display).not.toBe('none');
 
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
 
     expect(sidebar.dataset.viewMode).toBe('myPrompts');
     expect(window.getComputedStyle(statusElement).display).toBe('none');
@@ -132,11 +166,15 @@ describe('Sidebar Status View Isolation', () => {
 
   it('3. Background loading updates running AFTER switching to MyPrompts cannot make status reappear', () => {
     // Switch to MyPrompts first
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(sidebar.dataset.viewMode).toBe('myPrompts');
 
     // Simulate background backfill calling setSidebarStatus while in MyPrompts
-    setSidebarStatus({ state: 'loading', promptCount: 349 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 349 });
+    });
 
     // Underlying state is updated and active
     expect(statusElement.textContent).toBe('Loading... (349 so far)');
@@ -147,15 +185,21 @@ describe('Sidebar Status View Isolation', () => {
   });
 
   it('4. Switching back to TOC during loading reveals the latest progress', () => {
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(window.getComputedStyle(statusElement).display).toBe('none');
 
     // Backfill progresses in background
-    setSidebarStatus({ state: 'loading', promptCount: 349 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 349 });
+    });
     expect(window.getComputedStyle(statusElement).display).toBe('none');
 
     // User switches back to TOC
-    sidebarController.setViewMode('toc');
+    act(() => {
+      sidebarController.setViewMode('toc');
+    });
 
     expect(sidebar.dataset.viewMode).toBe('toc');
     expect(window.getComputedStyle(statusElement).display).not.toBe('none');
@@ -165,21 +209,28 @@ describe('Sidebar Status View Isolation', () => {
 
   it('5. Switching back to TOC after background completion displays no stale Loading message', () => {
     // In TOC, loading begins
-    setSidebarStatus({ state: 'loading', promptCount: 100 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 100 });
+    });
     expect(statusElement.textContent).toBe('Loading... (100 so far)');
 
     // Switch to MyPrompts
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(window.getComputedStyle(statusElement).display).toBe('none');
 
     // Backfill completes while user is in MyPrompts
-    setSidebarStatus({ state: 'complete', promptCount: 350 });
-
-    // Advance time past status linger timeout (1500ms)
-    vi.advanceTimersByTime(2000);
+    act(() => {
+      setSidebarStatus({ state: 'complete', promptCount: 350 });
+      // Advance time past status linger timeout (2000ms)
+      vi.advanceTimersByTime(2000);
+    });
 
     // Switch back to TOC
-    sidebarController.setViewMode('toc');
+    act(() => {
+      sidebarController.setViewMode('toc');
+    });
 
     // Element is idle and empty - no stale loading or complete message
     expect(sidebar.dataset.viewMode).toBe('toc');
@@ -189,60 +240,82 @@ describe('Sidebar Status View Isolation', () => {
 
   it('6. Jumping, Complete, and Failed statuses remain functional and are properly isolated by view', () => {
     // Jumping state in TOC
-    setSidebarStatus({
-      state: 'jumping',
-      jump: { active: true, targetIndex: 4, remainingSteps: 1 },
+    act(() => {
+      setSidebarStatus({
+        state: 'jumping',
+        jump: { active: true, targetIndex: 4, remainingSteps: 1 },
+      });
     });
     expect(statusElement.textContent).toContain('To #5');
     expect(window.getComputedStyle(statusElement).display).not.toBe('none');
 
     // Switch to MyPrompts: hidden
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(window.getComputedStyle(statusElement).display).toBe('none');
 
     // Failed state in TOC
-    sidebarController.setViewMode('toc');
-    setSidebarStatus({ state: 'failed', promptCount: 5 });
+    act(() => {
+      sidebarController.setViewMode('toc');
+      setSidebarStatus({ state: 'failed', promptCount: 5 });
+    });
     expect(statusElement.textContent).toBe('Jump failed');
     expect(window.getComputedStyle(statusElement).display).not.toBe('none');
 
     // Switch to MyPrompts: hidden
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(window.getComputedStyle(statusElement).display).toBe('none');
 
     // Complete state in TOC
-    sidebarController.setViewMode('toc');
-    setSidebarStatus({ state: 'complete', promptCount: 5 });
+    act(() => {
+      sidebarController.setViewMode('toc');
+      setSidebarStatus({ state: 'complete', promptCount: 5 });
+    });
     expect(statusElement.textContent).toBe('5 prompts');
     expect(window.getComputedStyle(statusElement).display).not.toBe('none');
 
     // Switch to MyPrompts: hidden
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(window.getComputedStyle(statusElement).display).toBe('none');
   });
 
   it('7. Rapid view switching preserves correct viewMode attribute and visibility', () => {
-    setSidebarStatus({ state: 'loading', promptCount: 200 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 200 });
+    });
 
     for (let i = 0; i < 20; i++) {
-      sidebarController.setViewMode('myPrompts');
+      act(() => {
+        sidebarController.setViewMode('myPrompts');
+      });
       expect(sidebar.dataset.viewMode).toBe('myPrompts');
       expect(window.getComputedStyle(statusElement).display).toBe('none');
 
-      sidebarController.setViewMode('toc');
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
       expect(sidebar.dataset.viewMode).toBe('toc');
       expect(window.getComputedStyle(statusElement).display).not.toBe('none');
     }
 
     // Leave in MyPrompts
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
     expect(sidebar.dataset.viewMode).toBe('myPrompts');
     expect(window.getComputedStyle(statusElement).display).toBe('none');
     expect(statusElement.textContent).toBe('Loading... (200 so far)');
   });
 
   it('8. MyPrompts toolbar and list containers remain unaffected', () => {
-    sidebarController.setViewMode('myPrompts');
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
 
     expect(toolbarContainer.style.display).toBe('');
     expect(myPromptsList.style.display).toBe('');
@@ -250,7 +323,9 @@ describe('Sidebar Status View Isolation', () => {
     expect(window.getComputedStyle(statusElement).display).toBe('none');
 
     // Background TOC update does not touch MyPrompts containers
-    setSidebarStatus({ state: 'loading', promptCount: 500 });
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 500 });
+    });
     expect(toolbarContainer.style.display).toBe('');
     expect(myPromptsList.style.display).toBe('');
     expect(tocList.style.display).toBe('none');

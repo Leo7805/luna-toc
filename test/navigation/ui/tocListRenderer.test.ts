@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTocListRenderer } from '@/navigation/ui/tocListRenderer';
 import { setLoading } from '@/navigation/loading/promptLoadingState';
+import { getStatusSnapshot, resetStatusForTesting } from '@/navigation/ui/sidebarStatus';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 describe('tocListRenderer', () => {
@@ -73,10 +74,7 @@ describe('tocListRenderer', () => {
   });
 
   it('renders stable empty state when prompts are empty and loading is false', () => {
-    const statusElement = document.createElement('div');
-    statusElement.id = 'luna-toc-status';
-    document.body.appendChild(statusElement);
-
+    resetStatusForTesting();
     setLoading(false);
     const renderer = createTocListRenderer({
       getMessages: () => [],
@@ -86,11 +84,17 @@ describe('tocListRenderer', () => {
 
     // Initial render with completed=true renders empty state
     renderer.render({ completed: true });
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(getStatusSnapshot()).toEqual({
+      state: 'empty',
+      text: 'No prompts',
+    });
 
     // Subsequent normal render without completed=true must stay empty, not revert to idle
     renderer.render();
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(getStatusSnapshot()).toEqual({
+      state: 'empty',
+      text: 'No prompts',
+    });
   });
 
   it('invokes onItemClick callback when a TOC row is clicked', () => {

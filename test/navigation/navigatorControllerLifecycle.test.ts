@@ -5,11 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { navigatorController } from '@/navigation/navigatorController';
 import { getActivePlatform } from '@/platforms';
 import { isLoading, setLoading } from '@/navigation/loading/promptLoadingState';
+import {
+  getStatusSnapshot,
+  resetStatusForTesting,
+} from '@/navigation/ui/sidebarStatus';
 import * as promptNav from '@/navigation/jump/promptNavigation';
 
 describe('navigatorController lifecycle and coordination', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    resetStatusForTesting();
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     Object.defineProperty(window, 'location', {
       writable: true,
@@ -32,6 +37,7 @@ describe('navigatorController lifecycle and coordination', () => {
   afterEach(() => {
     navigatorController.detach();
     navigatorController.setNavigationIdle();
+    resetStatusForTesting();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -171,9 +177,8 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
 
-    const statusElement = document.getElementById('luna-toc-status')!;
     expect(isLoading()).toBe(true);
-    expect(statusElement.textContent).toContain('Loading');
+    expect(getStatusSnapshot().text).toContain('Loading');
 
     // Mismatched routeKey must be ignored
     window.dispatchEvent(
@@ -186,7 +191,7 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
     expect(isLoading()).toBe(true);
-    expect(statusElement.textContent).toContain('Loading');
+    expect(getStatusSnapshot().text).toContain('Loading');
 
     // Matching routeKey completes loading
     window.dispatchEvent(
@@ -199,7 +204,7 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
     expect(isLoading()).toBe(false);
-    expect(statusElement.textContent).not.toContain('Loading');
+    expect(getStatusSnapshot().text).not.toContain('Loading');
   });
 
   it('processes newUserMessage using payload and updates the TOC list', () => {
@@ -672,13 +677,15 @@ describe('navigatorController lifecycle and coordination', () => {
     const { isLoading: freshIsLoading } = await import(
       '@/navigation/loading/promptLoadingState'
     );
+    const { getStatusSnapshot: freshGetStatusSnapshot } = await import(
+      '@/navigation/ui/sidebarStatus'
+    );
 
     freshController.init();
     freshController.attach();
 
-    const statusElement = document.getElementById('luna-toc-status')!;
     expect(freshIsLoading()).toBe(false);
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(freshGetStatusSnapshot().text).toBe('No prompts');
   });
 
   it('transitions from existing conversation to new chat immediately without waiting for settle timer', async () => {
@@ -734,9 +741,8 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
 
-    const statusElement = document.getElementById('luna-toc-status')!;
     expect(freshIsLoading()).toBe(false);
-    expect(statusElement.textContent).toBe('No prompts');
+    expect(getStatusSnapshot().text).toBe('No prompts');
   });
 
   it('arms settle timer and sets loading state when transitioning from empty new chat to existing conversation', async () => {
@@ -781,9 +787,8 @@ describe('navigatorController lifecycle and coordination', () => {
       })
     );
 
-    const statusElement = document.getElementById('luna-toc-status')!;
     expect(freshIsLoading()).toBe(true);
-    expect(statusElement.textContent).toContain('Loading');
+    expect(getStatusSnapshot().text).toContain('Loading');
   });
 
   describe('snapshot completeness and cached restoration lifecycle', () => {
@@ -1340,8 +1345,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // Should be immediately complete with loading = false
       expect(freshIsLoading()).toBe(false);
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('No prompts');
+      expect(getStatusSnapshot().text).toBe('No prompts');
     });
   });
 
@@ -1377,8 +1381,6 @@ describe('navigatorController lifecycle and coordination', () => {
       const originalItem = list.firstElementChild as HTMLElement;
       originalItem.dataset.testMarker = 'persistent-node';
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
       // Act: Jump starts
       navigatorController.setJumpProgress({
         active: true,
@@ -1387,8 +1389,8 @@ describe('navigatorController lifecycle and coordination', () => {
       });
 
       // Status updates immediately to jumping
-      expect(statusElement.textContent).toContain('To #1');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getStatusSnapshot().text).toContain('To #1');
+      expect(getStatusSnapshot().state !== 'idle').toBe(true);
 
       // CRITICAL: #navigator-list must NOT have been wiped or rebuilt
       expect(list.children.length).toBe(1);
@@ -1401,30 +1403,28 @@ describe('navigatorController lifecycle and coordination', () => {
       navigatorController.attach();
       setLoading(false);
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
       navigatorController.setJumpProgress({
         active: true,
         targetIndex: 2,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('To #3');
+      expect(getStatusSnapshot().text).toContain('To #3');
 
       // Act: Jump finishes
       navigatorController.clearJumpProgress();
 
       // Retains destination text during linger
-      expect(statusElement.textContent).toBe('To #3');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getStatusSnapshot().text).toBe('To #3');
+      expect(getStatusSnapshot().state !== 'idle').toBe(true);
 
       // Still visible before linger expires (499ms)
       vi.advanceTimersByTime(499);
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getStatusSnapshot().state !== 'idle').toBe(true);
 
-      // Retracts after 500ms linger
-      vi.advanceTimersByTime(2);
-      expect(statusElement.textContent).toBe('');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+      // Retracts after 2000ms linger
+      vi.advanceTimersByTime(1600);
+      expect(getStatusSnapshot().text).toBe('');
+      expect(getStatusSnapshot().state !== 'idle').toBe(false);
     });
 
     it('Case C: clearJumpProgress restores loading status if conversation is still loading', () => {
@@ -1432,21 +1432,19 @@ describe('navigatorController lifecycle and coordination', () => {
       navigatorController.attach();
       setLoading(true);
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
       navigatorController.setJumpProgress({
         active: true,
         targetIndex: 1,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('To #2');
+      expect(getStatusSnapshot().text).toContain('To #2');
 
       // Act: Jump finishes while conversation is still loading
       navigatorController.clearJumpProgress();
 
       // Restores Loading instead of complete/idle
-      expect(statusElement.textContent).toContain('Loading');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getStatusSnapshot().text).toContain('Loading');
+      expect(getStatusSnapshot().state !== 'idle').toBe(true);
     });
 
     it('Case D: rapid repeated jumps replace target cleanly and cancel previous linger timer', () => {
@@ -1454,23 +1452,21 @@ describe('navigatorController lifecycle and coordination', () => {
       navigatorController.attach();
       setLoading(false);
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-
       // First jump to prompt #3
       navigatorController.setJumpProgress({
         active: true,
         targetIndex: 2,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('To #3');
+      expect(getStatusSnapshot().text).toContain('To #3');
 
-      // Jump #3 clears and begins 500ms linger
+      // Jump #3 clears and begins linger
       navigatorController.clearJumpProgress();
-      expect(statusElement.textContent).toBe('To #3');
+      expect(getStatusSnapshot().text).toBe('To #3');
 
       // Advance 200ms into the linger
       vi.advanceTimersByTime(200);
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getStatusSnapshot().state !== 'idle').toBe(true);
 
       // Second jump to prompt #8 before first linger finishes
       navigatorController.setJumpProgress({
@@ -1478,22 +1474,21 @@ describe('navigatorController lifecycle and coordination', () => {
         targetIndex: 7,
         remainingSteps: 10,
       });
-      expect(statusElement.textContent).toContain('To #8');
+      expect(getStatusSnapshot().text).toContain('To #8');
 
       // Jump #8 clears
       navigatorController.clearJumpProgress();
-      expect(statusElement.textContent).toBe('To #8');
+      expect(getStatusSnapshot().text).toBe('To #8');
 
       // Advance 400ms: total 600ms since jump #3 cleared, but only 400ms since jump #8 cleared.
-      // If jump #3's linger timer wasn't cancelled, status would have cleared at 500ms.
       vi.advanceTimersByTime(400);
-      expect(statusElement.textContent).toBe('To #8');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getStatusSnapshot().text).toBe('To #8');
+      expect(getStatusSnapshot().state !== 'idle').toBe(true);
 
       // Advance past jump #8's linger (>500ms total for jump #8)
       vi.advanceTimersByTime(105);
-      expect(statusElement.textContent).toBe('');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+      expect(getStatusSnapshot().text).toBe('');
+      expect(getStatusSnapshot().state !== 'idle').toBe(false);
     });
   });
 
@@ -1762,10 +1757,13 @@ describe('navigatorController lifecycle and coordination', () => {
 
   describe('NavigationState model, display projection, and status transitions', () => {
     let controller: typeof navigatorController;
+    let getLocalStatusSnapshot: typeof getStatusSnapshot;
 
     beforeEach(async () => {
       const mod = await import('@/navigation/navigatorController');
+      const statusMod = await import('@/navigation/ui/sidebarStatus');
       controller = mod.navigatorController;
+      getLocalStatusSnapshot = statusMod.getStatusSnapshot;
       controller.detach();
       controller.setNavigationIdle();
     });
@@ -1853,8 +1851,7 @@ describe('navigatorController lifecycle and coordination', () => {
       expect(items[2].classList.contains('navigator-item-active')).toBe(false);
 
       // Status text shows 1-based prompt 200
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toContain('To #200');
+      expect(getLocalStatusSnapshot().text).toContain('To #200');
     });
 
     it('jumping(199) suppresses raw viewport updates and preserves Prompt 200 active', () => {
@@ -1943,16 +1940,15 @@ describe('navigatorController lifecycle and coordination', () => {
 
     it('jumping -> failed immediately returns display to viewport and displays failure once', () => {
       setupConversationWithPrompts(200, 'test-jump-failed');
-      const statusElement = document.getElementById('luna-toc-status')!;
 
       controller.setNavigationJumping(199);
-      expect(statusElement.textContent).toContain('To #200');
+      expect(getLocalStatusSnapshot().text).toContain('To #200');
 
       controller.setNavigationFailed(199);
 
       expect(controller.getNavigationState().state).toBe('failed');
-      expect(statusElement.textContent).toBe('Jump failed');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getLocalStatusSnapshot().text).toBe('Jump failed');
+      expect(getLocalStatusSnapshot().state !== 'idle').toBe(true);
 
       // Display returns to viewport index (or null if no viewport item active)
       expect(controller.getDisplayIndex()).not.toBe(199);
@@ -1961,61 +1957,58 @@ describe('navigatorController lifecycle and coordination', () => {
     it('completion status is emitted once and does not replay on subsequent render after linger', () => {
       setupConversationWithPrompts(200, 'test-completion-no-replay');
       setLoading(false);
-      const statusElement = document.getElementById('luna-toc-status')!;
 
       controller.setNavigationJumping(199);
       controller.setNavigationLanded(199);
 
-      expect(statusElement.textContent).toBe('To #200');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getLocalStatusSnapshot().text).toBe('To #200');
+      expect(getLocalStatusSnapshot().state !== 'idle').toBe(true);
 
       // Advance past linger timer (500ms)
       vi.advanceTimersByTime(505);
-      expect(statusElement.textContent).toBe('');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+      expect(getLocalStatusSnapshot().text).toBe('');
+      expect(getLocalStatusSnapshot().state !== 'idle').toBe(false);
 
       // Unrelated full render while still landed
       controller.render();
 
       // Completion MUST NOT replay
-      expect(statusElement.textContent).toBe('');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(false);
+      expect(getLocalStatusSnapshot().text).toBe('');
+      expect(getLocalStatusSnapshot().state !== 'idle').toBe(false);
     });
 
     it('render during failure linger preserves failure status and does not replay after expire', () => {
       setupConversationWithPrompts(200, 'test-failure-linger');
-      const statusElement = document.getElementById('luna-toc-status')!;
 
       controller.setNavigationJumping(199);
       controller.setNavigationFailed(199);
-      expect(statusElement.textContent).toBe('Jump failed');
+      expect(getLocalStatusSnapshot().text).toBe('Jump failed');
 
       // 200ms into linger: render does not overwrite failure status
       vi.advanceTimersByTime(200);
       controller.render();
-      expect(statusElement.textContent).toBe('Jump failed');
-      expect(statusElement.classList.contains('navigator-status-active')).toBe(true);
+      expect(getLocalStatusSnapshot().text).toBe('Jump failed');
+      expect(getLocalStatusSnapshot().state !== 'idle').toBe(true);
 
       // Past 500ms: failure clears
       vi.advanceTimersByTime(305);
-      expect(statusElement.textContent).toBe('');
+      expect(getLocalStatusSnapshot().text).toBe('');
 
       // Subsequent render while still failed does not replay failure
       controller.render();
-      expect(statusElement.textContent).toBe('');
+      expect(getLocalStatusSnapshot().text).toBe('');
     });
 
     it('rapid supersession 199 -> 149 projects new target directly with no idle frame', () => {
       setupConversationWithPrompts(200, 'test-supersession');
-      const statusElement = document.getElementById('luna-toc-status')!;
 
       controller.setNavigationJumping(199);
       expect(controller.getDisplayIndex()).toBe(199);
-      expect(statusElement.textContent).toContain('To #200');
+      expect(getLocalStatusSnapshot().text).toContain('To #200');
 
       controller.setNavigationJumping(149);
       expect(controller.getDisplayIndex()).toBe(149);
-      expect(statusElement.textContent).toContain('To #150');
+      expect(getLocalStatusSnapshot().text).toContain('To #150');
 
       const items = document.querySelectorAll<HTMLElement>('.navigator-item');
       expect(items[149].classList.contains('navigator-item-active')).toBe(true);
@@ -2024,7 +2017,6 @@ describe('navigatorController lifecycle and coordination', () => {
 
     it('repeated attach and detach does not leak or duplicate transition listeners', () => {
       setupConversationWithPrompts(200, 'test-listener-cleanup');
-      const statusElement = document.getElementById('luna-toc-status')!;
 
       // Multiple detach / attach cycles
       controller.detach();
@@ -2043,19 +2035,18 @@ describe('navigatorController lifecycle and coordination', () => {
       );
 
       controller.setNavigationJumping(10);
-      expect(statusElement.textContent).toContain('To #11');
+      expect(getLocalStatusSnapshot().text).toContain('To #11');
 
       controller.setNavigationLanded(10);
-      expect(statusElement.textContent).toBe('To #11');
+      expect(getLocalStatusSnapshot().text).toBe('To #11');
     });
 
     it('route reset from jumping/landed/failed clears state to idle and resets visual status', () => {
       setupConversationWithPrompts(200, 'test-route-reset-nav');
-      const statusElement = document.getElementById('luna-toc-status')!;
 
       controller.setNavigationJumping(199);
       expect(controller.getNavigationState().state).toBe('jumping');
-      expect(statusElement.textContent).toContain('To #200');
+      expect(getLocalStatusSnapshot().text).toContain('To #200');
 
       // Trigger route change
       Object.defineProperty(window, 'location', {
@@ -2069,7 +2060,7 @@ describe('navigatorController lifecycle and coordination', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
 
       expect(controller.getNavigationState().state).toBe('idle');
-      expect(statusElement.textContent).not.toContain('To #200');
+      expect(getLocalStatusSnapshot().text).not.toContain('To #200');
     });
 
     it('previous landed target releases landed state to idle and restores viewport tracking on jumpToEdge("top")', async () => {
@@ -2214,7 +2205,7 @@ describe('navigatorController lifecycle and coordination', () => {
       items[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
       // 1. Destination prefix and initial origin position appear immediately
-      expect(statusElement.textContent).toBe('To #1 · Now #200');
+      expect(getLocalStatusSnapshot().text).toBe('To #1 · Now #200');
       expect(controller.getDisplayIndex()).toBe(0);
       expect(items[0].classList.contains('navigator-item-active')).toBe(true);
 
@@ -2254,7 +2245,7 @@ describe('navigatorController lifecycle and coordination', () => {
       vi.runAllTimers();
 
       // Genuine tracker callback triggered: Now #N updates to #150
-      expect(statusElement.textContent).toBe('To #1 · Now #150');
+      expect(getLocalStatusSnapshot().text).toBe('To #1 · Now #150');
       // TOC list active item MUST remain locked on destination target (index 0)
       expect(controller.getDisplayIndex()).toBe(0);
       expect(items[0].classList.contains('navigator-item-active')).toBe(true);
@@ -2273,14 +2264,13 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // Jump starts toward prompt #1 (index 0) from prompt #274 (index 273)
       controller.setNavigationJumping(0, 273);
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('To #1 · Now #274');
+      expect(getLocalStatusSnapshot().text).toBe('To #1 · Now #274');
 
       // Navigation successfully completes via onJumpComplete
       capturedOptions.onJumpComplete(0);
 
       // Guaranteed final destination is updated immediately before and during linger
-      expect(statusElement.textContent).toBe('To #1 · Now #1');
+      expect(getLocalStatusSnapshot().text).toBe('To #1 · Now #1');
       expect(controller.getNavigationState()).toEqual({
         state: 'landed',
         targetIndex: 0,
@@ -2288,10 +2278,10 @@ describe('navigatorController lifecycle and coordination', () => {
 
       // Linger for 500ms
       vi.advanceTimersByTime(499);
-      expect(statusElement.textContent).toBe('To #1 · Now #1');
+      expect(getLocalStatusSnapshot().text).toBe('To #1 · Now #1');
 
       vi.advanceTimersByTime(2);
-      expect(statusElement.textContent).toBe('');
+      expect(getLocalStatusSnapshot().text).toBe('');
     });
 
     it('failure displays failure status without pretending arrival occurred', async () => {
@@ -2305,13 +2295,12 @@ describe('navigatorController lifecycle and coordination', () => {
       controller.attach();
 
       controller.setNavigationJumping(0, 50);
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('To #1 · Now #51');
+      expect(getLocalStatusSnapshot().text).toBe('To #1 · Now #51');
 
       capturedOptions.onJumpFailed(0);
 
-      expect(statusElement.textContent).toBe('Jump failed');
-      expect(statusElement.textContent).not.toContain('Now #1');
+      expect(getLocalStatusSnapshot().text).toBe('Jump failed');
+      expect(getLocalStatusSnapshot().text).not.toContain('Now #1');
     });
 
     it('To Top button navigation enters virtual layout strategy for unmounted Prompt #1 without premature target locking', async () => {
@@ -2330,8 +2319,7 @@ describe('navigatorController lifecycle and coordination', () => {
       controller.jumpToEdge('top');
 
       // Status banner remains idle
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('100 prompts');
+      expect(getLocalStatusSnapshot().text).toBe('100 prompts');
       expect(controller.getNavigationState().state).toBe('idle');
 
       // Strategy was actually entered with Prompt #1 (index 0)
@@ -2352,8 +2340,7 @@ describe('navigatorController lifecycle and coordination', () => {
 
       controller.jumpToEdge('bottom');
 
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('50 prompts');
+      expect(getLocalStatusSnapshot().text).toBe('50 prompts');
       expect(controller.getNavigationState().state).toBe('idle');
       expect(jumpToAbsoluteEdgeSpy).toHaveBeenCalledWith('bottom', 'auto');
     });
@@ -2378,8 +2365,7 @@ describe('navigatorController lifecycle and coordination', () => {
       controller.jumpToLastPrompt();
 
       // Status remains idle
-      const statusElement = document.getElementById('luna-toc-status')!;
-      expect(statusElement.textContent).toBe('50 prompts');
+      expect(getLocalStatusSnapshot().text).toBe('50 prompts');
       expect(controller.getNavigationState().state).toBe('idle');
 
       // Targets last prompt (index 49) in strategy

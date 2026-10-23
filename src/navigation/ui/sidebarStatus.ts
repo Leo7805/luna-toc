@@ -1,7 +1,9 @@
 /**
- * Manages the sidebar status banner between the sidebar header and prompt list.
- * Controls visual status states, count pluralization, jumping dots animation,
- * and linger timeouts.
+ * Manages the sidebar status banner state, transitions, count pluralization,
+ * jumping text formatting, and linger timeouts.
+ *
+ * Visual rendering is owned by React (`SidebarStatus.tsx`), which subscribes
+ * to this module's snapshot via `useSyncExternalStore`.
  */
 import { APP_CONFIG } from '@/config/config';
 
@@ -20,6 +22,11 @@ export type SidebarStatusState =
   | 'empty'
   | 'failed';
 
+export interface SidebarStatusSnapshot {
+  readonly state: SidebarStatusState;
+  readonly text: string;
+}
+
 let currentStatusMode: SidebarStatusState = 'idle';
 let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -30,10 +37,18 @@ let statusLingerTimer: ReturnType<typeof setTimeout> | null = null;
  */
 let lastJumpingText = '';
 
+let statusSnapshot: SidebarStatusSnapshot = {
+  state: 'idle',
+  text: '',
+};
+
+const statusListeners = new Set<() => void>();
+
 /**
  * Formats a prompt count with the correct singular/plural form for the
  * sidebar status band. Always produces "0 prompts" / "1 prompt" /
  * "N prompts".
+ *
  * @param {number} count
  * @returns {string}
  */
@@ -42,8 +57,43 @@ function pluralizePrompts(count: number): string {
 }
 
 /**
- * Updates the small status line that lives between the sidebar header and
- * the prompt list. Owns five mutually exclusive states:
+ * Returns the immutable current status snapshot for React subscribers.
+ *
+ * @returns {SidebarStatusSnapshot}
+ */
+export function getStatusSnapshot(): SidebarStatusSnapshot {
+  return statusSnapshot;
+}
+
+/**
+ * Subscribes a listener to status state updates.
+ *
+ * @param {() => void} listener
+ * @returns {() => void} Unsubscribe callback.
+ */
+export function subscribeStatus(listener: () => void): () => void {
+  statusListeners.add(listener);
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
+
+/**
+ * Notifies all active store subscribers of a snapshot change.
+ */
+function notifyStatusListeners(): void {
+  statusListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (error) {
+      console.error('Error in sidebar status listener:', error);
+    }
+  });
+}
+
+/**
+ * Updates the small status line state and dispatches external store updates.
+ * Owns six mutually exclusive states:
  *
  *   - `jumping`: a jump is in progress; band shows the destination
  *     with the animated dots and lives until the jump ends.
@@ -57,10 +107,11 @@ function pluralizePrompts(count: number): string {
  *     Shows "No prompts" *persistently* — no linger timer, no retract,
  *     because the empty state is the stable visual until the user
  *     starts typing.
+ *   - `failed`: jump target could not be resolved; lingers then retracts.
  *   - `idle`: nothing to convey. Hidden, no reserved space.
  *
- * Safe to call on every render — the helper short-circuits when neither
- * the mode nor the rendered text changes.
+ * Safe to call on every render — short-circuits when neither the mode nor
+ * the rendered text changes.
  *
  * @param {Object} options
  * @param {SidebarStatusState} options.state The visible state to render.
@@ -78,8 +129,6 @@ export function setSidebarStatus(options: {
   promptCount?: number;
 }): void {
   const { state, jump, promptCount = 0 } = options;
-  const element = document.getElementById('luna-toc-status');
-  if (!element) return;
 
   let text: string;
 
@@ -99,25 +148,15 @@ export function setSidebarStatus(options: {
       lastJumpingText = text;
       break;
     case 'loading':
-      // Bare "Loading…" covers the `promptCount === 0` case (e.g. an
-      // empty chat whose page hook never posted DATA). Once at least
-      // one prompt has landed, appending "(N so far)" gives backfill
-      // progress for long conversations.
       text = promptCount > 0 ? `Loading... (${promptCount} so far)` : 'Loading…';
       break;
     case 'empty':
-      // Definitively empty chat: persistent, no linger timer.
       text = 'No prompts';
       break;
     case 'failed':
-      // A jump could not resolve its target (e.g. the prompt is too far
-      // to mount). Show briefly, then retract like `complete`.
       text = 'Jump failed';
       break;
     case 'complete':
-      // Linger on the last jump text when transitioning out of a
-      // jump so the user sees the destination they were scrolled to,
-      // not a count that may have shifted by the time the band retracts.
       text =
         currentStatusMode === 'jumping'
           ? lastJumpingText
@@ -128,63 +167,39 @@ export function setSidebarStatus(options: {
       text = '';
   }
 
-  if (state === currentStatusMode && element.textContent === text) {
+  if (state === statusSnapshot.state && text === statusSnapshot.text) {
     return;
   }
 
   currentStatusMode = state;
-
-  if (state === 'jumping') {
-    // The CSS `.jumping-dots .dot` keyframe animation owns the motion.
-    // Build the DOM once on entry; subsequent calls during the same
-    // jump hit the early-return above (textContent matches the prefix)
-    // and leave the dots structure intact.
-    const existingDots = element.querySelector('.jumping-dots');
-    if (existingDots && element.firstChild && element.firstChild !== existingDots) {
-      element.firstChild.textContent = text;
-    } else {
-      element.replaceChildren(
-        document.createTextNode(text),
-        buildJumpingDotsElement()
-      );
-    }
-    element.classList.add('navigator-status-active');
-    if (statusLingerTimer !== null) {
-      clearTimeout(statusLingerTimer);
-      statusLingerTimer = null;
-    }
-    return;
-  }
-
-  element.textContent = text;
-  element.classList.toggle('navigator-status-active', state !== 'idle');
+  statusSnapshot = { state, text };
 
   if (statusLingerTimer !== null) {
     clearTimeout(statusLingerTimer);
     statusLingerTimer = null;
   }
+
   if (state === 'complete' || state === 'failed') {
     statusLingerTimer = window.setTimeout(() => {
       currentStatusMode = 'idle';
-      element.textContent = '';
-      element.classList.remove('navigator-status-active');
+      statusSnapshot = { state: 'idle', text: '' };
       statusLingerTimer = null;
+      notifyStatusListeners();
     }, STATUS_LINGER_MS);
   }
+
+  notifyStatusListeners();
 }
 
 /**
- * Builds the three-dot span cluster that the CSS keyframe animation drives.
- * Returned element: <span class="jumping-dots"><span class="dot"></span>...
+ * Resets status store state and clears any pending linger timers for testing.
  */
-function buildJumpingDotsElement(): HTMLSpanElement {
-  const container = document.createElement('span');
-  container.className = 'jumping-dots';
-  container.setAttribute('aria-hidden', 'true');
-  for (let i = 0; i < 3; i += 1) {
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    container.appendChild(dot);
+export function resetStatusForTesting(): void {
+  if (statusLingerTimer !== null) {
+    clearTimeout(statusLingerTimer);
+    statusLingerTimer = null;
   }
-  return container;
+  currentStatusMode = 'idle';
+  lastJumpingText = '';
+  statusSnapshot = { state: 'idle', text: '' };
 }

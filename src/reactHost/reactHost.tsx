@@ -10,6 +10,7 @@ import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDial
 import { CustomTocTitleDialogHost } from '@/components/custom-toc-titles/CustomTocTitleDialog';
 import { ConfirmDialogHost } from '@/components/my-prompts/ConfirmDialog';
 import { SidebarHeader } from '@/components/sidebar-header/SidebarHeader';
+import { SidebarStatus } from '@/components/sidebar-status/SidebarStatus';
 import { MyPromptsView } from '@/components/my-prompts/MyPromptsView';
 import {
   setReactPortalContainer,
@@ -64,6 +65,7 @@ export async function initializeReactHost(): Promise<void> {
       <CustomTocTitleDialogHost />
       <ConfirmDialogHost />
       <SidebarHeader />
+      <SidebarStatus />
       <MyPromptsView />
     </>
   );
