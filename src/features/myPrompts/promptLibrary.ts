@@ -24,6 +24,10 @@ import {
   sortMyPrompts,
   type SortMode,
 } from './promptSorter';
+import {
+  showPromptModal,
+  type PromptDialogOptions,
+} from './promptDialogController';
 
 type VoidCallback = () => void;
 
@@ -31,14 +35,6 @@ interface PromptLibraryDependencies {
   promptsStore: PromptStore;
   promptUsageStore: PromptUsageStore;
   insertIntoChatGPTInput: (text: string) => void;
-}
-
-interface PromptDialogOptions {
-  title: string;
-  message: string;
-  confirm?: boolean;
-  confirmText?: string;
-  cancelText?: string;
 }
 
 function getRequiredElement<T extends Element>(
@@ -193,101 +189,6 @@ function importMyPrompts(onImport: VoidCallback): void {
   input.click();
 }
 
-
-
-/**
- * Escapes text inserted into HTML templates.
- * @param {string} text
- * @returns {string}
- */
-function escapeHtml(text: string): string {
-  if (!text) return '';
-  return text.replace(/[&<>"']/g, (char) => {
-    const entities: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return entities[char];
-  });
-}
-
-/**
- * Shows a message or confirmation dialog using the My Prompts modal style.
- * @param {Object} options
- * @param {string} options.title
- * @param {string} options.message
- * @param {boolean} [options.confirm=false]
- * @param {string} [options.confirmText='OK']
- * @param {string} [options.cancelText='Cancel']
- * @returns {Promise<boolean>}
- */
-function showPromptModal({
-  title,
-  message,
-  confirm = false,
-  confirmText = 'OK',
-  cancelText = 'Cancel',
-}: PromptDialogOptions): Promise<boolean> {
-  return new Promise((resolve) => {
-    let modal = document.getElementById('chat-toc-myprompt-message-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'chat-toc-myprompt-message-modal';
-      modal.className = 'myprompt-modal-overlay';
-      document.body.appendChild(modal);
-    }
-
-    modal.innerHTML = `
-      <div class="myprompt-modal-content myprompt-message-modal-content">
-        <h3 class="myprompt-modal-title">${escapeHtml(title)}</h3>
-        <p class="myprompt-modal-message">${escapeHtml(message)}</p>
-        <div class="myprompt-modal-actions">
-          ${
-            confirm
-              ? `<button type="button" id="myprompt-message-cancel" class="myprompt-btn myprompt-btn-secondary">${escapeHtml(
-                  cancelText
-                )}</button>`
-              : ''
-          }
-          <button type="button" id="myprompt-message-confirm" class="myprompt-btn myprompt-btn-primary">${escapeHtml(
-            confirmText
-          )}</button>
-        </div>
-      </div>
-    `;
-
-    modal.style.display = 'flex';
-
-    const handleBackdropClick = (event: MouseEvent): void => {
-      if (event.target === modal) {
-        close(false);
-      }
-    };
-
-    const close = (result: boolean): void => {
-      modal.removeEventListener('click', handleBackdropClick);
-      modal.style.display = 'none';
-      resolve(result);
-    };
-
-    const confirmButton = getRequiredElement<HTMLButtonElement>(
-      modal,
-      '#myprompt-message-confirm'
-    );
-    confirmButton.addEventListener('click', () => close(true), { once: true });
-
-    modal
-      .querySelector('#myprompt-message-cancel')
-      ?.addEventListener('click', () => close(false), { once: true });
-
-    modal.addEventListener('click', handleBackdropClick);
-
-    confirmButton.focus();
-  });
-}
 
 /**
  * Creates the sorting toolbar.
