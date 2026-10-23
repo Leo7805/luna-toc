@@ -105,8 +105,16 @@ export function createPromptStore(): PromptStore {
   let hydrated = false;
   let writeQueue: Promise<void> = Promise.resolve();
   const listeners = new Set<PromptsChangedListener>();
+  // Associates a returned mutable list with the exact persisted state it came from.
+  // Storage change events must never silently advance a caller's replace precondition.
+  const observed = new WeakMap<SavedPrompt[], SavedPrompt[]>();
 
   const snapshot = (): SavedPrompt[] => clone(cache);
+  const exportSnapshot = (): SavedPrompt[] => {
+    const copy = snapshot();
+    observed.set(copy, snapshot());
+    return copy;
+  };
   const publish = (prompts: SavedPrompt[]): void => {
     cache = clone(prompts);
     hydrated = true;
@@ -140,21 +148,21 @@ export function createPromptStore(): PromptStore {
       try {
         const latest = await readFresh();
         if (!hydrated || !equalPromptLists(cache, latest)) publish(latest);
-        return snapshot();
+        return exportSnapshot();
       } catch (error) {
-        if (hydrated) return snapshot();
+        if (hydrated) return exportSnapshot();
         throw error;
       }
     },
     saveAll(prompts: SavedPrompt[]): Promise<void> {
+      // Unobserved lists have no safe base for a whole-library replacement.
+      // The exact getAll() array can be edited in place and supplied here.
+      const base = observed.get(prompts);
+      if (!base) return Promise.reject(new Error('Read prompts before replacing the full collection'));
+      const expected = clone(base);
       const next = clone(prompts);
       return enqueue(async () => {
-        // A full snapshot replacement must not silently discard changes
-        // observed by a different extension tab after the caller's read.
-        const expected = snapshot();
-        if (!hydrated) {
-          throw new Error('Read prompts before replacing the full collection');
-        }
+        // Never infer a replacement baseline from a newer storage notification.
         const latest = await readFresh();
         if (!equalPromptLists(expected, latest)) {
           publish(latest);
