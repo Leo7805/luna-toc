@@ -40,7 +40,7 @@ export interface TocListRendererOptions {
   onSavePrompt?: (message: NavigatorMessage) => void;
   getDisplayText?: (message: NavigatorMessage) => string;
   onRenamePrompt?: (message: NavigatorMessage, label: string, expectedAlias: string | null) => Promise<void>;
-  onRestorePrompt?: (message: NavigatorMessage, expectedAlias: string | null) => void;
+  onRestorePrompt?: (message: NavigatorMessage, expectedAlias: string | null) => Promise<void> | void;
   isRenamed?: (message: NavigatorMessage) => boolean;
   canRename?: () => boolean;
   onPromptCountReported?: (count: number) => void;
@@ -471,6 +471,8 @@ export function createTocListRenderer(
         !!outlineControls.outlineList.querySelector('.navigator-outline-item');
       const expandedOutline = isExpanded &&
         isExpandedOutlineObscured(item, outlineControls.outlineList);
+      const menuAlias = options.isRenamed?.(message)
+        ? options.getDisplayText?.(message) ?? message.text : null;
       promptContextMenuController.show(
         { left, top },
         [
@@ -545,8 +547,22 @@ export function createTocListRenderer(
             previewTooltip.hide();
             render();
           } else if (itemId === 'restore-toc') {
-            options.onRestorePrompt?.(message,
-              options.isRenamed?.(message) ? options.getDisplayText?.(message) ?? message.text : null);
+            void Promise.resolve(options.onRestorePrompt?.(message, menuAlias)).catch((error: unknown) => {
+              // A stale context menu must not remove a newer alias invisibly.
+              const currentRow = navigatorItems[index];
+              if (options.getMessages()[index]?.id !== message.id ||
+                  !currentRow?.isConnected) return;
+              let alert = currentRow.querySelector<HTMLElement>('.navigator-item-restore-error');
+              if (!alert) {
+                alert = document.createElement('div');
+                alert.className = 'navigator-item-inline-error navigator-item-restore-error';
+                alert.setAttribute('role', 'alert');
+                currentRow.appendChild(alert);
+              }
+              alert.textContent = error instanceof Error && error.message.includes('another tab')
+                ? '目录名称已在其他标签页修改，请重新打开菜单'
+                : '恢复原文失败，请重试';
+            });
           }
         }
       );
