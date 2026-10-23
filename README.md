@@ -28,6 +28,12 @@ LunaTOC-SC 是面向 ChatGPT 长对话的 Chrome 扩展，将用户提问整理�
 4. 选择“加载已解压的扩展程序”，定位至包含 `manifest.json` 的文件夹。
 5. 打开或刷新 [ChatGPT](https://chatgpt.com/)。
 
+## 开发验证与发布
+
+- 指向 `main` 的 PR 和 `main` 提交自动运行 [CI](.github/workflows/ci.yml)：类型检查、自动测试、构建、Manifest/ZIP 检查；**不会自动发布 GitHub Release**。
+- 开发构建生成的 ZIP 保存在当前 GitHub Actions 运行的短期 artifact 中；正式可供下载的预览版仅由维护者在 [manual release](.github/workflows/release.yml) 中选择 `main`、勾选发布确认后创建。
+- 旧 Releases、Git 标签和开发分支不再由工作流自动清理。详细步骤及恢复边界见 [发布与恢复说明](docs/RELEASE_PROCESS.md)。
+
 ## 支持范围与限制
 
 - 适用于 Chrome（Manifest V3）上的 `chatgpt.com` 和 `chat.openai.com`；不支持 Copilot。
