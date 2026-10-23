@@ -11,6 +11,9 @@ export type ChatContentPart = string | { content_type?: string };
 
 export interface ChatMessage {
   id: string;
+  /** Parent pointers are present on some paginated ChatGPT payloads. */
+  parent?: string | null;
+  parent_id?: string | null;
   author?: { role?: string };
   content?: { parts?: ChatContentPart[] };
   metadata?: { attachments?: ChatAttachment[] };
