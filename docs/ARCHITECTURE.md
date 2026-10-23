@@ -44,13 +44,13 @@
 
 ## 我的提示词
 
-- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离，同一扩展上下文内的变更采用串行更新。
+- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离；写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序进行读取、快照核对和保存。旧版存储键保持不变，其他标签页先保存时本标签页在最新数据上重算修改，最多有限次重试；同一提示词的过期编辑/删除在界面层拒绝覆盖。
 - `src/features/myPrompts/promptLibrary.ts` 实现增删改、Markdown 导入导出，并使用存储层原子转换接口。
 - `src/features/myPrompts/promptAutocomplete.ts` 在 ChatGPT 的 ProseMirror 输入框上提供 `#`、`//` 补全。
 - `src/features/myPrompts/promptUsageStore.ts` 在启动时按现存提示词 ID 清理孤立使用统计，并在写入失败时回滚内存状态。
 - 原有浏览器存储键继续兼容已有数据，不因产品显示名称变化而更名。
 
-Chrome 存储没有跨扩展上下文的 compare-and-swap 事务，多个标签页同时修改同一组提示词时仍需避免冲突。
+后台统一写入为使用新协议的提示词界面提供串行快照提交。Chrome 存储自身没有跨上下文 CAS 事务；设置页的备份恢复、旧版扩展或其他直接写存储的入口仍未加入这条队列。恢复备份时应避免同时使用其他标签页，详见 [本地备份与恢复](LOCAL_BACKUP.md)。
 
 ## UI 与构建
 
