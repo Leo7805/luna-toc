@@ -214,4 +214,24 @@ describe('versioned local backup', () => {
     await expect(restoreLocalBackup(sample(), 'replace', box.storage)).rejects.toThrow('read failed');
     expect(box.set).not.toHaveBeenCalled();
   });
+  it('revives only explicitly restored conversation aliases and removes deletion fence', async () => {
+    const tombstone = 'chatToc:aliases:deleted:v1:conversation-123';
+    const unrelated = 'chatToc:aliases:deleted:v1:conversation-999';
+    const box = storageHarness({ [tombstone]: true, [unrelated]: true });
+    await restoreLocalBackup(sample(), 'replace', box.storage);
+    expect(box.state[ALIAS]).toEqual(sample().data.aliases['conversation-123']);
+    expect(box.state[tombstone]).toBeUndefined();
+    expect(box.state[unrelated]).toBe(true);
+  });
+
+  it('restores a deletion fence when explicit revival fails midway', async () => {
+    const tombstone = 'chatToc:aliases:deleted:v1:conversation-123';
+    const box = storageHarness({ [tombstone]: true });
+    const original = clone(box.state);
+    box.failRemove();
+    await expect(restoreLocalBackup(sample(), 'replace', box.storage))
+      .rejects.toThrow('已回滚');
+    expect(box.state).toEqual(original);
+  });
+
 });
