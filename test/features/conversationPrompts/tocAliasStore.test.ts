@@ -163,32 +163,15 @@ describe('TOC alias storage', () => {
       .toEqual({ ownerId: null, aliases: { msg: 'saved later' } });
   });
 
-  it('does not claim a successful save when background messaging fails', async () => {
+  it('does not claim a successful save without a background acknowledgement', async () => {
     const store = createTocAliasStore();
-    vi.mocked(chrome.runtime.sendMessage).mockImplementationOnce(() => {
-      // Simulate lost/closed response channel; Chrome sets runtime.lastError.
-      (chrome.runtime as unknown as { lastError?: { message: string } }).lastError =
-        { message: 'worker disconnected' };
-    });
-    // Use a callback failure to exercise the rejected acknowledgement path.
     vi.mocked(chrome.runtime.sendMessage).mockImplementationOnce(
-      (_request, callback) => {
-        (chrome.runtime as unknown as { lastError?: { message: string } }).lastError =
-          { message: 'worker disconnected' };
-        callback?.();
-        (chrome.runtime as unknown as { lastError?: { message: string } }).lastError = undefined;
-      });
-    // The first intentionally unacknowledged message must not be used here:
-    // skip it and exercise the callback error in the following request.
-    vi.mocked(chrome.runtime.sendMessage).mockClear();
-    vi.mocked(chrome.runtime.sendMessage).mockImplementationOnce(
-      (_request, callback) => {
-        (chrome.runtime as unknown as { lastError?: { message: string } }).lastError =
-          { message: 'worker disconnected' };
-        callback?.();
-        (chrome.runtime as unknown as { lastError?: { message: string } }).lastError = undefined;
-      });
-    await expect(store.update(route, 'msg', 'unconfirmed', null)).rejects.toThrow('worker disconnected');
+      ((_request: unknown, callback: (response?: unknown) => void) => {
+        callback(undefined);
+      }) as typeof chrome.runtime.sendMessage
+    );
+    await expect(store.update(route, 'msg', 'unconfirmed', null))
+      .rejects.toThrow('did not confirm');
     expect(saved[key]).toBeUndefined();
   });
 });
