@@ -50,9 +50,10 @@ export function extractActiveBranchMessages(
       visited.add(nodeId);
 
       const node: ConversationTreeNode | undefined = data.mapping[nodeId];
-      if (!node) return null;
+      if (!node || !Object.prototype.hasOwnProperty.call(node, 'parent')) return null;
+      if (node.parent !== null && (typeof node.parent !== 'string' || !node.parent)) return null;
       if (node.message?.id) messages.push(node.message);
-      nodeId = node.parent ?? null;
+      nodeId = node.parent;
     }
 
     return messages.reverse();
