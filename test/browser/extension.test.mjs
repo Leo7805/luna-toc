@@ -131,10 +131,12 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.goto('https://chatgpt.com/c/luna-stage-10-large-e2e',{waitUntil:'domcontentloaded'});
       await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
       await page.evaluate(async()=>fetch('/backend-api/conversations/luna-stage-10-large-e2e?num_turns=500'));
-      await page.waitForFunction(()=>document.querySelectorAll('.navigator-item').length===500,{timeout:20000});
+      await page.waitForFunction(()=>document.querySelectorAll('.navigator-item').length===500,undefined,{timeout:20000});
       const tocBuildMs=Date.now()-started,jumpStarted=Date.now();
-      await page.locator('.navigator-item').last().click();
-      await page.waitForFunction(()=>{const target=document.querySelector('[data-message-id="user-500"]');if(!target)return false;const rect=target.getBoundingClientRect();return rect.top>=0&&rect.bottom<=window.innerHeight;},{timeout:15000});
+      const lastItem=page.locator('.navigator-item').last();
+      await lastItem.evaluate(element=>element.scrollIntoView({block:'nearest',inline:'nearest'}));
+      await lastItem.click();
+      await page.waitForFunction(()=>{const target=document.querySelector('[data-message-id="user-500"]');if(!target)return false;const rect=target.getBoundingClientRect();return rect.top>=0&&rect.bottom<=window.innerHeight;},undefined,{timeout:15000});
       console.log('[LunaTOC browser synthetic]',JSON.stringify({messages:500,environment:'headless Chromium fixture; no live ChatGPT',tocBuildMs,farJumpMs:Date.now()-jumpStarted}));
     });
     await t.test('backup export and restore use the shared background writer',async()=>{
@@ -160,7 +162,15 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         await settings.locator('.settings-backup-preview').waitFor({state:'visible'});
         settings.on('dialog',dialog=>dialog.accept());
         await settings.getByRole('button',{name:'确认恢复'}).click();
-        await settings.getByText(/恢复成功/).waitFor({state:'visible',timeout:15000});
+        const status=settings.locator('[role="status"]');
+        const statusAppeared=await status.waitFor({state:'visible',timeout:15000}).then(()=>true).catch(()=>false);
+        if(!statusAppeared){
+          const bodyText=await settings.locator('body').innerText();
+          const currentPrompts=await worker.evaluate(async()=>chrome.storage.local.get('lumaToc:myPromptsV1'));
+          throw new Error('backup restore status missing; page='+bodyText.slice(-500)+'; storedPrompts='+JSON.stringify(currentPrompts));
+        }
+        const statusText=await status.innerText();
+        assert.match(statusText,/恢复成功/, 'backup restore reported an error: '+statusText);
         const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:themeSettings','chatToc:sidebarPreferences']));
         assert.equal(restored['lumaToc:myPromptsV1'][0].id,'e2e-prompt');
         assert.equal(restored['lunaToc:promptUsageV1']['e2e-prompt'].usageCount,2);
