@@ -8,6 +8,7 @@ import type {
   SavedPrompt,
 } from './promptStore';
 import type { PromptUsageStore } from './promptUsageStore';
+import { equalPromptLists } from './promptWriteCoordinator';
 import {
   promptEditorController,
   type PromptEditorValues,
@@ -381,13 +382,19 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   if (!shouldClear) return;
 
   try {
-    await requirePromptStore().update(() => []);
+    await requirePromptStore().update((current) => {
+      if (!equalPromptLists(current, prompts)) {
+        throw new Error('其他标签页已修改提示词，请重新确认清空操作。');
+      }
+      return [];
+    });
     await requirePromptUsageStore().clear();
     onRefresh();
   } catch (error) {
     await showPromptModal({
       title: '清空我的提示词',
-      message: '无法清空提示词。',
+      message: error instanceof Error && error.message.includes('其他标签页')
+        ? error.message : '无法清空提示词。',
     });
   }
 }
@@ -446,8 +453,11 @@ export function showDialog(
   item: Partial<SavedPrompt> | null = null,
   onSave: VoidCallback = () => {}
 ): void {
-  promptEditorController.open(item, async (values) => {
-    await savePromptEditorValues(item, values);
+  // Stable across editor retries so an uncertain acknowledgement cannot create duplicate IDs.
+  const createId = item?.id ?? `prompt-${Date.now()}-${crypto.randomUUID()}`;
+  const original = item ? { ...item } : null;
+  promptEditorController.open(original, async (values) => {
+    await savePromptEditorValues(original, values, createId);
     onSave();
   });
 }
@@ -457,15 +467,23 @@ export function showDialog(
  */
 async function savePromptEditorValues(
   item: Partial<SavedPrompt> | null,
-  { title, content }: PromptEditorValues
+  { title, content }: PromptEditorValues,
+  createId: string
 ): Promise<void> {
   try {
     await requirePromptStore().update((prompts) => {
       const isNew = !item?.id;
       if (isNew) {
+        const existing = prompts.find((prompt) => prompt.id === createId);
+        if (existing) {
+          if (existing.title !== title || existing.content !== content) {
+            throw new Error('提示词 ID 冲突，请重新打开编辑器。');
+          }
+          return prompts; // Idempotent retry of the same new prompt.
+        }
         const now = Date.now();
         prompts.push({
-          id: `prompt-${now}-${crypto.randomUUID()}`,
+          id: createId,
           title,
           content,
           createdAt: now,
@@ -473,7 +491,11 @@ async function savePromptEditorValues(
         });
       } else {
         const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
-        if (!existingPrompt) throw new Error('Prompt no longer exists');
+        if (!existingPrompt) throw new Error('提示词已在其他标签页删除，请重新打开编辑器。');
+        if (existingPrompt.updatedAt !== item.updatedAt ||
+            existingPrompt.title !== item.title || existingPrompt.content !== item.content) {
+          throw new Error('提示词已在其他标签页修改，请重新打开编辑器。');
+        }
         existingPrompt.title = title;
         existingPrompt.content = content;
         existingPrompt.updatedAt = Date.now();
@@ -483,7 +505,8 @@ async function savePromptEditorValues(
   } catch (error) {
     await showPromptModal({
       title: '保存提示词',
-      message: '无法保存此提示词。',
+      message: error instanceof Error && error.message.includes('其他标签页')
+        ? error.message : '无法保存此提示词。',
     });
     throw error;
   }
@@ -625,9 +648,14 @@ export async function renderMyPrompts(
 
       if (shouldDelete) {
         try {
-          await requirePromptStore().update((prompts) =>
-            prompts.filter((p) => p.id !== item.id)
-          );
+          await requirePromptStore().update((prompts) => {
+            const current = prompts.find((p) => p.id === item.id);
+            if (!current || current.updatedAt !== item.updatedAt ||
+                current.title !== item.title || current.content !== item.content) {
+              throw new Error('提示词已在其他标签页修改，请刷新列表后再删除。');
+            }
+            return prompts.filter((p) => p.id !== item.id);
+          });
           void requirePromptUsageStore().remove(item.id).catch(() => {
             console.warn('[LunaTOC] Prompt deleted; usage cleanup will retry on next startup');
           });
