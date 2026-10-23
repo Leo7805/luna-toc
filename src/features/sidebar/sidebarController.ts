@@ -13,12 +13,53 @@ import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 type ViewMode = 'toc' | 'myPrompts';
 
+export interface SidebarViewSnapshot {
+  viewMode: ViewMode;
+  searchQuery: string;
+}
+
 export const sidebarController = (() => {
   let viewMode: ViewMode = 'toc';
   let searchQuery = '';
   let myPromptsRefreshQueued = false;
   let tocPromptCount = 0;
   let myPromptsCount = 0;
+  let tocScrollTop = 0;
+  let myPromptsScrollTop = 0;
+
+  let viewSnapshot: SidebarViewSnapshot = {
+    viewMode: 'toc',
+    searchQuery: '',
+  };
+  const viewListeners = new Set<() => void>();
+
+  function updateViewSnapshot(): void {
+    if (
+      viewSnapshot.viewMode === viewMode &&
+      viewSnapshot.searchQuery === searchQuery
+    ) {
+      return;
+    }
+    viewSnapshot = { viewMode, searchQuery };
+    viewListeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (error) {
+        console.error('Error in sidebar view listener:', error);
+      }
+    });
+  }
+
+  function subscribeView(listener: () => void): () => void {
+    viewListeners.add(listener);
+    return () => {
+      viewListeners.delete(listener);
+    };
+  }
+
+  function getViewSnapshot(): SidebarViewSnapshot {
+    return viewSnapshot;
+  }
 
   /**
    * Initializes the sidebar after the DOM is in place. Sets the initial
@@ -27,6 +68,7 @@ export const sidebarController = (() => {
   function init(): void {
     setNavigatorTitle();
     bindSidebarControls();
+    renderCurrentView();
   }
 
   /**
@@ -52,20 +94,33 @@ export const sidebarController = (() => {
       : 'Switch to My Prompts';
 
     if (!isMyPrompts) {
-      const toolbar = document.getElementById('myprompts-toolbar-container');
-      if (toolbar) toolbar.innerHTML = '';
-      const list = document.getElementById('navigator-list');
-      if (list) list.oncontextmenu = null;
       promptContextMenuController.close();
     }
 
-    clearSearch();
+    closeSearch(false);
     setNavigatorTitle();
+    updateViewSnapshot();
     renderCurrentView();
   }
 
   function toggleViewMode(): void {
     setViewMode(viewMode === 'toc' ? 'myPrompts' : 'toc');
+  }
+
+  function closeSearch(syncController = true): void {
+    const searchInput = document.getElementById(
+      'navigator-search'
+    ) as HTMLInputElement | null;
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.style.display = 'none';
+      searchInput.blur();
+    }
+    searchQuery = '';
+    updateViewSnapshot();
+    if (syncController && viewMode === 'toc') {
+      navigatorController.setSearchQuery('');
+    }
   }
 
   function clearSearch(syncController = true): void {
@@ -74,7 +129,10 @@ export const sidebarController = (() => {
       'navigator-search'
     ) as HTMLInputElement | null;
     if (searchInput) searchInput.value = '';
-    if (syncController) navigatorController.setSearchQuery('');
+    updateViewSnapshot();
+    if (syncController && viewMode === 'toc') {
+      navigatorController.setSearchQuery('');
+    }
   }
 
   function setPromptCount(count: number): void {
@@ -95,7 +153,7 @@ export const sidebarController = (() => {
     myPromptsRefreshQueued = true;
     queueMicrotask(() => {
       myPromptsRefreshQueued = false;
-      if (viewMode === 'myPrompts') renderCurrentView();
+      if (viewMode === 'myPrompts') updateViewSnapshot();
     });
   }
 
@@ -132,21 +190,45 @@ export const sidebarController = (() => {
   function renderCurrentView(): void {
     updateSearchAvailability();
 
+    const sidebar = document.getElementById('luna-toc-sidebar');
+    if (sidebar) {
+      sidebar.dataset.viewMode = viewMode;
+    }
+
+    const tocList = document.getElementById('navigator-list');
+    const myPromptsList = document.getElementById('myprompts-list');
+    const toolbarContainer = document.getElementById(
+      'myprompts-toolbar-container'
+    );
+
     if (viewMode === 'myPrompts') {
-      renderMyPrompts();
+      if (tocList) {
+        tocScrollTop = tocList.scrollTop;
+        tocList.style.display = 'none';
+      }
+      if (myPromptsList) {
+        myPromptsList.style.display = '';
+        myPromptsList.scrollTop = myPromptsScrollTop;
+      }
+      if (toolbarContainer) {
+        toolbarContainer.style.display = '';
+      }
       return;
     }
 
+    if (myPromptsList) {
+      myPromptsScrollTop = myPromptsList.scrollTop;
+      myPromptsList.style.display = 'none';
+    }
+    if (toolbarContainer) {
+      toolbarContainer.style.display = 'none';
+    }
+    if (tocList) {
+      tocList.style.display = '';
+      tocList.scrollTop = tocScrollTop;
+    }
+
     navigatorController.setSearchQuery(searchQuery);
-  }
-
-  function renderMyPrompts(): void {
-    const list = document.getElementById('navigator-list');
-    if (!list) return;
-
-    myPrompts.renderMyPrompts(list, searchQuery, () => {
-      renderCurrentView();
-    });
   }
 
   function handleTitleClick(): void {
@@ -177,6 +259,7 @@ export const sidebarController = (() => {
           return;
         }
 
+        searchInput.blur();
         clearSearch();
         renderCurrentView();
       }
@@ -190,6 +273,7 @@ export const sidebarController = (() => {
     ).addEventListener('click', toggleViewMode);
     searchInput.addEventListener('input', (event) => {
       searchQuery = (event.currentTarget as HTMLInputElement).value;
+      updateViewSnapshot();
       renderCurrentView();
     });
   }
@@ -250,6 +334,7 @@ export const sidebarController = (() => {
     init,
     setViewMode,
     toggleViewMode,
+    closeSearch,
     clearSearch,
     setPromptCount,
     setMyPromptsCount,
@@ -257,5 +342,9 @@ export const sidebarController = (() => {
     handleSavePrompt,
     isMyPromptsView: () => viewMode === 'myPrompts',
     setNavigatorTitle,
+    subscribeView,
+    getViewSnapshot,
+    getViewMode: () => viewMode,
+    getSearchQuery: () => searchQuery,
   };
 })();

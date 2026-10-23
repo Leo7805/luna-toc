@@ -33,6 +33,9 @@ html[data-lunatoc-theme='dark'] {
   /* Borders */
   --ct-border-sidebar: #27354a;
   --ct-border-input: #27354a;
+  --ct-border-input-hover: #374862;
+  --ct-border-input-focus: #4b6288;
+  --ct-focus-ring-input: rgba(75, 98, 136, 0.28);
   --ct-border-select: #27354a;
   --ct-border-modal: #27354a;
   --ct-border-jump-controls: rgba(148, 163, 184, 0.16);
@@ -137,6 +140,9 @@ html[data-lunatoc-theme='light'] {
   /* Borders */
   --ct-border-sidebar: #cddcf0;
   --ct-border-input: #cddcf0;
+  --ct-border-input-hover: #b9ceea;
+  --ct-border-input-focus: #7b9ec4;
+  --ct-focus-ring-input: rgba(123, 158, 196, 0.28);
   --ct-border-select: #cddcf0;
   --ct-border-modal: #cddcf0;
   --ct-border-jump-controls: rgba(82, 110, 245, 0.2);
@@ -258,7 +264,8 @@ html[data-lunatoc-theme='light'] {
   border-bottom: 1px solid var(--ct-border-divider);
 }
 
-#navigator-list {
+#navigator-list,
+#myprompts-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -983,14 +990,35 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   color: var(--ct-text-primary);
   font-size: 13px;
   outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
 }
 
 #navigator-search::placeholder {
   color: var(--ct-text-muted);
 }
 
+#navigator-search:hover:not(:disabled):not(:focus) {
+  border-color: var(--ct-border-input-hover);
+}
+
 #navigator-search:focus {
-  border-color: var(--ct-accent);
+  outline: none;
+  border-color: var(--ct-border-input-focus);
+  box-shadow: 0 0 0 2px var(--ct-focus-ring-input);
+}
+
+#navigator-search:focus-visible {
+  outline: none;
+  border-color: var(--ct-border-input-focus);
+  box-shadow: 0 0 0 2px var(--ct-focus-ring-input);
+}
+
+#navigator-search:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .navigator-status {
@@ -1021,6 +1049,10 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   opacity: 1;
   margin: 2px 0 0;
   pointer-events: auto;
+}
+
+#luna-toc-sidebar[data-view-mode='myPrompts'] #luna-toc-status {
+  display: none;
 }
 
 .navigator-status .jumping-dots {

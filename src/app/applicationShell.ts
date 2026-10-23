@@ -64,6 +64,7 @@ async function createSidebar(): Promise<HTMLElement> {
   const sidebarConfig = APP_CONFIG.ui.sidebar;
 
   sidebar.id = 'luna-toc-sidebar';
+  sidebar.dataset.viewMode = 'toc';
   sidebar.className = 'luna-toc-navigator-initializing';
   sidebar.style.setProperty(
     '--navigator-width',
@@ -118,7 +119,7 @@ async function createSidebar(): Promise<HTMLElement> {
           placeholder="Search prompts..."
           autocomplete="off"
         />
-        <div id="myprompts-toolbar-container"></div>
+        <div id="myprompts-toolbar-container" style="display: none;"></div>
       </div>
       <div
         id="luna-toc-status"
@@ -134,6 +135,7 @@ async function createSidebar(): Promise<HTMLElement> {
         </button>
       </div>
       <div id="navigator-list"></div>
+      <div id="myprompts-list" class="navigator-list" style="display: none;"></div>
     `;
 
   document.body.appendChild(sidebar);
@@ -275,7 +277,9 @@ export async function initializeApplication(): Promise<void> {
 
   const toggleButton = createSidebarToggleButton();
   initializeSidebarVisibility(sidebar, toggleButton);
-  previewTooltip.init({ anchorSelector: '#navigator-list' });
+  previewTooltip.init({
+    anchorSelector: '#navigator-list, #myprompts-list',
+  });
   buttonTooltip.init();
   myPrompts.initAutocomplete();
   navigatorController.attach();
