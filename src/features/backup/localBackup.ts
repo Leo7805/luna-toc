@@ -247,9 +247,10 @@ export async function restoreLocalBackup(
     const current = await createLocalBackup({ ...storage, get: async () => original } as Storage);
     const prompts = new Map(current.data.prompts.map((prompt) => [prompt.id, prompt]));
     for (const prompt of validated.data.prompts) prompts.set(prompt.id, prompt);
-    const aliases: Record<string, BackupAliasRecord> = { ...current.data.aliases };
+    // Object.fromEntries prevents inherited keys such as '__proto__' from being treated as records.
+    const aliases: Record<string, BackupAliasRecord> = Object.fromEntries(Object.entries(current.data.aliases));
     for (const [route, imported] of Object.entries(validated.data.aliases)) {
-      const present = aliases[route];
+      const present = Object.hasOwn(aliases, route) ? aliases[route] : undefined;
       if (present && present.ownerId && imported.ownerId &&
           present.ownerId !== imported.ownerId) {
         throw new Error('同一会话的账号归属不同，已取消合并。');
