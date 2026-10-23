@@ -209,6 +209,32 @@ describe('My Prompts serial cross-tab persistence', () => {
     expect((await store.getAll()).map((prompt) => prompt.id)).toEqual(['saved', 'recovered']);
   });
 
+
+  it('rejects a stale list even when onChanged has already refreshed the local cache', async () => {
+    const tabA = createPromptStore();
+    const tabB = createPromptStore();
+    const observed = await tabB.getAll();
+    await tabA.update((prompts) => [...prompts, make('from-a')]);
+    observed.push(make('from-b'));
+    await expect(tabB.saveAll(observed)).rejects.toThrow('changed in another tab');
+    expect((await tabB.getAll()).map((p) => p.id)).toEqual(['saved', 'from-a']);
+  });
+
+  it('permits explicitly observed whole-list replacement when unchanged', async () => {
+    const tab = createPromptStore();
+    const observed = await tab.getAll();
+    observed.push(make('added'));
+    await tab.saveAll(observed);
+    expect((await tab.getAll()).map((p) => p.id)).toEqual(['saved', 'added']);
+  });
+
+  it('refuses an untracked copy as a destructive full-list replacement', async () => {
+    const tab = createPromptStore();
+    const observed = await tab.getAll();
+    await expect(tab.saveAll([...observed])).rejects.toThrow('Read prompts');
+    expect(data[PROMPT_STORAGE_KEY]).toEqual([original]);
+  });
+
   it('refuses an unverified full replacement rather than silently erasing data', async () => {
     const store = createPromptStore();
     await expect(store.saveAll([])).rejects.toThrow('Read prompts');
