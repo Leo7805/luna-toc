@@ -156,3 +156,41 @@ jobs:
       - name: Reject known high and critical dependency advisories
         run: npm audit --audit-level=high
 
+
+  remediation_probe:
+    name: Temporary read-only dependency remediation probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Generate non-forced dependency upgrade proposal without repository writes
+        shell: bash
+        run: |
+          cp package-lock.json "$RUNNER_TEMP/original-lock.json"
+          npm uninstall shadcn --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm audit fix --package-lock-only --ignore-scripts --no-fund || true
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --json > "$RUNNER_TEMP/after-audit.json" || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import zlib from 'node:zlib';
+          const original=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/original-lock.json','utf8'));
+          const next=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const audit=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/after-audit.json','utf8'));
+          const removed=Object.keys(original.packages).filter(k=>!(k in next.packages));
+          const updated=Object.fromEntries(Object.entries(next.packages).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(original.packages[k])));
+          const changed={packageJson:pkg,removed,updated};
+          const compressed=zlib.gzipSync(Buffer.from(JSON.stringify(changed))).toString('base64');
+          console.log('PROBE_SUMMARY',JSON.stringify({removed:removed.length,updated:Object.keys(updated).length,remainingVulnerabilities:audit.metadata?.vulnerabilities??'unknown',size:compressed.length}));
+          for(let i=0;i<compressed.length;i+=1600)console.log('PROBE_PATCH_'+String(i/1600).padStart(4,'0')+'_'+compressed.slice(i,i+1600));
+          NODE
