@@ -9,9 +9,23 @@ import { getActivePlatform } from '@/platforms';
 
 describe('conversation refresh on sidebar opening', () => {
   const originalPath = location.pathname;
+  const hookListeners: EventListenerOrEventListenerObject[] = [];
+
+  function installHook(originalFetch: typeof fetch): ReturnType<typeof installConversationRefresh> {
+    const spy = vi.spyOn(window, 'addEventListener');
+    const observeHeaders = installConversationRefresh(originalFetch, getActivePlatform('chatgpt.com'));
+    for (const [type, listener] of spy.mock.calls) {
+      if (type === 'message') hookListeners.push(listener);
+    }
+    spy.mockRestore();
+    return observeHeaders;
+  }
 
   afterEach(() => {
     history.replaceState(null, '', originalPath);
+    for (const listener of hookListeners.splice(0)) {
+      window.removeEventListener('message', listener);
+    }
     vi.restoreAllMocks();
   });
 
@@ -52,11 +66,7 @@ describe('conversation refresh on sidebar opening', () => {
         }),
       });
 
-    const platform = getActivePlatform('chatgpt.com');
-    const observeHeaders = installConversationRefresh(
-      mockFetch as unknown as typeof fetch,
-      platform
-    );
+    const observeHeaders = installHook(mockFetch as unknown as typeof fetch);
     observeHeaders(routeKey, { authorization: 'Bearer captured-token' });
 
     const received: Array<{ type?: string; requestId?: number; payload?: unknown }> = [];
@@ -114,7 +124,7 @@ describe('conversation refresh on sidebar opening', () => {
         messages: [user('root', null)],
         page_info: { has_previous_page: false },
       }) });
-    installConversationRefresh(mockFetch as unknown as typeof fetch, getActivePlatform('chatgpt.com'));
+    installHook(mockFetch as unknown as typeof fetch);
     const received: Array<{ type?: string; payload?: unknown }> = [];
     const onResult = (event: MessageEvent) => {
       if (event.data?.type === TOC_REFRESH_RESULT) received.push(event.data);
@@ -149,7 +159,7 @@ describe('conversation refresh on sidebar opening', () => {
         ],
         page_info: { has_previous_page: false },
       }) });
-    installConversationRefresh(mockFetch as unknown as typeof fetch, getActivePlatform('chatgpt.com'));
+    installHook(mockFetch as unknown as typeof fetch);
     const received: Array<{ type?: string; payload?: unknown }> = [];
     const onResult = (event: MessageEvent) => {
       if (event.data?.type === TOC_REFRESH_RESULT) received.push(event.data);
