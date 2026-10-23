@@ -20,6 +20,7 @@ export interface PromptStore {
   getAll(): Promise<SavedPrompt[]>;
   saveAll(prompts: SavedPrompt[]): Promise<void>;
   subscribe(listener: PromptsChangedListener): () => void;
+  getSnapshot(): SavedPrompt[];
 }
 
 function isContextValid(): boolean {
@@ -99,6 +100,7 @@ export function createPromptStore(): PromptStore {
     if (!hydratePromise) {
       hydratePromise = hydrateFromStorage().then((prompts) => {
         setCache(prompts);
+        notifyListeners();
         return getCacheCopy();
       });
     }
@@ -161,9 +163,13 @@ export function createPromptStore(): PromptStore {
       }
 
       listeners.add(listener);
+      void hydrate();
       return () => {
         listeners.delete(listener);
       };
+    },
+    getSnapshot(): SavedPrompt[] {
+      return cache;
     },
   };
 }

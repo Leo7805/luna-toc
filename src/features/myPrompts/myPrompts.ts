@@ -7,8 +7,15 @@ import {
   insertIntoChatGPTInput,
 } from './promptAutocomplete';
 import {
+  clearAllMyPrompts,
+  copyPromptText,
+  deletePrompt,
+  exportMyPrompts,
   getMyPrompts,
+  getMyPromptsSnapshot,
+  importMyPrompts,
   initializePromptLibrary,
+  insertPrompt,
   onPromptsChanged,
   renderMyPrompts,
   saveMyPrompts,
@@ -34,8 +41,15 @@ initializePromptAutocomplete({
 
 export const myPrompts = {
   getMyPrompts,
+  getMyPromptsSnapshot,
   saveMyPrompts,
   onPromptsChanged,
+  deletePrompt,
+  clearAllMyPrompts,
+  copyPromptText,
+  exportMyPrompts,
+  importMyPrompts,
+  insertPrompt,
   showDialog,
   renderMyPrompts,
   initAutocomplete,

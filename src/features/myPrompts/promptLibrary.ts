@@ -1,6 +1,6 @@
 /**
- * Manages the saved prompt library, including dialogs, list rendering,
- * sorting, import, export, and CRUD operations.
+ * Manages the saved prompt library, including dialogs, import, export,
+ * and CRUD operations.
  */
 import type {
   PromptsChangedListener,
@@ -12,21 +12,12 @@ import {
   promptEditorController,
   type PromptEditorValues,
 } from './promptEditor';
-import { promptContextMenuController } from './promptContextMenu';
-
-import { previewTooltip } from '@/features/tooltip';
-
 import {
   formatPromptsAsMarkdown,
   parseMarkdownPrompts,
 } from './promptSerializer';
 import {
-  sortMyPrompts,
-  type SortMode,
-} from './promptSorter';
-import {
   showPromptModal,
-  type PromptDialogOptions,
 } from './promptDialogController';
 
 type VoidCallback = () => void;
@@ -37,19 +28,6 @@ interface PromptLibraryDependencies {
   insertIntoChatGPTInput: (text: string) => void;
 }
 
-function getRequiredElement<T extends Element>(
-  root: ParentNode,
-  selector: string
-): T {
-  const element = root.querySelector<T>(selector);
-  if (!element) {
-    throw new Error(`Required My Prompts element not found: ${selector}`);
-  }
-  return element;
-}
-
-let activeSort: SortMode = 'updated_desc';
-let renderVersion = 0;
 let promptsStore: PromptStore | null = null;
 let promptUsageStore: PromptUsageStore | null = null;
 let insertIntoChatGPTInput: (text: string) => void = () => {};
@@ -75,6 +53,14 @@ export function initializePromptLibrary(
  */
 export async function getMyPrompts(): Promise<SavedPrompt[]> {
   return requirePromptStore().getAll();
+}
+
+/**
+ * Returns a synchronous snapshot of the prompt collection for React subscriptions.
+ * @returns {SavedPrompt[]}
+ */
+export function getMyPromptsSnapshot(): SavedPrompt[] {
+  return requirePromptStore().getSnapshot();
 }
 
 /**
@@ -109,12 +95,11 @@ function requirePromptUsageStore(): PromptUsageStore {
   return promptUsageStore;
 }
 
-
 /**
  * Downloads saved prompts as an editable Markdown file.
  * @returns {Promise<void>}
  */
-async function exportMyPrompts(): Promise<void> {
+export async function exportMyPrompts(): Promise<void> {
   const prompts = await getMyPrompts();
   const file = new Blob([formatPromptsAsMarkdown(prompts)], {
     type: 'text/markdown;charset=utf-8',
@@ -130,13 +115,12 @@ async function exportMyPrompts(): Promise<void> {
   URL.revokeObjectURL(downloadUrl);
 }
 
-
 /**
  * Opens a Markdown file and appends its prompts to the current collection.
- * @param {() => void} onImport
+ * @param {() => void} [onImport]
  * @returns {void}
  */
-function importMyPrompts(onImport: VoidCallback): void {
+export function importMyPrompts(onImport?: VoidCallback): void {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.md,text/markdown,text/plain';
@@ -168,7 +152,7 @@ function importMyPrompts(onImport: VoidCallback): void {
       }));
 
       await saveMyPrompts([...existingPrompts, ...importedPrompts]);
-      onImport();
+      onImport?.();
       await showPromptModal({
         title: 'Import Prompts',
         message: `Imported ${importedPrompts.length} prompt${
@@ -189,94 +173,11 @@ function importMyPrompts(onImport: VoidCallback): void {
   input.click();
 }
 
-
 /**
- * Creates the sorting toolbar.
- * @param {() => void} onSortChange Callback triggered when the sorting mode
- *     changes.
- * @param {() => void} onAddNew Callback triggered when the add button is
- *     clicked.
- * @returns {HTMLElement}
+ * Clears all saved prompts and their associated usage metadata.
+ * @param {() => void} [onRefresh]
  */
-function createSortBar(
-  onSortChange: VoidCallback,
-  onAddNew: VoidCallback
-): HTMLElement {
-  const bar = document.createElement('div');
-  bar.className = 'my-prompts-sort-bar';
-  bar.innerHTML = `
-    <div class="sort-bar-left">
-      <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="3" y1="6" x2="15" y2="6"></line>
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="18" x2="18" y2="18"></line>
-      </svg>
-      <select class="my-prompts-sort-select" id="myprompt-sort-select">
-        <option value="updated_desc">Newest Modified</option>
-        <option value="updated_asc">Oldest Modified</option>
-        <option value="name_asc">Title (A-Z)</option>
-        <option value="name_desc">Title (Z-A)</option>
-      </select>
-    </div>
-    <div class="my-prompts-toolbar-actions">
-      <button id="myprompt-import-btn" class="myprompt-canvas-btn" type="button" aria-label="Import prompts" title="Import prompts">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7 10 12 15 17 10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-      </button>
-      <button id="myprompt-export-btn" class="myprompt-canvas-btn" type="button" aria-label="Export prompts" title="Export prompts">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-      </button>
-      <button id="myprompt-add-new-btn" type="button" aria-label="Add prompt" title="Add prompt">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      </button>
-    </div>
-  `;
-
-  const select = getRequiredElement<HTMLSelectElement>(
-    bar,
-    '#myprompt-sort-select'
-  );
-  select.value = activeSort;
-  select.addEventListener('change', (event) => {
-    activeSort = (event.currentTarget as HTMLSelectElement).value as SortMode;
-    onSortChange();
-  });
-
-  const addBtn = getRequiredElement<HTMLButtonElement>(
-    bar,
-    '#myprompt-add-new-btn'
-  );
-  addBtn.addEventListener('click', () => {
-    onAddNew();
-  });
-
-  getRequiredElement<HTMLButtonElement>(
-    bar,
-    '#myprompt-export-btn'
-  ).addEventListener('click', exportMyPrompts);
-
-  getRequiredElement<HTMLButtonElement>(
-    bar,
-    '#myprompt-import-btn'
-  ).addEventListener('click', () => {
-    importMyPrompts(onSortChange);
-  });
-
-  return bar;
-}
-
-/** Clears all saved prompts and their associated usage metadata. */
-async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
+export async function clearAllMyPrompts(onRefresh?: VoidCallback): Promise<void> {
   const prompts = await getMyPrompts();
   if (!prompts.length) return;
 
@@ -291,7 +192,7 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   try {
     await saveMyPrompts([]);
     await requirePromptUsageStore().clear();
-    onRefresh();
+    onRefresh?.();
   } catch (error) {
     await showPromptModal({
       title: 'Clear all My Prompts',
@@ -300,8 +201,12 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   }
 }
 
-/** Copies text to the system clipboard and reports an error through the prompt modal. */
-async function copyPromptText(text: string, title: string): Promise<void> {
+/**
+ * Copies text to the system clipboard and reports an error through the prompt modal.
+ * @param {string} text
+ * @param {string} title
+ */
+export async function copyPromptText(text: string, title: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -310,6 +215,46 @@ async function copyPromptText(text: string, title: string): Promise<void> {
       message: 'Unable to copy the prompt text.',
     });
   }
+}
+
+/**
+ * Deletes a single prompt after confirmation and cleans up its usage metadata.
+ * @param {SavedPrompt} item
+ * @param {() => void} [onRefresh]
+ */
+export async function deletePrompt(
+  item: SavedPrompt,
+  onRefresh?: VoidCallback
+): Promise<void> {
+  const shouldDelete = await showPromptModal({
+    title: 'Delete Prompt',
+    message: `Are you sure you want to delete "${item.title}"?`,
+    confirm: true,
+    confirmText: 'Delete',
+  });
+
+  if (!shouldDelete) return;
+
+  try {
+    const prompts = await getMyPrompts();
+    const filtered = prompts.filter((p) => p.id !== item.id);
+    await saveMyPrompts(filtered);
+    void requirePromptUsageStore().remove(item.id).catch(() => undefined);
+    onRefresh?.();
+  } catch (error) {
+    await showPromptModal({
+      title: 'Delete Prompt',
+      message: 'Unable to delete this prompt.',
+    });
+  }
+}
+
+/**
+ * Inserts prompt content into the active ChatGPT input.
+ * @param {string} text
+ */
+export function insertPrompt(text: string): void {
+  insertIntoChatGPTInput(text);
 }
 
 /**
@@ -367,201 +312,16 @@ async function savePromptEditorValues(
 }
 
 /**
- * Renders the entire prompts view inside a container.
- * @param {HTMLElement} container
- * @param {string} searchQuery
- * @param {() => void} onRefresh
+ * Legacy compatibility stub. MyPrompts UI rendering is now managed
+ * declaratively by MyPromptsView via React portal.
+ * @param {HTMLElement} [_container]
+ * @param {string} [_searchQuery]
+ * @param {() => void} [_onRefresh]
  */
 export async function renderMyPrompts(
-  container: HTMLElement,
-  searchQuery = '',
-  onRefresh: VoidCallback = () => {}
+  _container?: HTMLElement,
+  _searchQuery = '',
+  _onRefresh: VoidCallback = () => {}
 ): Promise<void> {
-  const currentRenderVersion = ++renderVersion;
-
-  const toolbarContainer = document.getElementById(
-    'myprompts-toolbar-container'
-  );
-  if (toolbarContainer) {
-    toolbarContainer.innerHTML = '';
-    const sortBar = createSortBar(onRefresh, () => {
-      showDialog(null, onRefresh);
-    });
-    toolbarContainer.appendChild(sortBar);
-  }
-
-  let list = await getMyPrompts();
-  const savedPromptCount = list.length;
-
-  if (currentRenderVersion !== renderVersion) {
-    return;
-  }
-
-  container.oncontextmenu = (event) => {
-    const target = event.target;
-    if (
-      !savedPromptCount ||
-      !(target instanceof Element) ||
-      target.closest('.my-prompts-item-row')
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    previewTooltip.hide();
-    promptContextMenuController.show(
-      { left: event.clientX, top: event.clientY },
-      [
-        {
-          id: 'clear-all',
-          label: 'Clear all My Prompts',
-          icon: 'trash',
-          variant: 'destructive',
-        },
-      ],
-      (itemId) => {
-        if (itemId === 'clear-all') void clearAllMyPrompts(onRefresh);
-      }
-    );
-  };
-
-  container.innerHTML = '';
-
-  const query = searchQuery.trim().toLowerCase();
-  if (query) {
-    list = list.filter(
-      (item) =>
-        item.title.toLowerCase().includes(query) ||
-        item.content.toLowerCase().includes(query)
-    );
-  }
-
-  list = sortMyPrompts(list, activeSort);
-
-  if (list.length === 0) {
-    const emptyHint = document.createElement('p');
-    emptyHint.className = 'navigator-hint';
-    emptyHint.textContent = query
-      ? 'No matching prompts.'
-      : 'No prompts saved yet. Click + to add one, or right-click any prompt in the TOC list.';
-    container.appendChild(emptyHint);
-    return;
-  }
-
-  const listContainer = document.createElement('div');
-  listContainer.className = 'my-prompts-items-container';
-
-  list.forEach((item) => {
-    const row = document.createElement('div');
-    row.className = 'navigator-item my-prompts-item-row';
-    row.dataset.promptId = item.id;
-
-    const rowMain = document.createElement('div');
-    rowMain.className = 'navigator-item-main';
-
-    const rowText = document.createElement('span');
-    rowText.className = 'navigator-item-text my-prompts-item-title';
-    rowText.textContent = item.title;
-
-    const actions = document.createElement('div');
-    actions.className = 'my-prompts-item-actions';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'myprompt-action-btn edit-myprompt-btn';
-    editBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-        <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-      </svg>
-    `;
-    editBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      previewTooltip.hide();
-      showDialog(item, onRefresh);
-    });
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'myprompt-action-btn delete-myprompt-btn';
-    deleteBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="3 6 5 6 21 6"></polyline>
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        <line x1="10" y1="11" x2="10" y2="17"></line>
-        <line x1="14" y1="11" x2="14" y2="17"></line>
-      </svg>
-    `;
-    deleteBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      previewTooltip.hide();
-      const shouldDelete = await showPromptModal({
-        title: 'Delete Prompt',
-        message: `Are you sure you want to delete "${item.title}"?`,
-        confirm: true,
-        confirmText: 'Delete',
-      });
-
-      if (shouldDelete) {
-        try {
-          const prompts = await getMyPrompts();
-          const filtered = prompts.filter((p) => p.id !== item.id);
-          await saveMyPrompts(filtered);
-          void requirePromptUsageStore().remove(item.id).catch(() => undefined);
-          onRefresh();
-        } catch (error) {
-          await showPromptModal({
-            title: 'Delete Prompt',
-            message: 'Unable to delete this prompt.',
-          });
-        }
-      }
-    });
-
-    actions.appendChild(editBtn);
-    actions.appendChild(deleteBtn);
-
-    rowMain.appendChild(rowText);
-    rowMain.appendChild(actions);
-    row.appendChild(rowMain);
-
-    row.addEventListener('click', () => {
-      previewTooltip.hide();
-      insertIntoChatGPTInput(item.content);
-    });
-
-    row.addEventListener('contextmenu', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      previewTooltip.hide();
-      row.classList.add('my-prompts-item-context-active');
-      promptContextMenuController.show(
-        { left: event.clientX, top: event.clientY },
-        [{ id: 'copy-prompt', label: 'Copy Prompt', icon: 'copy' }],
-        (itemId) => {
-          if (itemId === 'copy-prompt') {
-            void copyPromptText(item.content, 'Copy Prompt');
-          }
-        },
-        () => row.classList.remove('my-prompts-item-context-active')
-      );
-    });
-
-    row.addEventListener('mouseenter', (event) => {
-      previewTooltip.show(
-        {
-          title: item.title,
-          content: item.content,
-        },
-        event,
-        rowMain
-      );
-    });
-
-    row.addEventListener('mouseleave', () => {
-      previewTooltip.hide();
-    });
-
-    listContainer.appendChild(row);
-  });
-
-  container.appendChild(listContainer);
+  // Legacy stub: rendering is now managed declaratively by MyPromptsView
 }

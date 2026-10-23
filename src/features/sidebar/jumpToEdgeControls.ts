@@ -59,7 +59,9 @@ export function scrollNavigatorListToEdge(
   edge: ConversationEdge,
   behavior: ScrollBehavior = 'smooth'
 ): void {
-  const list = document.getElementById('navigator-list');
+  const list =
+    document.getElementById('myprompts-list') ??
+    document.getElementById('navigator-list');
   if (!list) return;
   list.scrollTo({
     top: edge === 'top' ? 0 : list.scrollHeight,

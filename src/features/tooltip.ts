@@ -161,9 +161,21 @@ export const previewTooltip = (() => {
   ): void {
     const gap = 8;
     const margin = 16;
-    const anchor = anchorSelector
-      ? document.querySelector(anchorSelector)
-      : null;
+    let anchor: Element | null = null;
+    if (anchorSelector) {
+      for (const candidate of document.querySelectorAll(anchorSelector)) {
+        if (
+          candidate instanceof HTMLElement &&
+          candidate.style.display !== 'none'
+        ) {
+          anchor = candidate;
+          break;
+        }
+      }
+      if (!anchor) {
+        anchor = document.querySelector(anchorSelector);
+      }
+    }
     const anchorRect = anchor?.getBoundingClientRect();
     const tooltipAnchorRect = anchorElement?.getBoundingClientRect();
 

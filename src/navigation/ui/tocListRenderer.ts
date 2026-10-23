@@ -386,7 +386,10 @@ export function createTocListRenderer(
     completed = null,
   }: RenderOptions = {}): void {
     const list = document.getElementById('navigator-list');
-    const hint = document.querySelector<HTMLElement>('.navigator-hint');
+    const hint =
+      Array.from(
+        document.querySelectorAll<HTMLElement>('.navigator-hint')
+      ).find((element) => !element.closest('#myprompts-list')) ?? null;
 
     if (!list) return;
     bindUserInteractions(list);

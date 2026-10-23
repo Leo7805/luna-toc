@@ -21,6 +21,34 @@ let pinBtn: HTMLElement | null = null;
 let isPinned = true;
 let isHidden = false;
 let hideTimer = 0;
+const pinListeners = new Set<() => void>();
+
+/**
+ * Returns whether the sidebar is currently pinned.
+ * @returns {boolean}
+ */
+export function isSidebarPinned(): boolean {
+  return isPinned;
+}
+
+/**
+ * Toggles the sidebar pinned state with persistence.
+ */
+export function toggleSidebarPinned(): void {
+  setSidebarPinned(!isPinned, { persist: true });
+}
+
+/**
+ * Subscribes to sidebar pinned state changes.
+ * @param {() => void} listener
+ * @returns {() => void} Unsubscribe function.
+ */
+export function subscribeSidebarPinned(listener: () => void): () => void {
+  pinListeners.add(listener);
+  return () => {
+    pinListeners.delete(listener);
+  };
+}
 /**
  * @param {HTMLElement} sidebarElement
  * @param {HTMLButtonElement} toggleButton
@@ -175,9 +203,19 @@ function getLegacyPageKey(): string {
 }
 
 function updatePinButtonState(): void {
-  pinBtn?.classList.toggle('luna-toc-sidebar-pin-active', isPinned);
-  pinBtn?.setAttribute('aria-pressed', String(isPinned));
-  pinBtn?.setAttribute(
+  pinListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (error) {
+      console.error('Error in pin listener:', error);
+    }
+  });
+
+  const currentPinBtn =
+    pinBtn ?? document.getElementById('luna-toc-sidebar-pin-btn');
+  currentPinBtn?.classList.toggle('luna-toc-sidebar-pin-active', isPinned);
+  currentPinBtn?.setAttribute('aria-pressed', String(isPinned));
+  currentPinBtn?.setAttribute(
     'aria-label',
     isPinned ? 'Enable sidebar auto-hide' : 'Pin sidebar open'
   );

@@ -18,9 +18,18 @@ export interface SidebarViewSnapshot {
   searchQuery: string;
 }
 
+export interface SidebarHeaderSnapshot {
+  viewMode: ViewMode;
+  title: string;
+  searchQuery: string;
+  isSearchOpen: boolean;
+  isSearchDisabled: boolean;
+}
+
 export const sidebarController = (() => {
   let viewMode: ViewMode = 'toc';
   let searchQuery = '';
+  let isSearchOpen = false;
   let myPromptsRefreshQueued = false;
   let tocPromptCount = 0;
   let myPromptsCount = 0;
@@ -32,6 +41,18 @@ export const sidebarController = (() => {
     searchQuery: '',
   };
   const viewListeners = new Set<() => void>();
+
+  let headerSnapshot: SidebarHeaderSnapshot = {
+    viewMode: 'toc',
+    title: 'ChatTOC',
+    searchQuery: '',
+    isSearchOpen: false,
+    isSearchDisabled: true,
+  };
+  const headerListeners = new Set<() => void>();
+
+  let isReady = false;
+  const readyListeners = new Set<() => void>();
 
   function updateViewSnapshot(): void {
     if (
@@ -61,6 +82,72 @@ export const sidebarController = (() => {
     return viewSnapshot;
   }
 
+  function updateHeaderSnapshot(): void {
+    const currentTitle =
+      viewMode === 'myPrompts' ? 'My Prompts' : getConversationTitle();
+    const currentDisabled =
+      viewMode === 'myPrompts' ? myPromptsCount === 0 : tocPromptCount === 0;
+
+    if (
+      headerSnapshot.viewMode === viewMode &&
+      headerSnapshot.title === currentTitle &&
+      headerSnapshot.searchQuery === searchQuery &&
+      headerSnapshot.isSearchOpen === isSearchOpen &&
+      headerSnapshot.isSearchDisabled === currentDisabled
+    ) {
+      return;
+    }
+
+    headerSnapshot = {
+      viewMode,
+      title: currentTitle,
+      searchQuery,
+      isSearchOpen,
+      isSearchDisabled: currentDisabled,
+    };
+
+    headerListeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (error) {
+        console.error('Error in sidebar header listener:', error);
+      }
+    });
+  }
+
+  function subscribeHeader(listener: () => void): () => void {
+    headerListeners.add(listener);
+    return () => {
+      headerListeners.delete(listener);
+    };
+  }
+
+  function getHeaderSnapshot(): SidebarHeaderSnapshot {
+    return headerSnapshot;
+  }
+
+  /**
+   * Subscribes to sidebar DOM and controller readiness.
+   *
+   * @param {() => void} listener
+   * @returns {() => void} Unsubscribe callback.
+   */
+  function subscribeReady(listener: () => void): () => void {
+    readyListeners.add(listener);
+    return () => {
+      readyListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Returns whether the sidebar DOM and controller are fully initialized.
+   *
+   * @returns {boolean}
+   */
+  function getReadySnapshot(): boolean {
+    return isReady;
+  }
+
   /**
    * Initializes the sidebar after the DOM is in place. Sets the initial
    * title and binds every sidebar control to the closures above.
@@ -69,6 +156,17 @@ export const sidebarController = (() => {
     setNavigatorTitle();
     bindSidebarControls();
     renderCurrentView();
+
+    if (!isReady) {
+      isReady = true;
+      readyListeners.forEach((listener) => {
+        try {
+          listener();
+        } catch (error) {
+          console.error('Error in sidebar ready listener:', error);
+        }
+      });
+    }
   }
 
   /**
@@ -107,7 +205,34 @@ export const sidebarController = (() => {
     setViewMode(viewMode === 'toc' ? 'myPrompts' : 'toc');
   }
 
+  function openSearch(): void {
+    const hasSearchableItems =
+      viewMode === 'myPrompts' ? myPromptsCount > 0 : tocPromptCount > 0;
+    if (!hasSearchableItems) return;
+
+    isSearchOpen = true;
+    updateHeaderSnapshot();
+
+    const searchInput = document.getElementById(
+      'navigator-search'
+    ) as HTMLInputElement | null;
+    if (searchInput) {
+      searchInput.style.display = 'block';
+      searchInput.focus();
+    }
+  }
+
+  function toggleSearch(): void {
+    if (isSearchOpen) {
+      closeSearch(true);
+    } else {
+      openSearch();
+    }
+  }
+
   function closeSearch(syncController = true): void {
+    isSearchOpen = false;
+    searchQuery = '';
     const searchInput = document.getElementById(
       'navigator-search'
     ) as HTMLInputElement | null;
@@ -116,8 +241,8 @@ export const sidebarController = (() => {
       searchInput.style.display = 'none';
       searchInput.blur();
     }
-    searchQuery = '';
     updateViewSnapshot();
+    updateHeaderSnapshot();
     if (syncController && viewMode === 'toc') {
       navigatorController.setSearchQuery('');
     }
@@ -130,9 +255,23 @@ export const sidebarController = (() => {
     ) as HTMLInputElement | null;
     if (searchInput) searchInput.value = '';
     updateViewSnapshot();
+    updateHeaderSnapshot();
     if (syncController && viewMode === 'toc') {
       navigatorController.setSearchQuery('');
     }
+  }
+
+  function setSearchQuery(query: string): void {
+    searchQuery = query;
+    const searchInput = document.getElementById(
+      'navigator-search'
+    ) as HTMLInputElement | null;
+    if (searchInput && searchInput.value !== query) {
+      searchInput.value = query;
+    }
+    updateViewSnapshot();
+    updateHeaderSnapshot();
+    renderCurrentView();
   }
 
   function setPromptCount(count: number): void {
@@ -179,12 +318,14 @@ export const sidebarController = (() => {
 
   function setNavigatorTitle(): void {
     const title = document.getElementById('navigator-title');
-    if (!title) return;
     const titleText =
       viewMode === 'myPrompts' ? 'My Prompts' : getConversationTitle();
 
-    title.textContent = titleText;
-    title.dataset.tooltip = titleText;
+    if (title) {
+      title.textContent = titleText;
+      title.dataset.tooltip = titleText;
+    }
+    updateHeaderSnapshot();
   }
 
   function renderCurrentView(): void {
@@ -245,37 +386,35 @@ export const sidebarController = (() => {
    * Registers controls that switch views or delegate navigation behavior.
    */
   function bindSidebarControls(): void {
-    const searchInput = getRequiredElement<HTMLInputElement>('navigator-search');
+    const searchInput = document.getElementById(
+      'navigator-search'
+    ) as HTMLInputElement | null;
+    if (searchInput && !searchInput.dataset.reactManaged) {
+      searchInput.addEventListener('input', (event) => {
+        setSearchQuery((event.currentTarget as HTMLInputElement).value);
+      });
+    }
 
-    getRequiredElement<HTMLButtonElement>('search-toggle-btn').addEventListener(
-      'click',
-      () => {
-        const isHidden =
-          window.getComputedStyle(searchInput).display === 'none';
-        searchInput.style.display = isHidden ? 'block' : 'none';
+    const searchToggleBtn = document.getElementById(
+      'search-toggle-btn'
+    ) as HTMLButtonElement | null;
+    if (searchToggleBtn && !searchToggleBtn.dataset.reactManaged) {
+      searchToggleBtn.addEventListener('click', toggleSearch);
+    }
 
-        if (isHidden) {
-          searchInput.focus();
-          return;
-        }
+    const titleBtn = document.getElementById(
+      'navigator-title'
+    ) as HTMLButtonElement | null;
+    if (titleBtn && !titleBtn.dataset.reactManaged) {
+      titleBtn.addEventListener('click', handleTitleClick);
+    }
 
-        searchInput.blur();
-        clearSearch();
-        renderCurrentView();
-      }
-    );
-    getRequiredElement<HTMLButtonElement>('navigator-title').addEventListener(
-      'click',
-      handleTitleClick
-    );
-    getRequiredElement<HTMLButtonElement>(
+    const toggleViewModeBtn = document.getElementById(
       'toggle-view-mode-btn'
-    ).addEventListener('click', toggleViewMode);
-    searchInput.addEventListener('input', (event) => {
-      searchQuery = (event.currentTarget as HTMLInputElement).value;
-      updateViewSnapshot();
-      renderCurrentView();
-    });
+    ) as HTMLButtonElement | null;
+    if (toggleViewModeBtn) {
+      toggleViewModeBtn.addEventListener('click', toggleViewMode);
+    }
   }
 
   function getConversationTitle(): string {
@@ -299,51 +438,50 @@ export const sidebarController = (() => {
   }
 
   function updateSearchAvailability(): void {
-    const searchButton =
-      document.getElementById('search-toggle-btn') as HTMLButtonElement | null;
-    const searchInput =
-      document.getElementById('navigator-search') as HTMLInputElement | null;
-    if (!searchButton || !searchInput) return;
-
     const hasSearchableItems =
       viewMode === 'myPrompts' ? myPromptsCount > 0 : tocPromptCount > 0;
-    searchButton.disabled = !hasSearchableItems;
-    searchButton.setAttribute('aria-disabled', String(!hasSearchableItems));
 
-    if (hasSearchableItems) return;
-
-    const shouldResetTocQuery = viewMode === 'toc' && searchQuery.length > 0;
-    searchQuery = '';
-    searchInput.value = '';
-    searchInput.style.display = 'none';
-
-    if (shouldResetTocQuery) {
-      queueMicrotask(() => navigatorController.setSearchQuery(''));
+    const searchButton = document.getElementById(
+      'search-toggle-btn'
+    ) as HTMLButtonElement | null;
+    if (searchButton) {
+      searchButton.disabled = !hasSearchableItems;
+      searchButton.setAttribute('aria-disabled', String(!hasSearchableItems));
     }
-  }
 
-  function getRequiredElement<T extends HTMLElement>(id: string): T {
-    const element = document.getElementById(id);
-    if (!(element instanceof HTMLElement)) {
-      throw new Error(`Required application element not found: #${id}`);
+    if (!hasSearchableItems && isSearchOpen) {
+      closeSearch(viewMode === 'toc');
     }
-    return element as T;
+
+    updateHeaderSnapshot();
   }
 
   return {
     init,
     setViewMode,
     toggleViewMode,
+    openSearch,
     closeSearch,
     clearSearch,
+    toggleSearch,
+    setSearchQuery,
+    isSearchOpen: () => isSearchOpen,
     setPromptCount,
     setMyPromptsCount,
     refreshMyPromptsIfActive,
     handleSavePrompt,
+    handleTitleClick,
     isMyPromptsView: () => viewMode === 'myPrompts',
     setNavigatorTitle,
     subscribeView,
     getViewSnapshot,
+    subscribeHeader,
+    getHeaderSnapshot,
+    subscribeReady,
+    getReadySnapshot,
+    resetReadyForTesting: () => {
+      isReady = false;
+    },
     getViewMode: () => viewMode,
     getSearchQuery: () => searchQuery,
   };

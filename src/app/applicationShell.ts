@@ -81,44 +81,8 @@ async function createSidebar(): Promise<HTMLElement> {
   sidebar.innerHTML = `
       <div id="navigator-resizer"></div>
       <div class="navigator-topbar">
-        <div class="navigator-header">
-          <button
-            class="navigator-icon-btn navigator-header-icon-btn luna-toc-sidebar-pin-btn"
-            id="luna-toc-sidebar-pin-btn"
-            type="button"
-            aria-label="Enable sidebar auto-hide"
-            aria-pressed="true"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M12 17v5M7 3h10l-1 8 4 4v2H4v-2l4-4-1-8Z" />
-            </svg>
-          </button>
-          <button
-            id="navigator-title"
-            type="button"
-            aria-label="Reset TOC view"
-            data-tooltip=""
-            data-tooltip-overflow-only="true"
-          ></button>
-          <button
-            class="navigator-icon-btn navigator-header-icon-btn"
-            id="search-toggle-btn"
-            type="button"
-            aria-label="Toggle search"
-            disabled
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
-        </div>
-        <input
-          id="navigator-search"
-          type="search"
-          placeholder="Search prompts..."
-          autocomplete="off"
-        />
+        <div id="navigator-header" class="navigator-header"></div>
+        <div id="navigator-search-container"></div>
         <div id="myprompts-toolbar-container" style="display: none;"></div>
       </div>
       <div
