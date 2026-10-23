@@ -87,7 +87,7 @@ describe('ChatGPT virtual search adapter', () => {
     expect(findRenderedChatGptPrompt('missing')).toBeNull();
   });
 
-  it('finds rendered prompts by text prefix match', () => {
+  it('matches whole normalized text and rejects misleading prefixes', () => {
     document.body.innerHTML = `
       <div
         data-chatgpt-search-unit-key="prompt-1:user"
@@ -106,15 +106,16 @@ describe('ChatGPT virtual search adapter', () => {
     `;
 
     expect(
-      findRenderedChatGptPromptByText('How does quantum')?.getAttribute(
+      findRenderedChatGptPromptByText('How does quantum computing work?')?.getAttribute(
         'data-message-id'
       )
     ).toBe('prompt-1');
     expect(
-      findRenderedChatGptPromptByText('  can  you  write  ')?.getAttribute(
+      findRenderedChatGptPromptByText('  CAN  you write  a poem about autumn? ')?.getAttribute(
         'data-message-id'
       )
     ).toBe('prompt-2');
+    expect(findRenderedChatGptPromptByText('How does quantum')).toBeNull();
     expect(findRenderedChatGptPromptByText('Non-existent text')).toBeNull();
     expect(findRenderedChatGptPromptByText('')).toBeNull();
     expect(findRenderedChatGptPromptByText('   ')).toBeNull();
