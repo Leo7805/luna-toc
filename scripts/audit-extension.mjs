@@ -13,7 +13,17 @@ export function checkManifest(m){
   assert.deepEqual(m.host_permissions??[],[],'host permissions require review');
   assert.equal(m.externally_connectable,undefined,'external messaging requires review');
   assert.equal(m.content_security_policy,undefined,'custom CSP requires review');
-  assert.deepEqual(m.web_accessible_resources??[],[],'web-accessible files require review');
+  // CRXJS may generate scoped web-accessible chunks for MAIN-world injection.
+  for(const entry of m.web_accessible_resources??[]){
+    assert.deepEqual([...entry.matches].sort(),[...EXPECTED_HOSTS].sort(),
+      'web-accessible resources exposed outside ChatGPT');
+    assert.ok(Array.isArray(entry.resources)&&entry.resources.length>0);
+    for(const file of entry.resources){
+      assert.match(file,/^[a-zA-Z0-9_./-]+$/,'invalid resource name');
+      assert.ok(!file.split('/').includes('..')&&!file.startsWith('/'),
+        'absolute or traversing resource path');
+    }
+  }
   assert.equal(m.background?.type,'module');
   assert.equal(m.content_scripts?.length,2,'MAIN and ISOLATED scripts expected');
   assert.deepEqual(m.content_scripts.map(s=>s.world).sort(),['ISOLATED','MAIN']);
