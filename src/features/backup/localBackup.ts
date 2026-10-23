@@ -12,6 +12,7 @@ import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
 const PROMPTS_KEY = 'lumaToc:myPromptsV1'; // Legacy spelling is intentional.
 const USAGE_KEY = 'lunaToc:promptUsageV1';
 const ALIAS_PREFIX = 'chatToc:aliases:v1:';
+const ALIAS_DELETED_PREFIX = 'chatToc:aliases:deleted:v1:';
 const THEME_KEY = 'chatToc:themeSettings';
 const LEGACY_THEME_KEY = 'chatToc:theme';
 const SIDEBAR_KEY = 'chatToc:sidebarPreferences';
@@ -280,15 +281,22 @@ export async function restoreLocalBackup(
   const obsolete = mode === 'replace'
     ? Object.keys(original).filter((key) => key.startsWith(ALIAS_PREFIX) && !Object.hasOwn(values, key))
     : [];
-  const changed = [...new Set([...Object.keys(values), ...obsolete])];
+  // Explicit restore may revive a deleted conversation. Clear its durable fence
+  // only as part of the user-confirmed restore, with rollback on failure.
+  const revived = Object.keys(nextData.aliases)
+    .map((route) => ALIAS_DELETED_PREFIX + route)
+    .filter((key) => Object.hasOwn(original, key));
+  const removals = [...obsolete, ...revived];
+  const changed = [...new Set([...Object.keys(values), ...removals])];
   const oldValues = Object.fromEntries(changed
     .filter((key) => Object.hasOwn(original, key)).map((key) => [key, original[key]]));
   const originallyAbsent = changed.filter((key) => !Object.hasOwn(original, key));
   try {
     await storage.set(values);
-    if (obsolete.length) await storage.remove(obsolete);
-    const actual = await storage.get(Object.keys(values));
-    if (Object.keys(values).some((key) => JSON.stringify(actual[key]) !== JSON.stringify(values[key]))) {
+    if (removals.length) await storage.remove(removals);
+    const actual = await storage.get([...Object.keys(values), ...revived]);
+    if (Object.keys(values).some((key) => JSON.stringify(actual[key]) !== JSON.stringify(values[key])) ||
+        revived.some((key) => Object.hasOwn(actual, key))) {
       throw new Error('写入后核对失败。');
     }
   } catch (error) {
