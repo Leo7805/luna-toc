@@ -99,6 +99,7 @@ jobs:
           unzip -tq luna-toc-sc-chrome.zip
           unzip -Z1 luna-toc-sc-chrome.zip | grep -Fxq manifest.json
           sha256sum luna-toc-sc-chrome.zip > luna-toc-sc-chrome.zip.sha256
+          sha256sum -c luna-toc-sc-chrome.zip.sha256
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
