@@ -22,6 +22,8 @@ export function SidebarSearchBar(): React.JSX.Element {
   useEffect(() => {
     if (isSearchOpen) {
       inputRef.current?.focus();
+    } else if (document.activeElement === inputRef.current) {
+      inputRef.current?.blur();
     }
   }, [isSearchOpen]);
 
@@ -59,7 +61,6 @@ export function SidebarSearchBar(): React.JSX.Element {
       type="search"
       placeholder="Search prompts..."
       autoComplete="off"
-      data-react-managed="true"
       style={{ display: isSearchOpen ? 'block' : 'none' }}
       value={searchQuery}
       onChange={handleChange}

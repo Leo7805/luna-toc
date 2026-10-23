@@ -132,6 +132,7 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
     });
     setReactPortalContainer(null);
     vi.restoreAllMocks();
+    document.title = 'ChatTOC';
     document.body.innerHTML = '';
   });
 
@@ -277,6 +278,7 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
 
     expect(searchInput.style.display).toBe('block');
     expect(sidebarController.isSearchOpen()).toBe(true);
+    expect(document.activeElement).toBe(searchInput);
 
     // Type query
     act(() => {
@@ -294,6 +296,7 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
     expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
     expect(searchInput.value).toBe('');
+    expect(document.activeElement).not.toBe(searchInput);
   });
 
   it('7. Pressing Escape key in search input closes search and clears query', () => {
@@ -406,6 +409,118 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
     expect(titleBtn.dataset.tooltip).toBe('ChatTOC');
     expect(titleBtn.dataset.tooltipOverflowOnly).toBe('true');
   });
+
+  it('15. Route navigation and document title changes update title via setNavigatorTitle without direct DOM mutation', () => {
+    const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
+    expect(titleBtn.textContent).toBe('ChatTOC');
+
+    // Simulate route navigation to another conversation with a sidebar link
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        pathname: '/c/conv-12345',
+      },
+    });
+
+    const link = document.createElement('a');
+    link.setAttribute('href', '/c/conv-12345');
+    link.innerText = 'Deep Learning Discussion';
+    document.body.appendChild(link);
+
+    act(() => {
+      sidebarController.setNavigatorTitle();
+    });
+
+    expect(titleBtn.textContent).toBe('Deep Learning Discussion');
+    expect(titleBtn.dataset.tooltip).toBe('Deep Learning Discussion');
+
+    // Simulate document title fallback when no sidebar link exists
+    link.remove();
+    document.title = 'Quantum Computing - ChatGPT';
+
+    act(() => {
+      sidebarController.setNavigatorTitle();
+    });
+
+    expect(titleBtn.textContent).toBe('Quantum Computing');
+    expect(titleBtn.dataset.tooltip).toBe('Quantum Computing');
+  });
+
+  it('16. Conversation renaming updates title via setNavigatorTitle', () => {
+    const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
+
+    document.title = 'Renamed Conversation - ChatGPT';
+    act(() => {
+      sidebarController.setNavigatorTitle();
+    });
+
+    expect(titleBtn.textContent).toBe('Renamed Conversation');
+    expect(titleBtn.dataset.tooltip).toBe('Renamed Conversation');
+  });
+
+  it('17. React Header clicks work exactly once without duplicate bindings or Vanilla fallbacks', () => {
+    const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
+    const searchToggleBtn = document.getElementById('search-toggle-btn') as HTMLButtonElement;
+    const resetSpy = vi.spyOn(navigatorController, 'resetView');
+    const toggleSearchSpy = vi.spyOn(sidebarController, 'toggleSearch');
+
+    act(() => {
+      titleBtn.click();
+    });
+    expect(resetSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      searchToggleBtn.click();
+    });
+    expect(toggleSearchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('18. Header and Search elements render without redundant data-react-managed attributes', () => {
+    const pinBtn = document.getElementById('luna-toc-sidebar-pin-btn')!;
+    const titleBtn = document.getElementById('navigator-title')!;
+    const searchToggleBtn = document.getElementById('search-toggle-btn')!;
+    const searchInput = document.getElementById('navigator-search')!;
+
+    expect(pinBtn.getAttribute('data-react-managed')).toBeNull();
+    expect(titleBtn.getAttribute('data-react-managed')).toBeNull();
+    expect(searchToggleBtn.getAttribute('data-react-managed')).toBeNull();
+    expect(searchInput.getAttribute('data-react-managed')).toBeNull();
+  });
+
+  it('19. Controller search APIs update React search input value and visibility declaratively', () => {
+    const searchInput = document.getElementById('navigator-search') as HTMLInputElement;
+
+    // Initially closed
+    expect(searchInput.style.display).toBe('none');
+
+    // Open via controller API
+    act(() => {
+      sidebarController.openSearch();
+    });
+    expect(searchInput.style.display).toBe('block');
+    expect(document.activeElement).toBe(searchInput);
+
+    // Update query via controller API
+    act(() => {
+      sidebarController.setSearchQuery('declarative query');
+    });
+    expect(searchInput.value).toBe('declarative query');
+
+    // Clear via controller API
+    act(() => {
+      sidebarController.clearSearch();
+    });
+    expect(searchInput.value).toBe('');
+    expect(searchInput.style.display).toBe('block');
+
+    // Close via controller API
+    act(() => {
+      sidebarController.closeSearch();
+    });
+    expect(searchInput.style.display).toBe('none');
+    expect(document.activeElement).not.toBe(searchInput);
+  });
 });
 
 describe('Scenario B — Delayed initialization lifecycle (React mounts before Sidebar DOM exists)', () => {
@@ -423,6 +538,7 @@ describe('Scenario B — Delayed initialization lifecycle (React mounts before S
     });
 
     sidebarController.resetReadyForTesting();
+    document.title = 'ChatTOC';
     document.body.innerHTML = '';
 
     rootContainer = document.createElement('div');

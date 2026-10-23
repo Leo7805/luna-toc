@@ -50,7 +50,6 @@ export function SidebarHeaderBar(): React.JSX.Element {
         type="button"
         aria-label={isPinned ? 'Enable sidebar auto-hide' : 'Pin sidebar open'}
         aria-pressed={isPinned}
-        data-react-managed="true"
         onClick={handleTogglePin}
       >
         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -64,7 +63,6 @@ export function SidebarHeaderBar(): React.JSX.Element {
         aria-label={viewMode === 'myPrompts' ? 'My Prompts' : 'Reset TOC view'}
         data-tooltip={title}
         data-tooltip-overflow-only="true"
-        data-react-managed="true"
         onClick={handleTitleClick}
       >
         {title}
@@ -77,7 +75,6 @@ export function SidebarHeaderBar(): React.JSX.Element {
         aria-label="Toggle search"
         disabled={isSearchDisabled}
         aria-disabled={isSearchDisabled}
-        data-react-managed="true"
         onClick={handleToggleSearch}
       >
         <svg

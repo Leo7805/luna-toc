@@ -356,13 +356,12 @@ describe('MyPrompts React Portal DOM Ownership and Lifecycle Integration', () =>
     });
 
     // Open search
-    searchToggleBtn.click();
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.openSearch();
+    expect(sidebarController.isSearchOpen()).toBe(true);
 
     // Type query inside act()
     act(() => {
-      searchInput.value = 'Beta';
-      searchInput.dispatchEvent(new Event('input'));
+      sidebarController.setSearchQuery('Beta');
     });
 
     expect(myPromptsList.querySelectorAll('.my-prompts-item-row').length).toBe(1);
@@ -372,8 +371,7 @@ describe('MyPrompts React Portal DOM Ownership and Lifecycle Integration', () =>
     act(() => {
       sidebarController.setViewMode('toc');
     });
-    expect(searchInput.style.display).toBe('none');
-    expect(searchInput.value).toBe('');
+    expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
   });
 

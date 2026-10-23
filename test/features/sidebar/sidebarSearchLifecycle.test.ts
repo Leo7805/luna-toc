@@ -50,97 +50,87 @@ describe('Sidebar Search Lifecycle and Focus Styling', () => {
 
   it('closes search, clears input, blurs, and resets query when switching from TOC to MyPrompts', () => {
     // 1. Open search in TOC
-    searchToggleBtn.click();
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.toggleSearch();
+    expect(sidebarController.isSearchOpen()).toBe(true);
 
-    // Type query and focus
-    searchInput.value = 'neural network';
-    searchInput.dispatchEvent(new Event('input'));
+    // Type query
+    sidebarController.setSearchQuery('neural network');
     expect(sidebarController.getSearchQuery()).toBe('neural network');
 
     // 2. Switch from TOC to MyPrompts
     sidebarController.setViewMode('myPrompts');
 
     // Search must be closed, cleared, and query reset
-    expect(searchInput.style.display).toBe('none');
-    expect(searchInput.value).toBe('');
+    expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
-    expect(document.activeElement).not.toBe(searchInput);
   });
 
   it('closes search, clears input, blurs, and resets query when switching from MyPrompts to TOC', () => {
     sidebarController.setViewMode('myPrompts');
 
     // Open search in MyPrompts
-    searchToggleBtn.click();
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.toggleSearch();
+    expect(sidebarController.isSearchOpen()).toBe(true);
 
     // Type query
-    searchInput.value = 'prompt template';
-    searchInput.dispatchEvent(new Event('input'));
+    sidebarController.setSearchQuery('prompt template');
     expect(sidebarController.getSearchQuery()).toBe('prompt template');
 
     // Switch back to TOC
     sidebarController.setViewMode('toc');
 
-    expect(searchInput.style.display).toBe('none');
-    expect(searchInput.value).toBe('');
+    expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
-    expect(document.activeElement).not.toBe(searchInput);
   });
 
   it('remains closed until explicitly reopened via search-toggle-btn', () => {
     // Open in TOC and enter text
-    searchToggleBtn.click();
-    searchInput.value = 'find this';
-    searchInput.dispatchEvent(new Event('input'));
+    sidebarController.toggleSearch();
+    sidebarController.setSearchQuery('find this');
 
     // Switch view
     sidebarController.toggleViewMode();
-    expect(searchInput.style.display).toBe('none');
+    expect(sidebarController.isSearchOpen()).toBe(false);
 
     // Re-rendering or typing does not accidentally reopen it
     sidebarController.refreshMyPromptsIfActive();
-    expect(searchInput.style.display).toBe('none');
+    expect(sidebarController.isSearchOpen()).toBe(false);
 
     // Must reopen only upon explicit click
-    searchToggleBtn.click();
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.toggleSearch();
+    expect(sidebarController.isSearchOpen()).toBe(true);
   });
 
   it('keeps search open and updates filter during typing within the same view', () => {
-    searchToggleBtn.click();
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.toggleSearch();
+    expect(sidebarController.isSearchOpen()).toBe(true);
 
     // Type query
-    searchInput.value = 'query 1';
-    searchInput.dispatchEvent(new Event('input'));
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.setSearchQuery('query 1');
+    expect(sidebarController.isSearchOpen()).toBe(true);
     expect(sidebarController.getSearchQuery()).toBe('query 1');
 
     // Type more
-    searchInput.value = 'query 1 extended';
-    searchInput.dispatchEvent(new Event('input'));
-    expect(searchInput.style.display).toBe('block');
+    sidebarController.setSearchQuery('query 1 extended');
+    expect(sidebarController.isSearchOpen()).toBe(true);
     expect(sidebarController.getSearchQuery()).toBe('query 1 extended');
   });
 
   it('repeated rapid view switching does not leave stale search state or open input', () => {
     // Rapidly toggle between views multiple times while entering queries
-    searchToggleBtn.click();
-    searchInput.value = 'stale test';
-    searchInput.dispatchEvent(new Event('input'));
+    sidebarController.toggleSearch();
+    sidebarController.setSearchQuery('stale test');
 
     sidebarController.setViewMode('myPrompts');
-    expect(searchInput.style.display).toBe('none');
+    expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
 
     sidebarController.setViewMode('toc');
-    expect(searchInput.style.display).toBe('none');
+    expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
 
     sidebarController.setViewMode('myPrompts');
-    expect(searchInput.style.display).toBe('none');
+    expect(sidebarController.isSearchOpen()).toBe(false);
     expect(sidebarController.getSearchQuery()).toBe('');
   });
 

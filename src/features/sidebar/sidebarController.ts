@@ -154,7 +154,6 @@ export const sidebarController = (() => {
    */
   function init(): void {
     setNavigatorTitle();
-    bindSidebarControls();
     renderCurrentView();
 
     if (!isReady) {
@@ -198,14 +197,6 @@ export const sidebarController = (() => {
 
     isSearchOpen = true;
     updateHeaderSnapshot();
-
-    const searchInput = document.getElementById(
-      'navigator-search'
-    ) as HTMLInputElement | null;
-    if (searchInput) {
-      searchInput.style.display = 'block';
-      searchInput.focus();
-    }
   }
 
   function toggleSearch(): void {
@@ -219,14 +210,6 @@ export const sidebarController = (() => {
   function closeSearch(syncController = true): void {
     isSearchOpen = false;
     searchQuery = '';
-    const searchInput = document.getElementById(
-      'navigator-search'
-    ) as HTMLInputElement | null;
-    if (searchInput) {
-      searchInput.value = '';
-      searchInput.style.display = 'none';
-      searchInput.blur();
-    }
     updateViewSnapshot();
     updateHeaderSnapshot();
     if (syncController && viewMode === 'toc') {
@@ -236,10 +219,6 @@ export const sidebarController = (() => {
 
   function clearSearch(syncController = true): void {
     searchQuery = '';
-    const searchInput = document.getElementById(
-      'navigator-search'
-    ) as HTMLInputElement | null;
-    if (searchInput) searchInput.value = '';
     updateViewSnapshot();
     updateHeaderSnapshot();
     if (syncController && viewMode === 'toc') {
@@ -249,12 +228,6 @@ export const sidebarController = (() => {
 
   function setSearchQuery(query: string): void {
     searchQuery = query;
-    const searchInput = document.getElementById(
-      'navigator-search'
-    ) as HTMLInputElement | null;
-    if (searchInput && searchInput.value !== query) {
-      searchInput.value = query;
-    }
     updateViewSnapshot();
     updateHeaderSnapshot();
     renderCurrentView();
@@ -303,14 +276,6 @@ export const sidebarController = (() => {
   }
 
   function setNavigatorTitle(): void {
-    const title = document.getElementById('navigator-title');
-    const titleText =
-      viewMode === 'myPrompts' ? 'My Prompts' : getConversationTitle();
-
-    if (title) {
-      title.textContent = titleText;
-      title.dataset.tooltip = titleText;
-    }
     updateHeaderSnapshot();
   }
 
@@ -368,34 +333,6 @@ export const sidebarController = (() => {
     navigatorController.resetView();
   }
 
-  /**
-   * Registers controls that switch views or delegate navigation behavior.
-   */
-  function bindSidebarControls(): void {
-    const searchInput = document.getElementById(
-      'navigator-search'
-    ) as HTMLInputElement | null;
-    if (searchInput && !searchInput.dataset.reactManaged) {
-      searchInput.addEventListener('input', (event) => {
-        setSearchQuery((event.currentTarget as HTMLInputElement).value);
-      });
-    }
-
-    const searchToggleBtn = document.getElementById(
-      'search-toggle-btn'
-    ) as HTMLButtonElement | null;
-    if (searchToggleBtn && !searchToggleBtn.dataset.reactManaged) {
-      searchToggleBtn.addEventListener('click', toggleSearch);
-    }
-
-    const titleBtn = document.getElementById(
-      'navigator-title'
-    ) as HTMLButtonElement | null;
-    if (titleBtn && !titleBtn.dataset.reactManaged) {
-      titleBtn.addEventListener('click', handleTitleClick);
-    }
-  }
-
   function getConversationTitle(): string {
     const match = location.pathname.match(/\/c\/([^/]+)/);
     const conversationId = match?.[1];
@@ -419,14 +356,6 @@ export const sidebarController = (() => {
   function updateSearchAvailability(): void {
     const hasSearchableItems =
       viewMode === 'myPrompts' ? myPromptsCount > 0 : tocPromptCount > 0;
-
-    const searchButton = document.getElementById(
-      'search-toggle-btn'
-    ) as HTMLButtonElement | null;
-    if (searchButton) {
-      searchButton.disabled = !hasSearchableItems;
-      searchButton.setAttribute('aria-disabled', String(!hasSearchableItems));
-    }
 
     if (!hasSearchableItems && isSearchOpen) {
       closeSearch(viewMode === 'toc');

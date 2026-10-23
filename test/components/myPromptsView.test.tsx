@@ -150,8 +150,7 @@ describe('MyPromptsView and components', () => {
     expect(listContainer.querySelectorAll('.my-prompts-item-row').length).toBe(3);
 
     act(() => {
-      searchInput.value = 'Beta';
-      searchInput.dispatchEvent(new Event('input'));
+      sidebarController.setSearchQuery('Beta');
     });
 
     const rows = listContainer.querySelectorAll('.my-prompts-item-row');
@@ -166,8 +165,7 @@ describe('MyPromptsView and components', () => {
     });
 
     act(() => {
-      searchInput.value = 'NonExistentQuery';
-      searchInput.dispatchEvent(new Event('input'));
+      sidebarController.setSearchQuery('NonExistentQuery');
     });
 
     const hint = listContainer.querySelector('.navigator-hint');
@@ -386,8 +384,7 @@ describe('MyPromptsView and components', () => {
 
     // Filter to zero visible results
     act(() => {
-      searchInput.value = 'NonExistentQuery';
-      searchInput.dispatchEvent(new Event('input'));
+      sidebarController.setSearchQuery('NonExistentQuery');
     });
 
     expect(listContainer.querySelectorAll('.my-prompts-item-row').length).toBe(0);
