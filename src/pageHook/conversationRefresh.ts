@@ -6,16 +6,49 @@
 import type { Platform } from '@/platforms';
 import type { ConversationData } from '@/features/conversationPrompts/message';
 import { extractActiveBranchMessages, type ConversationSnapshot } from '@/navigation/state/activeBranch';
-import { TOC_REFRESH_REQUEST, TOC_REFRESH_RESULT } from '@/navigation/refresh/refreshProtocol';
+import {
+  TOC_REFRESH_CANCEL,
+  TOC_REFRESH_REQUEST,
+  TOC_REFRESH_RESULT,
+  TOC_REFRESH_TIMEOUT_MS,
+} from '@/navigation/refresh/refreshProtocol';
 
 type HeaderMap = Record<string, string>;
+
+interface PendingRefresh {
+  controller: AbortController;
+  requestIds: Set<number>;
+  timeoutId: number;
+}
 
 export function installConversationRefresh(
   originalFetch: typeof fetch,
   platform: Platform
 ): (routeKey: string, headers: HeaderMap) => void {
   const headersByRoute = new Map<string, HeaderMap>();
-  const inFlight = new Map<string, Promise<ConversationData | null>>();
+  const inFlight = new Map<string, PendingRefresh>();
+
+  function postResult(routeKey: string, requestId: number, payload: ConversationData | null): void {
+    window.postMessage({ type: TOC_REFRESH_RESULT, routeKey, requestId, payload }, location.origin);
+  }
+
+  function finishRefresh(routeKey: string, pending: PendingRefresh, payload: ConversationData | null): void {
+    // A cancelled/timed-out fetch must not publish late data or retire its replacement.
+    if (inFlight.get(routeKey) !== pending) return;
+    inFlight.delete(routeKey);
+    window.clearTimeout(pending.timeoutId);
+    for (const requestId of pending.requestIds) postResult(routeKey, requestId, payload);
+  }
+
+  function abortRefresh(routeKey: string, pending: PendingRefresh, notify: boolean): void {
+    if (inFlight.get(routeKey) !== pending) return;
+    inFlight.delete(routeKey);
+    window.clearTimeout(pending.timeoutId);
+    pending.controller.abort();
+    if (notify) {
+      for (const requestId of pending.requestIds) postResult(routeKey, requestId, null);
+    }
+  }
 
   function observeHeaders(routeKey: string, headers: HeaderMap): void {
     if (!isConversationId(routeKey) || !Object.keys(headers).length) return;
@@ -27,17 +60,19 @@ export function installConversationRefresh(
     }
   }
 
-  async function getJson(url: string, routeKey: string): Promise<ConversationSnapshot | null> {
+  async function getJson(url: string, routeKey: string, signal: AbortSignal): Promise<ConversationSnapshot | null> {
     const response = await originalFetch(url, {
       method: 'GET',
       credentials: 'include',
       headers: headersByRoute.get(routeKey),
+      signal,
     });
-    if (!response.ok) return null;
-    return (await response.json()) as ConversationSnapshot;
+    if (!response.ok || signal.aborted) return null;
+    const data = (await response.json()) as ConversationSnapshot;
+    return signal.aborted ? null : data;
   }
 
-  async function loadCurrentBranch(routeKey: string): Promise<ConversationData | null> {
+  async function loadCurrentBranch(routeKey: string, signal: AbortSignal): Promise<ConversationData | null> {
     // The singular endpoint exposes parent pointers and current_node on
     // installations where ChatGPT still serves the mapping representation.
     // Prefer it for edited-prompt branches.
@@ -46,7 +81,8 @@ export function installConversationRefresh(
         '/backend-api/conversation/' + encodeURIComponent(routeKey),
         location.origin
       );
-      const tree = await getJson(url.toString(), routeKey);
+      const tree = await getJson(url.toString(), routeKey, signal);
+      if (signal.aborted) return null;
       if (tree?.mapping) {
         const messages = extractActiveBranchMessages(tree);
         if (messages !== null) {
@@ -59,7 +95,9 @@ export function installConversationRefresh(
       }
     } catch {
       // Some ChatGPT deployments expose only the paginated endpoint.
+      if (signal.aborted) return null;
     }
+    if (signal.aborted) return null;
 
     // Fall back to the current paginated API. Fetch ALL older pages before
     // publishing a replacement; a partial page must not truncate the TOC.
@@ -78,11 +116,12 @@ export function installConversationRefresh(
 
     try {
       for (let page = 0; page < maxPages; page += 1) {
+        if (signal.aborted) return null;
         const url = page === 0
           ? baseUrl
           : new URL(platform.pageHook.buildBackfillUrl(routeKey, cursor!));
-        const data = await getJson(url.toString(), routeKey);
-        if (!data || !Array.isArray(data.messages)) return null;
+        const data = await getJson(url.toString(), routeKey, signal);
+        if (signal.aborted || !data || !Array.isArray(data.messages)) return null;
         if (page === 0) currentNode = data.current_node;
         for (const message of data.messages) {
           if (message?.id) accumulated.set(message.id, message);
@@ -124,39 +163,45 @@ export function installConversationRefresh(
       routeKey?: unknown;
       requestId?: unknown;
     } | null;
-    if (data?.type !== TOC_REFRESH_REQUEST) return;
+    if (data?.type !== TOC_REFRESH_REQUEST && data?.type !== TOC_REFRESH_CANCEL) return;
     if (platform.id !== 'chatgpt' || typeof data.routeKey !== 'string') return;
     if (!isConversationId(data.routeKey) || !Number.isSafeInteger(data.requestId)) return;
 
     const { routeKey } = data;
     const requestId = data.requestId as number;
+    const existing = inFlight.get(routeKey);
+
+    if (data.type === TOC_REFRESH_CANCEL) {
+      if (!existing) return;
+      existing.requestIds.delete(requestId);
+      // Coalesced refreshes have independent waiters: abort only once all cancel.
+      if (existing.requestIds.size === 0) abortRefresh(routeKey, existing, false);
+      return;
+    }
     if (platform.routing.getCurrentRouteKey() !== routeKey) return;
 
-    let pending = inFlight.get(routeKey);
-    if (!pending) {
-      pending = loadCurrentBranch(routeKey).finally(() => {
-        inFlight.delete(routeKey);
-      });
-      inFlight.set(routeKey, pending);
+    if (existing) {
+      existing.requestIds.add(requestId);
+      return;
     }
-    void pending.then((payload) => {
-      window.postMessage(
-        {
-          type: TOC_REFRESH_RESULT,
-          routeKey,
-          requestId,
-          payload,
-        },
-        location.origin
-      );
-    }).catch(() => {
-      window.postMessage({
-        type: TOC_REFRESH_RESULT,
-        routeKey,
-        requestId,
-        payload: null,
-      }, location.origin);
-    });
+
+    const controller = new AbortController();
+    const pending: PendingRefresh = {
+      controller,
+      requestIds: new Set([requestId]),
+      timeoutId: 0,
+    };
+    inFlight.set(routeKey, pending);
+    // The page hook independently releases hung requests even when the caller
+    // disappears before its cancellation message can be delivered.
+    pending.timeoutId = window.setTimeout(
+      () => abortRefresh(routeKey, pending, true),
+      TOC_REFRESH_TIMEOUT_MS
+    );
+    void loadCurrentBranch(routeKey, controller.signal).then(
+      (payload) => finishRefresh(routeKey, pending, payload),
+      () => finishRefresh(routeKey, pending, null)
+    );
   });
 
   return observeHeaders;
