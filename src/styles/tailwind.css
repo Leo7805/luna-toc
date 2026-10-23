@@ -4,7 +4,7 @@
 @import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import './shadcn-utilities.css';
 @import './theme.css';
 
 @custom-variant dark (:host([data-theme='dark']) &);

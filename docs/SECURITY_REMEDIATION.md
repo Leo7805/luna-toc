@@ -4,15 +4,15 @@
 
 ## 初始风险与影响范围
 
-初始 `npm audit --audit-level=high` 报告 23 条包级告警：7 中危、15 高危、1 严重。最高级 `proxy-addr@2.0.7` 来自 `shadcn → @modelcontextprotocol/sdk → express → proxy-addr`。该链属于 Node CLI/服务端依赖，未见在扩展的业务代码中使用 shadcn CLI；`components.json` 仅是生成器配置，不要求运行期安装 CLI。是否能在真实页面攻击此漏洞，不能仅根据 npm 告警判断。
+初始 `npm audit --audit-level=high` 报告 23 条包级告警：7 中危、15 高危、1 严重。最高级 `proxy-addr@2.0.7` 来自 `shadcn → @modelcontextprotocol/sdk → express → proxy-addr`。该链属于 Node CLI/服务端依赖，业务 JavaScript 不使用 shadcn CLI。**但原有 `src/styles/tailwind.css` 确实导入了 `shadcn/tailwind.css`**；直接移除 CLI 会造成 Vite 构建失败。本次依据 shadcn 官方 `eject` 方式，将 **shadcn@4.13.1** 的样式工具完整复制到 `src/styles/shadcn-utilities.css`，并修改本地导入；保留 `components.json`。原始 CSS 来自官方仓库 `shadcn@4.13.1` 标签 `packages/shadcn/src/tailwind.css`，MIT 许可见 `docs/VENDOR_LICENSE_SHADCN.md`。是否能在真实页面攻击此漏洞，不能仅根据 npm 告警判断。
 
 其他告警涉及 `vite`、`vitest`、`@vitest/mocker`、`nanoid`、`postcss`、`source-map-js`、`undici` 等。大部分是构建和测试工具依赖，少部分是其传递依赖。最终 Chrome 扩展仅分发构建后的 `dist`，不是整个 `node_modules`；这降低了运行期暴露面，但并不消除 CI/开发机供应链风险。
 
 ## 修复方案与约束
 
-1. 从顶层 `dependencies` 移除无实际运行调用的 `shadcn`，保留 `components.json` 和现有 UI 源代码。若未来确需组件生成工具，应作为单独工具链变更重新审核。
+1. 从顶层 `dependencies` 移除未被业务 JS 调用的 `shadcn` CLI，**保留其全部 CSS 工具规则的本地副本**，保留 `components.json` 和现有 UI 组件。若未来确需组件生成工具，应作为单独工具链变更重新审核。
 2. 不运行 `npm audit fix --force`，也不跳过高危告警。用隔离安装的 npm 11 在 CI 临时工作区完成锁文件的非强制修复（仓库现有 npm 10 的 `audit fix`/`update` 遇到 `edgesOut` 内部错误）；再使用 Node 22/npm 10 `npm ci --ignore-scripts` 验证新锁文件可安装。
-3. 更新范围仅限 `package.json`、`package-lock.json`、测试 CI 配置的清理和本审查记录；不修改用户存储、Manifest 权限、扩展源代码、发布策略。
+3. 更新范围包含 `package.json`、`package-lock.json`、CSS 资源路径和固定版本 CSS 文件、许可声明、安全回归测试及本审查记录；不修改用户存储、Manifest 权限、扩展业务逻辑或发布策略。
 4. 对修复后的锁文件继续执行全量 `npm audit --audit-level=high`，不能仅以 `--omit=dev` 避免发现开发工具的已知问题。
 
 ## 隔离验证证据与遗留边界

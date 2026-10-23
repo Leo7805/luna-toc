@@ -1,6 +1,7 @@
 /** Regression tests for extension privilege and license policies. */
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
 import {checkManifest,inventoryLicenses,EXPECTED_HOSTS} from '../../scripts/audit-extension.mjs';
 
 const safe={manifest_version:3,permissions:['storage'],background:{type:'module'},
@@ -24,4 +25,16 @@ test('unknown and copyleft licenses stay visible',()=>{
   assert.equal(x.total,3);
   assert.equal(x.requiresReview.length,2);
   assert.equal(x.missingIntegrity.length,0);
+});
+
+test('shadcn CLI can be removed only when its pinned CSS is locally available',()=>{
+  const source=readFileSync('src/styles/tailwind.css','utf8');
+  const vendor=readFileSync('src/styles/shadcn-utilities.css','utf8');
+  const packageJson=JSON.parse(readFileSync('package.json','utf8'));
+  assert.match(source,/\@import ['"]\.\/shadcn-utilities\.css['"]/);
+  assert.doesNotMatch(source,/shadcn\/tailwind\.css/);
+  assert.match(vendor,/@custom-variant data-open/);
+  assert.match(vendor,/@utility no-scrollbar/);
+  assert.match(vendor,/@utility shimmer/);
+  assert.equal(packageJson.dependencies?.shadcn,undefined);
 });
