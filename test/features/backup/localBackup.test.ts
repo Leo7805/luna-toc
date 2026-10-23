@@ -41,6 +41,16 @@ function storageHarness(initial: Record<string, unknown> = {}) {
   let setFailure: 'none' | 'before' | 'after' = 'none';
   let removeFailure = false;
   let getFailure = false;
+  let usageOverride: number | null = null;
+  const byteCount = (keys?: string | string[] | null): number => {
+    const selected = keys == null ? Object.keys(state) : typeof keys === 'string' ? [keys] : keys;
+    const encoder = new TextEncoder();
+    return selected.filter((key) => Object.hasOwn(state, key)).reduce((total, key) =>
+      total + encoder.encode(JSON.stringify(key)).byteLength +
+        encoder.encode(JSON.stringify(state[key])).byteLength, 0);
+  };
+  const getBytesInUse = vi.fn(async (keys?: string | string[] | null) =>
+    keys == null && usageOverride !== null ? usageOverride : byteCount(keys));
   const get = vi.fn(async (keys?: string | string[] | null) => {
     if (getFailure) throw new Error('storage read failed');
     if (keys === null || keys === undefined) return clone(state);
@@ -57,9 +67,10 @@ function storageHarness(initial: Record<string, unknown> = {}) {
     if (removeFailure) { removeFailure = false; throw new Error('remove failed'); }
     for (const key of typeof keys === 'string' ? [keys] : keys) delete state[key];
   });
-  const storage = { get, set, remove } as unknown as Pick<chrome.storage.StorageArea, 'get'|'set'|'remove'>;
+  const storage = { get, set, remove, getBytesInUse, QUOTA_BYTES: 10 * 1024 * 1024 } as unknown as Pick<chrome.storage.StorageArea, 'get'|'set'|'remove'|'getBytesInUse'>;
   return {
-    storage, state, get, set, remove,
+    storage, state, get, set, remove, getBytesInUse,
+    setUsageOverride: (value: number | null) => { usageOverride = value; },
     failSet: (when: 'before' | 'after') => { setFailure = when; },
     failRemove: () => { removeFailure = true; },
     failGet: () => { getFailure = true; },
@@ -206,6 +217,15 @@ describe('versioned local backup', () => {
       ownerId: null, aliases: { 'message-1': 'safe value' },
     });
     expect(Object.getPrototypeOf({})).toBe(Object.prototype);
+  });
+
+  it('rejects an over-quota restore before any local storage writes', async () => {
+    const box = storageHarness({ [PROMPTS]: [prompt('existing')] });
+    box.setUsageOverride(10 * 1024 * 1024);
+    await expect(restoreLocalBackup(sample(), 'replace', box.storage))
+      .rejects.toThrow('未执行写入');
+    expect(box.set).not.toHaveBeenCalled();
+    expect(box.remove).not.toHaveBeenCalled();
   });
 
   it('does not write if reading current storage fails', async () => {

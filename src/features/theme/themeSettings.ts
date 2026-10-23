@@ -7,6 +7,8 @@ export interface ThemeSettings {
   manualTheme: ResolvedTheme;
 }
 
+import { SETTINGS_COMMIT_TYPE, type SettingsCommitResponse } from '@/features/storage/settingsWriteCoordinator';
+
 const SETTINGS_KEY = 'chatToc:themeSettings';
 const LEGACY_THEME_KEY = 'chatToc:theme';
 const DEFAULT_SETTINGS: ThemeSettings = {
@@ -23,7 +25,7 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
   const settings = normalizeThemeSettings(result[SETTINGS_KEY]);
   if (settings) {
     if (result[LEGACY_THEME_KEY] !== undefined) {
-      await chrome.storage.local.remove(LEGACY_THEME_KEY).catch(() => undefined);
+      await writeThemeSettings(settings, true);
     }
     return settings;
   }
@@ -34,8 +36,7 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
       followChatGPT: false,
       manualTheme: legacyTheme,
     };
-    await writeThemeSettings(migratedSettings);
-    await chrome.storage.local.remove(LEGACY_THEME_KEY).catch(() => undefined);
+    await writeThemeSettings(migratedSettings, true);
     return migratedSettings;
   }
 
@@ -44,9 +45,19 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
 
 /** Saves a complete theme preference. */
 export async function writeThemeSettings(
-  settings: ThemeSettings
+  settings: ThemeSettings,
+  removeLegacy = false
 ): Promise<void> {
-  await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  if (!chrome.runtime?.id) throw new Error('Invalid extension context: theme setting not saved');
+  await new Promise<void>((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      type: SETTINGS_COMMIT_TYPE, action: 'theme', settings, removeLegacy,
+    }, (response: SettingsCommitResponse | undefined) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Settings writer unavailable'));
+      else if (response?.ok) resolve();
+      else reject(new Error(response && 'error' in response ? response.error : 'Settings writer did not confirm the save'));
+    });
+  });
 }
 
 /** Subscribes to theme preference changes from any extension context. */

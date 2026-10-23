@@ -9,6 +9,8 @@ export interface SidebarPreferences {
   revealTint: boolean;
 }
 
+import { SETTINGS_COMMIT_TYPE, type SettingsCommitResponse } from '@/features/storage/settingsWriteCoordinator';
+
 export const SIDEBAR_SETTINGS_KEY = 'chatToc:sidebarPreferences';
 export const SIDEBAR_COLORS: ReadonlyArray<{
   id: SidebarColor;
@@ -56,8 +58,16 @@ export async function readSidebarPreferences(): Promise<SidebarPreferences> {
 export async function writeSidebarPreferences(
   settings: SidebarPreferences
 ): Promise<void> {
-  await chrome.storage.local.set({
-    [SIDEBAR_SETTINGS_KEY]: normalizeSidebarPreferences(settings),
+  if (!chrome.runtime?.id) throw new Error('Invalid extension context: sidebar setting not saved');
+  const normalized = normalizeSidebarPreferences(settings);
+  await new Promise<void>((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: normalized,
+    }, (response: SettingsCommitResponse | undefined) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Settings writer unavailable'));
+      else if (response?.ok) resolve();
+      else reject(new Error(response && 'error' in response ? response.error : 'Settings writer did not confirm the save'));
+    });
   });
 }
 

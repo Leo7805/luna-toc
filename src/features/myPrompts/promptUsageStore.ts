@@ -5,7 +5,7 @@
  */
 import {
   PROMPT_USAGE_COMMIT_TYPE,
-  type PromptUsageCommitRequest,
+  type PromptUsageCommitAction,
   type PromptUsageCommitResponse,
 } from './promptUsageWriteCoordinator';
 
@@ -41,7 +41,7 @@ export function createPromptUsageStore(): PromptUsageStore {
     writeQueue = task.catch(() => undefined);
     return task;
   };
-  const commit = (request: Omit<PromptUsageCommitRequest, 'type'>): Promise<PromptUsageMap> => {
+  const commit = (request: PromptUsageCommitAction): Promise<PromptUsageMap> => {
     if (!isContextValid()) return Promise.reject(new Error('Invalid extension context: usage not saved'));
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: PROMPT_USAGE_COMMIT_TYPE, ...request },

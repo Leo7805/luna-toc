@@ -6,11 +6,12 @@ export const PROMPT_USAGE_COMMIT_TYPE = 'LUNA_TOC_PROMPT_USAGE_COMMIT_V1';
 const STORAGE_KEY = 'lunaToc:promptUsageV1';
 const MAX_RECORDS = 20_000;
 
-export type PromptUsageCommitRequest =
-  | { type: typeof PROMPT_USAGE_COMMIT_TYPE; action: 'record-use'; promptId: string }
-  | { type: typeof PROMPT_USAGE_COMMIT_TYPE; action: 'remove'; promptId: string }
-  | { type: typeof PROMPT_USAGE_COMMIT_TYPE; action: 'clear' }
-  | { type: typeof PROMPT_USAGE_COMMIT_TYPE; action: 'reconcile'; validPromptIds: string[] };
+export type PromptUsageCommitAction =
+  | { action: 'record-use'; promptId: string }
+  | { action: 'remove'; promptId: string }
+  | { action: 'clear' }
+  | { action: 'reconcile'; validPromptIds: string[] };
+export type PromptUsageCommitRequest = PromptUsageCommitAction & { type: typeof PROMPT_USAGE_COMMIT_TYPE };
 export type PromptUsageCommitResponse =
   | { ok: true; usage: PromptUsageMap }
   | { ok: false; error: string };
