@@ -239,4 +239,27 @@ describe('renamed TOC entries', () => {
       .toBe('My draft');
   });
 
+  it('does not silently restore over a label changed after the menu opened', async () => {
+    let label = 'Alias at menu open';
+    const restore = vi.fn(async () => {
+      throw new Error('TOC alias changed in another tab; reopen the editor');
+    });
+    const renderer = createTocListRenderer({
+      getMessages: () => [prompt],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+      getDisplayText: () => label,
+      isRenamed: () => true,
+      onRestorePrompt: restore,
+    });
+    renderer.render();
+    document.querySelector<HTMLElement>('.navigator-item')!
+      .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    label = 'Updated in another tab';
+    promptContextMenuController.select('restore-toc');
+    await vi.waitFor(() => expect(restore).toHaveBeenCalledWith(prompt, 'Alias at menu open'));
+    await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent)
+      .toContain('其他标签页修改'));
+  });
+
 });
