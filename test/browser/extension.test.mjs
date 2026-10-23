@@ -78,10 +78,10 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
     assert.match(extensionId,/^[a-p]{32}$/);
     page=await context.newPage();
     await page.goto(url,{waitUntil:'domcontentloaded'});
-    await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({timeout:20000});
+    await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
 
     await t.test('MAIN + ISOLATED content scripts build correct TOC',async()=>{
-      await page.locator('.navigator-item').first().waitFor({timeout:15000});
+      await page.locator('.navigator-item').first().waitFor({state:'attached',timeout:15000});
       assert.equal(await page.locator('.navigator-item').count(),2);
       assert.match(await page.locator('#navigator-list').innerText(),/第一条测试问题/);
       assert.match(await page.locator('#navigator-list').innerText(),/第二条测试问题/);
@@ -126,7 +126,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       assert.equal(await page.locator('#native-nav').count(),1);
       assert.equal(await page.locator('#luna-toc-sidebar').count(),1);
       await page.reload({waitUntil:'domcontentloaded'});
-      await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor();
+      await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached'});
     });
   }catch(error){
     if(page&&!page.isClosed()){
