@@ -15,8 +15,8 @@ This document is the master registry for tracking bugs and regressions in LunaTO
 
 | ID | Date | Bug | Area | Root Cause | Fix | Commit | Showcase |
 |---|---|---|---|---|---|---|---|
-| B024 | 2026-10-24 | 备份恢复与提示词、别名、设置等写入可能交错 | Storage / Backup | 各存储模块拥有独立队列，批量恢复直接写入多个键；使用统计也在每个标签页本地读改写。 | 统一共享后台写入队列，使用统计按最新持久值原子化递增；恢复前检查预计容量，写入后核对并在失败时补偿回滚。 | pending | Yes |
-| B025 | 2026-10-24 | 备份恢复可能超过 Chrome 本地存储配额 | Storage / Backup | 备份文件 12 MiB 上限高于 Chrome 本地存储默认 10 MiB 配额，导入文件通过格式校验仍可能无法写入。 | 使用 getBytesInUse 预估恢复后的容量，超限时在写入前拒绝；不新增 unlimitedStorage 权限。 | pending | No |
+| B024 | 2026-10-24 | 备份恢复与提示词、别名、设置等写入可能交错 | Storage / Backup | 各存储模块拥有独立队列，批量恢复直接写入多个键；使用统计也在每个标签页本地读改写。 | 统一共享后台写入队列，使用统计按最新持久值原子化递增；恢复前检查预计容量，写入后核对并在失败时补偿回滚。 | 5909aba, 27ffd15 | Yes |
+| B025 | 2026-10-24 | 备份恢复可能超过 Chrome 本地存储配额 | Storage / Backup | 备份文件 12 MiB 上限高于 Chrome 本地存储默认 10 MiB 配额，导入文件通过格式校验仍可能无法写入。 | 使用 getBytesInUse 预估恢复后的容量，超限时在写入前拒绝；不新增 unlimitedStorage 权限。 | 27ffd15 | No |
 | B023 | 2026-10-23 | 兼容性工具栏告警无法随页面恢复自动消除 | Contract Alert / Toolbar / Page Hook | 旧实现只在整页 loading 时清理，SPA 路由变化、DOM 标记恢复及接口契约恢复没有对应清除路径；异步消息可能乱序覆盖新状态。 | 内容脚本对异常与恢复分别上报并带版本；后台按标签页串行保存并保留健康版本屏障；页面切换重置检测并复检，DOM 双次健康采样、PING/PONG 与接口正向匹配自动恢复，新增单元回归测试。 | e3450af, c8902b3 | Yes |
 | B022 | 2026-10-23 | 历史编辑分支缺少父节点时目录误判及晚到分页混入旧分支 | Navigation / State / Jump | 扁平消息缺少 `current_node` 父链仍被当作权威快照；已验证快照之后的新分页可能合并废弃分支；文本前缀匹配易误定位。 | 校验映射/分页父链，不可确定时保留旧目录并标记未验证；快照标记验证来源；隔离已验证分支与后续无证据分页；路由/分支变化取消旧导航，文本回退要求完整匹配；新增回归测试。 | 11eb0b7, e0c69b9, 03f302f, 674b24d, 3fda733 | Yes |
 | B021 | 2026-10-23 | 会话目录刷新超时后底层请求仍挂起、重试复用旧任务 | Navigation / Page Hook | 控制器 15 秒计时器只改变界面状态，页面钩子 inFlight 未释放且 fetch 缺少 AbortSignal；晚到结果可能混入后续刷新。 | MAIN/ISOLATED 之间增加按请求编号取消；AbortController 贯穿完整会话及分页获取，双端超时、路由切换释放任务；过期结果拒绝发布，补充自动回归测试。 | f58812b, af15e30, 00c5f01, 6d5489e | Yes |
