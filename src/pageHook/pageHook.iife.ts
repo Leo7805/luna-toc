@@ -17,6 +17,8 @@ import {
   checkConversationPathAgainstContract,
   installContractAlerts,
   reportContractMismatch,
+  reportContractRecovered,
+  resetContractMismatchCounters,
   setContractProbesEnabled,
   setEffectiveContractValues,
 } from './contractAlerts';
@@ -67,6 +69,10 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
       showCompatibilityAlert?: unknown;
       contractValues?: Record<string, unknown>;
     } | null;
+    if (data?.type === platform.pageHook.messages.routeChanged) {
+      resetContractMismatchCounters();
+      return;
+    }
     if (data?.type === PAGE_HOOK_HEALTH_PING) {
       window.postMessage({ type: PAGE_HOOK_HEALTH_PONG }, location.origin);
       return;
@@ -89,8 +95,11 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
         const contractId = requestMeta.isInitialConversationLoad
           ? 'api.conversation.path'
           : 'api.conversation.messages-path';
-        if (checkConversationPathAgainstContract(contractId, requestPath) === false) {
+        const matches = checkConversationPathAgainstContract(contractId, requestPath);
+        if (matches === false) {
           reportContractMismatch(contractId, requestPath);
+        } else if (matches === true) {
+          reportContractRecovered(contractId);
         }
       }
     } catch {}
