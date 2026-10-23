@@ -4,7 +4,6 @@
  * MAIN/ISOLATED messaging boundary.
  */
 import type { Platform } from '@/platforms';
-import type { ConversationData } from '@/features/conversationPrompts/message';
 import { extractActiveBranchMessages, type ConversationSnapshot } from '@/navigation/state/activeBranch';
 import {
   TOC_REFRESH_CANCEL,
@@ -28,11 +27,11 @@ export function installConversationRefresh(
   const headersByRoute = new Map<string, HeaderMap>();
   const inFlight = new Map<string, PendingRefresh>();
 
-  function postResult(routeKey: string, requestId: number, payload: ConversationData | null): void {
+  function postResult(routeKey: string, requestId: number, payload: ConversationSnapshot | null): void {
     window.postMessage({ type: TOC_REFRESH_RESULT, routeKey, requestId, payload }, location.origin);
   }
 
-  function finishRefresh(routeKey: string, pending: PendingRefresh, payload: ConversationData | null): void {
+  function finishRefresh(routeKey: string, pending: PendingRefresh, payload: ConversationSnapshot | null): void {
     // A cancelled/timed-out fetch must not publish late data or retire its replacement.
     if (inFlight.get(routeKey) !== pending) return;
     inFlight.delete(routeKey);
@@ -72,7 +71,7 @@ export function installConversationRefresh(
     return signal.aborted ? null : data;
   }
 
-  async function loadCurrentBranch(routeKey: string, signal: AbortSignal): Promise<ConversationData | null> {
+  async function loadCurrentBranch(routeKey: string, signal: AbortSignal): Promise<ConversationSnapshot | null> {
     // The singular endpoint exposes parent pointers and current_node on
     // installations where ChatGPT still serves the mapping representation.
     // Prefer it for edited-prompt branches.
@@ -89,6 +88,7 @@ export function installConversationRefresh(
           return {
             messages,
             current_node: tree.current_node,
+            activeBranchVerified: true,
             page_info: { has_previous_page: false },
           };
         }
@@ -140,6 +140,7 @@ export function installConversationRefresh(
           return {
             messages: branch,
             current_node: currentNode,
+            activeBranchVerified: true,
             page_info: { has_previous_page: false },
           };
         }
