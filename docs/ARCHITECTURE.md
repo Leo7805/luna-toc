@@ -23,9 +23,9 @@
 
 - `src/pageHook/conversationCapture.ts` 将原始响应克隆后解析，不占用网页本身的响应体。
 - `src/pageHook/conversationBackfill.ts` 分页获取历史消息，受 `backfillMaxPages` 上限控制。
-- `src/pageHook/conversationRefresh.ts` 在侧边栏展开时获取当前分支。优先尝试具有父节点关系的完整会话映射；回退时要求分页数据完整。
-- `src/navigation/state/activeBranch.ts` 按 `current_node` 和 `parent` 解析活动分支；缺少分支信息的扁平消息仅按接口提供的顺序处理。
-- `src/navigation/state/conversationStore.ts` 管理缓存和会话状态。主动刷新的快照为权威结果；刷新前已经开始的分页请求不得再恢复旧分支。
+- `src/pageHook/conversationRefresh.ts` 在侧边栏展开时获取当前分支。优先尝试具有父节点关系的完整会话映射；回退时分页不仅必须完整，还必须提供可逐节点核实的父链。页面钩子验证成功后才标记内部 `activeBranchVerified` 字段。
+- `src/navigation/state/activeBranch.ts` 按 `current_node` 和 `parent` / `parent_id` 解析活动分支；缺少可证明父链的扁平消息不再作为权威快照，保留原目录并标记未验证。
+- `src/navigation/state/conversationStore.ts` 管理缓存和会话状态。主动刷新已核验的快照为权威结果；新的非权威分页也不能恢复旧编辑分支，但独立观察到的用户新消息可加入当前目录。
 - `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新；权威刷新失败或 15 秒超时会将缓存标为未验证，迟到的分页数据不得重置验证状态；成功删除则清空当前视图。
 - `src/navigation/jump/navigationSnapshotStore.ts` 限制标签页内快照数量，提供逐会话删除和全量重置；会话切换不保留无界的原始分页消息集合。
 - `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话接口识别登录账号，并识别成功的 DELETE 或 `is_visible=false` 删除操作；归档不作为删除。单一接口 GET 返回 404/410 可能是 API 不兼容或权限问题，不作为本地删除证据。
