@@ -65,10 +65,11 @@ export function createPromptUsageStore(): PromptUsageStore {
 
   return {
     getAll: async () => ({ ...(await hydrate()) }),
-    recordUse: (promptId) => enqueue(async () => { publish(await commit({ action: 'record-use', promptId })); }),
-    remove: (promptId) => enqueue(async () => { publish(await commit({ action: 'remove', promptId })); }),
-    clear: () => enqueue(async () => { publish(await commit({ action: 'clear' })); }),
+    recordUse: (promptId) => enqueue(async () => { await hydrate(); publish(await commit({ action: 'record-use', promptId })); }),
+    remove: (promptId) => enqueue(async () => { await hydrate(); publish(await commit({ action: 'remove', promptId })); }),
+    clear: () => enqueue(async () => { await hydrate(); publish(await commit({ action: 'clear' })); }),
     reconcile: (validPromptIds) => enqueue(async () => {
+      await hydrate();
       publish(await commit({ action: 'reconcile', validPromptIds: [...validPromptIds] }));
     }),
   };
