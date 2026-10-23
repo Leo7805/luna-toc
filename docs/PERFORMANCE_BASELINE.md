@@ -15,8 +15,11 @@ The fixture generates **100, 500 and 2,000** synthetic prompt descriptors
 with predictable IDs and text. The Vitest/jsdom test records initial DOM
 construction, three unchanged renders (median), a search with no matches,
 and 20 alternating active-row changes (median latency plus DOM class-operation
-counts). The measurement excludes full ChatGPT responses, the network, browser
-layout/paint and virtualized conversation pagination. The benchmark prints
+counts). An additional fixture resolves the first and final prompt IDs from
+two mounted DOM bubbles across the same dataset sizes; this exercises mounted
+message index lookup only, not the unmounted far-jump scrolling loop. The
+measurement excludes full ChatGPT responses, the network, browser layout/paint
+and virtualized conversation pagination. The benchmark prints
 structured `[LunaTOC performance]` JSON lines in test logs. Durations are
 observations, never pass/fail limits; the class-operation bounds are a
 deterministic regression guard.
