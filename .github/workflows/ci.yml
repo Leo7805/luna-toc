@@ -177,6 +177,7 @@ jobs:
         run: |
           cp package-lock.json "$RUNNER_TEMP/original-lock.json"
           npm uninstall shadcn --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
           npm audit fix --package-lock-only --ignore-scripts --no-fund || true
           npm ci --ignore-scripts --no-audit --no-fund
           npm audit --json > "$RUNNER_TEMP/after-audit.json" || true
@@ -190,7 +191,8 @@ jobs:
           const removed=Object.keys(original.packages).filter(k=>!(k in next.packages));
           const updated=Object.fromEntries(Object.entries(next.packages).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(original.packages[k])));
           const changed={packageJson:pkg,removed,updated};
-          const compressed=zlib.gzipSync(Buffer.from(JSON.stringify(changed))).toString('base64');
+          const compressed=JSON.stringify(changed);
           console.log('PROBE_SUMMARY',JSON.stringify({removed:removed.length,updated:Object.keys(updated).length,remainingVulnerabilities:audit.metadata?.vulnerabilities??'unknown',size:compressed.length}));
           for(let i=0;i<compressed.length;i+=1600)console.log('PROBE_PATCH_'+String(i/1600).padStart(4,'0')+'_'+compressed.slice(i,i+1600));
+          console.log('PROBE_REMAINING',JSON.stringify(Object.keys(audit.vulnerabilities??{})));
           NODE
