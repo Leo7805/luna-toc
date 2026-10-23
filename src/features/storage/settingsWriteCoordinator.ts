@@ -10,9 +10,11 @@ const SIDEBAR_KEY = 'chatToc:sidebarPreferences';
 const SIDEBAR_COLOR_IDS = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'red', 'cyan', 'lime', 'magenta']);
 export type SettingsCommitRequest =
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'theme'; settings: ThemeSettings; removeLegacy?: boolean }
+  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'migrate-theme'; settings: ThemeSettings }
+  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'cleanup-legacy-theme' }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar'; settings: SidebarPreferences };
 export type SettingsCommitResponse = { ok: true } | { ok: false; error: string };
-type Storage = Pick<chrome.storage.StorageArea, 'set' | 'remove'>;
+type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
 
 function isTheme(value: unknown): value is ThemeSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -33,6 +35,8 @@ function isRequest(value: unknown): value is SettingsCommitRequest {
   if (item.type !== SETTINGS_COMMIT_TYPE) return false;
   if (item.action === 'theme') return isTheme(item.settings) &&
     (item.removeLegacy === undefined || typeof item.removeLegacy === 'boolean');
+  if (item.action === 'migrate-theme') return isTheme(item.settings);
+  if (item.action === 'cleanup-legacy-theme') return true;
   return item.action === 'sidebar' && isSidebar(item.settings);
 }
 export function createSettingsWriteCoordinator(
@@ -46,6 +50,14 @@ export function createSettingsWriteCoordinator(
         if (request.action === 'theme') {
           await storage.set({ [THEME_KEY]: request.settings });
           if (request.removeLegacy) await storage.remove(LEGACY_THEME_KEY).catch(() => undefined);
+        } else if (request.action === 'migrate-theme') {
+          // Migration was initiated from a read that may predate a queued backup restore.
+          // Preserve any valid setting that was committed while the migration waited.
+          const current = await storage.get(THEME_KEY);
+          if (!isTheme(current[THEME_KEY])) await storage.set({ [THEME_KEY]: request.settings });
+          await storage.remove(LEGACY_THEME_KEY).catch(() => undefined);
+        } else if (request.action === 'cleanup-legacy-theme') {
+          await storage.remove(LEGACY_THEME_KEY).catch(() => undefined);
         } else {
           await storage.set({ [SIDEBAR_KEY]: request.settings });
         }

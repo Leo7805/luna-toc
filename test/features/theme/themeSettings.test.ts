@@ -6,11 +6,17 @@ const values: Record<string, unknown> = {};
 const remove = vi.fn(async (key: string) => { delete values[key]; });
 const sendMessage = vi.fn((message: { action: string; settings?: unknown; removeLegacy?: boolean },
   callback: (response: { ok: boolean; error?: string }) => void) => {
-  if (message.action !== 'theme' || !message.settings) {
+  if (message.action === 'theme' && message.settings) {
+    values['chatToc:themeSettings'] = message.settings;
+    if (message.removeLegacy) void remove('chatToc:theme');
+  } else if (message.action === 'cleanup-legacy-theme') {
+    void remove('chatToc:theme');
+  } else if (message.action === 'migrate-theme' && message.settings) {
+    if (!values['chatToc:themeSettings']) values['chatToc:themeSettings'] = message.settings;
+    void remove('chatToc:theme');
+  } else {
     callback({ ok: false, error: 'unexpected message' }); return;
   }
-  values['chatToc:themeSettings'] = message.settings;
-  if (message.removeLegacy) void remove('chatToc:theme');
   callback({ ok: true });
 });
 beforeEach(() => {

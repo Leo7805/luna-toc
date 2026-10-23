@@ -25,7 +25,7 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
   const settings = normalizeThemeSettings(result[SETTINGS_KEY]);
   if (settings) {
     if (result[LEGACY_THEME_KEY] !== undefined) {
-      await writeThemeSettings(settings, true);
+      await writeThemeSettings(settings, 'cleanup-legacy-theme');
     }
     return settings;
   }
@@ -36,7 +36,7 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
       followChatGPT: false,
       manualTheme: legacyTheme,
     };
-    await writeThemeSettings(migratedSettings, true);
+    await writeThemeSettings(migratedSettings, 'migrate-theme');
     return migratedSettings;
   }
 
@@ -46,13 +46,16 @@ export async function readThemeSettings(): Promise<ThemeSettings> {
 /** Saves a complete theme preference. */
 export async function writeThemeSettings(
   settings: ThemeSettings,
-  removeLegacy = false
+  mode: 'replace' | 'migrate-theme' | 'cleanup-legacy-theme' = 'replace'
 ): Promise<void> {
   if (!chrome.runtime?.id) throw new Error('Invalid extension context: theme setting not saved');
+  const message = mode === 'cleanup-legacy-theme'
+    ? { type: SETTINGS_COMMIT_TYPE, action: 'cleanup-legacy-theme' as const }
+    : mode === 'migrate-theme'
+      ? { type: SETTINGS_COMMIT_TYPE, action: 'migrate-theme' as const, settings }
+      : { type: SETTINGS_COMMIT_TYPE, action: 'theme' as const, settings };
   await new Promise<void>((resolve, reject) => {
-    chrome.runtime.sendMessage({
-      type: SETTINGS_COMMIT_TYPE, action: 'theme', settings, removeLegacy,
-    }, (response: SettingsCommitResponse | undefined) => {
+    chrome.runtime.sendMessage(message, (response: SettingsCommitResponse | undefined) => {
       if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Settings writer unavailable'));
       else if (response?.ok) resolve();
       else reject(new Error(response && 'error' in response ? response.error : 'Settings writer did not confirm the save'));
