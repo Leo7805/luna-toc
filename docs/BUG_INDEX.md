@@ -15,6 +15,9 @@ This document is the master registry for tracking bugs and regressions in LunaTO
 
 | ID | Date | Bug | Area | Root Cause | Fix | Commit | Showcase |
 |---|---|---|---|---|---|---|---|
+| B029 | 2026-10-24 | 清空提示词与使用统计分两次提交，可能部分成功或穿插异步写入 | My Prompts / Storage | UI 分别删除提示词与统计；后台没有清空整个业务操作的前置条件与补偿回滚。 | 集中为后台 clear-all 条件提交，双键写入后核验；失败恢复旧值；过期记录使用次数不能重新创建已删除 ID。 | 852de72, ca8e974, 4e8a7db | Yes |
+| B028 | 2026-10-24 | 备份接受正常目录存储模块拒绝的消息 ID | Backup / Validation | 恢复解析仅校验非空和长度，未排除普通写入时禁止的对象原型保留字段。 | 备份模块复用 `isValidTocMessageId`，导入前拒绝危险字段；保留允许的特殊会话 ID 结构。 | 196c594, 22ee4ac | Yes |
+| B027 | 2026-10-24 | 网页身份事件可伪造，目录别名展示缺少匹配当前账号校验 | Lifecycle / Alias / Trust | ISOLATED world 信任同源页面传入的账号 ID，目录 UI `get` 返回标签页缓存而未校验归属。 | 隔离环境独立请求 session；代际隔离晚到响应；只显示与当前可信账号一致的别名；未知及历史无归属数据保留但不展示。 | c2e6e86, 9915d75, 6d485fa | Yes |
 | B026 | 2026-10-24 | 页面同源 `postMessage` 可伪造会话删除通知，进而删除扩展本地目录别名 | Lifecycle / Trust boundary | `conversationLifecycle.ts` 接收消息仅检查 `source`、`origin` 与会话 ID，不能证明是可信删除；旧实现直接调用持久删除。 | **已修复页面消息触发持久删除路径（P1）**：ISOLATED world 忽略所有来自网页的删除通知，不删除别名或缓存；新增单元及模拟 Chromium 伪造/成功删除回归。代价：ChatGPT 删除后别名暂不自动清理。 | addac7f | Yes |
 | B024 | 2026-10-24 | 备份恢复与提示词、别名、设置等写入可能交错 | Storage / Backup | 各存储模块拥有独立队列，批量恢复直接写入多个键；使用统计也在每个标签页本地读改写。 | 统一共享后台写入队列，使用统计按最新持久值原子化递增；恢复前检查预计容量，写入后核对并在失败时补偿回滚。 | 5909aba, 27ffd15 | Yes |
 | B025 | 2026-10-24 | 备份恢复可能超过 Chrome 本地存储配额 | Storage / Backup | 备份文件 12 MiB 上限高于 Chrome 本地存储默认 10 MiB 配额，导入文件通过格式校验仍可能无法写入。 | 使用 getBytesInUse 预估恢复后的容量，超限时在写入前拒绝；不新增 unlimitedStorage 权限。 | 27ffd15 | No |
