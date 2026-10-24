@@ -28,7 +28,7 @@ const sendMessage = vi.fn((message: { action: string; patch?: Partial<import('@/
     callback({ ok: false, error: 'unexpected message' });
     return;
   }
-  void set({ [SIDEBAR_SETTINGS_KEY]: { ...DEFAULT_SIDEBAR_PREFERENCES, ...saved[SIDEBAR_SETTINGS_KEY] as object, ...message.patch } }).then(
+  void set({ [SIDEBAR_SETTINGS_KEY]: { ...DEFAULT_SIDEBAR_PREFERENCES, ...(saved[SIDEBAR_SETTINGS_KEY] as object | undefined ?? {}), ...message.patch } }).then(
     () => callback({ ok: true }),
     (error: unknown) => callback({ ok: false, error: error instanceof Error ? error.message : 'write failed' })
   );
