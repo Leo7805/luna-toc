@@ -54,18 +54,30 @@ export async function readSidebarPreferences(): Promise<SidebarPreferences> {
   return normalizeSidebarPreferences(values[SIDEBAR_SETTINGS_KEY]);
 }
 
-/** Applies only the changed fields, preserving concurrent edits from other tabs. */
+/** A separate error class lets the UI distinguish a rejected conflict from storage failure. */
+export class SidebarSettingsConflictError extends Error {
+  constructor() {
+    super('Sidebar preferences were changed in another tab; reload the latest values');
+    this.name = 'SidebarSettingsConflictError';
+  }
+}
+
+/** Compare changed fields with their editor-time values inside the background queue. */
 export async function writeSidebarPreferences(
-  patch: Partial<SidebarPreferences>
+  patch: Partial<SidebarPreferences>,
+  expected: Partial<SidebarPreferences>
 ): Promise<void> {
   if (!chrome.runtime?.id) throw new Error('Invalid extension context: sidebar setting not saved');
   await new Promise<void>((resolve, reject) => {
     chrome.runtime.sendMessage({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch,
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch, expected,
     }, (response: SettingsCommitResponse | undefined) => {
       if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Settings writer unavailable'));
       else if (response?.ok) resolve();
-      else reject(new Error(response && 'error' in response ? response.error : 'Settings writer did not confirm the save'));
+      else if (response && 'conflict' in response && response.conflict) {
+        reject(new SidebarSettingsConflictError());
+      } else reject(new Error(response && 'error' in response
+        ? response.error : 'Settings writer did not confirm the save'));
     });
   });
 }
