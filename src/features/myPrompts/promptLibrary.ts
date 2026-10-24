@@ -8,7 +8,6 @@ import type {
   SavedPrompt,
 } from './promptStore';
 import type { PromptUsageStore } from './promptUsageStore';
-import { equalPromptLists } from './promptWriteCoordinator';
 import {
   promptEditorController,
   type PromptEditorValues,
@@ -382,19 +381,12 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   if (!shouldClear) return;
 
   try {
-    await requirePromptStore().update((current) => {
-      if (!equalPromptLists(current, prompts)) {
-        throw new Error('其他标签页已修改提示词，请重新确认清空操作。');
-      }
-      return [];
-    });
-    await requirePromptUsageStore().clear();
+    await requirePromptStore().clearAll(prompts);
     onRefresh();
   } catch (error) {
     await showPromptModal({
       title: '清空我的提示词',
-      message: error instanceof Error && error.message.includes('其他标签页')
-        ? error.message : '无法清空提示词。',
+      message: error instanceof Error ? error.message : '无法清空提示词。',
     });
   }
 }
