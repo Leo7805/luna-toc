@@ -9,10 +9,10 @@ import {
 const route = 'conversation-123';
 const key = TOC_ALIAS_PREFIX + route;
 const deletedKey = TOC_ALIAS_DELETED_PREFIX + route;
-const update = (messageId: string, expected: string | null, label: string | null,
+const update = (messageId: string, _expected: string | null, label: string | null,
   ownerId: string | null = 'account-1'): TocAliasCommitRequest =>
   ({ type: TOC_ALIAS_COMMIT_TYPE, action: 'update', routeKey: route,
-    messageId, expected, label, ownerId });
+    messageId, label, ownerId });
 const remove = (): TocAliasCommitRequest =>
   ({ type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey: route });
 
@@ -42,7 +42,7 @@ function backing(initial: Record<string, unknown> = {}) {
 }
 
 describe('background TOC alias coordinator', () => {
-  it('merges concurrent edits to distinct messages without losing data', async () => {
+  it('preserves distinct message edits within the ordered writer', async () => {
     const box = backing();
     const writer = createTocAliasWriteCoordinator(box.storage);
     const results = await Promise.all([
@@ -54,16 +54,14 @@ describe('background TOC alias coordinator', () => {
       aliases: { 'msg-a': 'Title A', 'msg-b': 'Title B' } });
   });
 
-  it('rejects overlapping renames and restores with stale expected labels', async () => {
+  it('supports sequential renames and restores without stale-value conditions', async () => {
     const box = backing();
     const writer = createTocAliasWriteCoordinator(box.storage);
     expect((await writer.commit(update('msg', null, 'first'))).ok).toBe(true);
-    expect(await writer.commit(update('msg', null, 'second')))
-      .toEqual({ ok: false, conflict: true });
-    expect(await writer.commit(update('msg', null, null)))
-      .toEqual({ ok: false, conflict: true });
-    expect((await writer.commit(update('msg', 'first', 'second'))).ok).toBe(true);
+    expect((await writer.commit(update('msg', null, 'second'))).ok).toBe(true);
     expect(box.data[key]).toEqual({ ownerId: 'account-1', aliases: { msg: 'second' } });
+    expect((await writer.commit(update('msg', null, null))).ok).toBe(true);
+    expect(box.data[key]).toBeUndefined();
   });
 
   it('uses persistent data after worker restart and retains other message aliases on restore', async () => {
@@ -166,7 +164,7 @@ describe('background TOC alias coordinator', () => {
     expect((await writer.commit(update('msg-a', null, 'Before'))).ok).toBe(true);
     const preview = structuredClone(box.data[key]);
 
-    // Another tab adds a label after the user opened the preview.
+    // Data changes after the user opened the cleanup preview.
     expect((await writer.commit(update('msg-b', null, 'New'))).ok).toBe(true);
     expect(await writer.commit({
       type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-conversation', routeKey: route,
