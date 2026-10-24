@@ -179,6 +179,17 @@ describe('TOC alias storage', () => {
     expect(store.get(route, 'msg')).toBe('Private name');
   });
 
+  it('leaves legacy unowned records untouched rather than implicitly binding them', async () => {
+    const legacy = { ownerId: null, aliases: { 'old-message': 'Saved under an unknown account' } };
+    await chrome.storage.local.set({ [key]: legacy });
+    const store = createTocAliasStore();
+    await store.load(route);
+    expect(store.get(route, 'old-message')).toBeNull();
+    await expect(store.update(route, 'new-message', 'Title', 'account-1'))
+      .rejects.toThrow('explicit owner migration');
+    expect(saved[key]).toEqual(legacy);
+  });
+
   it('does not claim a successful save without a background acknowledgement', async () => {
     const store = createTocAliasStore();
     vi.mocked(chrome.runtime.sendMessage).mockImplementationOnce(
