@@ -160,4 +160,61 @@ describe('background TOC alias coordinator', () => {
     expect((await writer.commit(update('msg', null, 'saved'))).ok).toBe(true);
     expect(box.data[key]).toEqual({ ownerId: 'account-1', aliases: { msg: 'saved' } });
   });
+  it('requires an unchanged explicit preview before cleaning a local alias record', async () => {
+    const box = backing();
+    const writer = createTocAliasWriteCoordinator(box.storage);
+    expect((await writer.commit(update('msg-a', null, 'Before'))).ok).toBe(true);
+    const preview = structuredClone(box.data[key]);
+
+    // Another tab adds a label after the user opened the preview.
+    expect((await writer.commit(update('msg-b', null, 'New'))).ok).toBe(true);
+    expect(await writer.commit({
+      type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-conversation', routeKey: route,
+      expected: preview,
+    })).toEqual({ ok: false, conflict: true });
+    expect(box.data[deletedKey]).toBeUndefined();
+    expect(box.data[key]).toEqual({
+      ownerId: 'account-1', aliases: { 'msg-a': 'Before', 'msg-b': 'New' },
+    });
+
+    const current = structuredClone(box.data[key]);
+    expect(await writer.commit({
+      type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-conversation', routeKey: route,
+      expected: current,
+    })).toEqual({ ok: true, deleted: true });
+    expect(box.data[key]).toBeUndefined();
+    expect(box.data[deletedKey]).toBe(true);
+    expect(await writer.commit(update('msg-a', null, 'Stale')))
+      .toEqual({ ok: false, error: 'Conversation has been deleted' });
+  });
+
+  it('does not clean missing records, malformed previews or an already fenced route', async () => {
+    const box = backing();
+    const writer = createTocAliasWriteCoordinator(box.storage);
+    const request = {
+      type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-conversation' as const,
+      routeKey: route, expected: { ownerId: 'account-1', aliases: { msg: 'Old' } },
+    };
+    expect(await writer.commit(request)).toEqual({ ok: false, conflict: true });
+    expect(await writer.commit({ ...request, expected: { ownerId: 'account-1', aliases: { '__proto__': 'x' } } }))
+      .toEqual({ ok: false, error: 'Invalid TOC alias request' });
+    expect((await writer.commit(update('msg', null, 'Old'))).ok).toBe(true);
+    expect(await writer.commit(remove())).toEqual({ ok: true, deleted: true });
+    expect(await writer.commit(request)).toEqual({ ok: false, conflict: true });
+    expect(box.data[key]).toBeUndefined();
+  });
+
+  it('retains the deletion fence when a confirmed manual cleanup cannot remove data', async () => {
+    const original = { ownerId: 'account-1', aliases: { msg: 'Important' } };
+    const box = backing({ [key]: original });
+    box.failRemove();
+    const writer = createTocAliasWriteCoordinator(box.storage);
+    expect(await writer.commit({
+      type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-conversation',
+      routeKey: route, expected: structuredClone(original),
+    })).toEqual({ ok: false, error: 'remove failed' });
+    expect(box.data[deletedKey]).toBe(true);
+    expect(box.data[key]).toEqual(original);
+  });
+
 });
