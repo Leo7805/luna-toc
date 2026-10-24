@@ -232,6 +232,7 @@ export const sidebarController = (() => {
   }
 
   function setSearchQuery(query: string): void {
+    if (searchQuery === query) return;
     searchQuery = query;
     updateViewSnapshot();
     updateHeaderSnapshot();

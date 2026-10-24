@@ -32,9 +32,10 @@ export function SidebarSearchBar(): React.JSX.Element {
     if (!input) return;
 
     const handleNativeInput = (event: Event): void => {
-      sidebarController.setSearchQuery(
-        (event.target as HTMLInputElement).value
-      );
+      const nextValue = (event.target as HTMLInputElement).value;
+      if (nextValue !== sidebarController.getSearchQuery()) {
+        sidebarController.setSearchQuery(nextValue);
+      }
     };
 
     input.addEventListener('input', handleNativeInput);
@@ -44,7 +45,10 @@ export function SidebarSearchBar(): React.JSX.Element {
   }, []);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    sidebarController.setSearchQuery(event.target.value);
+    const nextValue = event.target.value;
+    if (nextValue !== sidebarController.getSearchQuery()) {
+      sidebarController.setSearchQuery(nextValue);
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {

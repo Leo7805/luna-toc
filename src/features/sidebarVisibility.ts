@@ -83,21 +83,12 @@ export function initializeSidebarVisibility(
   toggleBtn = toggleButton ?? null;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
 
-  bindPinButton();
   if (toggleBtn) {
     bindToggleButton();
   }
   bindAutoHide();
   loadPinnedState();
   finishInitializing();
-}
-
-function bindPinButton(): void {
-  if (!pinBtn) return;
-
-  pinBtn.addEventListener('click', () => {
-    setSidebarPinned(!isPinned, { persist: true });
-  });
 }
 
 function bindToggleButton(): void {

@@ -19,6 +19,7 @@ import {
   setSidebarHidden,
   setSidebarPinned,
 } from '@/features/sidebarVisibility';
+import * as sidebarVis from '@/features/sidebarVisibility';
 import {
   POSITION_STORAGE_KEY,
   POSITION_MARGIN,
@@ -764,6 +765,35 @@ describe('SidebarToggleButton React Component', () => {
       expect(isSidebarHidden()).toBe(false);
       expect(sidebar.getAttribute('aria-hidden')).toBe('false');
       expect(sidebar.inert).toBe(false);
+    });
+
+    it('25. Invokes auto-hide enter and leave handlers once per event without duplicate bindings', async () => {
+      sidebarController.init();
+      initializeSidebarVisibility(sidebar);
+      setSidebarPinned(false);
+
+      const enterSpy = vi.spyOn(sidebarVis, 'handleAutoHideEnter');
+      const leaveSpy = vi.spyOn(sidebarVis, 'scheduleAutoHide');
+
+      root = createRoot(rootContainer);
+      await act(async () => {
+        root.render(<SidebarToggleButton />);
+      });
+
+      const toggleBtn = document.getElementById('luna-toc-toggle-btn') as HTMLButtonElement;
+
+      await act(async () => {
+        toggleBtn.dispatchEvent(new MouseEvent('pointerenter', { bubbles: false }));
+      });
+      expect(enterSpy).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        toggleBtn.dispatchEvent(new MouseEvent('pointerleave', { bubbles: false }));
+      });
+      expect(leaveSpy).toHaveBeenCalledTimes(1);
+
+      enterSpy.mockRestore();
+      leaveSpy.mockRestore();
     });
   });
 });

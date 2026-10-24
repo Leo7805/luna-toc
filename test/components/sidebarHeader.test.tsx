@@ -12,6 +12,7 @@ import {
   setSidebarPinned,
   isSidebarPinned,
   toggleSidebarPinned,
+  subscribeSidebarPinned,
 } from '@/features/sidebarVisibility';
 import { sidebarController } from '@/features/sidebar/sidebarController';
 import { myPrompts } from '@/features/myPrompts/myPrompts';
@@ -466,10 +467,19 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
   });
 
   it('17. React Header clicks work exactly once without duplicate bindings or Vanilla fallbacks', () => {
+    const pinBtn = document.getElementById('luna-toc-sidebar-pin-btn') as HTMLButtonElement;
     const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
     const searchToggleBtn = document.getElementById('search-toggle-btn') as HTMLButtonElement;
     const resetSpy = vi.spyOn(navigatorController, 'resetView');
     const toggleSearchSpy = vi.spyOn(sidebarController, 'toggleSearch');
+    const pinListenerSpy = vi.fn();
+    const unsubscribePin = subscribeSidebarPinned(pinListenerSpy);
+
+    act(() => {
+      pinBtn.click();
+    });
+    expect(pinListenerSpy).toHaveBeenCalledTimes(1);
+    unsubscribePin();
 
     act(() => {
       titleBtn.click();
@@ -667,6 +677,28 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
       expect.any(MouseEvent),
       titleBtn
     );
+  });
+
+  it('22. Search input deduplicates native input and React change events to fire controller update once', () => {
+    const searchToggleBtn = document.getElementById('search-toggle-btn') as HTMLButtonElement;
+    const searchInput = document.getElementById('navigator-search') as HTMLInputElement;
+
+    act(() => {
+      searchToggleBtn.click();
+    });
+
+    const setQuerySpy = vi.spyOn(sidebarController, 'setSearchQuery');
+
+    act(() => {
+      searchInput.value = 'dedup';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(setQuerySpy).toHaveBeenCalledTimes(1);
+    expect(setQuerySpy).toHaveBeenCalledWith('dedup');
+    expect(sidebarController.getSearchQuery()).toBe('dedup');
+    setQuerySpy.mockRestore();
   });
 });
 

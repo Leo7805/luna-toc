@@ -105,14 +105,6 @@ export function SidebarToggleButton(): React.JSX.Element | null {
     setSidebarHidden(!isSidebarHidden());
   };
 
-  const handlePointerEnter = (): void => {
-    handleAutoHideEnter();
-  };
-
-  const handlePointerLeave = (): void => {
-    scheduleAutoHide();
-  };
-
   const portalTarget = getOrCreateToggleContainer();
   if (!portalTarget) {
     return null;
@@ -140,8 +132,6 @@ export function SidebarToggleButton(): React.JSX.Element | null {
       aria-label={isHidden ? 'Open sidebar' : 'Close sidebar'}
       aria-expanded={!isHidden}
       onClick={handleClick}
-      onPointerEnter={handlePointerEnter}
-      onPointerLeave={handlePointerLeave}
     >
       <svg aria-hidden="true" viewBox="0 0 64 64">
         <path
