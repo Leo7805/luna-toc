@@ -201,7 +201,7 @@ Performance-critical DOM operations, low-level browser integrations, and static 
 - **Outer Sidebar Shell** (`src/app/applicationShell.ts`):
   Creates and owns `#luna-toc-sidebar`, `.navigator-topbar`, and static portal mount containers. Manages flex layout and CSS width variables (`--navigator-width`).
 - **TOC List and Outline Engine** (`src/navigation/ui/tocListRenderer.ts`, `src/features/navigation/outline.ts`):
-  Exclusive owner of `#navigator-list`. Imperatively renders and updates hundreds of prompt entries, numbers, custom titles, badges, and heading outline items with sub-millisecond layout overhead.
+  Exclusive owner of `#navigator-list`. Imperatively renders and updates prompt entries, numbers, custom titles, badges, and heading outline items directly in the DOM. LunaTOC's TOC list is non-virtualized, retaining all parsed conversation items in the DOM for native browser scrolling, instant text filtering, and zero-latency scroll follow (distinguished from ChatGPT's chat feed, which virtualizes unmounted turns and requires LunaTOC's virtual search navigation).
 - **Active Prompt Tracking** (`src/features/navigation/activePromptTracker.ts`, `src/features/navigation/navigationState.ts`):
   Evaluates viewport tracking rules (Rules A/B/C) and transitions between `idle`, `jumping`, `landed`, and `failed` navigation states.
 - **Follow & Navigation Coordination** (`src/features/navigation/follow.ts`, `src/navigation/navigatorController.ts`, `src/features/navigation/virtualSearchController.ts`):
@@ -235,12 +235,12 @@ Performance-critical DOM operations, low-level browser integrations, and static 
 
 #### 4. Architectural Rationale: Why the TOC List and Outer Shell Intentionally Remain Vanilla
 
-The decision to retain the TOC List and outer Sidebar Shell in Vanilla TypeScript is a deliberate, permanent architectural choice, not unfinished migration work:
+The decision to retain the TOC List and outer Sidebar Shell in Vanilla TypeScript is the approved, intentional architecture rather than an irreversible technical constraint or unfinished migration:
 
-1. **Virtualization & Layout Throughput**:
-   Long ChatGPT conversations can contain hundreds of conversation prompts with hierarchical markdown headings. Vanilla DOM mutations via `tocListRenderer.ts` achieve sub-millisecond layout, fine-grained DOM node re-resolution, and immediate scroll anchoring without the memory and reconciliation overhead of a virtual DOM tree.
+1. **Non-Virtualized TOC List vs. Virtualized ChatGPT Feed**:
+   While ChatGPT virtualizes its conversation feed (unmounting off-screen DOM turns and requiring LunaTOC's virtual search and response-seeking algorithms), LunaTOC's own TOC list is intentionally non-virtualized. It renders and retains all prompt and heading items in `#navigator-list`, providing users with native, uninterrupted scrolling, immediate in-memory text filtering, and direct scroll anchoring without virtual-DOM diffing overhead.
 2. **Smooth High-Frequency Resizing**:
-   The outer sidebar resizer directly updates the CSS variable `--navigator-width` on `#luna-toc-sidebar` during mousemove events. Keeping the shell imperative ensures that resizing runs at display refresh rate without triggering React reconciliation cycles across child components.
+   The outer sidebar resizer directly updates the CSS variable `--navigator-width` on `#luna-toc-sidebar` during mousemove events. Keeping the shell imperative ensures that resizing updates smoothly without triggering React reconciliation cycles across child components.
 3. **Scroll Retention & View Isolation**:
    Toggling between TOC and MyPrompts view simply switches `style.display = 'none' | ''` between `#navigator-list` and `#myprompts-list` while preserving exact scroll positions (`tocScrollTop` / `myPromptsScrollTop`). This clean physical separation prevents DOM reconstruction and eliminates scroll-jumping artifacts.
 

@@ -551,10 +551,10 @@ Out of scope for this PR:
 * **Date**: 2026-10-24
 
 ### Context
-LunaTOC required modernized interactive controls, rich modal interactions (MyPrompts editor, autocomplete popover, custom TOC title dialogs, search filtering), and cleaner component boundaries. However, ChatGPT conversations can span hundreds of turns, requiring sub-millisecond outline rendering, scroll follow tracking, and smooth 60fps drag resizing. We needed to determine whether to migrate the entire extension to React or establish an intentional hybrid boundary.
+LunaTOC required modernized interactive controls, rich modal interactions (MyPrompts editor, autocomplete popover, custom TOC title dialogs, search filtering), and cleaner component boundaries. However, ChatGPT conversations can span hundreds of turns, requiring low-overhead outline rendering, responsive scroll follow tracking, and fluid drag resizing. We needed to determine whether to migrate the entire extension to React or establish an intentional hybrid boundary.
 
 ### Decision
-Adopt a permanent **Hybrid React 19 + Vanilla TypeScript Architecture**:
+Adopt an approved **Hybrid React 19 + Vanilla TypeScript Architecture**:
 
 1. **React 19 Scope**: Exclusively owns all user-interactive widgets, stateful toolbars, and modal overlays:
    - Sidebar Header (`#luna-toc-sidebar-pin-btn`, `#navigator-title`, `#search-toggle-btn`)
@@ -564,11 +564,11 @@ Adopt a permanent **Hybrid React 19 + Vanilla TypeScript Architecture**:
    - MyPrompts Toolbar and List (`#myprompts-toolbar-container`, `#myprompts-list`)
    - Floating Moon Button (`#luna-toc-toggle-btn`)
    - Shadow DOM Dialogs (Autocomplete, Context Menu, Editor, Custom Title, Confirm)
-2. **Vanilla TypeScript Scope**: Permanently retains outer shell scaffolding, low-level browser integrations, and performance-critical navigation algorithms:
+2. **Vanilla TypeScript Scope**: Retains outer shell scaffolding, low-level browser integrations, and performance-critical navigation algorithms:
    - Outer Sidebar Shell (`#luna-toc-sidebar`, `.navigator-topbar`, static portal slots)
-   - TOC List and Outline DOM Engine (`#navigator-list`, `tocListRenderer.ts`, `outline.ts`)
+   - TOC List and Outline DOM Engine (`#navigator-list`, `tocListRenderer.ts`, `outline.ts`) — non-virtualized list maintaining all prompt and outline entries in the DOM for native scrolling and zero-latency scroll follow
    - Active Prompt Tracking (Rules A/B/C, transition lifecycle `idle`/`jumping`/`landed`/`failed`)
-   - Follow and Virtual Search Navigation (`follow.ts`, `promptNavigation.ts`, `virtualSearchController.ts`)
+   - Follow and Virtual Search Navigation (`follow.ts`, `promptNavigation.ts`, `virtualSearchController.ts`) — handles ChatGPT's virtualized conversation feed
    - Tooltip Services (`buttonTooltip`, `previewTooltip`)
    - Drag and Resize Mechanics (horizontal shell resize, vertical jump panel clamping)
    - Sidebar Visibility Coordination (`sidebarVisibility.ts`, `evictFocusFromSidebar()`)
@@ -581,12 +581,12 @@ Adopt a permanent **Hybrid React 19 + Vanilla TypeScript Architecture**:
 
 ### Rationale
 - **Declarative UI where complexity is stateful**: Modals, form inputs, prompt sorting, and search filters thrive in React's component model and declarative state synchronization.
-- **Imperative DOM where performance is critical**: Rendering hundreds of conversation prompts with hierarchical heading outlines requires direct, fine-grained DOM operations and scroll anchoring without virtual DOM diffing overhead.
-- **Fluid Drag & Resize**: Direct CSS variable updates (`--navigator-width`) allow sidebar resizing to track mouse movements at full monitor refresh rate without triggering React reconciliation cycles across sibling components.
+- **Approved Vanilla Architecture for TOC Engine**: The TOC list is intentionally non-virtualized, keeping all items in the sidebar DOM for immediate native scrolling, instant text filtering, and direct scroll follow. Direct DOM manipulation is simple, robust, and low-overhead, avoiding virtual-DOM diffing overhead while contrasting with ChatGPT's virtualized message feed which LunaTOC navigates via virtual search. Retaining Vanilla for this engine is the approved, pragmatic architecture rather than an irreversible technical constraint.
+- **Fluid Drag & Resize**: Direct CSS variable updates (`--navigator-width`) allow sidebar resizing to track mouse movements smoothly without triggering React reconciliation cycles across sibling components.
 - **Physical View Separation**: Toggling between TOC and MyPrompts view switches `style.display = 'none' | ''` between `#navigator-list` and `#myprompts-list`, retaining independent scroll positions without DOM destruction or scroll jumping.
 
 ### Consequences
 - Pristine DOM separation: Zero mixed-child ownership. Vanilla never alters React-owned child nodes, attributes, or text content; React never mutates `#navigator-list` or outer shell scaffolding.
 - All temporary compatibility guards (`data-react-managed`) and legacy Vanilla event fallbacks (`bindSidebarControls`) are removed.
 - Focus and accessibility management are strictly isolated inside React `useEffect` hooks.
-- The decision to keep the TOC List and outer Sidebar Shell in Vanilla TypeScript is a permanent, finalized architectural boundary.
+- The decision to keep the TOC List and outer Sidebar Shell in Vanilla TypeScript is the approved, finalized architectural boundary.
