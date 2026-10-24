@@ -1125,3 +1125,8 @@ html.luna-toc-external-overlay-open .navigator-jump-controls {
 .myprompt-btn:active {
   transform: scale(0.97);
 }
+
+/* Keep repaired Markdown bold visible if the host page resets strong weights. */
+strong[data-luna-toc-markdown-bold='true'] {
+  font-weight: 700 !important;
+}

@@ -170,3 +170,7 @@ CI uses supported GitHub Actions major versions and checks that the deprecated v
 同源网页可以伪造 MAIN-world `postMessage`，而 GET 404/410 也可能来自不支持的接口或访问限制，因此这两种信号都不能授权清理本地别名。为满足自动清理真实删除会话的需求，扩展在 MV3 service worker 中注册非阻塞 `chrome.webRequest` 观察器，过滤范围仅限 `chatgpt.com` 与 `chat.openai.com` 的会话 API 路径；只识别顶层 `DELETE` 或明确的非归档 `PATCH is_visible=false`，并仅在同一 requestId 完成且状态码为 2xx 时通知发起请求的标签页。隔离世界通过 `chrome.runtime` 接收通知，重新验证会话账号与已有别名归属，再调用原有带持久删除围栏的串行写入流程。
 
 代价是新增 `webRequest` 权限及仅限两个 ChatGPT 站点的主机权限。观察器不阻止或改写请求，不持久化请求正文，不记录消息内容，也不发送到外部服务；PATCH 正文只在内存中解析 `is_visible` 和 `is_archived` 字段。审计测试将精确允许这两个权限和站点范围，同时继续拒绝 `webRequestBlocking`、额外权限和广泛主机范围。若 Chrome 或 ChatGPT 改变网络 API，自动清理会失败关闭，保留数据并继续提供用户确认的本地清理。
+
+## D37 — 保守修复 ChatGPT 回答中未渲染的 Markdown 粗体标记
+
+仅当完整的双星号标记以普通文本出现在助手回答自身的 Markdown 容器时，才创建带有扩展标记属性的 `strong` DOM 节点。采用局部 DOM 转换而不是完整 Markdown 解析器，也不通过 `innerHTML` 解析不可信回答。未闭合、转义、三连星号、内联代码和数学语法均保守保留；用户消息、普通页面文本和已渲染粗体不修改。观察器只响应新增或更新的节点，并跳过其自身生成的粗体节点，以限制重复处理。功能不增加权限、网络请求或本地数据写入。分离到多个文本节点的标记对不跨节点拼接。自动化单测和模拟 Chromium 验证通过后仍需单独验证真实 ChatGPT 页面；回退时移除内容脚本启动、模块、样式与对应测试即可。
