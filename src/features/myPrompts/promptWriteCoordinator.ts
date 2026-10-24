@@ -54,7 +54,7 @@ function readPersistedPrompts(value: unknown): { prompts: SavedPrompt[]; hadUnow
       throw new Error('Prompt storage contains invalid data; refusing to overwrite it');
     }
     const raw = item as Record<string, unknown>;
-    if (!Object.hasOwn(raw, 'ownerId') || raw.ownerId === null || raw.ownerId === '') {
+    if (!validOwner(raw.ownerId)) {
       hadUnowned = true;
       continue;
     }

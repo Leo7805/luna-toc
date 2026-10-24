@@ -140,11 +140,14 @@ describe('background TOC alias coordinator', () => {
 
   it('deletes unowned legacy aliases and never attributes them to the active account', async () => {
     const legacy = { ownerId: null, aliases: { 'private-old': 'Previous account title' } };
-    const box = backing({ [key]: legacy });
+    const invalidOwnerKey = TOC_ALIAS_PREFIX + 'conversation-456';
+    const invalidOwner = { ownerId: 123, aliases: { message: 'Unbound too' } };
+    const box = backing({ [key]: legacy, [invalidOwnerKey]: invalidOwner });
     const writer = createTocAliasWriteCoordinator(box.storage);
     expect(await writer.commit({ type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-unowned' }))
-      .toEqual({ ok: true, cleaned: 1 });
+      .toEqual({ ok: true, cleaned: 2 });
     expect(box.data[key]).toBeUndefined();
+    expect(box.data[invalidOwnerKey]).toBeUndefined();
     expect((await writer.commit(update('new-message', null, 'new label', 'account-B'))).ok).toBe(true);
     expect(box.data[key]).toEqual({ ownerId: 'account-B', aliases: { 'new-message': 'new label' } });
   });

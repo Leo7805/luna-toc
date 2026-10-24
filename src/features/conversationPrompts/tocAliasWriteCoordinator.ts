@@ -43,7 +43,7 @@ const validOwner = (value: unknown): value is string =>
 function isUnownedRecord(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  return !Object.hasOwn(record, 'ownerId') || record.ownerId === null || record.ownerId === '';
+  return !validOwner(record.ownerId);
 }
 
 export function isTocAliasCommitRequest(value: unknown): value is TocAliasCommitRequest {

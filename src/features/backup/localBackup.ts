@@ -77,7 +77,7 @@ function integer(value: unknown, label: string): number {
 function isUnownedPromptRecord(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
-  return !Object.hasOwn(item, 'ownerId') || item.ownerId === null || item.ownerId === '';
+  return typeof item.ownerId !== 'string' || !item.ownerId.trim() || item.ownerId.length > 256;
 }
 
 function isUnownedAliasRecord(value: unknown): boolean {

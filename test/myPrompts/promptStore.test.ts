@@ -155,7 +155,8 @@ describe('single-tab My Prompts storage', () => {
   it('isolates prompt lists by verified account and preserves other accounts on edits', async () => {
     const otherAccount = { ...make('private-other'), ownerId: 'account-2' };
     const unowned = { id: 'legacy', title: 'Legacy', content: 'Delete me', createdAt: 1, updatedAt: 1 };
-    data[PROMPT_STORAGE_KEY] = [original, otherAccount, unowned];
+    const invalidOwner = { ...make('bad-owner'), ownerId: 123 };
+    data[PROMPT_STORAGE_KEY] = [original, otherAccount, unowned, invalidOwner];
     const store = createPromptStore();
     expect((await store.getAll()).map((prompt) => prompt.id)).toEqual(['saved']);
     expect(data[PROMPT_STORAGE_KEY]).toEqual([original, otherAccount]);
