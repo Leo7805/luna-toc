@@ -54,15 +54,14 @@ export async function readSidebarPreferences(): Promise<SidebarPreferences> {
   return normalizeSidebarPreferences(values[SIDEBAR_SETTINGS_KEY]);
 }
 
-/** Writes a complete, validated options record. */
+/** Applies only the changed fields, preserving concurrent edits from other tabs. */
 export async function writeSidebarPreferences(
-  settings: SidebarPreferences
+  patch: Partial<SidebarPreferences>
 ): Promise<void> {
   if (!chrome.runtime?.id) throw new Error('Invalid extension context: sidebar setting not saved');
-  const normalized = normalizeSidebarPreferences(settings);
   await new Promise<void>((resolve, reject) => {
     chrome.runtime.sendMessage({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: normalized,
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch,
     }, (response: SettingsCommitResponse | undefined) => {
       if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Settings writer unavailable'));
       else if (response?.ok) resolve();
