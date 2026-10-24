@@ -1,5 +1,5 @@
 /** Renders LunaTOC preferences using ChatGPT-like settings groups. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LocalBackupSettings } from './LocalBackupSettings';
 import { LocalAliasCleanupSettings } from './LocalAliasCleanupSettings';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@/config/config';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
+  SidebarSettingsConflictError,
   SIDEBAR_COLORS,
   readSidebarPreferences,
   subscribeSidebarPreferences,
@@ -24,6 +25,9 @@ export function OptionsApp(): React.JSX.Element {
     DEFAULT_SIDEBAR_PREFERENCES
   );
   const [saveError, setSaveError] = useState('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const pendingSidebarWrite = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +38,10 @@ export function OptionsApp(): React.JSX.Element {
     };
     refresh();
     void readSidebarPreferences().then((values) => {
-      if (!cancelled) setPreferences(values);
+      if (!cancelled) {
+        setPreferences(values);
+        setSettingsLoaded(true);
+      }
     }).catch(() => {
       if (!cancelled) setSaveError('无法读取设置，请检查扩展存储权限。');
     });
@@ -55,13 +62,30 @@ export function OptionsApp(): React.JSX.Element {
     };
   }, []);
 
-  /** Applies changes locally and publishes them to every ChatGPT tab. */
+  /** Save only changed fields, comparing each to the editor's last visible value. */
   const updatePreferences = (patch: Partial<SidebarPreferences>): void => {
+    // Stop two fast clicks from comparing against an unsaved optimistic value.
+    if (!settingsLoaded || pendingSidebarWrite.current) return;
+    const expected = Object.fromEntries(
+      Object.keys(patch).map((key) => [key, preferences[key as keyof SidebarPreferences]])
+    ) as Partial<SidebarPreferences>;
+    pendingSidebarWrite.current = true;
+    setSavingSettings(true);
     setPreferences((previous) => ({ ...previous, ...patch }));
     setSaveError('');
-    void writeSidebarPreferences(patch).catch(() => {
-      setSaveError('设置保存失败，请重试。');
-      void readSidebarPreferences().then(setPreferences).catch(() => {});
+    void writeSidebarPreferences(patch, expected).catch((error: unknown) => {
+      setSaveError(error instanceof SidebarSettingsConflictError
+        ? '设置已在其他页面修改，当前操作未保存；已重新读取最新设置，请重新选择。'
+        : '设置保存失败，当前操作未保存；请检查存储状态并重试。');
+    }).then(async () => {
+      try {
+        setPreferences(await readSidebarPreferences());
+      } catch {
+        setSaveError('无法读取最新设置，请重新打开设置页面后再修改。');
+      }
+    }).finally(() => {
+      pendingSidebarWrite.current = false;
+      setSavingSettings(false);
     });
   };
 
@@ -100,6 +124,7 @@ export function OptionsApp(): React.JSX.Element {
               </span>
               <input type="radio" name="sidebar-layout" value={mode.id}
                 checked={preferences.layoutMode === mode.id}
+                disabled={!settingsLoaded || savingSettings}
                 onChange={() => updatePreferences({ layoutMode: mode.id })} />
             </label>
           ))}
@@ -119,6 +144,7 @@ export function OptionsApp(): React.JSX.Element {
                 title={color.label} aria-label={color.label}>
                 <input type="radio" name="sidebar-color" value={color.id}
                   checked={preferences.backgroundColor === color.id}
+                  disabled={!settingsLoaded || savingSettings}
                   onChange={() => updatePreferences({ backgroundColor: color.id })} />
                 <span className="settings-swatch" style={{ backgroundColor: color.hex }}
                   aria-hidden="true">
@@ -136,6 +162,7 @@ export function OptionsApp(): React.JSX.Element {
             </span>
             <input className="settings-switch-input" type="checkbox"
               checked={preferences.revealTint}
+              disabled={!settingsLoaded || savingSettings}
               onChange={(event) => updatePreferences({ revealTint: event.target.checked })} />
             <span className="settings-switch-track" aria-hidden="true" />
           </label>
@@ -162,6 +189,7 @@ export function OptionsApp(): React.JSX.Element {
       </section>
       <LocalBackupSettings />
       <LocalAliasCleanupSettings />
+      {savingSettings && <p className="settings-backup-status" role="status">正在保存侧边栏设置…</p>}
       {saveError && <p className="settings-error" role="alert">{saveError}</p>}
       <p className="settings-footnote">设置保存在浏览器本地，不会上传到维护者服务器。</p>
     </main>
