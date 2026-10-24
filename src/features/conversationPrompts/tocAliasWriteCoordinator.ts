@@ -1,4 +1,4 @@
-/** Coordinates TOC alias writes across content-script tabs in the MV3 worker. */
+/** Validates and persists TOC alias updates in the MV3 worker. */
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
 import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
@@ -16,7 +16,6 @@ export type TocAliasCommitRequest =
     action: 'update';
     routeKey: string;
     messageId: string;
-    expected: string | null;
     label: string | null;
     ownerId: string | null;
   }
@@ -49,7 +48,7 @@ export function isTocAliasCommitRequest(value: unknown): value is TocAliasCommit
     catch { return false; }
   }
   return input.action === 'update' && isValidTocMessageId(input.messageId) &&
-    validLabel(input.expected) && validLabel(input.label) && validOwner(input.ownerId);
+    validLabel(input.label) && validOwner(input.ownerId);
 }
 
 /** Reject malformed saved records instead of overwriting data we cannot interpret. */
@@ -110,8 +109,7 @@ export function createTocAliasWriteCoordinator(
                 return { ok: false, conflict: true };
               }
             }
-            // Fence before removal so previously open tabs cannot resurrect
-            // the explicitly deleted record. Backup restore clears this fence.
+            // Preserve explicit deletion across worker restarts and backup restore.
             if (!Object.hasOwn(state, deletionKey)) await storage.set({ [deletionKey]: true });
             await storage.remove(key);
             return { ok: true, deleted: true };
@@ -129,7 +127,6 @@ export function createTocAliasWriteCoordinator(
             return { ok: false, error: 'Conversation belongs to another account' };
           }
           const oldLabel = previous?.aliases[request.messageId] ?? null;
-          if (oldLabel !== request.expected) return { ok: false, conflict: true };
           const aliases: Record<string, string> = Object.assign(Object.create(null), previous?.aliases);
           if (request.label === null) delete aliases[request.messageId];
           else aliases[request.messageId] = request.label;

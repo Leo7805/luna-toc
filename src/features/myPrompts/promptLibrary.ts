@@ -381,7 +381,7 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   if (!shouldClear) return;
 
   try {
-    await requirePromptStore().clearAll(prompts);
+    await requirePromptStore().clearAll();
     onRefresh();
   } catch (error) {
     await showPromptModal({

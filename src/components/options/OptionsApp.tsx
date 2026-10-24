@@ -9,7 +9,6 @@ import {
 } from '@/config/config';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
-  SidebarSettingsConflictError,
   SIDEBAR_COLORS,
   readSidebarPreferences,
   subscribeSidebarPreferences,
@@ -62,21 +61,16 @@ export function OptionsApp(): React.JSX.Element {
     };
   }, []);
 
-  /** Save only changed fields, comparing each to the editor's last visible value. */
+  /** Save changed fields while preventing duplicate UI submissions. */
   const updatePreferences = (patch: Partial<SidebarPreferences>): void => {
-    // Stop two fast clicks from comparing against an unsaved optimistic value.
+    // Prevent two fast clicks from triggering overlapping saves.
     if (!settingsLoaded || pendingSidebarWrite.current) return;
-    const expected = Object.fromEntries(
-      Object.keys(patch).map((key) => [key, preferences[key as keyof SidebarPreferences]])
-    ) as Partial<SidebarPreferences>;
     pendingSidebarWrite.current = true;
     setSavingSettings(true);
     setPreferences((previous) => ({ ...previous, ...patch }));
     setSaveError('');
-    void writeSidebarPreferences(patch, expected).catch((error: unknown) => {
-      setSaveError(error instanceof SidebarSettingsConflictError
-        ? '设置已在其他页面修改，当前操作未保存；已重新读取最新设置，请重新选择。'
-        : '设置保存失败，当前操作未保存；请检查存储状态并重试。');
+    void writeSidebarPreferences(patch).catch(() => {
+      setSaveError('设置保存失败，当前操作未保存；请检查存储状态并重试。');
     }).then(async () => {
       try {
         setPreferences(await readSidebarPreferences());

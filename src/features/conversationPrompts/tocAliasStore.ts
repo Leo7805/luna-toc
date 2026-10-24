@@ -1,4 +1,4 @@
-/** Per-tab TOC alias cache; every mutation is committed by the MV3 worker. */
+/** TOC alias cache with ordered local writes and account-scoped visibility. */
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
 import { getActiveConversationOwner, subscribeActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 import {
@@ -85,10 +85,10 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
     return record.aliases[messageId] ?? null;
   }
 
-  /** expectedAlias is captured when the inline editor opens, not at save time. */
+  /** Saves a label without cross-tab version comparisons. */
   function update(
     routeKey: string, messageId: string, text: string | null,
-    ownerId: string | null, expectedAlias?: string | null
+    ownerId: string | null, _expectedAlias?: string | null
   ): Promise<void> {
     if (!isPermanentConversationId(routeKey) || !messageId) {
       return Promise.reject(new Error('Conversation must have a permanent ID'));
@@ -113,18 +113,12 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
       if (existingOwner !== null && existingOwner !== undefined && existingOwner !== ownerId) {
         throw new Error('Conversation alias belongs to another account');
       }
-      const expected = expectedAlias === undefined ? get(routeKey, messageId) : expectedAlias;
       const beforeEvents = changesSeen.get(routeKey) ?? 0;
       const response = await sendCommit({
         type: TOC_ALIAS_COMMIT_TYPE, action: 'update',
-        routeKey, messageId, label, expected, ownerId,
+        routeKey, messageId, label, ownerId,
       });
       if (!response.ok) {
-        if ('conflict' in response) {
-          // Show the new persisted value without retrying an overlapping edit.
-          await read(routeKey).catch(() => undefined);
-          throw new Error('TOC alias changed in another tab; reopen the editor');
-        }
         if (response.error === 'Conversation has been deleted') {
           deleted.add(routeKey);
           loaded.delete(routeKey);

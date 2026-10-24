@@ -1,4 +1,4 @@
-/** Serializes My Prompts commits in the Manifest V3 background service worker. */
+/** Validates My Prompts writes in the Manifest V3 background service worker. */
 import type { SavedPrompt } from './promptStore';
 import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
@@ -7,11 +7,10 @@ export const PROMPT_COMMIT_TYPE = 'LUNA_TOC_PROMPTS_COMMIT_V1';
 const MAX_RECORDS = 20_000;
 
 export type PromptCommitRequest =
-  | { type: typeof PROMPT_COMMIT_TYPE; expected: SavedPrompt[]; next: SavedPrompt[]; action?: undefined }
-  | { type: typeof PROMPT_COMMIT_TYPE; action: 'clear-all'; expected: SavedPrompt[] };
+  | { type: typeof PROMPT_COMMIT_TYPE; next: SavedPrompt[]; action?: undefined }
+  | { type: typeof PROMPT_COMMIT_TYPE; action: 'clear-all' };
 export type PromptCommitResponse =
   | { ok: true }
-  | { ok: false; conflict: true }
   | { ok: false; error: string };
 
 type PromptStorage = Pick<chrome.storage.StorageArea, 'get' | 'set'> & Partial<Pick<chrome.storage.StorageArea, 'remove'>>;
@@ -68,14 +67,14 @@ export function equalPromptLists(left: SavedPrompt[], right: SavedPrompt[]): boo
 export function isPromptCommitRequest(value: unknown): value is PromptCommitRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
-  if (item.type !== PROMPT_COMMIT_TYPE || !isPromptList(item.expected)) return false;
+  if (item.type !== PROMPT_COMMIT_TYPE) return false;
   if (item.action === 'clear-all') return !Object.hasOwn(item, 'next');
   return item.action === undefined && isPromptList(item.next);
 }
 
 /**
- * All extension-owned writes share the injected background queue. A read/check/write
- * stays in one queued job so backup restoration cannot interleave with prompt commits.
+ * Ordered background writes remain coordinated with backup restoration,
+ * even when the user works in only one ChatGPT tab.
  */
 export function createPromptWriteCoordinator(
   storage: PromptStorage = chrome.storage.local,
@@ -92,14 +91,11 @@ export function createPromptWriteCoordinator(
           const keys = [PROMPT_STORAGE_KEY, USAGE_STORAGE_KEY];
           const result = await storage.get(isClear ? keys : PROMPT_STORAGE_KEY);
           const persisted: unknown = result[PROMPT_STORAGE_KEY];
-          // Never wipe unreadable legacy data during a stale-tab commit.
+          // Never overwrite unreadable stored data.
           if (persisted !== undefined && !isPromptList(persisted)) {
             return { ok: false, error: 'Prompt storage contains invalid data; refusing to overwrite' };
           }
           const current = persisted === undefined ? [] : persisted as SavedPrompt[];
-          if (!equalPromptLists(current, request.expected)) {
-            return { ok: false, conflict: true };
-          }
           if (isClear) {
             // Both related keys are changed in one background queue job. Chrome
             // storage is not transactional: verify and compensate on failures.
