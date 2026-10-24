@@ -2,7 +2,7 @@
 
 - Date: 2026-10-24
 - Priority: P2
-- Status: Fix committed on `fix/b033-outline-scroll-conflict`; awaiting PR CI.
+- Status: Fix committed; implementation-head CI passed. The PR remains draft while CI reruns for this documentation update and live-site behavior remains unverified.
 
 ## Symptom
 
@@ -20,9 +20,17 @@ After navigating to a heading inside an answer, using a top/bottom edge control 
 
 The controller regression test verifies that both bottom-edge click navigation and absolute top-edge navigation cancel outline positioning before starting the new edge jump. Existing outline tests cover cancellation of delayed heading retries.
 
-## Verification boundary
+## Verification
 
-The final PR head's GitHub Actions run is the source of truth for automated checks. Real authenticated ChatGPT interaction is not considered verified unless a live-browser test is actually executed.
+GitHub Actions run [#40102328225](https://github.com/PyRookie1/luna-toc-sc/actions/runs/40102328225) passed for implementation head `27624440ae4401478889a4b8752f179613da5cf9`:
+
+- TypeScript type-check passed.
+- Vitest: 85 test files, 561 tests passed.
+- Chrome extension build, built-file verification, ZIP creation, privilege-boundary/license audit passed.
+- Headless Chromium MV3 fixture: 10 TAP tests including the parent test; the fixture is synthetic and does not use a live ChatGPT account.
+- Dependency advisory gate passed.
+
+The current branch adds only this verification record, so CI must pass again for the final PR head before merge eligibility is reconsidered. Real authenticated ChatGPT interaction remains unverified.
 
 ## Rollback
 
