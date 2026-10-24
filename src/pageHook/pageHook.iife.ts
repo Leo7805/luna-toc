@@ -30,7 +30,7 @@ import {
   inspectStream,
   postConversationData,
 } from './conversationCapture';
-import { installConversationBackfill } from './conversationBackfill';
+import { cancelBackfillsExcept, installConversationBackfill } from './conversationBackfill';
 import { installConversationRefresh } from './conversationRefresh';
 import {
   getDeletionTarget,
@@ -60,6 +60,10 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
   const observeRefreshHeaders = installConversationRefresh(originalFetch, platform);
   installConversationLifecycle(originalFetch);
   installHistoryHook(platform.pageHook.messages.routeChanged);
+  // Back/forward navigation bypasses history.pushState/replaceState wrappers.
+  window.addEventListener('popstate', () => {
+    cancelBackfillsExcept(platform.routing.getCurrentRouteKey());
+  });
   installTitleObserver(platform.pageHook.messages.titleChanged);
 
   window.addEventListener('message', (event: MessageEvent): void => {
@@ -70,6 +74,7 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
       contractValues?: Record<string, unknown>;
     } | null;
     if (data?.type === platform.pageHook.messages.routeChanged) {
+      cancelBackfillsExcept(platform.routing.getCurrentRouteKey());
       resetContractMismatchCounters();
       return;
     }
