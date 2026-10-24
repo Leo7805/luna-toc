@@ -4,6 +4,7 @@ import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_COLORS,
   SIDEBAR_SETTINGS_KEY,
+  SidebarSettingsConflictError,
   normalizeSidebarPreferences,
   readSidebarPreferences,
   sidebarAppearance,
@@ -22,13 +23,26 @@ const set = vi.fn(async (payload: Record<string, unknown>) => {
     ), 'local');
   }
 });
-const sendMessage = vi.fn((message: { action: string; settings?: unknown },
-  callback: (response: { ok: boolean; error?: string }) => void) => {
-  if (message.action !== 'sidebar' || !message.settings) {
+const sendMessage = vi.fn((
+  message: {
+    action: string;
+    patch?: Partial<import('@/features/sidebar/sidebarPreferences').SidebarPreferences>;
+    expected?: Partial<import('@/features/sidebar/sidebarPreferences').SidebarPreferences>;
+  },
+  callback: (response: { ok: boolean; error?: string; conflict?: boolean }) => void
+) => {
+  if (message.action !== 'sidebar-patch' || !message.patch || !message.expected) {
     callback({ ok: false, error: 'unexpected message' });
     return;
   }
-  void set({ [SIDEBAR_SETTINGS_KEY]: message.settings }).then(
+  const current = normalizeSidebarPreferences(saved[SIDEBAR_SETTINGS_KEY]);
+  for (const key of Object.keys(message.patch) as Array<keyof typeof current>) {
+    if (current[key] !== message.expected[key]) {
+      callback({ ok: false, conflict: true });
+      return;
+    }
+  }
+  void set({ [SIDEBAR_SETTINGS_KEY]: { ...current, ...message.patch } }).then(
     () => callback({ ok: true }),
     (error: unknown) => callback({ ok: false, error: error instanceof Error ? error.message : 'write failed' })
   );
@@ -84,15 +98,27 @@ describe('sidebar preferences', () => {
     const notify = vi.fn();
     const unsubscribe = subscribeSidebarPreferences(notify);
     const update = { layoutMode: 'side-by-side' as const, backgroundColor: 'pink' as const, revealTint: true };
-    await writeSidebarPreferences(update);
+    await writeSidebarPreferences(update, DEFAULT_SIDEBAR_PREFERENCES);
     expect(set).toHaveBeenCalledWith({ [SIDEBAR_SETTINGS_KEY]: update });
     expect(await readSidebarPreferences()).toEqual(update);
     expect(notify).toHaveBeenCalledWith(update);
     unsubscribe();
-    await writeSidebarPreferences(DEFAULT_SIDEBAR_PREFERENCES);
+    await writeSidebarPreferences(DEFAULT_SIDEBAR_PREFERENCES, update);
     expect(notify).toHaveBeenCalledTimes(1);
   });
 
+
+  it('rejects an outdated same-field edit and exposes the conflict to the settings UI', async () => {
+    await writeSidebarPreferences({ backgroundColor: 'blue' }, { backgroundColor: 'default' });
+    await expect(writeSidebarPreferences(
+      { backgroundColor: 'green' }, { backgroundColor: 'default' }
+    )).rejects.toBeInstanceOf(SidebarSettingsConflictError);
+    expect((await readSidebarPreferences()).backgroundColor).toBe('blue');
+    expect(set).toHaveBeenCalledTimes(1);
+
+    await writeSidebarPreferences({ backgroundColor: 'green' }, { backgroundColor: 'blue' });
+    expect((await readSidebarPreferences()).backgroundColor).toBe('green');
+  });
   it('generates theme-aware semi-transparent activation colors that follow the palette', () => {
     expect(SIDEBAR_COLORS.map((c) => c.id)).toEqual([
       'default', 'blue', 'green', 'yellow', 'pink', 'orange',
