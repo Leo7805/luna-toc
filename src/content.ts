@@ -8,7 +8,9 @@ import { startPageHookMismatchBridge, startChatGptConfigSync } from '@/features/
 import { initializeReactHost } from '@/reactHost/reactHost';
 
 // Start the existing sidebar and browser-integration features.
-void initializeApplication();
+void initializeApplication().catch((error: unknown) => {
+  console.error('[LunaTOC] Application initialization failed:', error);
+});
 
 // Prepare the Shadow DOM boundary used by current and future React interfaces.
 void initializeReactHost();

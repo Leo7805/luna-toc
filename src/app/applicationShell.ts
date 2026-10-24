@@ -62,6 +62,12 @@ function waitForBody(): Promise<HTMLElement> {
 async function createSidebar(): Promise<HTMLElement> {
   await waitForBody();
 
+  if (document.getElementById('luna-toc-sidebar')) {
+    throw new Error(
+      'LunaTOC: cannot initialize application shell because #luna-toc-sidebar already exists in DOM'
+    );
+  }
+
   const sidebar = document.createElement('div');
   const sidebarConfig = APP_CONFIG.ui.sidebar;
 
@@ -135,7 +141,9 @@ function initTheme(): void {
   let settings: ThemeSettings | null = null;
 
   const handleChatGPTTheme = (theme: ResolvedTheme): void => {
-    void writeResolvedChatGPTTheme(theme);
+    void writeResolvedChatGPTTheme(theme).catch((error) => {
+      console.error('[LunaTOC] Failed to write resolved theme:', error);
+    });
     if (settings?.followChatGPT) applyTheme(theme);
   };
   const applySettings = (nextSettings: ThemeSettings): void => {
@@ -148,7 +156,11 @@ function initTheme(): void {
   };
 
   observeChatGPTTheme(handleChatGPTTheme);
-  void readThemeSettings().then(applySettings);
+  void readThemeSettings()
+    .then(applySettings)
+    .catch((error) => {
+      console.error('[LunaTOC] Failed to read theme settings:', error);
+    });
   subscribeThemeSettings((nextSettings) => {
     applySettings(nextSettings);
   });
@@ -175,20 +187,24 @@ function initPromptColors(): void {
     applyPromptColorStyles(currentSettings);
   });
 
-  void readPromptColorSettings().then((stored) => {
-    let shouldApply = false;
-    if (!hasLiveFavUpdate) {
-      currentSettings.favouriteColor = stored.favouriteColor;
-      shouldApply = true;
-    }
-    if (!hasLiveRenamedUpdate) {
-      currentSettings.renamedColor = stored.renamedColor;
-      shouldApply = true;
-    }
-    if (shouldApply) {
-      applyPromptColorStyles(currentSettings);
-    }
-  });
+  void readPromptColorSettings()
+    .then((stored) => {
+      let shouldApply = false;
+      if (!hasLiveFavUpdate) {
+        currentSettings.favouriteColor = stored.favouriteColor;
+        shouldApply = true;
+      }
+      if (!hasLiveRenamedUpdate) {
+        currentSettings.renamedColor = stored.renamedColor;
+        shouldApply = true;
+      }
+      if (shouldApply) {
+        applyPromptColorStyles(currentSettings);
+      }
+    })
+    .catch((error) => {
+      console.error('[LunaTOC] Failed to read prompt color settings:', error);
+    });
 }
 
 /**
@@ -211,53 +227,76 @@ function applyStackingConfig(): void {
   rootStyle.setProperty('--ct-z-modal', String(baseZIndex + offsets.modal));
 }
 
+let initializationPromise: Promise<void> | null = null;
+
 /**
  * Starts the application after all feature and controller scripts load.
+ * Returns the cached Promise on repeated calls for runtime idempotency.
+ * @returns {Promise<void>}
  */
-export async function initializeApplication(): Promise<void> {
-  applyStackingConfig();
-  await initializeCustomTocTitles();
-  initTheme();
-  initPromptColors();
-  navigatorController.init({
-    onPromptCountChanged: sidebarController.setPromptCount,
-    onPromptAdded: () => sidebarController.setViewMode('toc'),
-    onRouteChanged: () => {
-      sidebarController.clearSearch();
-      sidebarController.setNavigatorTitle();
-      resetTocFilterMode();
-    },
-    onSavePrompt: sidebarController.handleSavePrompt,
-    onTitleChanged: sidebarController.setNavigatorTitle,
-  });
-  const sidebar = await createSidebar();
-  sidebar.addEventListener('contextmenu', (event) => {
-    if (sidebarController.getViewSnapshot().viewMode !== 'toc') return;
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-    if (target.closest('input, textarea')) return;
-    if (target.closest('.navigator-item')) return;
+export function initializeApplication(): Promise<void> {
+  if (initializationPromise) {
+    return initializationPromise;
+  }
 
-    event.preventDefault();
-    openTocFilterMenu({ left: event.clientX, top: event.clientY });
-  });
-  sidebarController.init();
-  initSidebarResize(sidebar);
-  initFloatingPanel();
+  initializationPromise = (async () => {
+    if (document.getElementById('luna-toc-sidebar')) {
+      throw new Error(
+        'LunaTOC: cannot initialize application shell because #luna-toc-sidebar already exists in DOM'
+      );
+    }
 
-  initializeSidebarVisibility(sidebar);
-  previewTooltip.init({
-    anchorSelector: '#navigator-list, #myprompts-list',
-  });
-  buttonTooltip.init();
-  myPrompts.initAutocomplete();
-  navigatorController.attach();
+    applyStackingConfig();
+    await initializeCustomTocTitles();
+    initTheme();
+    initPromptColors();
+    navigatorController.init({
+      onPromptCountChanged: sidebarController.setPromptCount,
+      onPromptAdded: () => sidebarController.setViewMode('toc'),
+      onRouteChanged: () => {
+        sidebarController.clearSearch();
+        sidebarController.setNavigatorTitle();
+        resetTocFilterMode();
+      },
+      onSavePrompt: sidebarController.handleSavePrompt,
+      onTitleChanged: sidebarController.setNavigatorTitle,
+    });
+    const sidebar = await createSidebar();
+    sidebar.addEventListener('contextmenu', (event) => {
+      if (sidebarController.getViewSnapshot().viewMode !== 'toc') return;
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest('input, textarea')) return;
+      if (target.closest('.navigator-item')) return;
 
-  myPrompts.onPromptsChanged((prompts) => {
-    sidebarController.setMyPromptsCount(prompts.length);
-    sidebarController.refreshMyPromptsIfActive();
-  });
-  void myPrompts.getMyPrompts().then((prompts) => {
-    sidebarController.setMyPromptsCount(prompts.length);
-  });
+      event.preventDefault();
+      openTocFilterMenu({ left: event.clientX, top: event.clientY });
+    });
+    sidebarController.init();
+    initSidebarResize(sidebar);
+    initFloatingPanel();
+
+    initializeSidebarVisibility(sidebar);
+    previewTooltip.init({
+      anchorSelector: '#navigator-list, #myprompts-list',
+    });
+    buttonTooltip.init();
+    myPrompts.initAutocomplete();
+    navigatorController.attach();
+
+    myPrompts.onPromptsChanged((prompts) => {
+      sidebarController.setMyPromptsCount(prompts.length);
+      sidebarController.refreshMyPromptsIfActive();
+    });
+    void myPrompts
+      .getMyPrompts()
+      .then((prompts) => {
+        sidebarController.setMyPromptsCount(prompts.length);
+      })
+      .catch((error) => {
+        console.error('[LunaTOC] Failed to load initial prompt count:', error);
+      });
+  })();
+
+  return initializationPromise;
 }

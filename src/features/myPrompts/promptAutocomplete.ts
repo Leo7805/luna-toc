@@ -35,6 +35,48 @@ let autocompleteRequestVersion = 0;
 const autocompleteTriggerPattern =
   /(^|[\s.,!?;:()[\]{}<>"]|'|`|~|，|。|！|？|；|：|、|（|）|【|】|《|》])((?:\/\/)|#)([^\s]*)$/;
 
+let isAutocompleteInitialized = false;
+
+/**
+ * Handles input events on the composer element.
+ * @param {Event} event
+ */
+function handleDocumentInput(event: Event): void {
+  if (isProgrammaticInsert) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  // The ChatGPT composer was rewritten in 2026 from a
+  // `<textarea id="prompt-textarea">` to a contenteditable ProseMirror
+  // div, so match by the platform-provided selector instead of an id.
+  const composer = target.closest(
+    getActivePlatform().myPrompts.composerTextareaSelector
+  );
+  if (!(composer instanceof HTMLElement)) return;
+  currentTextarea = composer;
+  handleTextareaInput(composer);
+}
+
+/**
+ * Handles document clicks to dismiss the autocomplete menu when clicked outside.
+ * @param {MouseEvent} event
+ */
+function handleDocumentClick(event: MouseEvent): void {
+  if (
+    promptAutocompleteViewController.getSnapshot() &&
+    event.target instanceof Node &&
+    !isAutocompleteMenuEvent(event) &&
+    // For a contenteditable composer, clicks land on child paragraphs
+    // rather than the editor itself, so test with `contains` instead of
+    // a strict reference equality.
+    !(currentTextarea && currentTextarea.contains(event.target))
+  ) {
+    closeAutocompleteMenu();
+  }
+}
+
 /**
  * Connects autocomplete to the prompt library.
  * @param {Object} dependencies
@@ -52,41 +94,31 @@ export function initializePromptAutocomplete(
 
 /**
  * Initializes the autocomplete overlay on ChatGPT's input textarea.
+ * Guaranteed idempotent; ignores duplicate calls.
  */
 export function initAutocomplete(): void {
-  document.addEventListener('input', (event) => {
-    if (isProgrammaticInsert) {
-      return;
-    }
+  if (isAutocompleteInitialized) {
+    return;
+  }
+  isAutocompleteInitialized = true;
 
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    // The ChatGPT composer was rewritten in 2026 from a
-    // `<textarea id="prompt-textarea">` to a contenteditable ProseMirror
-    // div, so match by the platform-provided selector instead of an id.
-    const composer = target.closest(
-      getActivePlatform().myPrompts.composerTextareaSelector
-    );
-    if (!(composer instanceof HTMLElement)) return;
-    currentTextarea = composer;
-    handleTextareaInput(composer);
-  });
-
+  document.addEventListener('input', handleDocumentInput);
   document.addEventListener('keydown', handleTextareaKeydown, true);
+  document.addEventListener('click', handleDocumentClick);
+}
 
-  document.addEventListener('click', (event) => {
-    if (
-      promptAutocompleteViewController.getSnapshot() &&
-      event.target instanceof Node &&
-      !isAutocompleteMenuEvent(event) &&
-      // For a contenteditable composer, clicks land on child paragraphs
-      // rather than the editor itself, so test with `contains` instead of
-      // a strict reference equality.
-      !(currentTextarea && currentTextarea.contains(event.target))
-    ) {
-      closeAutocompleteMenu();
-    }
-  });
+/**
+ * Cleans up listeners and resets autocomplete state for test isolation.
+ */
+export function resetAutocompleteForTesting(): void {
+  if (isAutocompleteInitialized) {
+    document.removeEventListener('input', handleDocumentInput);
+    document.removeEventListener('keydown', handleTextareaKeydown, true);
+    document.removeEventListener('click', handleDocumentClick);
+    isAutocompleteInitialized = false;
+  }
+  closeAutocompleteMenu();
+  currentTextarea = null;
 }
 
 /**
