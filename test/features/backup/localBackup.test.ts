@@ -106,6 +106,70 @@ describe('versioned local backup', () => {
     expect(box.remove).not.toHaveBeenCalled();
   });
 
+
+  it('exports orphan-free usage without silently changing local storage', async () => {
+    const orphan = { usageCount: 9, lastUsedAt: 9 };
+    const box = storageHarness({
+      [PROMPTS]: [prompt('saved')],
+      [USAGE]: {
+        saved: { usageCount: 2, lastUsedAt: 3 },
+        deleted: orphan,
+      },
+    });
+    const backup = await createLocalBackup(box.storage);
+    expect(backup.data.promptUsage).toEqual({ saved: { usageCount: 2, lastUsedAt: 3 } });
+    expect(box.state[USAGE]).toEqual({
+      saved: { usageCount: 2, lastUsedAt: 3 }, deleted: orphan,
+    });
+    expect(box.set).not.toHaveBeenCalled();
+    expect(box.remove).not.toHaveBeenCalled();
+    expect(parseLocalBackup(JSON.stringify(backup))).toEqual(backup);
+  });
+
+  it('merges a valid import with local orphan statistics and reconciles usage', async () => {
+    const box = storageHarness({
+      [PROMPTS]: [prompt('temporary')],
+      [USAGE]: {
+        temporary: { usageCount: 1, lastUsedAt: 2 },
+        deleted: { usageCount: 9, lastUsedAt: 9 },
+      },
+      'other-key': 'preserve',
+    });
+    await restoreLocalBackup(sample(), 'merge', box.storage);
+    expect(box.state[PROMPTS]).toEqual([prompt('temporary'), prompt('saved')]);
+    expect(box.state[USAGE]).toEqual({
+      temporary: { usageCount: 1, lastUsedAt: 2 },
+      saved: { usageCount: 2, lastUsedAt: 3 },
+    });
+    expect(box.state['other-key']).toBe('preserve');
+  });
+
+  it('still rejects imported orphan usage and preserves all local records', async () => {
+    const incoming = sample();
+    incoming.data.promptUsage.deleted = { usageCount: 1, lastUsedAt: 2 };
+    const box = storageHarness({
+      [PROMPTS]: [prompt('current')],
+      [USAGE]: { deleted: { usageCount: 3, lastUsedAt: 4 } },
+    });
+    const original = clone(box.state);
+    expect(() => parseLocalBackup(JSON.stringify(incoming))).toThrow('引用了不存在的提示词');
+    await expect(restoreLocalBackup(incoming, 'merge', box.storage))
+      .rejects.toThrow('引用了不存在的提示词');
+    expect(box.state).toEqual(original);
+    expect(box.set).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the orphan usage cleanup if a merge write fails', async () => {
+    const box = storageHarness({
+      [PROMPTS]: [prompt('temporary')],
+      [USAGE]: { deleted: { usageCount: 9, lastUsedAt: 9 } },
+    });
+    const original = clone(box.state);
+    box.failSet('after');
+    await expect(restoreLocalBackup(sample(), 'merge', box.storage)).rejects.toThrow('已回滚');
+    expect(box.state).toEqual(original);
+  });
+
   it('uses the legacy theme only when no new theme record exists', async () => {
     const box = storageHarness({ 'chatToc:theme': 'light' });
     expect((await createLocalBackup(box.storage)).data.theme)

@@ -202,9 +202,17 @@ export async function createLocalBackup(
       ? { followChatGPT: false, manualTheme: all[LEGACY_THEME_KEY] }
       : { followChatGPT: true, manualTheme: 'dark' }
   );
+  // A deleted prompt can leave usage metadata behind if its asynchronous cleanup
+  // failed. Omit that orphan from the read-only export snapshot; never weaken
+  // validation of imported files or mutate the user's storage while exporting.
+  const prompts = validatePrompts(all[PROMPTS_KEY] ?? []);
+  const existingUsage = validateUsage(all[USAGE_KEY] ?? {});
+  const validPromptIds = new Set(prompts.map((prompt) => prompt.id));
+  const promptUsage = Object.fromEntries(Object.entries(existingUsage)
+    .filter(([id]) => validPromptIds.has(id)));
   const data = validateData({
-    prompts: all[PROMPTS_KEY] ?? [],
-    promptUsage: all[USAGE_KEY] ?? {},
+    prompts,
+    promptUsage,
     aliases,
     theme,
     sidebar: all[SIDEBAR_KEY] ?? { ...DEFAULT_SIDEBAR_PREFERENCES },
