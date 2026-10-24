@@ -21,6 +21,8 @@ export interface PromptStore {
   getAll(): Promise<SavedPrompt[]>;
   /** Replaces the observed snapshot, rejecting concurrent changes. Prefer update(). */
   saveAll(prompts: SavedPrompt[]): Promise<void>;
+  /** Delete an observed snapshot and its usage together. */
+  clearAll(observedPrompts: SavedPrompt[]): Promise<void>;
   update(transform: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void>;
   subscribe(listener: PromptsChangedListener): () => void;
 }
@@ -190,6 +192,34 @@ export function createPromptStore(): PromptStore {
         const result = await backgroundCommit(expected, next);
         if (result !== 'ok') throw new Error('Prompts changed in another tab; reload before replacing them');
         publish(next);
+      });
+    },
+    clearAll(observedPrompts: SavedPrompt[]): Promise<void> {
+      const baseline = observed.get(observedPrompts);
+      if (!baseline) return Promise.reject(new Error('Read prompts before clearing the collection'));
+      const expected = clone(baseline);
+      return enqueue(async () => {
+        const latest = await readFresh();
+        if (!equalPromptLists(expected, latest)) {
+          publish(latest);
+          throw new Error('其他标签页已修改提示词，请重新确认清空操作。');
+        }
+        if (!isContextValid()) throw new Error('Invalid extension context: prompts were not cleared');
+        const response = await new Promise<PromptCommitResponse>((resolve, reject) => {
+          chrome.runtime.sendMessage(
+            { type: PROMPT_COMMIT_TYPE, action: 'clear-all', expected },
+            (result: PromptCommitResponse | undefined) => {
+              if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Background writer unavailable'));
+              else if (result && typeof result.ok === 'boolean') resolve(result);
+              else reject(new Error('Background writer did not confirm the clear'));
+            }
+          );
+        });
+        if (!response.ok) {
+          if ('conflict' in response) throw new Error('其他标签页已修改提示词，请重新确认清空操作。');
+          throw new Error(response.error);
+        }
+        publish([]);
       });
     },
     update(transform: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void> {

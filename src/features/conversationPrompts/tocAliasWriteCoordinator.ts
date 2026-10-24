@@ -30,7 +30,7 @@ export type TocAliasCommitResponse =
 
 type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
 
-const validId = (value: unknown): value is string =>
+export const isValidTocMessageId =  (value: unknown): value is string =>
   typeof value === 'string' && !!value && value.length <= 256 &&
   value !== '__proto__' && value !== 'constructor' && value !== 'prototype';
 const validLabel = (value: unknown): value is string | null =>
@@ -43,7 +43,7 @@ export function isTocAliasCommitRequest(value: unknown): value is TocAliasCommit
   const input = value as Record<string, unknown>;
   if (input.type !== TOC_ALIAS_COMMIT_TYPE || !isPermanentConversationId(input.routeKey)) return false;
   if (input.action === 'delete-conversation') return true;
-  return input.action === 'update' && validId(input.messageId) &&
+  return input.action === 'update' && isValidTocMessageId(input.messageId) &&
     validLabel(input.expected) && validLabel(input.label) && validOwner(input.ownerId);
 }
 
@@ -60,7 +60,7 @@ export function parseTocAliasRecord(value: unknown): TocAliasRecord | null {
   }
   const entries = Object.entries(raw.aliases as Record<string, unknown>);
   if (entries.length > 20_000 ||
-      entries.some(([id, label]) => !validId(id) || !validLabel(label) || label === null)) {
+      entries.some(([id, label]) => !isValidTocMessageId(id) || !validLabel(label) || label === null)) {
     throw new Error('Invalid saved TOC aliases');
   }
   return { ownerId: raw.ownerId, aliases: Object.fromEntries(entries) as Record<string, string> };
@@ -80,6 +80,9 @@ export function createTocAliasWriteCoordinator(
         if (!isTocAliasCommitRequest(request)) {
           return { ok: false, error: 'Invalid TOC alias request' };
         }
+        if (request.action === 'update' && !request.ownerId) {
+          return { ok: false, error: 'Verified ChatGPT account required for alias writes' };
+        }
         const key = TOC_ALIAS_PREFIX + request.routeKey;
         const deletionKey = TOC_ALIAS_DELETED_PREFIX + request.routeKey;
         try {
@@ -95,6 +98,11 @@ export function createTocAliasWriteCoordinator(
             return { ok: false, error: 'Conversation has been deleted' };
           }
           const previous = parseTocAliasRecord(state[key]);
+          if (previous?.ownerId === null && Object.keys(previous.aliases).length > 0) {
+            // A legacy unowned record cannot be silently attributed to whichever
+            // account edits a different message first.
+            return { ok: false, error: 'Legacy aliases require explicit owner migration' };
+          }
           if (previous?.ownerId && request.ownerId && previous.ownerId !== request.ownerId) {
             return { ok: false, error: 'Conversation belongs to another account' };
           }

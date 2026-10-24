@@ -8,6 +8,7 @@ import {
 } from '@/features/sidebar/sidebarPreferences';
 import type { ThemeSettings } from '@/features/theme/themeSettings';
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
+import { isValidTocMessageId } from '@/features/conversationPrompts/tocAliasWriteCoordinator';
 
 const PROMPTS_KEY = 'lumaToc:myPromptsV1'; // Legacy spelling is intentional.
 const USAGE_KEY = 'lunaToc:promptUsageV1';
@@ -118,6 +119,9 @@ function validateAliases(value: unknown): Record<string, BackupAliasRecord> {
     const aliases = record(item.aliases, '别名映射');
     total += Object.keys(aliases).length;
     if (total > MAX_ENTRIES) throw new Error('目录消息别名过多。');
+    if (Object.keys(aliases).some((id) => !isValidTocMessageId(id))) {
+      throw new Error('目录消息 ID 无效。');
+    }
     return [routeKey, {
       ownerId,
       aliases: Object.fromEntries(Object.entries(aliases).map(([id, label]) => [

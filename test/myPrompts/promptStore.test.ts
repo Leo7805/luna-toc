@@ -29,7 +29,7 @@ beforeEach(() => {
   readError = null;
   sendError = null;
   listeners = [];
-  getSpy = vi.fn((key: string, callback?: (result: Record<string, unknown>) => void) => {
+  getSpy = vi.fn((key: string | string[], callback?: (result: Record<string, unknown>) => void) => {
     if (readError) {
       if (callback) {
         (chrome.runtime as unknown as { lastError: unknown }).lastError = { message: readError };
@@ -39,7 +39,10 @@ beforeEach(() => {
       }
       return Promise.reject(new Error(readError));
     }
-    const result: Record<string, unknown> = Object.hasOwn(data, key) ? { [key]: copy(data[key]) } : {};
+    const keys = Array.isArray(key) ? key : [key];
+    const result: Record<string, unknown> = Object.fromEntries(
+      keys.filter((name) => Object.hasOwn(data, name)).map((name) => [name, copy(data[name])])
+    );
     if (callback) { callback(result); return; }
     return Promise.resolve(result);
   });
@@ -186,6 +189,28 @@ describe('My Prompts serial cross-tab persistence', () => {
       prompts[0].title = 'from B'; return prompts;
     })).rejects.toThrow('another tab');
     expect((await tabA.getAll())[0].title).toBe('new A');
+  });
+
+  it('routes a confirmed clear-all through one message and removes usage', async () => {
+    data['lunaToc:promptUsageV1'] = { saved: { usageCount: 4, lastUsedAt: 1 } };
+    const store = createPromptStore();
+    const observed = await store.getAll();
+    await store.clearAll(observed);
+    expect(data[PROMPT_STORAGE_KEY]).toEqual([]);
+    expect(data['lunaToc:promptUsageV1']).toEqual({});
+    expect(messages).toHaveBeenCalledWith(
+      expect.objectContaining({ type: PROMPT_COMMIT_TYPE, action: 'clear-all', expected: [original] }),
+      expect.any(Function)
+    );
+  });
+
+  it('does not clear a library that has changed after user confirmation', async () => {
+    const a = createPromptStore();
+    const b = createPromptStore();
+    const observed = await a.getAll();
+    await b.update((items) => [...items, make('new')]);
+    await expect(a.clearAll(observed)).rejects.toThrow('其他标签页');
+    expect((await a.getAll()).map((item) => item.id)).toEqual(['saved', 'new']);
   });
 
   it('does not delete an unexpected new prompt during guarded clear-all', async () => {

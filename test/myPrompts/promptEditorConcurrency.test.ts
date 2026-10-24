@@ -19,6 +19,7 @@ beforeEach(() => {
   document.body.innerHTML = '';
   saved = clone([first]);
   const store: PromptStore = {
+    clearAll: vi.fn(async () => {}),
     getAll: async () => clone(saved),
     saveAll: async (next) => { saved = clone(next); },
     update: async (transform) => {

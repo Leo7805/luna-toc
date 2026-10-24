@@ -197,6 +197,18 @@ describe('versioned local backup', () => {
     expect(() => parseLocalBackup(JSON.stringify(missing))).toThrow('缺少');
   });
 
+  it('refuses reserved message IDs that normal TOC storage cannot read or edit', async () => {
+    const box = storageHarness({ [PROMPTS]: [prompt('existing')] });
+    for (const id of ['__proto__', 'constructor', 'prototype']) {
+      const unsafe = sample();
+      unsafe.data.aliases['conversation-123'].aliases = Object.fromEntries([[id, 'unsafe']]);
+      expect(() => parseLocalBackup(JSON.stringify(unsafe))).toThrow('目录消息 ID 无效');
+      await expect(restoreLocalBackup(unsafe, 'replace', box.storage)).rejects.toThrow('目录消息 ID 无效');
+    }
+    expect(box.set).not.toHaveBeenCalled();
+    expect(box.state[PROMPTS]).toEqual([prompt('existing')]);
+  });
+
   it('previews content without mutating storage', async () => {
     const box = storageHarness({ [PROMPTS]: [prompt('current')] });
     const parsed = parseLocalBackup(JSON.stringify(sample()));

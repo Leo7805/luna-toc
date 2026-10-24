@@ -23,6 +23,13 @@ From the repository root:
 
 The browser test installs a pinned Playwright runner in a temporary directory and loads `dist/` into a disposable Chromium profile. Its ChatGPT requests are fixtures; it does not test a real account.
 
+## Stage 11 account/clear safeguards
+
+- The content script checks `/api/auth/session` in the isolated world. Unknown identity means account-scoped aliases are hidden; do not use page `postMessage` to restore access.
+- Historical `ownerId=null` aliases are still available in JSON backups but are deliberately not displayed or adopted without verified ownership. Preserve backups before changing code or browser profiles.
+- Clear-all now modifies prompt records and usage together in one background queue job, verifies both values and attempts compensation on failure. A persistent storage failure can also defeat rollback: retain a separate backup.
+- Regression checks include forged page messages, account switching, reserved alias IDs, partial storage writes and stale prompt usage updates. Simulated Chromium is not real authenticated ChatGPT testing.
+
 ## User-data backup and restore
 
 - Open the extension popup → **设置** → **本地数据备份与恢复**.
