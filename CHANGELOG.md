@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Stage 11 data integrity and account isolation
+
+- Resolve account identity through an isolated-world same-origin session request, never from page-originated identity messages.
+- Hide account-bound TOC aliases unless the active account matches, retain legacy unowned entries in storage and backups instead of deleting them.
+- Validate imported TOC message identifiers with the same rules as normal storage writes, rejecting reserved object keys before restoration.
+- Clear all prompts and usage statistics through one queued background operation with storage verification and compensating rollback.
+- Reject delayed usage increments for prompts that no longer exist after a clear.
+- Add unit and Chromium fixture regressions for account spoofing, cross-account visibility, invalid backup IDs, concurrent clearing, and interrupted writes.
+- Real authenticated ChatGPT and mixed-version tabs remain outside automated fixture coverage. No automatic release.
+
 Notable user-facing changes are recorded here. This project does not publish automatically from CI.
 
 ## Unreleased — Stage 10 reliability hardening
