@@ -34,7 +34,7 @@
 ## 目录与导航
 
 - `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单默认按「复制文字」「添加tips」「编辑文字」排列；当前回答标题目录已展开且包含标题时始终附加「收起目录」；如果同时超出侧边栏无遮挡可视范围，则将「回到顶部」放在它之前、「回到底部」放在它之后，已有别名时再附加「恢复原文」；已彻底移除收藏功能。添加始终打开原有提示词编辑保存流程；菜单显示时以当前行文本的顶部、展开标题列表的底部和 `#navigator-list` 的实际可视范围（考虑毛玻璃顶栏遮挡）作判断；全部可见则隐藏两项；菜单选择上下边界操作时再次确认仍有遮挡；选择「收起目录」则按消息身份和当前行 DOM 双重校验，再由 `outline.ts` 收起指定目录而不跳转聊天正文，保留标题缓存便于后续重新展开；如果收起前该问题目录被顶部毛玻璃栏或列表上边界遮挡，收起后将其滚动到侧边栏可视区域首位，已可见的目录不额外滚动。回到顶部／底部只对 `#navigator-list` 滚动：顶部以目录项行首为锚点，读取 `.navigator-topbar` 实际底边避免毛玻璃栏遮挡；底部优先使后续第一条可见目录项完整进入视口，没有下一条则对齐展开标题列表末项。选择菜单动作时重新检查仍处于展开状态，避免重绘、收起或切换会话造成错误滚动；完全不改变 ChatGPT 正文的位置。侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单；复制仍使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
-- `src/features/conversationPrompts/tocAliasStore.ts` 将自定义目录标题按永久会话 ID、消息 ID 写入 Chrome 本地存储；目录别名写入和明确成功的会话删除通过 `chrome.runtime.sendMessage` 发送给 `src/background.ts`，由 `tocAliasWriteCoordinator.ts` 按队列处理。后台每次读取最新持久记录并检查消息级编辑基准：不同消息合并，同一消息冲突拒绝；编辑基准在打开行内编辑器时捕获。成功删除先保存持久删除标记再删除别名，即使旧标签页或后台工作线程重启也不能重建旧会话。仅覆盖显示，导航和复制始终基于原始消息。`src/navigation/ui/tocListRenderer.ts` 在被右键选中的目录行原位装载多行 textarea，通过 scrollHeight 和 ResizeObserver 随文字换行、侧边栏宽度自动增高以展示完整内容，并在目录刷新时保留草稿；支持 Enter 保存、Shift+Enter 换行、Esc 取消、失焦保存、失败重试及路由切换清理，不再使用独立重命名弹窗。目录搜索同时覆盖原文和别名，恢复原文时移除本地覆盖。
+- `src/features/conversationPrompts/tocAliasStore.ts` 将自定义目录标题按永久会话 ID、消息 ID 写入 Chrome 本地存储；目录别名写入和明确成功的会话删除通过 `chrome.runtime.sendMessage` 发送给 `src/background.ts`，由 `tocAliasWriteCoordinator.ts` 按队列处理。后台从持久记录按消息 ID 更新别名，不再执行跨标签页旧值冲突比较。成功删除先保存持久删除标记再删除别名，即使旧标签页或后台工作线程重启也不能重建旧会话。仅覆盖显示，导航和复制始终基于原始消息。`src/navigation/ui/tocListRenderer.ts` 在被右键选中的目录行原位装载多行 textarea，通过 scrollHeight 和 ResizeObserver 随文字换行、侧边栏宽度自动增高以展示完整内容，并在目录刷新时保留草稿；支持 Enter 保存、Shift+Enter 换行、Esc 取消、失焦保存、失败重试及路由切换清理，不再使用独立重命名弹窗。目录搜索同时覆盖原文和别名，恢复原文时移除本地覆盖。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
@@ -44,7 +44,7 @@
 
 ## 我的提示词
 
-- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离；写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序进行读取、快照核对和保存。旧版存储键保持不变，其他标签页先保存时本标签页在最新数据上重算修改，最多有限次重试；同一提示词的过期编辑/删除在界面层拒绝覆盖；存储层在重试前还会比较本次修改涉及的记录，拒绝重叠编辑、允许独立记录的修改合并。旧式整表替换 `saveAll()` 仅接受由同一存储实例的 `getAll()` 直接返回的数组（可原位编辑），并绑定其读取时快照；无法证明基准的数组拒绝替换。
+- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离；写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序进行读取、数据验证和保存。旧版存储键保持不变；在单标签页内按顺序读取和保存，已移除跨标签页冲突重试、编辑旧值校验和整表替换快照约束，写入仍需通过格式验证。
 - `src/features/myPrompts/promptLibrary.ts` 实现增删改、Markdown 导入导出，并使用存储层原子转换接口。
 - `src/features/myPrompts/promptAutocomplete.ts` 在 ChatGPT 的 ProseMirror 输入框上提供 `#`、`//` 补全。
 - `src/features/myPrompts/promptUsageStore.ts` 在启动时按现存提示词 ID 清理孤立使用统计，并在写入失败时回滚内存状态。
@@ -79,3 +79,7 @@
 浏览器端到端测试使用 `test/browser/extension.test.mjs`，通过 Playwright 启动带独立配置文件的 Chromium 并加载构建后的 `dist/`。对 `chatgpt.com` 的页面和会话 API 请求全部使用固定模拟数据处理，其他外部 HTTP 请求被阻止；覆盖目录、搜索、侧边栏、键盘、布局、SPA 路由、异常请求和刷新。自动化不访问真实账号，不能代替真实 ChatGPT 兼容性验收。
 
 `test/browser/manifest-audit.test.mjs`、`scripts/audit-extension.mjs` 约束扩展权限和可注入域名，核对源及打包 Manifest，并生成锁文件许可证清单；GitHub Actions 在同一只读 CI 中执行 `npm audit --audit-level=high`，发现高危以上漏洞就阻断检查。浏览器专用 Playwright 精确版本仅在生产包构建后临时安装，不改动依赖锁文件。执行说明见 `test/browser/README.md`。
+
+## 单标签页存储简化（2026-10-24）
+
+提示词、目录别名和侧边栏设置不再执行跨标签页 CAS、字段旧值比对或冲突重试。存储键与记录格式不变。后台共享串行队列继续协调同一扩展的异步保存与备份操作，保留删除确认、账号归属、容量验证、回滚和删除标记。多个 ChatGPT 标签页同时编辑同一扩展数据不在支持范围内。

@@ -77,7 +77,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   return true;
 });
 
-/** Serializes TOC alias mutations and confirmed deletion fences across tabs. */
+/** Orders TOC alias mutations and confirmed deletion fences with backup writes. */
 const tocAliasCoordinator = createTocAliasWriteCoordinator(chrome.storage.local, storageWriteQueue);
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!message || typeof message !== 'object' ||
