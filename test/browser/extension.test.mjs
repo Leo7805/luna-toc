@@ -54,6 +54,7 @@ async function waitForTurnVisible(page,messageId,timeout=15000){
   },messageId,{timeout});
 }
 
+let fixtureOwner='fixture-account-a';
 /** Intercept the real extension's host origin; all other HTTP traffic is denied. */
 async function installFixture(context){
   await context.route('https://chatgpt.com/**',async route=>{
@@ -64,6 +65,8 @@ async function installFixture(context){
     }else if(/^\/backend-api\/conversations\/[^/]+$/.test(p)){
       const id=p.split('/').pop();
        await route.fulfill({status:200,contentType:'application/json',body:id.startsWith('luna-stage-10-')?largePayload:payload});
+    }else if(p==='/api/auth/session'){
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({user:{id:fixtureOwner}})});
     }else if(p==='/backend-api/me'||p==='/backend-api/accounts/check'){
       await route.fulfill({status:401,contentType:'application/json',body:'{}'});
     }else{
@@ -160,6 +163,30 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached'});
     });
 
+
+    await t.test('account-bound aliases ignore forged identity and hide across account changes',{timeout:25000},async()=>{
+      const aliasKey='chatToc:aliases:v1:'+conversationId;
+      await worker.evaluate(async key=>chrome.storage.local.set({
+        [key]:{ownerId:'fixture-account-a',aliases:{'user-1':'账号 A 私有标题'}}
+      }),aliasKey);
+      await page.goto(url,{waitUntil:'domcontentloaded'});
+      await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached'});
+      await page.evaluate(async()=>fetch('/backend-api/conversations/'+location.pathname.split('/').pop()+'?num_turns=4'));
+      await page.waitForFunction(()=>document.querySelector('#navigator-list')?.textContent?.includes('账号 A 私有标题'));
+      // Same-origin page scripts can forge postMessage but not the trusted response.
+      await page.evaluate(()=>{
+        window.postMessage({type:'LUNA_TOC_LIFECYCLE_CHECK_RESULT',requestId:Date.now(),ownerId:'fixture-account-b'},location.origin);
+      });
+      assert.match(await page.locator('#navigator-list').innerText(),/账号 A 私有标题/);
+      fixtureOwner='fixture-account-b';
+      await page.waitForTimeout(2100);
+      await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+      await page.waitForFunction(()=>!document.querySelector('#navigator-list')?.textContent?.includes('账号 A 私有标题'));
+      fixtureOwner='fixture-account-a';
+      await page.waitForTimeout(2100);
+      await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+      await page.waitForFunction(()=>document.querySelector('#navigator-list')?.textContent?.includes('账号 A 私有标题'));
+    });
 
     await t.test('B026: forged and page-confirmed deletions never erase local aliases',{timeout:20000},async()=>{
       const routeKey='luna-stage-9-e2e';
