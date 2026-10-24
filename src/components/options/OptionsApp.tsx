@@ -7,6 +7,7 @@ import {
   savePlatformRuntimeConfig,
   type ChatGptRuntimeConfig,
 } from '@/config/config';
+import { ACCOUNT_SETTINGS_KEY, accountSettingsOwners } from '@/features/storage/accountSettings';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_COLORS,
@@ -20,6 +21,8 @@ import {
 /** Displays layout, appearance and advanced compatibility settings. */
 export function OptionsApp(): React.JSX.Element {
   const [runtimeConfig, setRuntimeConfig] = useState<ChatGptRuntimeConfig | null>(null);
+  const [accountIds, setAccountIds] = useState<string[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
   const [preferences, setPreferences] = useState<SidebarPreferences>(
     DEFAULT_SIDEBAR_PREFERENCES
   );
@@ -30,50 +33,79 @@ export function OptionsApp(): React.JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
-    const refresh = (): void => {
+    const refreshRuntimeConfig = (): void => {
       void loadPlatformRuntimeConfig('chatgpt').then((cfg) => {
         if (!cancelled) setRuntimeConfig(cfg);
       });
     };
-    refresh();
-    void readSidebarPreferences().then((values) => {
-      if (!cancelled) {
-        setPreferences(values);
-        setSettingsLoaded(true);
-      }
-    }).catch(() => {
-      if (!cancelled) setSaveError('无法读取设置，请检查扩展存储权限。');
-    });
-    const unsubscribe = subscribeSidebarPreferences((next) => {
-      if (!cancelled) setPreferences(next);
+    const refreshAccounts = async (): Promise<void> => {
+      const values = await chrome.storage.local.get(ACCOUNT_SETTINGS_KEY);
+      if (cancelled) return;
+      const next = accountSettingsOwners(values[ACCOUNT_SETTINGS_KEY]);
+      setAccountIds(next);
+      setSelectedAccountId((current) => next.includes(current) ? current : next[0] ?? '');
+    };
+    refreshRuntimeConfig();
+    void refreshAccounts().catch(() => {
+      if (!cancelled) setSaveError('无法读取账号设置列表，请检查扩展存储权限。');
     });
     const handleChange = (
       changes: Record<string, chrome.storage.StorageChange>,
       areaName: chrome.storage.AreaName
     ): void => {
-      if (areaName === 'local' && 'luna:chatgpt:runtimeConfig' in changes) refresh();
+      if (areaName !== 'local') return;
+      if ('luna:chatgpt:runtimeConfig' in changes) refreshRuntimeConfig();
+      if (ACCOUNT_SETTINGS_KEY in changes) {
+        void refreshAccounts().catch(() => {
+          if (!cancelled) setSaveError('无法刷新账号设置列表。');
+        });
+      }
     };
     chrome.storage.onChanged.addListener(handleChange);
     return () => {
       cancelled = true;
-      unsubscribe();
       chrome.storage.onChanged.removeListener(handleChange);
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedAccountId) {
+      setSettingsLoaded(false);
+      setPreferences({ ...DEFAULT_SIDEBAR_PREFERENCES });
+      return;
+    }
+    setSettingsLoaded(false);
+    void readSidebarPreferences(selectedAccountId).then((values) => {
+      if (!cancelled) {
+        setPreferences(values);
+        setSettingsLoaded(true);
+      }
+    }).catch(() => {
+      if (!cancelled) setSaveError('无法读取所选账号的设置，请检查扩展存储权限。');
+    });
+    const unsubscribe = subscribeSidebarPreferences((next) => {
+      if (!cancelled) setPreferences(next);
+    }, selectedAccountId);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [selectedAccountId]);
+
   /** Save changed fields while preventing duplicate UI submissions. */
   const updatePreferences = (patch: Partial<SidebarPreferences>): void => {
     // Prevent two fast clicks from triggering overlapping saves.
-    if (!settingsLoaded || pendingSidebarWrite.current) return;
+    if (!selectedAccountId || !settingsLoaded || pendingSidebarWrite.current) return;
     pendingSidebarWrite.current = true;
     setSavingSettings(true);
     setPreferences((previous) => ({ ...previous, ...patch }));
     setSaveError('');
-    void writeSidebarPreferences(patch).catch(() => {
+    void writeSidebarPreferences(patch, selectedAccountId).catch(() => {
       setSaveError('设置保存失败，当前操作未保存；请检查存储状态并重试。');
     }).then(async () => {
       try {
-        setPreferences(await readSidebarPreferences());
+        setPreferences(await readSidebarPreferences(selectedAccountId));
       } catch {
         setSaveError('无法读取最新设置，请重新打开设置页面后再修改。');
       }
@@ -103,6 +135,34 @@ export function OptionsApp(): React.JSX.Element {
         <h1>设置</h1>
         <p className="settings-caption">偏好设置会自动同步到已打开的 ChatGPT 页面。</p>
       </header>
+
+      <section className="settings-section" aria-labelledby="account-settings-heading">
+        <div className="settings-section-heading">
+          <h2 id="account-settings-heading">账号偏好</h2>
+          <p>主题与侧边栏设置按 ChatGPT 账号保存，并在该账号的所有对话中共享。</p>
+        </div>
+        <div className="settings-card">
+          <label className="settings-choice settings-no-border">
+            <span className="settings-choice-info">
+              <strong>设置所属账号</strong>
+              <small>账号标识仅用于区分本地设置，不会上传。</small>
+            </span>
+            <select className="settings-account-select" aria-label="设置所属账号"
+              value={selectedAccountId}
+              disabled={accountIds.length === 0 || savingSettings}
+              onChange={(event) => setSelectedAccountId(event.currentTarget.value)}>
+              {accountIds.map((id) => (
+                <option key={id} value={id}>账号 {id.slice(0, 6)}…{id.slice(-4)}</option>
+              ))}
+            </select>
+          </label>
+          {accountIds.length === 0 && (
+            <p className="settings-backup-status" role="status">
+              尚无已验证账号。请先打开并登录 ChatGPT，等待页面完成初始化后重新打开此设置页。
+            </p>
+          )}
+        </div>
+      </section>
 
       <section className="settings-section" aria-labelledby="layout-heading">
         <div className="settings-section-heading">

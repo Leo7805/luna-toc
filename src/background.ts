@@ -115,6 +115,14 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     sendResponse({ ok: false, error: 'Untrusted extension message sender' });
     return false;
   }
+  const action = (message as { action?: unknown }).action;
+  if (action === 'register-account' &&
+      (sender.tab?.id === undefined || sender.frameId !== 0 ||
+       (sender.documentLifecycle && sender.documentLifecycle !== 'active') ||
+       !/^https:\/\/(?:chatgpt\.com|chat\.openai\.com)(?:\/|$)/.test(sender.url ?? ''))) {
+    sendResponse({ ok: false, error: 'Account registration requires an active ChatGPT content context' });
+    return false;
+  }
   void settingsCoordinator.commit(message).then(sendResponse, () =>
     sendResponse({ ok: false, error: 'Settings writer unavailable' })
   );
