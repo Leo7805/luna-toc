@@ -20,6 +20,11 @@ import {
   TOOLBAR_COMPATIBILITY_HEALTHY,
 } from '@/features/contractAlert/toolbarWarning';
 import { createToolbarWarningController } from '@/features/contractAlert/toolbarBackground';
+import { installRemoteDeletionObserver } from '@/background/remoteDeletionObserver';
+
+// Observe only actual successful ChatGPT delete/visibility-removal mutations in the browser network layer.
+// The observer never stores request bodies and only sends a route ID to the originating tab.
+installRemoteDeletionObserver();
 
 const toolbar = createToolbarWarningController(chrome.storage.session, chrome.action);
 const storageWriteQueue = createSerialWriteQueue();
