@@ -186,8 +186,7 @@ describe('versioned local backup', () => {
   });
 
   it('rejects a prompt ID collision across different accounts during merge', async () => {
-    const box = harness();
-    box.state[PROMPTS] = [prompt('saved', 'belongs to account two', 'account-2')];
+    const box = storageHarness({ [PROMPTS]: [prompt('saved', 'belongs to account two', 'account-2')] });
     await expect(restoreLocalBackup(sample(), 'merge', box.storage))
       .rejects.toThrow('账号归属不同');
     expect(box.state[PROMPTS]).toEqual([prompt('saved', 'belongs to account two', 'account-2')]);
