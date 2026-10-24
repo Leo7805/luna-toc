@@ -13,8 +13,8 @@ export type SettingsCommitRequest =
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'migrate-theme'; settings: ThemeSettings }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'cleanup-legacy-theme' }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar'; settings: SidebarPreferences }
-  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar-patch'; patch: Partial<SidebarPreferences> };
-export type SettingsCommitResponse = { ok: true } | { ok: false; error: string };
+  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar-patch'; patch: Partial<SidebarPreferences>; expected: Partial<SidebarPreferences> };
+export type SettingsCommitResponse = { ok: true } | { ok: false; conflict: true } | { ok: false; error: string };
 type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
 
 function isTheme(value: unknown): value is ThemeSettings {
@@ -52,7 +52,12 @@ function isRequest(value: unknown): value is SettingsCommitRequest {
   if (item.action === 'migrate-theme') return isTheme(item.settings);
   if (item.action === 'cleanup-legacy-theme') return true;
   if (item.action === 'sidebar') return isSidebar(item.settings);
-  return item.action === 'sidebar-patch' && isSidebarPatch(item.patch);
+  if (item.action !== 'sidebar-patch' || !isSidebarPatch(item.patch) ||
+      !isSidebarPatch(item.expected)) return false;
+  const patchKeys = Object.keys(item.patch);
+  const expectedKeys = Object.keys(item.expected as object);
+  return patchKeys.length === expectedKeys.length &&
+    patchKeys.every((key) => Object.hasOwn(item.expected as object, key));
 }
 export function createSettingsWriteCoordinator(
   storage: Storage = chrome.storage.local,
@@ -80,11 +85,28 @@ export function createSettingsWriteCoordinator(
           const baseline: SidebarPreferences = isSidebar(values[SIDEBAR_KEY])
             ? values[SIDEBAR_KEY]
             : { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false };
+          // The same-field comparison and storage write run in one worker
+          // queue task, so a stale tab cannot silently overwrite a newer edit.
+          for (const key of Object.keys(request.patch) as Array<keyof SidebarPreferences>) {
+            if (baseline[key] !== request.expected[key]) return { ok: false, conflict: true };
+          }
           const merged = { ...baseline, ...request.patch };
           await storage.set({ [SIDEBAR_KEY]: merged });
         } else {
-          // Legacy complete-record writers retain their original contract.
-          await storage.set({ [SIDEBAR_KEY]: request.settings });
+          // Older settings pages only know full-record writes and cannot
+          // express user intent or a comparison baseline. Do not permit them
+          // to overwrite valid saved state; the user must reload the page.
+          const values = await storage.get(SIDEBAR_KEY);
+          const existing = values[SIDEBAR_KEY];
+          if (isSidebar(existing)) {
+            if (existing.layoutMode !== request.settings.layoutMode ||
+                existing.backgroundColor !== request.settings.backgroundColor ||
+                existing.revealTint !== request.settings.revealTint) {
+              return { ok: false, conflict: true };
+            }
+          } else {
+            await storage.set({ [SIDEBAR_KEY]: request.settings });
+          }
         }
         return { ok: true };
       } catch (error) {
