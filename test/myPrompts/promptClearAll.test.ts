@@ -77,6 +77,7 @@ describe('coordinated clear-all', () => {
     expect(cleared).toEqual({ ok: true });
     // The usage operation is serialized; it cannot restore the deleted prompt.
     expect(box.state[PROMPT_STORAGE_KEY]).toEqual([]);
-    expect(recorded.ok).toBe(true);
+    expect(recorded).toMatchObject({ ok: false, error: expect.stringContaining('no longer exists') });
+    expect(box.state[USAGE]).toEqual({});
   });
 });
