@@ -2,7 +2,7 @@
  * Renders the top header bar of the LunaTOC sidebar, including the auto-hide pin
  * button, the conversation / section title, and the search toggle button.
  */
-import React, { useSyncExternalStore } from 'react';
+import React, { useRef, useSyncExternalStore } from 'react';
 import { Filter } from 'lucide-react';
 import {
   isSidebarPinned,
@@ -10,6 +10,10 @@ import {
   toggleSidebarPinned,
 } from '@/features/sidebarVisibility';
 import { sidebarController } from '@/features/sidebar/sidebarController';
+import {
+  isElementTextTruncated,
+  previewTooltip,
+} from '@/features/tooltip';
 import {
   getTocFilterMode,
   subscribeTocFilter,
@@ -21,6 +25,9 @@ import {
  * @returns {React.JSX.Element}
  */
 export function SidebarHeaderBar(): React.JSX.Element {
+  const titleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const titleTextRef = useRef<HTMLSpanElement | null>(null);
+
   const isPinned = useSyncExternalStore(
     subscribeSidebarPinned,
     isSidebarPinned
@@ -40,7 +47,29 @@ export function SidebarHeaderBar(): React.JSX.Element {
   const isFilterActive = viewMode === 'toc' && filterMode !== 'all';
 
   const handleTitleClick = (): void => {
+    previewTooltip.hide(true);
     sidebarController.handleTitleClick();
+  };
+
+  const handleTitleContextMenu = (): void => {
+    previewTooltip.hide(true);
+  };
+
+  const handleTitleMouseEnter = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ): void => {
+    const textSpan = titleTextRef.current;
+    if (textSpan && isElementTextTruncated(textSpan)) {
+      previewTooltip.show(
+        title,
+        event.nativeEvent,
+        titleButtonRef.current ?? undefined
+      );
+    }
+  };
+
+  const handleTitleMouseLeave = (): void => {
+    previewTooltip.hide();
   };
 
   const handleToggleSearch = (): void => {
@@ -69,14 +98,16 @@ export function SidebarHeaderBar(): React.JSX.Element {
       </button>
 
       <button
+        ref={titleButtonRef}
         id="navigator-title"
         type="button"
         aria-label={viewMode === 'myPrompts' ? 'My Prompts' : 'Reset TOC view'}
-        data-tooltip={title}
-        data-tooltip-overflow-only="true"
         onClick={handleTitleClick}
+        onContextMenu={handleTitleContextMenu}
+        onMouseEnter={handleTitleMouseEnter}
+        onMouseLeave={handleTitleMouseLeave}
       >
-        <span className="navigator-title-text">{title}</span>
+        <span ref={titleTextRef} className="navigator-title-text">{title}</span>
         {isFilterActive && (
           <span
             className="navigator-filter-indicator"

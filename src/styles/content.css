@@ -910,7 +910,9 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   right: 320px;
   top: 80px;
 
+  box-sizing: border-box;
   width: 380px;
+  max-width: calc(100vw - 32px);
   max-height: 60vh;
 
   overflow-y: auto;
@@ -969,6 +971,8 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 
 .navigator-preview-tooltip-content {
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--ct-text-tooltip-content);

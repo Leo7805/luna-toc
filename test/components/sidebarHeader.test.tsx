@@ -22,6 +22,7 @@ import {
   setTocFilterMode,
   resetTocFilterMode,
 } from '@/features/tocFilter/tocFilterStore';
+import { previewTooltip } from '@/features/tooltip';
 
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -409,10 +410,10 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
     expect(searchContainer.querySelector('#navigator-search')).not.toBeNull();
   });
 
-  it('14. Preserves tooltip attributes for buttonTooltip compatibility', () => {
+  it('14. Does not set buttonTooltip data attributes on Title button to avoid duplicate tooltips', () => {
     const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
-    expect(titleBtn.dataset.tooltip).toBe('ChatTOC');
-    expect(titleBtn.dataset.tooltipOverflowOnly).toBe('true');
+    expect(titleBtn.dataset.tooltip).toBeUndefined();
+    expect(titleBtn.dataset.tooltipOverflowOnly).toBeUndefined();
   });
 
   it('15. Route navigation and document title changes update title via setNavigatorTitle without direct DOM mutation', () => {
@@ -437,8 +438,8 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
       sidebarController.setNavigatorTitle();
     });
 
-    expect(titleBtn.textContent).toBe('Deep Learning Discussion');
-    expect(titleBtn.dataset.tooltip).toBe('Deep Learning Discussion');
+    expect(titleBtn.querySelector('.navigator-title-text')?.textContent).toBe('Deep Learning Discussion');
+    expect(titleBtn.dataset.tooltip).toBeUndefined();
 
     // Simulate document title fallback when no sidebar link exists
     link.remove();
@@ -448,8 +449,8 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
       sidebarController.setNavigatorTitle();
     });
 
-    expect(titleBtn.textContent).toBe('Quantum Computing');
-    expect(titleBtn.dataset.tooltip).toBe('Quantum Computing');
+    expect(titleBtn.querySelector('.navigator-title-text')?.textContent).toBe('Quantum Computing');
+    expect(titleBtn.dataset.tooltip).toBeUndefined();
   });
 
   it('16. Conversation renaming updates title via setNavigatorTitle', () => {
@@ -460,8 +461,8 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
       sidebarController.setNavigatorTitle();
     });
 
-    expect(titleBtn.textContent).toBe('Renamed Conversation');
-    expect(titleBtn.dataset.tooltip).toBe('Renamed Conversation');
+    expect(titleBtn.querySelector('.navigator-title-text')?.textContent).toBe('Renamed Conversation');
+    expect(titleBtn.dataset.tooltip).toBeUndefined();
   });
 
   it('17. React Header clicks work exactly once without duplicate bindings or Vanilla fallbacks', () => {
@@ -575,6 +576,97 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
       setTocFilterMode('all');
     });
     expect(titleBtn.querySelector('.navigator-filter-indicator')).toBeNull();
+  });
+
+  it('21. Title Tooltip reuses previewTooltip when truncated, handles dismissal, and isolates filter indicator', () => {
+    const showSpy = vi.spyOn(previewTooltip, 'show');
+    const hideSpy = vi.spyOn(previewTooltip, 'hide');
+    const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
+    const titleText = titleBtn.querySelector('.navigator-title-text') as HTMLSpanElement;
+    expect(titleBtn).not.toBeNull();
+    expect(titleText).not.toBeNull();
+
+    // 1. Non-truncated title: scrollWidth <= clientWidth -> no tooltip
+    Object.defineProperty(titleText, 'clientWidth', { configurable: true, value: 200 });
+    Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 150 });
+
+    act(() => {
+      titleBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(showSpy).not.toHaveBeenCalled();
+
+    // 2. Truncated title: scrollWidth > clientWidth -> triggers previewTooltip.show
+    Object.defineProperty(titleText, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 250 });
+
+    act(() => {
+      titleBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(showSpy).toHaveBeenCalledWith(
+      'ChatTOC',
+      expect.any(MouseEvent),
+      titleBtn
+    );
+
+    // 3. Mouse leave triggers delayed previewTooltip.hide()
+    act(() => {
+      titleBtn.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+    });
+    expect(hideSpy).toHaveBeenCalledWith();
+
+    // 4. Click triggers immediate previewTooltip.hide(true)
+    hideSpy.mockClear();
+    act(() => {
+      titleBtn.click();
+    });
+    expect(hideSpy).toHaveBeenCalledWith(true);
+
+    // 5. Context menu triggers immediate previewTooltip.hide(true) without stopping propagation
+    hideSpy.mockClear();
+    let contextMenuBubbled = false;
+    const bubbleHandler = (): void => {
+      contextMenuBubbled = true;
+    };
+    headerContainer.addEventListener('contextmenu', bubbleHandler);
+
+    act(() => {
+      titleBtn.dispatchEvent(
+        new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+      );
+    });
+    expect(hideSpy).toHaveBeenCalledWith(true);
+    expect(contextMenuBubbled).toBe(true);
+    headerContainer.removeEventListener('contextmenu', bubbleHandler);
+
+    // 6. Active filter indicator does not affect text-span-based truncation detection
+    act(() => {
+      setTocFilterMode('renamed');
+    });
+    const filterIndicator = titleBtn.querySelector('.navigator-filter-indicator');
+    expect(filterIndicator).not.toBeNull();
+
+    // When text span itself is NOT truncated:
+    Object.defineProperty(titleText, 'clientWidth', { configurable: true, value: 180 });
+    Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 120 });
+    showSpy.mockClear();
+
+    act(() => {
+      titleBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(showSpy).not.toHaveBeenCalled();
+
+    // When text span IS truncated with indicator visible:
+    Object.defineProperty(titleText, 'clientWidth', { configurable: true, value: 90 });
+    Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 210 });
+
+    act(() => {
+      titleBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(showSpy).toHaveBeenCalledWith(
+      'ChatTOC',
+      expect.any(MouseEvent),
+      titleBtn
+    );
   });
 });
 

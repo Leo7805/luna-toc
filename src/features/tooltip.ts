@@ -130,8 +130,11 @@ export const previewTooltip = (() => {
 
   /**
    * Hides the tooltip after a short delay so pointer transitions are not abrupt.
+   * If immediate is true, cancels pending timers and removes the visible class immediately.
+   *
+   * @param {boolean} [immediate=false]
    */
-  function hide(): void {
+  function hide(immediate: boolean = false): void {
     if (hideTimer !== null) clearTimeout(hideTimer);
     if (showTimer !== null) clearTimeout(showTimer);
 
@@ -139,6 +142,12 @@ export const previewTooltip = (() => {
 
     const tooltip = getTooltip();
     if (!tooltip) return;
+
+    if (immediate) {
+      tooltip.classList.remove('luna-toc-tooltip-visible');
+      hideTimer = null;
+      return;
+    }
 
     hideTimer = setTimeout(() => {
       tooltip.classList.remove('luna-toc-tooltip-visible');
