@@ -1,6 +1,7 @@
 /** Per-tab alias cache tests using the real background coordinator and storage events. */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createTocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
+import { setActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 import { createTocAliasWriteCoordinator, TOC_ALIAS_PREFIX,
   TOC_ALIAS_DELETED_PREFIX } from '@/features/conversationPrompts/tocAliasWriteCoordinator';
 
@@ -14,6 +15,7 @@ const listeners: Array<(changes: Record<string, { newValue?: unknown; oldValue?:
 let worker: ReturnType<typeof createTocAliasWriteCoordinator>;
 
 beforeEach(() => {
+  setActiveConversationOwner('account-1');
   vi.unstubAllGlobals();
   for (const name of Object.keys(saved)) delete saved[name];
   listeners.length = 0;
@@ -148,19 +150,33 @@ describe('TOC alias storage', () => {
   it('rejects temporary conversations, keeps separate conversations and handles write failure', async () => {
     const store = createTocAliasStore();
     await expect(store.update('local-123456', 'msg', 'ignored', null)).rejects.toThrow();
-    await store.update(route, 'msg', 'one', null);
-    await store.update('conversation-456', 'msg', 'two', null);
+    await store.update(route, 'msg', 'one', 'account-1');
+    await store.update('conversation-456', 'msg', 'two', 'account-1');
     expect(await store.references()).toEqual([route, 'conversation-456']);
     await store.removeConversation(route);
     expect(store.get('conversation-456', 'msg')).toBe('two');
     const next = createTocAliasStore();
     const before = { ...saved };
     vi.mocked(chrome.storage.local.set).mockRejectedValueOnce(new Error('quota exceeded'));
-    await expect(next.update('conversation-456', 'msg', 'not saved', null)).rejects.toThrow();
+    await expect(next.update('conversation-456', 'msg', 'not saved', 'account-1')).rejects.toThrow();
     expect(saved).toEqual(before);
-    await next.update('conversation-456', 'msg', 'saved later', null);
+    await next.update('conversation-456', 'msg', 'saved later', 'account-1');
     expect(saved[TOC_ALIAS_PREFIX + 'conversation-456'])
-      .toEqual({ ownerId: null, aliases: { msg: 'saved later' } });
+      .toEqual({ ownerId: 'account-1', aliases: { msg: 'saved later' } });
+  });
+
+  it('hides owner-bound and legacy-unowned aliases when identity is unknown or different', async () => {
+    const store = createTocAliasStore();
+    await store.update(route, 'msg', 'Private name', 'account-1');
+    expect(store.get(route, 'msg')).toBe('Private name');
+    setActiveConversationOwner('account-2');
+    expect(store.get(route, 'msg')).toBeNull();
+    await expect(store.update(route, 'msg', 'Attack', 'account-2')).rejects.toThrow('another account');
+    setActiveConversationOwner(null);
+    expect(store.get(route, 'msg')).toBeNull();
+    await expect(store.update(route, 'other', 'Unscoped', null)).rejects.toThrow('not verified');
+    setActiveConversationOwner('account-1');
+    expect(store.get(route, 'msg')).toBe('Private name');
   });
 
   it('does not claim a successful save without a background acknowledgement', async () => {
@@ -170,7 +186,7 @@ describe('TOC alias storage', () => {
         callback(undefined);
       }) as typeof chrome.runtime.sendMessage
     );
-    await expect(store.update(route, 'msg', 'unconfirmed', null))
+    await expect(store.update(route, 'msg', 'unconfirmed', 'account-1'))
       .rejects.toThrow('did not confirm');
     expect(saved[key]).toBeUndefined();
   });
