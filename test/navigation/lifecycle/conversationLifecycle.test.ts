@@ -38,6 +38,54 @@ describe('conversation ownership', () => {
     }
   });
 
+  it('cleans aliases only after the current account and both server endpoints confirm deletion', async () => {
+    const { handleConversationDeletionHint } = await import('@/navigation/lifecycle/conversationLifecycle');
+    const { tocAliasStore } = await import('@/features/conversationPrompts/tocAliasStore');
+    const { navigatorController } = await import('@/navigation/navigatorController');
+    setActiveConversationOwner('account-1');
+    const aliasOwner = vi.spyOn(tocAliasStore, 'owner').mockResolvedValue('account-1');
+    const deleteAlias = vi.spyOn(tocAliasStore, 'removeConversation').mockResolvedValue(undefined);
+    const clearConversation = vi.spyOn(navigatorController, 'handleConversationDeleted').mockImplementation(() => {});
+    const session = { ok: true, json: async () => ({ user: { id: 'account-1' } }) };
+    const missing = { ok: false, status: 404 };
+    const trustedFetch = vi.fn()
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(missing)
+      .mockResolvedValueOnce(missing)
+      .mockResolvedValueOnce(session) as unknown as typeof fetch;
+    try {
+      await expect(handleConversationDeletionHint('conversation-123', trustedFetch)).resolves.toBe(true);
+      expect(deleteAlias).toHaveBeenCalledWith('conversation-123');
+      expect(clearConversation).toHaveBeenCalledWith('conversation-123');
+    } finally {
+      aliasOwner.mockRestore();
+      deleteAlias.mockRestore();
+      clearConversation.mockRestore();
+    }
+  });
+
+  it('preserves aliases if either endpoint still returns the conversation', async () => {
+    const { handleConversationDeletionHint } = await import('@/navigation/lifecycle/conversationLifecycle');
+    const { tocAliasStore } = await import('@/features/conversationPrompts/tocAliasStore');
+    setActiveConversationOwner('account-1');
+    const aliasOwner = vi.spyOn(tocAliasStore, 'owner').mockResolvedValue('account-1');
+    const deleteAlias = vi.spyOn(tocAliasStore, 'removeConversation').mockResolvedValue(undefined);
+    const session = { ok: true, json: async () => ({ user: { id: 'account-1' } }) };
+    const existing = { ok: true, status: 200 };
+    const missing = { ok: false, status: 404 };
+    const trustedFetch = vi.fn()
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce(missing) as unknown as typeof fetch;
+    try {
+      await expect(handleConversationDeletionHint('conversation-123', trustedFetch)).resolves.toBe(false);
+      expect(deleteAlias).not.toHaveBeenCalled();
+    } finally {
+      aliasOwner.mockRestore();
+      deleteAlias.mockRestore();
+    }
+  });
+
   it('trusts only a direct isolated-world session fetch, not page-posted account IDs', async () => {
     const { readTrustedConversationOwner, refreshTrustedConversationOwner } =
       await import('@/navigation/lifecycle/conversationLifecycle');

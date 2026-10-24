@@ -1,5 +1,6 @@
 /** Tests LunaTOC appearance/layout settings, validation and live updates. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_COLORS,
@@ -13,28 +14,33 @@ import {
 
 const onChangedListeners = new Set<(changes: Record<string, any>, area: string) => void>();
 const saved: Record<string, unknown> = {};
-const get = vi.fn(async (key: string) => ({ [key]: saved[key] }));
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+const get = vi.fn(async (key: string) => ({ [key]: clone(saved[key]) }));
 const set = vi.fn(async (payload: Record<string, unknown>) => {
-  Object.assign(saved, payload);
+  Object.assign(saved, clone(payload));
   for (const listener of onChangedListeners) {
     listener(Object.fromEntries(Object.entries(payload).map(([k, v]) =>
-      [k, { newValue: v }])
+      [k, { newValue: clone(v) }])
     ), 'local');
   }
 });
 const sendMessage = vi.fn((
   message: {
     action: string;
+    ownerId?: string;
     patch?: Partial<import('@/features/sidebar/sidebarPreferences').SidebarPreferences>;
   },
   callback: (response: { ok: boolean; error?: string; conflict?: boolean }) => void
 ) => {
-  if (message.action !== 'sidebar-patch' || !message.patch) {
+  if (message.action !== 'sidebar-patch' || !message.patch || !message.ownerId) {
     callback({ ok: false, error: 'unexpected message' });
     return;
   }
-  const current = normalizeSidebarPreferences(saved[SIDEBAR_SETTINGS_KEY]);
-  void set({ [SIDEBAR_SETTINGS_KEY]: { ...current, ...message.patch } }).then(
+  const map = clone(saved[ACCOUNT_SETTINGS_KEY] as Record<string, { theme: unknown; sidebar: import('@/features/sidebar/sidebarPreferences').SidebarPreferences }>);
+  const current = map[message.ownerId];
+  if (!current) { callback({ ok: false, error: 'unknown account' }); return; }
+  map[message.ownerId] = { ...current, sidebar: normalizeSidebarPreferences({ ...current.sidebar, ...message.patch }) };
+  void set({ [ACCOUNT_SETTINGS_KEY]: map }).then(
     () => callback({ ok: true }),
     (error: unknown) => callback({ ok: false, error: error instanceof Error ? error.message : 'write failed' })
   );
@@ -43,6 +49,16 @@ const sendMessage = vi.fn((
 beforeEach(() => {
   onChangedListeners.clear();
   for (const key of Object.keys(saved)) delete saved[key];
+  saved[ACCOUNT_SETTINGS_KEY] = {
+    'account-1': {
+      theme: { followChatGPT: true, manualTheme: 'dark' },
+      sidebar: { ...DEFAULT_SIDEBAR_PREFERENCES },
+    },
+    'account-2': {
+      theme: { followChatGPT: false, manualTheme: 'light' },
+      sidebar: { layoutMode: 'side-by-side', backgroundColor: 'green', revealTint: true },
+    },
+  };
   get.mockClear();
   set.mockClear();
   sendMessage.mockClear();
@@ -62,7 +78,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('sidebar preferences', () => {
   it('defaults to overlay, a transparent activation zone and the original tinted background', async () => {
-    expect(await readSidebarPreferences()).toEqual(DEFAULT_SIDEBAR_PREFERENCES);
+    expect(await readSidebarPreferences('account-1')).toEqual(DEFAULT_SIDEBAR_PREFERENCES);
     expect(DEFAULT_SIDEBAR_PREFERENCES).toEqual({
       layoutMode: 'overlay',
       backgroundColor: 'default',
@@ -88,23 +104,23 @@ describe('sidebar preferences', () => {
 
   it('publishes persisted options changes and stops after unsubscribe', async () => {
     const notify = vi.fn();
-    const unsubscribe = subscribeSidebarPreferences(notify);
+    const unsubscribe = subscribeSidebarPreferences(notify, 'account-1');
     const update = { layoutMode: 'side-by-side' as const, backgroundColor: 'pink' as const, revealTint: true };
-    await writeSidebarPreferences(update);
-    expect(set).toHaveBeenCalledWith({ [SIDEBAR_SETTINGS_KEY]: update });
-    expect(await readSidebarPreferences()).toEqual(update);
+    await writeSidebarPreferences(update, 'account-1');
+    expect((saved[ACCOUNT_SETTINGS_KEY] as Record<string, { sidebar: unknown }>)['account-1'].sidebar).toEqual(update);
+    expect(await readSidebarPreferences('account-1')).toEqual(update);
     expect(notify).toHaveBeenCalledWith(update);
     unsubscribe();
-    await writeSidebarPreferences(DEFAULT_SIDEBAR_PREFERENCES);
+    await writeSidebarPreferences(DEFAULT_SIDEBAR_PREFERENCES, 'account-1');
     expect(notify).toHaveBeenCalledTimes(1);
   });
 
 
   it('persists successive changes to the same field', async () => {
-    await writeSidebarPreferences({ backgroundColor: 'blue' });
-    await writeSidebarPreferences({ backgroundColor: 'green' });
-    expect((await readSidebarPreferences()).backgroundColor).toBe('green');
-    expect(set).toHaveBeenCalledTimes(2);
+    await writeSidebarPreferences({ backgroundColor: 'blue' }, 'account-1');
+    await writeSidebarPreferences({ backgroundColor: 'green' }, 'account-1');
+    expect((await readSidebarPreferences('account-1')).backgroundColor).toBe('green');
+    expect((saved[ACCOUNT_SETTINGS_KEY] as Record<string, { sidebar: { backgroundColor: string } }>)['account-1'].sidebar.backgroundColor).toBe('green');
   });
   it('generates theme-aware semi-transparent activation colors that follow the palette', () => {
     expect(SIDEBAR_COLORS.map((c) => c.id)).toEqual([

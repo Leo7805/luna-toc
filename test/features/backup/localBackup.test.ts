@@ -11,8 +11,7 @@ import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 const PROMPTS = 'lumaToc:myPromptsV1';
 const USAGE = 'lunaToc:promptUsageV1';
-const THEME = 'chatToc:themeSettings';
-const SIDEBAR = 'chatToc:sidebarPreferences';
+const SETTINGS = 'chatToc:accountSettings:v1';
 const ALIAS = 'chatToc:aliases:v1:conversation-123';
 const EXTRA_ALIAS = 'chatToc:aliases:v1:conversation-456';
 const prompt = (id: string, title = id, ownerId = 'account-1') => ({
@@ -32,8 +31,12 @@ function sample(): LocalBackup {
           ownerId: 'account-1', aliases: { 'message-1': '自定义目录' },
         },
       },
-      theme: { followChatGPT: false, manualTheme: 'light' },
-      sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+      settings: {
+        'account-1': {
+          theme: { followChatGPT: false, manualTheme: 'light' },
+          sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+        },
+      },
     },
   };
 }
@@ -88,8 +91,7 @@ describe('versioned local backup', () => {
       [PROMPTS]: source.data.prompts,
       [USAGE]: source.data.promptUsage,
       [ALIAS]: source.data.aliases['conversation-123'],
-      [THEME]: source.data.theme,
-      [SIDEBAR]: source.data.sidebar,
+      [SETTINGS]: source.data.settings,
       'chatGpt:conversationBody': 'private conversation text',
       'secret:authorization': 'private token',
     });
@@ -100,7 +102,7 @@ describe('versioned local backup', () => {
     expect(serialized).not.toContain('private token');
     expect(parseLocalBackup(serialized)).toEqual(backup);
     expect(summarizeLocalBackup(backup)).toEqual({
-      prompts: 1, usage: 1, conversations: 1, aliases: 1,
+      prompts: 1, usage: 1, conversations: 1, aliases: 1, settingsAccounts: 1,
     });
     expect(box.set).not.toHaveBeenCalled();
     expect(box.remove).not.toHaveBeenCalled();
@@ -170,11 +172,27 @@ describe('versioned local backup', () => {
     expect(box.state).toEqual(original);
   });
 
-  it('uses the legacy theme only when no new theme record exists', async () => {
-    const box = storageHarness({ 'chatToc:theme': 'light' });
-    expect((await createLocalBackup(box.storage)).data.theme)
-      .toEqual({ followChatGPT: false, manualTheme: 'light' });
-    expect(box.set).not.toHaveBeenCalled();
+  it('imports v2 global preferences only when the backup identifies account owners', () => {
+    const current = sample();
+    const legacy = {
+      ...current,
+      version: 2,
+      data: {
+        prompts: current.data.prompts,
+        promptUsage: current.data.promptUsage,
+        aliases: current.data.aliases,
+        theme: { followChatGPT: false, manualTheme: 'light' },
+        sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+      },
+    };
+    const parsed = parseLocalBackup(JSON.stringify(legacy));
+    expect(parsed.version).toBe(BACKUP_VERSION);
+    expect(parsed.data.settings['account-1']).toEqual({
+      theme: { followChatGPT: false, manualTheme: 'light' },
+      sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+    });
+    const unbound = { ...legacy, data: { ...legacy.data, prompts: [], promptUsage: {}, aliases: {} } };
+    expect(() => parseLocalBackup(JSON.stringify(unbound))).toThrow('没有账号归属');
   });
 
   it('rejects unknown versions, invalid JSON, unknown fields and oversized input', () => {
@@ -241,8 +259,12 @@ describe('versioned local backup', () => {
       [USAGE]: { saved: { usageCount: 1, lastUsedAt: 1 } },
       [ALIAS]: { ownerId: 'account-1', aliases: { 'message-1': 'old', 'message-2': 'keep' } },
       [EXTRA_ALIAS]: { ownerId: null, aliases: { 'message-3': 'unowned old alias' } },
-      [THEME]: { followChatGPT: true, manualTheme: 'dark' },
-      [SIDEBAR]: { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false },
+      [SETTINGS]: {
+        'account-1': {
+          theme: { followChatGPT: true, manualTheme: 'dark' },
+          sidebar: { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false },
+        },
+      },
       'other-key': 'untouched',
     });
     await restoreLocalBackup(imported, 'merge', box.storage);
@@ -253,7 +275,7 @@ describe('versioned local backup', () => {
     });
     expect(box.state[EXTRA_ALIAS]).toBeUndefined();
     expect(box.remove).toHaveBeenCalledWith([EXTRA_ALIAS]);
-    expect(box.state[THEME]).toEqual(imported.data.theme);
+    expect(box.state[SETTINGS]).toEqual(imported.data.settings);
     expect(box.state['other-key']).toBe('untouched');
   });
 

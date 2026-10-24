@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OptionsApp } from '@/components/options/OptionsApp';
+import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
 } from '@/features/sidebar/sidebarPreferences';
@@ -39,7 +40,17 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('chrome', {
-    storage: { onChanged: { addListener: vi.fn(), removeListener: vi.fn() } },
+    storage: {
+      local: { get: vi.fn(async (key: string) => ({
+        [key]: key === ACCOUNT_SETTINGS_KEY ? {
+          'account-1': {
+            theme: { followChatGPT: true, manualTheme: 'dark' },
+            sidebar: { ...DEFAULT_SIDEBAR_PREFERENCES },
+          },
+        } : undefined,
+      })) },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
   });
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -78,13 +89,13 @@ describe('Options sidebar save handling', () => {
 
     await act(async () => colorInput('blue').click());
     expect(mocks.write).toHaveBeenNthCalledWith(1,
-      { backgroundColor: 'blue' });
+      { backgroundColor: 'blue' }, 'account-1');
     expect(host.textContent).toContain('设置保存失败');
     expect(colorInput('green').checked).toBe(true);
 
     await act(async () => colorInput('blue').click());
     expect(mocks.write).toHaveBeenNthCalledWith(2,
-      { backgroundColor: 'blue' });
+      { backgroundColor: 'blue' }, 'account-1');
     expect(colorInput('blue').checked).toBe(true);
   });
 
