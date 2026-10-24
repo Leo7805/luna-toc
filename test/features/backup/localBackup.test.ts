@@ -255,7 +255,6 @@ describe('versioned local backup', () => {
     expect(box.remove).toHaveBeenCalledWith([EXTRA_ALIAS]);
     expect(box.state[THEME]).toEqual(imported.data.theme);
     expect(box.state['other-key']).toBe('untouched');
-    expect(box.remove).not.toHaveBeenCalled();
   });
 
   it('verifies Chrome storage writes structurally regardless of object-key ordering', async () => {

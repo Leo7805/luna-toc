@@ -76,7 +76,7 @@ describe('background single-tab prompt writer', () => {
     const set = vi.fn();
     const writer = createPromptWriteCoordinator({ get, set } as unknown as chrome.storage.StorageArea);
     expect(await writer.commit(request([make('fresh')])))
-      .toEqual({ ok: false, error: 'Prompt storage contains invalid data; refusing to overwrite' });
+      .toEqual({ ok: false, error: 'Prompt storage contains invalid data; refusing to overwrite it' });
     expect(set).not.toHaveBeenCalled();
   });
 
