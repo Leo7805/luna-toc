@@ -235,14 +235,16 @@ describe('conversationBackfill signal exhaustiveness', () => {
 
   it('6. backfillMaxPages reached while history remains terminates with complete: false', async () => {
     const platform = getActivePlatform('chatgpt.com');
-    // Always returns has_previous_page: true with a valid cursor
-    const mockFetch = vi.fn().mockResolvedValue({
+    // Advance the cursor on every response; an earlier regression test
+    // separately verifies that repeated cursors terminate immediately.
+    let cursorNumber = 1;
+    const mockFetch = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({
         messages: [{ id: 'older' }],
-        page_info: { has_previous_page: true, start_cursor: 'next-cursor' },
+        page_info: { has_previous_page: true, start_cursor: `cursor-${++cursorNumber}` },
       }),
-    });
+    }));
 
     installConversationBackfill({
       originalFetch: mockFetch as unknown as typeof fetch,
