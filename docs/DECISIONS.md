@@ -117,3 +117,11 @@ Stage 10 introduces one rejection-safe queue in the Manifest V3 background worke
 ## D28 — Keep CI verification separate from publication and protect main administratively
 
 CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection is not active as of 2026-10-24; the available GitHub connector has no branch-protection write operation, so an administrator must configure the rule through GitHub settings. Until verified active, this remains a merge-governance blocker rather than a completed change.
+
+## D29 — 页面到扩展的删除通知可信边界（待决定）
+
+PR #16 合并前复核发现：MAIN world 可在确认同源会话删除响应后发送 `TOC_CONVERSATION_DELETED`，但 ISOLATED world 收到的 `window.postMessage` 没有可信的调用者身份。检查 `event.source === window`、同源 origin 和合法 routeKey 只能过滤跨窗口或格式异常，不能阻止同一网页上下文中运行的其他脚本伪造该通知。接收方目前会持久移除目录别名并设置删除标记；此路径无法由已通过的浏览器模拟测试证明安全。
+
+**安全与体验取舍尚未获准，不能标记已修复。** 可行的后续方向：(1) 从可信的扩展侧独立确认删除再执行持久清理；新增浏览器权限或访问 ChatGPT API 的方案必须单独审核，不能把含糊的 404 作为成功删除证明。(2) 在无法可靠认证时，将网页消息仅用于刷新非持久 UI 状态，改由用户明确确认本地数据清理；代价是删除后可能保留陈旧别名。向 MAIN world 发送随机令牌不能提供可靠的同页脚本隔离；仅增加此类令牌不能作为修复证据。
+
+此风险当前按 P1 处理，优先于 PR #16 合并。保留原功能不变直到实现经审查的替代方案并完成回归测试，不自动删除用户其他数据。

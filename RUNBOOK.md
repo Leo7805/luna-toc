@@ -49,3 +49,7 @@ As of 2026-10-24, `main` is not protected. The available GitHub connector suppor
 - Verify both verification and publish jobs succeed. Check the generated tag, ZIP and SHA256.
 - Do not delete historical Releases or Git tags.
 - Code rollback does not automatically roll back local user data. Check schema compatibility before reverting extension versions.
+
+## Stage 10 merge gate (2026-10-24)
+
+Stage 10 merge evidence and remaining blockers are tracked in [docs/STAGE_10_MERGE_READINESS.md](docs/STAGE_10_MERGE_READINESS.md). Passing the mock-browser suite is not a real-account acceptance test. Do not mark PR #16 merge-authorized while the P1 unauthenticated deletion-notification issue B026 remains unresolved or branch protection is inactive. Re-run the latest branch CI after any fix and obtain explicit merge authorization separately.
