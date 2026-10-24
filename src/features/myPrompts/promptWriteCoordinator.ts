@@ -37,6 +37,24 @@ export function isPromptList(value: unknown): value is SavedPrompt[] {
   return true;
 }
 
+/** Chrome may reorder object properties when round-tripping JSON-like storage. */
+function storageValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (left === null || right === null ||
+      typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => storageValuesEqual(value, right[index]));
+  }
+  const oldRecord = left as Record<string, unknown>;
+  const newRecord = right as Record<string, unknown>;
+  const keys = Object.keys(oldRecord);
+  return keys.length === Object.keys(newRecord).length &&
+    keys.every((key) => Object.hasOwn(newRecord, key) &&
+      storageValuesEqual(oldRecord[key], newRecord[key]));
+}
+
 /** Compares persisted values, not object identities or tab-local cache ages. */
 export function equalPromptLists(left: SavedPrompt[], right: SavedPrompt[]): boolean {
   return left.length === right.length && left.every((item, index) => {
@@ -110,7 +128,7 @@ export function createPromptWriteCoordinator(
                   await storage.remove(absent);
                 }
                 const restored = await storage.get(keys);
-                if (keys.some((key) => JSON.stringify(restored[key]) !== JSON.stringify(original[key]))) {
+                if (keys.some((key) => !storageValuesEqual(restored[key], original[key]))) {
                   throw new Error('Rollback verification failed');
                 }
               } catch {
