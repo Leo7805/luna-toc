@@ -80,6 +80,9 @@ export function createTocAliasWriteCoordinator(
         if (!isTocAliasCommitRequest(request)) {
           return { ok: false, error: 'Invalid TOC alias request' };
         }
+        if (request.action === 'update' && !request.ownerId) {
+          return { ok: false, error: 'Verified ChatGPT account required for alias writes' };
+        }
         const key = TOC_ALIAS_PREFIX + request.routeKey;
         const deletionKey = TOC_ALIAS_DELETED_PREFIX + request.routeKey;
         try {
