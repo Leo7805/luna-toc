@@ -1,56 +1,12 @@
-/**
- * Verifies saved conversation references once on page startup and announces
- * successful ChatGPT deletion mutations. Failed/unauthorized reads never delete.
- */
+/** Verifies the authenticated account for lifecycle diagnostics; it does not authorize local deletion. */
 import {
   TOC_LIFECYCLE_CHECK_REQUEST,
   TOC_LIFECYCLE_CHECK_RESULT,
-  TOC_CONVERSATION_DELETED,
-  isPermanentConversationId,
 } from '@/navigation/lifecycle/protocol';
 
-type FetchArgs = Parameters<typeof fetch>;
-
-/**
- * Inspects an outgoing ChatGPT mutation without consuming its request body.
- * A PATCH to archive a chat is not a deletion.
+/* DELETE detection intentionally lives in the extension background's webRequest observer.
+ * MAIN-world page messages are forgeable and cannot authorize local data deletion.
  */
-export async function getDeletionTarget(args: FetchArgs): Promise<string | null> {
-  try {
-    const [input, init] = args;
-    const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
-    if (url.origin !== location.origin) return null;
-    const match = url.pathname.match(/^\/backend-api\/conversations?\/([^/]+)\/?$/);
-    if (!match) return null;
-    const routeKey = decodeURIComponent(match[1]);
-    if (!isPermanentConversationId(routeKey)) return null;
-    const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
-    if (method === 'DELETE') return routeKey;
-    if (method !== 'PATCH') return null;
-
-    const body = init?.body ?? (input instanceof Request ? await input.clone().text() : null);
-    if (typeof body !== 'string') return null;
-    const update: unknown = JSON.parse(body);
-    if (!update || typeof update !== 'object') return null;
-    const fields = update as Record<string, unknown>;
-    return fields.is_visible === false && fields.is_archived !== true ? routeKey : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Publishes deletion only after ChatGPT confirms a successful mutation. */
-export function publishConfirmedDeletion(
-  response: Response,
-  pendingTarget: Promise<string | null>
-): void {
-  if (!response.ok) return;
-  void pendingTarget.then((routeKey) => {
-    if (!routeKey) return;
-    window.postMessage({ type: TOC_CONVERSATION_DELETED, routeKey }, location.origin);
-  }).catch(() => undefined);
-}
-
 /**
  * Installs startup account validation. HTTP 404/410 cannot prove deletion:
  * unsupported endpoints and access restrictions may appear indistinguishable.

@@ -16,7 +16,7 @@ LunaTOC-SC 是仅支持 ChatGPT 的 Chrome 浏览器扩展。本说明针对 [Py
 
 ## 权限及范围
 
-`manifest.json` 使用 Chrome 的 `storage` 权限，并在 `chatgpt.com`、`chat.openai.com` 页面注入运行所需脚本。扩展不会在 Microsoft Copilot 或其他聊天站点注入脚本。
+`manifest.json` 使用 Chrome 的 `storage` 和 `webRequest` 权限，并将主机权限限定为 `chatgpt.com` 与 `chat.openai.com`。`webRequest` 观察器只监听这两个站点下的会话 API 路径，用于确认顶层 DELETE 或非归档 `PATCH is_visible=false` 是否以 2xx 状态完成。它不会阻止或修改请求，不保存请求正文；对 PATCH 正文只在内存中读取删除判定所需的两个字段。权限允许浏览器向扩展提供匹配请求的 URL、方法、发起方和响应状态，因此 Chrome 可能在安装或更新时显示新增权限提示。扩展不会在 Microsoft Copilot 或其他聊天站点注入脚本，也不会将这些请求数据发送到维护者服务器。
 
 ## 联系方式
 

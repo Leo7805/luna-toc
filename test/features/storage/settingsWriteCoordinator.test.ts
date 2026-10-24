@@ -1,207 +1,129 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSettingsWriteCoordinator, SETTINGS_COMMIT_TYPE } from '@/features/storage/settingsWriteCoordinator';
+import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
-describe('background settings coordinator', () => {
-  it('validates preferences and serializes them with the shared queue', async () => {
-    const data: Record<string, unknown> = {};
-    const get = vi.fn(async (key: string) => ({ [key]: data[key] }));
-    const set = vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, values); });
-    const remove = vi.fn(async (key: string) => { delete data[key]; });
-    const storage = { get, set, remove } as unknown as Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
-    const queue = createSerialWriteQueue();
-    const writer = createSettingsWriteCoordinator(storage, queue);
-    const theme = { followChatGPT: false, manualTheme: 'light' as const };
-    const sidebar = { layoutMode: 'side-by-side' as const, backgroundColor: 'blue' as const, revealTint: true };
-    const results = await Promise.all([
-      writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'theme', settings: theme, removeLegacy: true }),
-      writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: sidebar }),
-    ]);
-    expect(results).toEqual([{ ok: true }, { ok: true }]);
-    expect(data['chatToc:themeSettings']).toEqual(theme);
-    expect(data['chatToc:sidebarPreferences']).toEqual(sidebar);
-    expect(remove).toHaveBeenCalledWith('chatToc:theme');
+const MIGRATION_KEY = 'chatToc:accountSettings:migrated:v1';
+const DEFAULT_THEME = { followChatGPT: true, manualTheme: 'dark' as const };
+const DEFAULT_SIDEBAR = { layoutMode: 'overlay' as const, backgroundColor: 'default' as const, revealTint: false };
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-    data['chatToc:themeSettings'] = { followChatGPT: true, manualTheme: 'dark' };
-    expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'migrate-theme', settings: theme }))
-      .toEqual({ ok: true });
-    expect(data['chatToc:themeSettings']).toEqual({ followChatGPT: true, manualTheme: 'dark' });
-
-    expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: { layoutMode: 'invalid' } }))
-      .toEqual({ ok: false, error: 'Invalid settings update request' });
+function backing(initial: Record<string, unknown> = {}) {
+  const data = clone(initial);
+  const get = vi.fn(async (keys?: string | string[] | null) => {
+    if (keys === undefined || keys === null) return clone(data);
+    const list = typeof keys === 'string' ? [keys] : keys;
+    return clone(Object.fromEntries(list.filter((key) => Object.hasOwn(data, key))
+      .map((key) => [key, data[key]])));
   });
-  it('merges edits from stale tabs by field instead of overwriting unrelated preferences', async () => {
-    const values: Record<string, unknown> = {};
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: values[key] })),
-      set: vi.fn(async (patch: Record<string, unknown>) => { Object.assign(values, patch); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const writer = createSettingsWriteCoordinator(storage);
-    const commit = (patch: Record<string, unknown>, expected: Record<string, unknown>) =>
-      writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch, expected });
-
-    const first = await Promise.all([
-      commit({ layoutMode: 'side-by-side' }, { layoutMode: 'overlay' }),
-      commit({ backgroundColor: 'green' }, { backgroundColor: 'default' }),
-      commit({ revealTint: true }, { revealTint: false }),
-    ]);
-    expect(first).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
-    expect(values['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'side-by-side', backgroundColor: 'green', revealTint: true,
-    });
-
-    expect(await commit({ backgroundColor: 'blue' }, { backgroundColor: 'green' })).toEqual({ ok: true });
-    expect(values['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true,
-    });
-
-    expect((await commit({ revealTint: 'invalid' }, { revealTint: true })).ok).toBe(false);
-    expect((await commit({ backgroundColor: 'unknown' }, { backgroundColor: 'blue' })).ok).toBe(false);
-    expect((await commit({ layoutMode: 'overlay', extra: true }, { layoutMode: 'side-by-side', extra: false })).ok).toBe(false);
-    expect((await commit({}, {})).ok).toBe(false);
-    expect(values['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true,
-    });
+  const set = vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, clone(values)); });
+  const remove = vi.fn(async (keys: string | string[]) => {
+    for (const key of typeof keys === 'string' ? [keys] : keys) delete data[key];
   });
+  return { data, get, set, remove,
+    storage: { get, set, remove } as unknown as chrome.storage.StorageArea };
+}
 
-  it('preserves the latest restored sidebar fields when a delayed patch reaches the worker', async () => {
-    const values: Record<string, unknown> = {
-      'chatToc:sidebarPreferences': {
-        layoutMode: 'overlay', backgroundColor: 'yellow', revealTint: true,
-      },
-    };
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: values[key] })),
-      set: vi.fn(async (patch: Record<string, unknown>) => { Object.assign(values, patch); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const queue = createSerialWriteQueue();
-    const writer = createSettingsWriteCoordinator(storage, queue);
-    const response = await writer.commit({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch: { layoutMode: 'side-by-side' },
-      expected: { layoutMode: 'overlay' },
+describe('account-scoped background settings writer', () => {
+  it('migrates legacy global preferences to every account already represented in local data', async () => {
+    const legacyTheme = { followChatGPT: false, manualTheme: 'light' as const };
+    const legacySidebar = { layoutMode: 'side-by-side' as const, backgroundColor: 'green' as const, revealTint: true };
+    const box = backing({
+      'chatToc:themeSettings': legacyTheme,
+      'chatToc:sidebarPreferences': legacySidebar,
+      'lumaToc:myPromptsV1': [{ ownerId: 'account-2' }],
+      'chatToc:aliases:v1:conversation-123': { ownerId: 'account-3', aliases: {} },
     });
-    expect(response).toEqual({ ok: true });
-    expect(values['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'side-by-side', backgroundColor: 'yellow', revealTint: true,
-    });
-  });
-
-  it('rejects stale same-field edits from another tab without overwriting the accepted value', async () => {
-    const data: Record<string, unknown> = {};
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: data[key] })),
-      set: vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, values); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const writer = createSettingsWriteCoordinator(storage, createSerialWriteQueue());
-    const commit = (color: string, expected: string) =>
-      writer.commit({
-        type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch',
-        patch: { backgroundColor: color }, expected: { backgroundColor: expected },
-      });
-    const results = await Promise.all([
-      commit('blue', 'default'),
-      commit('green', 'default'),
-    ]);
-    expect(results).toEqual([{ ok: true }, { ok: false, conflict: true }]);
-    expect(data['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'overlay', backgroundColor: 'blue', revealTint: false,
-    });
-    expect(storage.set).toHaveBeenCalledTimes(1);
-
-    // A subsequent user action based on the refreshed value is accepted.
-    expect(await commit('green', 'blue')).toEqual({ ok: true });
-    expect((data['chatToc:sidebarPreferences'] as Record<string, unknown>).backgroundColor)
-      .toBe('green');
-  });
-
-  it('keeps a multi-field patch entirely unchanged when one expected field is stale', async () => {
-    const data: Record<string, unknown> = {
-      'chatToc:sidebarPreferences': {
-        layoutMode: 'overlay', backgroundColor: 'yellow', revealTint: true,
-      },
-    };
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: data[key] })),
-      set: vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, values); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const writer = createSettingsWriteCoordinator(storage);
-    const response = await writer.commit({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch',
-      patch: { backgroundColor: 'blue', layoutMode: 'side-by-side' },
-      expected: { backgroundColor: 'default', layoutMode: 'overlay' },
-    });
-    expect(response).toEqual({ ok: false, conflict: true });
-    expect(data['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'overlay', backgroundColor: 'yellow', revealTint: true,
-    });
-    expect(storage.set).not.toHaveBeenCalled();
-  });
-
-  it('requires expected old values for every updated field and rejects malformed conditions', async () => {
-    const data: Record<string, unknown> = {};
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: data[key] })),
-      set: vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, values); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const writer = createSettingsWriteCoordinator(storage);
-    const invalid = [
-      { patch: { backgroundColor: 'blue' } },
-      { patch: { backgroundColor: 'blue' }, expected: {} },
-      { patch: { backgroundColor: 'blue' }, expected: { backgroundColor: 'invalid' } },
-      { patch: { backgroundColor: 'blue' }, expected: { backgroundColor: 'default', layoutMode: 'overlay' } },
-    ];
-    for (const fields of invalid) {
-      expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', ...fields }))
-        .toEqual({ ok: false, error: 'Invalid settings update request' });
-    }
-    expect(storage.set).not.toHaveBeenCalled();
-  });
-
-  it('does not permit legacy full-state writers to silently overwrite valid saved settings', async () => {
-    const original = {
-      layoutMode: 'overlay', backgroundColor: 'blue', revealTint: true,
-    };
-    const data: Record<string, unknown> = { 'chatToc:sidebarPreferences': original };
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: data[key] })),
-      set: vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, values); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const writer = createSettingsWriteCoordinator(storage);
+    const writer = createSettingsWriteCoordinator(box.storage, createSerialWriteQueue());
     expect(await writer.commit({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar',
-      settings: { ...original, backgroundColor: 'yellow' },
-    })).toEqual({ ok: false, conflict: true });
-    expect(data['chatToc:sidebarPreferences']).toEqual(original);
-    expect(storage.set).not.toHaveBeenCalled();
+      type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-1',
+    })).toEqual({ ok: true });
+    expect(box.data[ACCOUNT_SETTINGS_KEY]).toEqual({
+      'account-1': { theme: legacyTheme, sidebar: legacySidebar },
+      'account-2': { theme: legacyTheme, sidebar: legacySidebar },
+      'account-3': { theme: legacyTheme, sidebar: legacySidebar },
+    });
+    expect(box.data[MIGRATION_KEY]).toBe(true);
+    expect(box.data['chatToc:themeSettings']).toBeUndefined();
+    expect(box.data['chatToc:sidebarPreferences']).toBeUndefined();
   });
 
-  it('rejects same-field updates when backup restore changed the persisted value first', async () => {
-    const data: Record<string, unknown> = {
-      'chatToc:sidebarPreferences': {
-        layoutMode: 'overlay', backgroundColor: 'green', revealTint: false,
-      },
+  it('updates one account theme without changing another account', async () => {
+    const box = backing();
+    const writer = createSettingsWriteCoordinator(box.storage);
+    await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-1' });
+    await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-2' });
+    const nextTheme = { followChatGPT: false, manualTheme: 'light' as const };
+    expect(await writer.commit({
+      type: SETTINGS_COMMIT_TYPE, action: 'theme', ownerId: 'account-1', settings: nextTheme,
+    })).toEqual({ ok: true });
+    const map = box.data[ACCOUNT_SETTINGS_KEY] as Record<string, { theme: unknown; sidebar: unknown }>;
+    expect(map['account-1'].theme).toEqual(nextTheme);
+    expect(map['account-2'].theme).toEqual(DEFAULT_THEME);
+    expect(map['account-2'].sidebar).toEqual(DEFAULT_SIDEBAR);
+  });
+
+  it('merges sequential sidebar patches and preserves the account theme', async () => {
+    const box = backing();
+    const writer = createSettingsWriteCoordinator(box.storage);
+    await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-1' });
+    for (const patch of [
+      { layoutMode: 'side-by-side' }, { backgroundColor: 'green' }, { revealTint: true },
+      { backgroundColor: 'blue' },
+    ]) {
+      expect(await writer.commit({
+        type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', ownerId: 'account-1', patch,
+      })).toEqual({ ok: true });
+    }
+    const record = (box.data[ACCOUNT_SETTINGS_KEY] as Record<string, { theme: unknown; sidebar: unknown }>)['account-1'];
+    expect(record.sidebar).toEqual({
+      layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true,
+    });
+    expect(record.theme).toEqual(DEFAULT_THEME);
+  });
+
+  it('rejects invalid patches and writes to unregistered accounts', async () => {
+    const box = backing();
+    const writer = createSettingsWriteCoordinator(box.storage);
+    await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-1' });
+    box.set.mockClear();
+    for (const patch of [{}, { backgroundColor: 'invalid' }, { revealTint: 1 }, { extra: true }]) {
+      expect(await writer.commit({
+        type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', ownerId: 'account-1', patch,
+      })).toEqual({ ok: false, error: 'Invalid settings update request' });
+    }
+    expect(await writer.commit({
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', ownerId: 'unknown-account',
+      patch: { backgroundColor: 'red' },
+    })).toMatchObject({ ok: false });
+    expect(box.set).not.toHaveBeenCalled();
+  });
+
+  it('rolls back a failed settings write and permits retry', async () => {
+    const box = backing();
+    const writer = createSettingsWriteCoordinator(box.storage);
+    await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-1' });
+    const original = clone(box.data[ACCOUNT_SETTINGS_KEY]);
+    box.set.mockRejectedValueOnce(new Error('quota exceeded'));
+    const request = {
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', ownerId: 'account-1',
+      patch: { backgroundColor: 'red' },
     };
-    const storage = {
-      get: vi.fn(async (key: string) => ({ [key]: data[key] })),
-      set: vi.fn(async (values: Record<string, unknown>) => { Object.assign(data, values); }),
-      remove: vi.fn(async () => {}),
-    } as unknown as chrome.storage.StorageArea;
-    const writer = createSettingsWriteCoordinator(storage);
-    const response = await writer.commit({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch',
-      patch: { backgroundColor: 'red' }, expected: { backgroundColor: 'blue' },
-    });
-    expect(response).toEqual({ ok: false, conflict: true });
-    expect(data['chatToc:sidebarPreferences']).toEqual({
-      layoutMode: 'overlay', backgroundColor: 'green', revealTint: false,
-    });
-    expect(storage.set).not.toHaveBeenCalled();
+    expect(await writer.commit(request)).toMatchObject({ ok: false, error: expect.stringContaining('原有设置已恢复') });
+    expect(box.data[ACCOUNT_SETTINGS_KEY]).toEqual(original);
+    expect(await writer.commit(request)).toEqual({ ok: true });
+    expect((box.data[ACCOUNT_SETTINGS_KEY] as Record<string, { sidebar: { backgroundColor: string } }>)['account-1'].sidebar.backgroundColor)
+      .toBe('red');
   });
 
+  it('refuses to overwrite malformed persisted account settings', async () => {
+    const box = backing({ [ACCOUNT_SETTINGS_KEY]: { 'account-1': { theme: 'broken', sidebar: {} } } });
+    const original = clone(box.data);
+    const writer = createSettingsWriteCoordinator(box.storage);
+    expect(await writer.commit({
+      type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId: 'account-1',
+    })).toMatchObject({ ok: false });
+    expect(box.data).toEqual(original);
+    expect(box.set).not.toHaveBeenCalled();
+  });
 });

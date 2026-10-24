@@ -7,6 +7,7 @@ import type {
   PromptStore,
   SavedPrompt,
 } from './promptStore';
+import { getActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 import type { PromptUsageStore } from './promptUsageStore';
 import {
   promptEditorController,
@@ -82,15 +83,6 @@ export async function getMyPrompts(): Promise<SavedPrompt[]> {
 }
 
 /**
- * Persists prompts through the prompt store.
- * @param {Array} prompts
- * @returns {Promise<void>}
- */
-export async function saveMyPrompts(prompts: SavedPrompt[]): Promise<void> {
-  return requirePromptStore().saveAll(prompts);
-}
-
-/**
  * Registers a listener for prompt store changes.
  * @param {(prompts: Array) => void} listener
  * @returns {() => void}
@@ -161,9 +153,12 @@ function importMyPrompts(onImport: VoidCallback): void {
         return;
       }
 
+      const ownerId = getActiveConversationOwner();
+      if (!ownerId) throw new Error('ChatGPT 账号未验证，无法导入提示词。');
       const importedAt = Date.now();
       const importedPrompts = promptsToImport.map((prompt, index) => ({
-        id: `prompt-${importedAt}-${index}`,
+        id: `prompt-${importedAt}-${index}-${crypto.randomUUID()}`,
+        ownerId,
         title: prompt.title,
         content: prompt.content,
         createdAt: importedAt,
@@ -179,7 +174,7 @@ function importMyPrompts(onImport: VoidCallback): void {
     } catch (error) {
       await showPromptModal({
         title: '导入提示词',
-        message: '无法从所选文件导入提示词。',
+        message: error instanceof Error ? error.message : '无法从所选文件导入提示词。',
       });
     }
   });
@@ -367,21 +362,21 @@ function createSortBar(
   return bar;
 }
 
-/** Clears all saved prompts and their associated usage metadata. */
+/** Clears the verified account's prompts and their associated usage metadata. */
 async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   const prompts = await getMyPrompts();
   if (!prompts.length) return;
 
   const shouldClear = await showPromptModal({
     title: '清空我的提示词',
-    message: `确定永久删除全部 ${prompts.length} 条提示词吗？`,
+    message: `确定永久删除当前账号的全部 ${prompts.length} 条提示词吗？`,
     confirm: true,
     confirmText: '全部清空',
   });
   if (!shouldClear) return;
 
   try {
-    await requirePromptStore().clearAll(prompts);
+    await requirePromptStore().clearAll();
     onRefresh();
   } catch (error) {
     await showPromptModal({
@@ -463,6 +458,8 @@ async function savePromptEditorValues(
   createId: string
 ): Promise<void> {
   try {
+    const ownerId = getActiveConversationOwner();
+    if (!ownerId) throw new Error('ChatGPT 账号未验证，提示词未保存。');
     await requirePromptStore().update((prompts) => {
       const isNew = !item?.id;
       if (isNew) {
@@ -476,6 +473,7 @@ async function savePromptEditorValues(
         const now = Date.now();
         prompts.push({
           id: createId,
+          ownerId,
           title,
           content,
           createdAt: now,
@@ -483,12 +481,7 @@ async function savePromptEditorValues(
         });
       } else {
         const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
-        if (!existingPrompt) throw new Error('提示词已在其他标签页删除，请重新打开编辑器。');
-        if ((item.updatedAt !== undefined && existingPrompt.updatedAt !== item.updatedAt) ||
-            (item.title !== undefined && existingPrompt.title !== item.title) ||
-            (item.content !== undefined && existingPrompt.content !== item.content)) {
-          throw new Error('提示词已在其他标签页修改，请重新打开编辑器。');
-        }
+        if (!existingPrompt) throw new Error('提示词已不存在，请重新打开编辑器。');
         existingPrompt.title = title;
         existingPrompt.content = content;
         existingPrompt.updatedAt = Date.now();
@@ -498,8 +491,7 @@ async function savePromptEditorValues(
   } catch (error) {
     await showPromptModal({
       title: '保存提示词',
-      message: error instanceof Error && error.message.includes('其他标签页')
-        ? error.message : '无法保存此提示词，请检查扩展状态后重试。',
+      message: error instanceof Error ? error.message : '无法保存此提示词，请检查扩展状态后重试。',
     });
     throw error;
   }
@@ -642,11 +634,6 @@ export async function renderMyPrompts(
       if (shouldDelete) {
         try {
           await requirePromptStore().update((prompts) => {
-            const current = prompts.find((p) => p.id === item.id);
-            if (!current || current.updatedAt !== item.updatedAt ||
-                current.title !== item.title || current.content !== item.content) {
-              throw new Error('提示词已在其他标签页修改，请刷新列表后再删除。');
-            }
             return prompts.filter((p) => p.id !== item.id);
           });
           void requirePromptUsageStore().remove(item.id).catch(() => {

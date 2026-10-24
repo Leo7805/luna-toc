@@ -9,6 +9,7 @@ interface ThemeSettingsProps {
   settings: ThemeSettingsValue;
   resolvedTheme: ResolvedTheme;
   onChange: (settings: ThemeSettingsValue) => void;
+  disabled?: boolean;
 }
 
 /** Displays follow and resolved theme controls in one compact row. */
@@ -16,6 +17,7 @@ export function ThemeSettings({
   settings,
   resolvedTheme,
   onChange,
+  disabled = false,
 }: ThemeSettingsProps): React.JSX.Element {
   const toggleFollow = (): void => {
     onChange({ ...settings, followChatGPT: !settings.followChatGPT });
@@ -52,6 +54,7 @@ export function ThemeSettings({
               ? 'border-(--p-toggle-bg-active) bg-(--p-toggle-bg-active)'
               : 'border-(--p-toggle-border) bg-(--p-toggle-bg)'
           }`}
+          disabled={disabled}
           onClick={toggleFollow}
         >
           <span
@@ -62,7 +65,7 @@ export function ThemeSettings({
         </button>
         <button
           type="button"
-          disabled={settings.followChatGPT}
+          disabled={disabled || settings.followChatGPT}
           aria-label={
             settings.followChatGPT
               ? `当前主题：${resolvedTheme === 'dark' ? '深色' : '浅色'}`

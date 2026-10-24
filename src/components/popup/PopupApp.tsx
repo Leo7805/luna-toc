@@ -12,6 +12,7 @@ import {
   type ResolvedTheme,
   type ThemeSettings as ThemeSettingsValue,
 } from '@/features/theme/themeSettings';
+import { resolveAccountSettingsOwner } from '@/features/storage/accountSettings';
 import { ThemeSettings } from './ThemeSettings';
 import { parseToolbarWarning, toolbarWarningKey, type ToolbarCompatibilityWarning } from '@/features/contractAlert/toolbarWarning';
 const PROJECT_URL = 'https://github.com/PyRookie1/luna-toc-sc';
@@ -24,6 +25,8 @@ const INITIAL_SETTINGS: ThemeSettingsValue = {
 /** Displays theme controls and the existing usage guidance. */
 export function PopupApp(): React.JSX.Element {
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
+  const [settingsOwnerId, setSettingsOwnerId] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState('');
   const [chatGPTTheme, setChatGPTTheme] = useState<ResolvedTheme>('dark');
   const [compatibilityWarning, setCompatibilityWarning] =
     useState<ToolbarCompatibilityWarning | null>(null);
@@ -57,12 +60,31 @@ export function PopupApp(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    void readThemeSettings().then(setSettings);
-    void readResolvedChatGPTTheme().then(setChatGPTTheme);
-    const unsubscribeSettings = subscribeThemeSettings(setSettings);
-    const unsubscribeResolvedTheme =
-      subscribeResolvedChatGPTTheme(setChatGPTTheme);
+    let active = true;
+    let unsubscribeSettings = () => {};
+    let unsubscribeResolvedTheme = () => {};
+    const initialize = async (): Promise<void> => {
+      const ownerId = await resolveAccountSettingsOwner();
+      if (!active) return;
+      setSettingsOwnerId(ownerId);
+      if (!ownerId) {
+        setSettingsError('请先打开并登录 ChatGPT；主题偏好按账号保存。');
+        return;
+      }
+      const [savedSettings, resolvedTheme] = await Promise.all([
+        readThemeSettings(ownerId), readResolvedChatGPTTheme(),
+      ]);
+      if (!active) return;
+      setSettings(savedSettings);
+      setChatGPTTheme(resolvedTheme);
+      unsubscribeSettings = subscribeThemeSettings(setSettings, ownerId);
+      unsubscribeResolvedTheme = subscribeResolvedChatGPTTheme(setChatGPTTheme);
+    };
+    void initialize().catch((error: unknown) => {
+      if (active) setSettingsError(error instanceof Error ? error.message : '无法读取主题设置。');
+    });
     return () => {
+      active = false;
       unsubscribeSettings();
       unsubscribeResolvedTheme();
     };
@@ -78,8 +100,13 @@ export function PopupApp(): React.JSX.Element {
   }, [resolvedTheme]);
 
   const updateSettings = (nextSettings: ThemeSettingsValue): void => {
+    if (!settingsOwnerId) return;
     setSettings(nextSettings);
-    void writeThemeSettings(nextSettings);
+    setSettingsError('');
+    void writeThemeSettings(nextSettings, settingsOwnerId).catch((error: unknown) => {
+      setSettingsError(error instanceof Error ? error.message : '主题设置保存失败。');
+      void readThemeSettings(settingsOwnerId).then(setSettings).catch(() => undefined);
+    });
   };
 
   return (
@@ -106,7 +133,9 @@ export function PopupApp(): React.JSX.Element {
         settings={settings}
         resolvedTheme={resolvedTheme}
         onChange={updateSettings}
+        disabled={!settingsOwnerId}
       />
+      {settingsError && <p role="status" className="mt-1 mb-2 text-xs text-(--p-text-base)">{settingsError}</p>}
 
       <section className="m-0" aria-labelledby="tips-heading">
         <h2

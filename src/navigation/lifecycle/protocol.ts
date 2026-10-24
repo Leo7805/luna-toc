@@ -1,9 +1,8 @@
-/**
- * Page-hook protocol for a one-time startup validity check and confirmed deletions.
- */
+/** Cross-context protocol constants. Page postMessage values are never deletion authority. */
 export const TOC_LIFECYCLE_CHECK_REQUEST = 'LUNA_TOC_LIFECYCLE_CHECK_REQUEST';
 export const TOC_LIFECYCLE_CHECK_RESULT = 'LUNA_TOC_LIFECYCLE_CHECK_RESULT';
-export const TOC_CONVERSATION_DELETED = 'LUNA_TOC_CONVERSATION_DELETED';
+/** Sent through chrome.runtime from the extension service worker after a successful observed mutation. */
+export const TOC_TRUSTED_CONVERSATION_DELETED = 'LUNA_TOC_TRUSTED_CONVERSATION_DELETED_V1';
 
 /** Accepts only permanent ChatGPT conversation identifiers. */
 export function isPermanentConversationId(value: unknown): value is string {

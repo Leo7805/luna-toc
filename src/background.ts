@@ -20,6 +20,11 @@ import {
   TOOLBAR_COMPATIBILITY_HEALTHY,
 } from '@/features/contractAlert/toolbarWarning';
 import { createToolbarWarningController } from '@/features/contractAlert/toolbarBackground';
+import { installRemoteDeletionObserver } from '@/background/remoteDeletionObserver';
+
+// Observe only actual successful ChatGPT delete/visibility-removal mutations in the browser network layer.
+// The observer never stores request bodies and only sends a route ID to the originating tab.
+installRemoteDeletionObserver();
 
 const toolbar = createToolbarWarningController(chrome.storage.session, chrome.action);
 const storageWriteQueue = createSerialWriteQueue();
@@ -77,7 +82,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   return true;
 });
 
-/** Serializes TOC alias mutations and confirmed deletion fences across tabs. */
+/** Orders TOC alias mutations and confirmed deletion fences with backup writes. */
 const tocAliasCoordinator = createTocAliasWriteCoordinator(chrome.storage.local, storageWriteQueue);
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!message || typeof message !== 'object' ||
@@ -113,6 +118,14 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
       (message as { type?: unknown }).type !== SETTINGS_COMMIT_TYPE) return;
   if (sender.id !== chrome.runtime.id) {
     sendResponse({ ok: false, error: 'Untrusted extension message sender' });
+    return false;
+  }
+  const action = (message as { action?: unknown }).action;
+  if (action === 'register-account' &&
+      (sender.tab?.id === undefined || sender.frameId !== 0 ||
+       (sender.documentLifecycle && sender.documentLifecycle !== 'active') ||
+       !/^https:\/\/(?:chatgpt\.com|chat\.openai\.com)(?:\/|$)/.test(sender.url ?? ''))) {
+    sendResponse({ ok: false, error: 'Account registration requires an active ChatGPT content context' });
     return false;
   }
   void settingsCoordinator.commit(message).then(sendResponse, () =>

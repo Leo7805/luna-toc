@@ -188,36 +188,38 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.waitForFunction(()=>document.querySelector('#navigator-list')?.textContent?.includes('账号 A 私有标题'));
     });
 
-    await t.test('B026: forged and page-confirmed deletions never erase local aliases',{timeout:20000},async()=>{
+    await t.test('B026: forged page messages are ignored but Chrome-observed successful deletion cleans aliases',{timeout:20000},async()=>{
       const routeKey='luna-stage-9-e2e';
       const aliasKey='chatToc:aliases:v1:'+routeKey;
       const fenceKey='chatToc:aliases:deleted:v1:'+routeKey;
-      const record={ownerId:null,aliases:{'user-1':'请保留此目录别名'}};
+      const record={ownerId:'fixture-account-a',aliases:{'user-1':'请保留此目录别名'}};
       await worker.evaluate(async({aliasKey,fenceKey,record})=>{
         await chrome.storage.local.remove(fenceKey);
         await chrome.storage.local.set({[aliasKey]:record});
       },{aliasKey,fenceKey,record});
-      // Run in the actual page world, not through an extension content script.
+      // A same-origin page can forge postMessage but cannot invoke chrome.runtime.
       await page.evaluate(async routeKey=>{
-        window.postMessage({type:'LUNA_TOC_CONVERSATION_DELETED',routeKey},location.origin);
+        window.postMessage({type:'LUNA_TOC_TRUSTED_CONVERSATION_DELETED_V1',routeKey},location.origin);
         await new Promise(resolve=>setTimeout(resolve,250));
       },routeKey);
       let state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
-      assert.deepEqual(state[aliasKey],record,'a same-origin page script cannot erase an alias');
-      assert.equal(Object.hasOwn(state,fenceKey),false,'a forged page event must not create a deletion fence');
+      assert.deepEqual(state[aliasKey],record,'a forged page event cannot erase an alias');
+      assert.equal(Object.hasOwn(state,fenceKey),false,'a forged page event cannot create a deletion fence');
 
-      // Even an observed HTTP DELETE from MAIN world uses the same untrusted
-      // postMessage boundary. It remains informational until a trusted verifier exists.
+      // The service worker independently observes the real browser network request
+      // and forwards only a successful top-level DELETE to that tab's isolated world.
       const result=await page.evaluate(async routeKey=>{
         const response=await fetch('/backend-api/conversations/'+routeKey,{method:'DELETE'});
-        await new Promise(resolve=>setTimeout(resolve,250));
         return {ok:response.ok,status:response.status};
       },routeKey);
       assert.equal(result.ok,true,'fixture must simulate a successful host deletion request');
-      state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
-      assert.deepEqual(state[aliasKey],record,'page-reported deletion must not erase local aliases');
-      assert.equal(Object.hasOwn(state,fenceKey),false,'a page-reported deletion must not persist a fence');
-      // The fixture is disposable; do not need to clean real user data.
+      let cleaned=false;
+      for(let attempt=0;attempt<30;attempt++){
+        state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
+        if(!Object.hasOwn(state,aliasKey)&&state[fenceKey]===true){cleaned=true;break;}
+        await page.waitForTimeout(100);
+      }
+      assert.equal(cleaned,true,'a successful browser-observed delete must persist a fence and remove the alias');
     });
 
     await t.test('500-message fully mounted fixture builds a TOC and supports a far jump',{timeout:60000},async()=>{
@@ -270,10 +272,14 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         const optionsPage=await worker.evaluate(()=>chrome.runtime.getManifest().options_ui.page);
         await settings.goto('chrome-extension://'+extensionId+'/'+optionsPage);
         await worker.evaluate(async()=>chrome.storage.local.set({
-          'lumaToc:myPromptsV1':[{id:'e2e-prompt',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
+          'lumaToc:myPromptsV1':[{id:'e2e-prompt',ownerId:'fixture-account-a',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
           'lunaToc:promptUsageV1':{'e2e-prompt':{usageCount:2,lastUsedAt:3}},
-          'chatToc:themeSettings':{followChatGPT:false,manualTheme:'light'},
-          'chatToc:sidebarPreferences':{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
+          'chatToc:accountSettings:v1':{
+            'fixture-account-a':{
+              theme:{followChatGPT:false,manualTheme:'light'},
+              sidebar:{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
+            }
+          }
         }));
         const downloadPromise=settings.waitForEvent('download');
         await settings.getByRole('button',{name:'导出本地数据'}).click();
@@ -282,7 +288,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         const backup=JSON.parse(readFileSync(filePath,'utf8'));
         assert.equal(backup.data.prompts[0].id,'e2e-prompt');
         assert.equal(backup.data.promptUsage['e2e-prompt'].usageCount,2);
-        await worker.evaluate(async()=>chrome.storage.local.set({'lumaToc:myPromptsV1':[{id:'temporary',title:'temporary',content:'temporary',createdAt:1,updatedAt:2}], 'lunaToc:promptUsageV1':{temporary:{usageCount:1,lastUsedAt:3}}}));
+        await worker.evaluate(async()=>chrome.storage.local.set({'lumaToc:myPromptsV1':[{id:'temporary',ownerId:'fixture-account-a',title:'temporary',content:'temporary',createdAt:1,updatedAt:2}], 'lunaToc:promptUsageV1':{temporary:{usageCount:1,lastUsedAt:3}}}));
         await settings.locator('input[type="file"]').setInputFiles({name:'luna-toc-e2e-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
         await settings.locator('.settings-backup-preview').waitFor({state:'visible'});
         settings.on('dialog',dialog=>dialog.accept());
@@ -296,12 +302,12 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         }
         const statusText=await status.innerText();
         assert.match(statusText,/恢复成功/, 'backup restore reported an error: '+statusText);
-        const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:themeSettings','chatToc:sidebarPreferences']));
+        const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:accountSettings:v1']));
         assert.deepEqual(restored['lumaToc:myPromptsV1'].map(prompt=>prompt.id).sort(),['e2e-prompt','temporary']);
         assert.equal(restored['lunaToc:promptUsageV1'].temporary.usageCount,1);
         assert.equal(restored['lunaToc:promptUsageV1']['e2e-prompt'].usageCount,2);
-        assert.deepEqual(restored['chatToc:themeSettings'],backup.data.theme);
-        assert.deepEqual(restored['chatToc:sidebarPreferences'],backup.data.sidebar);
+        assert.deepEqual(restored['chatToc:accountSettings:v1']['fixture-account-a'].theme,backup.data.settings['fixture-account-a'].theme);
+        assert.deepEqual(restored['chatToc:accountSettings:v1']['fixture-account-a'].sidebar,backup.data.settings['fixture-account-a'].sidebar);
       }finally{await settings.close();}
     });
   }catch(error){

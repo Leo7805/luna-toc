@@ -5,12 +5,15 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const EXPECTED_HOSTS=['https://chatgpt.com/*','https://chat.openai.com/*'];
+export const EXPECTED_PERMISSIONS=['storage','webRequest'];
 
 /** Reject unexpectedly expanded origin, API or extension exposure privileges. */
 export function checkManifest(m){
   assert.equal(m.manifest_version,3,'MV3 required');
-  assert.deepEqual(m.permissions??[],['storage'],'new permissions require review');
-  assert.deepEqual(m.host_permissions??[],[],'host permissions require review');
+  assert.deepEqual([...(m.permissions??[])].sort(),[...EXPECTED_PERMISSIONS].sort(),
+    'only storage and narrowly scoped webRequest permissions are allowed');
+  assert.deepEqual([...(m.host_permissions??[])].sort(),[...EXPECTED_HOSTS].sort(),
+    'network observation must be restricted to the two ChatGPT origins');
   assert.equal(m.externally_connectable,undefined,'external messaging requires review');
   assert.equal(m.content_security_policy,undefined,'custom CSP requires review');
   // CRXJS may generate scoped web-accessible chunks for MAIN-world injection.

@@ -118,11 +118,11 @@ Stage 10 introduces one rejection-safe queue in the Manifest V3 background worke
 
 CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection was initially inactive and could not be changed through the available GitHub connector. On 2026-10-24 the administrator activated Ruleset 25771265 for `main`; GitHub confirms its active enforcement, required PR, strict two-job CI checks, blocked force push/deletion and no bypass. This closes the merge-governance blocker without changing application permissions or release policy.
 
-## D29 — 不可信网页删除通知不得清除扩展本地数据（已决定）
+## D29 — 不可信网页删除通知不得清除扩展本地数据（阶段十临时决定，后由 D30 扩展）
 
 阶段十发现 MAIN world 向 ISOLATED world 发布的 `TOC_CONVERSATION_DELETED` 事件可以被同源网页脚本伪造。仅凭 `event.source`、`origin`、会话 ID 和网页可访问的令牌，都不足以证明该事件来自成功的真实删除操作。
 
-本阶段采用**保守、不破坏数据的方案**：`src/navigation/lifecycle/conversationLifecycle.ts` 显式忽略来自 `window.postMessage` 的删除通知，不再执行 `tocAliasStore.removeConversation` 或 `navigatorController.handleConversationDeleted`。页面钩子仍可能发出观察到的事件，但它不能越过持久数据的权限边界。验证新增单元测试与模拟 Chromium 端到端测试，分别检查页面伪造删除、页面模拟成功 DELETE 不会清空持久别名或安装删除屏障。不会新增扩展权限、网络请求或迁移存储键。
+阶段十采用**保守、不破坏数据的临时方案**：忽略 `window.postMessage` 删除通知，避免页面伪造成功 DELETE 清空持久别名。该方案在 D36 被替代：继续忽略页面消息作为授权，但由扩展后台的浏览器网络层独立观察真实删除请求，并只在成功响应后发送可信 runtime 通知。
 
 **已知功能取舍**：真正从 ChatGPT 删除的会话，其旧本地目录别名及相关缓存不会因为页面通知被清理，可能保存在浏览器本地及用户导出的备份中。这些本地记录既不会自动上传，也不代表会话仍存在于 ChatGPT 服务器。用户仍能对可见会话撤销单条目录别名；针对已删除会话的可信独立确认或显式清理界面须作为单独后续需求设计与验收。在此之前，宁可保留陈旧本地文字，也不相信无法认证的页面通知。
 
@@ -148,3 +148,25 @@ CI uses supported GitHub Actions major versions and checks that the deprecated v
 **实际行为：** 新增和编辑自定义目录标题要求可信 ChatGPT 账号标识；同账号的别名可以显示和编辑，其他账号、无法验证账号和没有归属信息的别名不展示。对 `ownerId=null` 且已存在内容的本地记录仍拒绝未经证明的归属接管。防御性保留这些记录不等于承诺旧版本数据迁移；不自动删除、不重写、不根据网页消息断言归属。保留通用 JSON 备份与恢复行为及验证规则。
 
 **验收及回退：** 以第一阶段的账号伪造、跨账号隔离、备份校验和批量清空自动化测试，以及最新分支 CI 为验收依据；旧用户无归属数据迁移测试不属于当前交付范围。真实已登录 ChatGPT 环境、旧新版本混合标签页仍属未验证环境，不得称已通过。若日后实际存在历史数据恢复需求，须重新立项，设计有可靠归属证明的显式迁移，不绕过隔离或直接覆盖旧记录。此范围决策不是合并 `main` 或发布版本的授权。
+
+## D34 — 单标签页使用模式下移除跨标签页冲突协议（2026-10-24）
+
+用户明确限定一次只操作一个 ChatGPT 标签页。方案 A 保留提示词快照 CAS、目录别名逐条旧值比对、侧边栏设置字段条件写入和自动冲突重试；功能不需要但增加维护成本。方案 B 删除这些跨标签页专用冲突判断，保留单上下文保存顺序、后台备份恢复串行、格式和权限校验、清空回滚以及失败提示。本次选择 B。
+
+本决定取代 D21、D22 关于跨标签页条件写入的当前实现说明；D27 的共享队列继续保证同一扩展后台的备份恢复和异步写入顺序，D32 的清空回滚仍有效，但不再验证确认时的旧提示词快照。多标签页同时保存相同记录时可能静默覆盖，因此不属于支持场景。原有 Chrome 本地存储键和记录格式保持不变，无须迁移。真实浏览器使用仍需验收；通过回退本阶段提交可恢复旧逻辑。
+
+
+## D35 — 提示词与目录别名必须绑定账号，备份保留偏好设置（2026-10-24）
+
+新版本不再保留无账号归属的提示词或目录别名：后台在共享写入队列中清理提示词列表里缺少 `ownerId` 的记录及其孤立使用统计，并清理目录别名中缺少账号归属的记录；不把旧记录自动绑定给当前账号。提示词列表按当前可信账号过滤，同一账号的提示词跨对话共享；编辑和清空只作用于当前账号，其他账号的数据及使用统计必须保留。目录别名必须具有有效 `ownerId`，并继续按会话 ID 保存，未知账号时不显示、不写入。
+
+完整 JSON 备份版本升级到 2，提示词和别名都必须携带账号归属；导入时拒绝未绑定记录及同 ID 跨账号冲突。主题和侧边栏偏好继续包含在备份和恢复流程中。普通编辑不再做跨标签页旧值冲突比较，但提示词/别名输入校验、共享后台写入队列、批量清空回滚、备份容量预检和恢复回滚保留。移除无调用方的提示词整表保存接口及侧边栏全量写入分支。
+
+**删除会话的限制**：页面 `postMessage` 不能单独授权删除本地数据。当前使用 D36 的后台 `webRequest` 观察器确认成功的真实删除类网络请求；若请求未被观察、发生重定向、返回非 2xx 或账号无法重新验证，自动清理将保守地跳过，用户仍可通过设置页的本地清理流程处理残留记录。
+
+
+## D36 — 通过浏览器网络层确认真实会话删除（2026-10-24）
+
+同源网页可以伪造 MAIN-world `postMessage`，而 GET 404/410 也可能来自不支持的接口或访问限制，因此这两种信号都不能授权清理本地别名。为满足自动清理真实删除会话的需求，扩展在 MV3 service worker 中注册非阻塞 `chrome.webRequest` 观察器，过滤范围仅限 `chatgpt.com` 与 `chat.openai.com` 的会话 API 路径；只识别顶层 `DELETE` 或明确的非归档 `PATCH is_visible=false`，并仅在同一 requestId 完成且状态码为 2xx 时通知发起请求的标签页。隔离世界通过 `chrome.runtime` 接收通知，重新验证会话账号与已有别名归属，再调用原有带持久删除围栏的串行写入流程。
+
+代价是新增 `webRequest` 权限及仅限两个 ChatGPT 站点的主机权限。观察器不阻止或改写请求，不持久化请求正文，不记录消息内容，也不发送到外部服务；PATCH 正文只在内存中解析 `is_visible` 和 `is_archived` 字段。审计测试将精确允许这两个权限和站点范围，同时继续拒绝 `webRequestBlocking`、额外权限和广泛主机范围。若 Chrome 或 ChatGPT 改变网络 API，自动清理会失败关闭，保留数据并继续提供用户确认的本地清理。

@@ -28,13 +28,13 @@
 - `src/navigation/state/conversationStore.ts` 管理缓存和会话状态。主动刷新已核验的快照为权威结果；新的非权威分页也不能恢复旧编辑分支，但独立观察到的用户新消息可加入当前目录。
 - `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新；权威刷新失败或 15 秒超时会将缓存标为未验证，迟到的分页数据不得重置验证状态；成功删除则清空当前视图。
 - `src/navigation/jump/navigationSnapshotStore.ts` 限制标签页内快照数量，提供逐会话删除和全量重置；会话切换不保留无界的原始分页消息集合。
-- `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话接口识别登录账号，并观察成功的 DELETE 或 `is_visible=false` 页面操作；但 MAIN world 发出的删除通知属于不可信的页面通道，不能授权扩展删除本地数据。归档不作为删除。单一接口 GET 返回 404/410 可能是 API 不兼容或权限问题，也不作为本地删除证据。
-- `src/navigation/lifecycle/conversationLifecycle.ts` 处理账号识别，但忽略不可信 `TOC_CONVERSATION_DELETED` 页面消息，避免伪造的成功删除通知清理持久目录别名或导航缓存；`src/navigation/lifecycle/conversationOwner.ts` 保存页面识别到的账号身份。此取舍意味着删除 ChatGPT 会话后本地别名可能残留。不启用后台轮询。
+- `src/background/remoteDeletionObserver.ts` 使用 Chrome `webRequest` 只观察 ChatGPT 两个站点上的顶层会话 `DELETE` 与非归档 `PATCH is_visible=false` 请求；只在真实请求完成且状态码为 2xx 时向原标签页发送扩展 runtime 消息。请求正文仅在内存中解析可见性字段，不保存、不记录。
+- `src/navigation/lifecycle/conversationLifecycle.ts` 在处理后台通知前重新验证登录账号，并确认现有别名属于该账号；页面 `window.postMessage` 无论内容如何都不能授权清理。账号切换、别名读取失败、请求失败、重定向或非 2xx 均保留数据。
 
 ## 目录与导航
 
 - `src/navigation/ui/tocListRenderer.ts` 渲染用户问题目录；行内只显示序号和提问文字，距高亮行左边缘约6px；超长提问由 CSS `text-overflow: ellipsis` 省略显示（DOM 内保留完整文字），不创建可点击三点按钮或展开三角。目录项右键菜单默认按「复制文字」「添加tips」「编辑文字」排列；当前回答标题目录已展开且包含标题时始终附加「收起目录」；如果同时超出侧边栏无遮挡可视范围，则将「回到顶部」放在它之前、「回到底部」放在它之后，已有别名时再附加「恢复原文」；已彻底移除收藏功能。添加始终打开原有提示词编辑保存流程；菜单显示时以当前行文本的顶部、展开标题列表的底部和 `#navigator-list` 的实际可视范围（考虑毛玻璃顶栏遮挡）作判断；全部可见则隐藏两项；菜单选择上下边界操作时再次确认仍有遮挡；选择「收起目录」则按消息身份和当前行 DOM 双重校验，再由 `outline.ts` 收起指定目录而不跳转聊天正文，保留标题缓存便于后续重新展开；如果收起前该问题目录被顶部毛玻璃栏或列表上边界遮挡，收起后将其滚动到侧边栏可视区域首位，已可见的目录不额外滚动。回到顶部／底部只对 `#navigator-list` 滚动：顶部以目录项行首为锚点，读取 `.navigator-topbar` 实际底边避免毛玻璃栏遮挡；底部优先使后续第一条可见目录项完整进入视口，没有下一条则对齐展开标题列表末项。选择菜单动作时重新检查仍处于展开状态，避免重绘、收起或切换会话造成错误滚动；完全不改变 ChatGPT 正文的位置。侧边栏关闭时通过 `promptContextMenuController.close()` 同步关闭 React Portal 菜单；复制仍使用 `src/features/conversationPrompts/copyPrompt.ts` 的剪贴板 API 及回退。
-- `src/features/conversationPrompts/tocAliasStore.ts` 将自定义目录标题按永久会话 ID、消息 ID 写入 Chrome 本地存储；目录别名写入和明确成功的会话删除通过 `chrome.runtime.sendMessage` 发送给 `src/background.ts`，由 `tocAliasWriteCoordinator.ts` 按队列处理。后台每次读取最新持久记录并检查消息级编辑基准：不同消息合并，同一消息冲突拒绝；编辑基准在打开行内编辑器时捕获。成功删除先保存持久删除标记再删除别名，即使旧标签页或后台工作线程重启也不能重建旧会话。仅覆盖显示，导航和复制始终基于原始消息。`src/navigation/ui/tocListRenderer.ts` 在被右键选中的目录行原位装载多行 textarea，通过 scrollHeight 和 ResizeObserver 随文字换行、侧边栏宽度自动增高以展示完整内容，并在目录刷新时保留草稿；支持 Enter 保存、Shift+Enter 换行、Esc 取消、失焦保存、失败重试及路由切换清理，不再使用独立重命名弹窗。目录搜索同时覆盖原文和别名，恢复原文时移除本地覆盖。
+- `src/features/conversationPrompts/tocAliasStore.ts` 将自定义目录标题按已验证账号 ID 与永久会话 ID 关联，记录必须携带非空 `ownerId`；未绑定账号的旧别名由后台共享队列清理。目录别名写入和明确成功的会话删除通过 `chrome.runtime.sendMessage` 发送给 `src/background.ts`，由 `tocAliasWriteCoordinator.ts` 按队列处理。后台从持久记录按消息 ID 更新别名，不再执行跨标签页旧值冲突比较。成功删除先保存持久删除标记再删除别名，即使旧标签页或后台工作线程重启也不能重建旧会话。仅覆盖显示，导航和复制始终基于原始消息。`src/navigation/ui/tocListRenderer.ts` 在被右键选中的目录行原位装载多行 textarea，通过 scrollHeight 和 ResizeObserver 随文字换行、侧边栏宽度自动增高以展示完整内容，并在目录刷新时保留草稿；支持 Enter 保存、Shift+Enter 换行、Esc 取消、失焦保存、失败重试及路由切换清理，不再使用独立重命名弹窗。目录搜索同时覆盖原文和别名，恢复原文时移除本地覆盖。
 - `src/navigation/jump/promptNavigation.ts` 优先使用明确的消息 ID 跳转；仅对整段对话中唯一、纯文本的提问允许文本回退。
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
@@ -44,17 +44,17 @@
 
 ## 我的提示词
 
-- `src/features/myPrompts/promptStore.ts` 持久化提示词，所有返回数据与内部缓存相互隔离；写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序进行读取、快照核对和保存。旧版存储键保持不变，其他标签页先保存时本标签页在最新数据上重算修改，最多有限次重试；同一提示词的过期编辑/删除在界面层拒绝覆盖；存储层在重试前还会比较本次修改涉及的记录，拒绝重叠编辑、允许独立记录的修改合并。旧式整表替换 `saveAll()` 仅接受由同一存储实例的 `getAll()` 直接返回的数组（可原位编辑），并绑定其读取时快照；无法证明基准的数组拒绝替换。
+- `src/features/myPrompts/promptStore.ts` 将提示词按已验证的 ChatGPT 账号 ID 隔离，同一账号下的不同对话共享同一列表；`getAll()` 只返回当前账号的记录，清空操作只清空当前账号及其使用统计。写入经 `chrome.runtime.sendMessage` 发送到 `src/background.ts`，由 `src/features/myPrompts/promptWriteCoordinator.ts` 在后台按序读取、验证并合并当前账号数据，保留其他账号的提示词。旧存储键名不变，但记录新增必需的 `ownerId`；未绑定账号的旧提示词及孤立使用统计会被清理。
 - `src/features/myPrompts/promptLibrary.ts` 实现增删改、Markdown 导入导出，并使用存储层原子转换接口。
 - `src/features/myPrompts/promptAutocomplete.ts` 在 ChatGPT 的 ProseMirror 输入框上提供 `#`、`//` 补全。
 - `src/features/myPrompts/promptUsageStore.ts` 在启动时按现存提示词 ID 清理孤立使用统计，并在写入失败时回滚内存状态。
-- 原有浏览器存储键继续兼容已有数据，不因产品显示名称变化而更名。
+- 提示词存储键名保留，记录新增必需的 `ownerId`；无归属的旧提示词不自动认领。主题和侧边栏偏好按已验证的账号 ID 分别存储，设置页可选择账号。JSON 备份 v3 按账号导入导出偏好，并将可识别账号的 v2 旧全局偏好迁移到对应账号。
 
-提示词、目录别名、使用统计、主题和侧边栏设置均通过 `src/background.ts` 的共享 `SerialWriteQueue` 写入；备份导出在同一队列读取一致快照，恢复也在队列内执行容量预检、写入核对和补偿回滚。因此新版扩展自己的受管写入不会与备份恢复交错。Chrome storage 仍不提供跨上下文原子事务，旧版本脚本或未来新增的直接写入路径可能绕过队列；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
+提示词、目录别名、使用统计、账号主题和侧边栏设置均通过 `src/background.ts` 的共享 `SerialWriteQueue` 写入；备份导出在同一队列读取一致快照，恢复也在队列内执行容量预检、写入核对和补偿回滚。因此新版扩展自己的受管写入不会与备份恢复交错。Chrome storage 仍不提供跨上下文原子事务，旧版本脚本或未来新增的直接写入路径可能绕过队列；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
 
 ## UI 与构建
 
-`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的完全透明鼠标触发区，不含背景、悬停色或可见描边。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示，自动收起采用 60ms 缓冲、100ms 动画并保留固定与扩展弹层悬停保护。 `src/features/sidebar/sidebarPreferences.ts` 在 `chrome.storage.local` 中维护布局、背景配色及触发区颜色开关，设置页与内容脚本监听同一个变更事件。默认背景沿用原有浅蓝/深蓝半透明主题底色与 12px 背景模糊，不再设置透明覆盖；非默认色仍按深浅主题混色。`src/features/sidebar/chatGptSideBySide.ts` 在并排模式下识别 ChatGPT 的实际聊天主列并预留侧边栏宽度，监听宽度、窗口及 SPA 结构变化；空间不足或无法安全识别时回退浮层模式，不修改 `window.matchMedia` 或页面 body。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，由 `src/features/sidebar/jumpControlsPosition.ts` 计算鼠标高度对应的工具组位置并在顶部和底部边界内裁切；`src/features/sidebarVisibility.ts` 第一次指针进入视口最右缘仅展开侧边栏；需先离开右缘再重新进入且持续停留 50ms 后，按钮才在指针高度出现。离开边缘、关闭侧边栏或切换状态会取消待触发计时；鼠标进入按钮组后保持位置稳定供点击，离开右缘或按钮组后等待 400ms 才隐藏，指针返回取消计时；只有按钮已出现且鼠标离开整个侧边栏时，侧边栏自动收起也采用相同 400ms 宽限，普通场景仍维持 60ms。旧版拖动位置的会话存储在初始化时删除。隐藏时按钮不可点击或通过 Tab 到达；键盘用户在打开的侧边栏内可按 `Alt+Shift+J` 显示按钮并聚焦首个按钮。目录列表仍保留 `overflow-y: auto` 滚动，但通过 `scrollbar-width: none` 和 `::-webkit-scrollbar` 隐藏可见轨道；工具条仍贴齐浏览器右边缘。不再渲染独立的三点菜单按钮或展开三角形。侧边栏展开不会伪装网页宽度，并排和浮层模式的固定/隐藏默认值不同；用户手动固定状态在相同模式的当前标签页中保留。
+`src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的完全透明鼠标触发区，不含背景、悬停色或可见描边。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示，自动收起采用 60ms 缓冲、100ms 动画并保留固定与扩展弹层悬停保护。 `src/features/sidebar/sidebarPreferences.ts` 在账号偏好映射中维护布局、背景配色及触发区颜色开关；设置页按所选账号读写，内容脚本按已验证账号读写。默认背景沿用原有浅蓝/深蓝半透明主题底色与 12px 背景模糊，不再设置透明覆盖；非默认色仍按深浅主题混色。`src/features/sidebar/chatGptSideBySide.ts` 在并排模式下识别 ChatGPT 的实际聊天主列并预留侧边栏宽度，监听宽度、窗口及 SPA 结构变化；空间不足或无法安全识别时回退浮层模式，不修改 `window.matchMedia` 或页面 body。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，由 `src/features/sidebar/jumpControlsPosition.ts` 计算鼠标高度对应的工具组位置并在顶部和底部边界内裁切；`src/features/sidebarVisibility.ts` 第一次指针进入视口最右缘仅展开侧边栏；需先离开右缘再重新进入且持续停留 50ms 后，按钮才在指针高度出现。离开边缘、关闭侧边栏或切换状态会取消待触发计时；鼠标进入按钮组后保持位置稳定供点击，离开右缘或按钮组后等待 400ms 才隐藏，指针返回取消计时；只有按钮已出现且鼠标离开整个侧边栏时，侧边栏自动收起也采用相同 400ms 宽限，普通场景仍维持 60ms。旧版拖动位置的会话存储在初始化时删除。隐藏时按钮不可点击或通过 Tab 到达；键盘用户在打开的侧边栏内可按 `Alt+Shift+J` 显示按钮并聚焦首个按钮。目录列表仍保留 `overflow-y: auto` 滚动，但通过 `scrollbar-width: none` 和 `::-webkit-scrollbar` 隐藏可见轨道；工具条仍贴齐浏览器右边缘。不再渲染独立的三点菜单按钮或展开三角形。侧边栏展开不会伪装网页宽度，并排和浮层模式的固定/隐藏默认值不同；用户手动固定状态在相同模式的当前标签页中保留。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 对 PR 与 main 推送只执行 CI（类型检查、测试、构建、资源和 ZIP 校验），不会自动发布；只有在 main 上手动确认后才执行独立发布工作流。CI 权限只读，发布写权限限制在单个发布作业；旧 Releases、Git 标签和分支不自动删除。参见 [发布与恢复说明](RELEASE_PROCESS.md)。
 
@@ -68,7 +68,7 @@
 
 ## 本地数据备份与恢复
 
-`src/features/backup/localBackup.ts` 提供本地 JSON v1 备份、字段校验、合并/覆盖恢复与失败回滚；只读取明确许可的本地键（提示词、使用统计、目录别名、主题、侧边栏偏好），不导出 ChatGPT 对话或凭证。`src/components/options/LocalBackupSettings.tsx` 将选择文件、内容预览和二次确认放在扩展设置页；原 Markdown 提示词导入导出保持不变。普通目录编辑已经通过后台串行协调；备份恢复仍属于单独的批量本地写入，并非同一事务。显式恢复旧会话别名会移除其删除标记；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
+`src/features/backup/localBackup.ts` 提供本地 JSON v3 备份、字段校验、合并/覆盖恢复与失败回滚；只读取明确许可的本地键（提示词、使用统计、目录别名、按账号的主题与侧边栏偏好），不导出 ChatGPT 对话或凭证。`src/components/options/LocalBackupSettings.tsx` 将选择文件、内容预览和二次确认放在扩展设置页；原 Markdown 提示词导入导出保持不变。普通目录编辑已经通过后台串行协调；备份恢复仍属于单独的批量本地写入，并非同一事务。显式恢复旧会话别名会移除其删除标记；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
 
 ## 阶段十：统一本地写入与容量保护
 
@@ -79,3 +79,16 @@
 浏览器端到端测试使用 `test/browser/extension.test.mjs`，通过 Playwright 启动带独立配置文件的 Chromium 并加载构建后的 `dist/`。对 `chatgpt.com` 的页面和会话 API 请求全部使用固定模拟数据处理，其他外部 HTTP 请求被阻止；覆盖目录、搜索、侧边栏、键盘、布局、SPA 路由、异常请求和刷新。自动化不访问真实账号，不能代替真实 ChatGPT 兼容性验收。
 
 `test/browser/manifest-audit.test.mjs`、`scripts/audit-extension.mjs` 约束扩展权限和可注入域名，核对源及打包 Manifest，并生成锁文件许可证清单；GitHub Actions 在同一只读 CI 中执行 `npm audit --audit-level=high`，发现高危以上漏洞就阻断检查。浏览器专用 Playwright 精确版本仅在生产包构建后临时安装，不改动依赖锁文件。执行说明见 `test/browser/README.md`。
+
+## 单标签页存储简化（2026-10-24）
+
+提示词、目录别名和侧边栏设置不再执行跨标签页 CAS、字段旧值比对或冲突重试。存储键与记录格式不变。后台共享串行队列继续协调同一扩展的异步保存与备份操作，保留删除确认、账号归属、容量验证、回滚和删除标记。多个 ChatGPT 标签页同时编辑同一扩展数据不在支持范围内。
+
+
+## 账号偏好存储
+
+主题和侧边栏偏好统一保存在 `chatToc:accountSettings:v1`，按隔离世界直接验证的 ChatGPT 用户 ID 分区。账号注册只接受顶层 ChatGPT 内容上下文消息；设置页明确选择目标账号，扩展弹窗从当前活动 ChatGPT 标签页请求已验证账号。旧全局偏好只在首次迁移时复制给本地提示词/别名已标识的账号及当前账号，迁移完成后移除旧键。备份 v3 导出账号映射；v2 导入时只对备份中可识别的账号绑定旧全局偏好。
+
+## 对话删除确认
+
+页面 MAIN world 删除事件不授权本地删除。`src/background/remoteDeletionObserver.ts` 在浏览器网络层观察两个 ChatGPT 站点的顶层会话 DELETE 或非归档 PATCH `is_visible=false`，只在请求完成且返回 2xx 后通过扩展 runtime 向原标签页发送通知。隔离世界重新验证当前登录账号与别名归属，再通过原有共享队列写入删除围栏并清理别名；页面 `postMessage`、失败请求、重定向、非 2xx、账号变化或存储读取失败均不触发清理。该方案新增 `webRequest` 和两个 ChatGPT 站点的主机权限，不会阻止或修改请求，也不持久化请求正文。

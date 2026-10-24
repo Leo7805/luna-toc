@@ -3,25 +3,24 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createTocAliasWriteCoordinator, TOC_ALIAS_COMMIT_TYPE,
   TOC_ALIAS_PREFIX, TOC_ALIAS_DELETED_PREFIX,
-  type TocAliasCommitRequest,
 } from '@/features/conversationPrompts/tocAliasWriteCoordinator';
 
 const route = 'conversation-123';
 const key = TOC_ALIAS_PREFIX + route;
 const deletedKey = TOC_ALIAS_DELETED_PREFIX + route;
-const update = (messageId: string, expected: string | null, label: string | null,
-  ownerId: string | null = 'account-1'): TocAliasCommitRequest =>
+const update = (messageId: string, _expected: string | null, label: string | null,
+  ownerId: string | null = 'account-1') =>
   ({ type: TOC_ALIAS_COMMIT_TYPE, action: 'update', routeKey: route,
-    messageId, expected, label, ownerId });
-const remove = (): TocAliasCommitRequest =>
-  ({ type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey: route });
+    messageId, label, ownerId });
+const remove = () =>
+  ({ type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey: route, ownerId: 'account-1' });
 
 function backing(initial: Record<string, unknown> = {}) {
   const data = { ...initial };
   let rejectSet = false;
   let rejectRemove = false;
-  const get = vi.fn(async (keys: string | string[]) => {
-    const requested = typeof keys === 'string' ? [keys] : keys;
+  const get = vi.fn(async (keys: string | string[] | null) => {
+    const requested = keys === null ? Object.keys(data) : typeof keys === 'string' ? [keys] : keys;
     return Object.fromEntries(requested.filter((name) => Object.hasOwn(data, name))
       .map((name) => [name, data[name]]));
   });
@@ -42,7 +41,7 @@ function backing(initial: Record<string, unknown> = {}) {
 }
 
 describe('background TOC alias coordinator', () => {
-  it('merges concurrent edits to distinct messages without losing data', async () => {
+  it('preserves distinct message edits within the ordered writer', async () => {
     const box = backing();
     const writer = createTocAliasWriteCoordinator(box.storage);
     const results = await Promise.all([
@@ -54,16 +53,14 @@ describe('background TOC alias coordinator', () => {
       aliases: { 'msg-a': 'Title A', 'msg-b': 'Title B' } });
   });
 
-  it('rejects overlapping renames and restores with stale expected labels', async () => {
+  it('supports sequential renames and restores without stale-value conditions', async () => {
     const box = backing();
     const writer = createTocAliasWriteCoordinator(box.storage);
     expect((await writer.commit(update('msg', null, 'first'))).ok).toBe(true);
-    expect(await writer.commit(update('msg', null, 'second')))
-      .toEqual({ ok: false, conflict: true });
-    expect(await writer.commit(update('msg', null, null)))
-      .toEqual({ ok: false, conflict: true });
-    expect((await writer.commit(update('msg', 'first', 'second'))).ok).toBe(true);
+    expect((await writer.commit(update('msg', null, 'second'))).ok).toBe(true);
     expect(box.data[key]).toEqual({ ownerId: 'account-1', aliases: { msg: 'second' } });
+    expect((await writer.commit(update('msg', null, null))).ok).toBe(true);
+    expect(box.data[key]).toBeUndefined();
   });
 
   it('uses persistent data after worker restart and retains other message aliases on restore', async () => {
@@ -107,7 +104,7 @@ describe('background TOC alias coordinator', () => {
   });
 
   it('keeps a durable fence if alias removal fails', async () => {
-    const box = backing({ [key]: { ownerId: null, aliases: { msg: 'old' } } });
+    const box = backing({ [key]: { ownerId: 'account-1', aliases: { msg: 'old' } } });
     const writer = createTocAliasWriteCoordinator(box.storage);
     box.failRemove();
     expect(await writer.commit(remove())).toEqual({ ok: false, error: 'remove failed' });
@@ -137,18 +134,30 @@ describe('background TOC alias coordinator', () => {
     const box = backing({ [key]: { ownerId: 'account-A', aliases: { msg: 'Keep' } } });
     const writer = createTocAliasWriteCoordinator(box.storage);
     expect(await writer.commit(update('msg', 'Keep', 'Changed', null)))
-      .toEqual({ ok: false, error: 'Verified ChatGPT account required for alias writes' });
+      .toEqual({ ok: false, error: 'Invalid TOC alias request' });
     expect(box.data[key]).toEqual({ ownerId: 'account-A', aliases: { msg: 'Keep' } });
   });
 
-  it('does not silently adopt all unowned legacy labels by editing a different message', async () => {
+  it('deletes unowned legacy aliases and never attributes them to the active account', async () => {
     const legacy = { ownerId: null, aliases: { 'private-old': 'Previous account title' } };
-    const box = backing({ [key]: legacy });
+    const invalidOwnerKey = TOC_ALIAS_PREFIX + 'conversation-456';
+    const invalidOwner = { ownerId: 123, aliases: { message: 'Unbound too' } };
+    const box = backing({ [key]: legacy, [invalidOwnerKey]: invalidOwner });
     const writer = createTocAliasWriteCoordinator(box.storage);
-    expect(await writer.commit(update('new-message', null, 'new label', 'account-B')))
-      .toEqual({ ok: false, error: 'Legacy aliases require explicit owner migration' });
-    expect(box.data[key]).toEqual(legacy);
-    expect(box.set).not.toHaveBeenCalled();
+    expect(await writer.commit({ type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-unowned' }))
+      .toEqual({ ok: true, cleaned: 2 });
+    expect(box.data[key]).toBeUndefined();
+    expect(box.data[invalidOwnerKey]).toBeUndefined();
+    expect((await writer.commit(update('new-message', null, 'new label', 'account-B'))).ok).toBe(true);
+    expect(box.data[key]).toEqual({ ownerId: 'account-B', aliases: { 'new-message': 'new label' } });
+  });
+
+  it('does not delete aliases that already have a verified owner', async () => {
+    const box = backing({ [key]: { ownerId: 'account-1', aliases: { msg: 'Keep' } } });
+    expect(await createTocAliasWriteCoordinator(box.storage).commit({
+      type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-unowned',
+    })).toEqual({ ok: true, cleaned: 0 });
+    expect(box.data[key]).toEqual({ ownerId: 'account-1', aliases: { msg: 'Keep' } });
   });
 
   it('reports storage errors and keeps the queue usable', async () => {
@@ -166,7 +175,7 @@ describe('background TOC alias coordinator', () => {
     expect((await writer.commit(update('msg-a', null, 'Before'))).ok).toBe(true);
     const preview = structuredClone(box.data[key]);
 
-    // Another tab adds a label after the user opened the preview.
+    // Data changes after the user opened the cleanup preview.
     expect((await writer.commit(update('msg-b', null, 'New'))).ok).toBe(true);
     expect(await writer.commit({
       type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-conversation', routeKey: route,

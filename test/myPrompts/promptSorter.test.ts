@@ -7,6 +7,7 @@ import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 function createPrompt(id: string, title: string, updatedAt: number): SavedPrompt {
   return {
     id,
+    ownerId: 'account-1',
     title,
     content: `Content for ${title}`,
     createdAt: 1000,

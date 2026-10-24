@@ -27,7 +27,12 @@
         "type": "module"
     },
     "permissions": [
-        "storage"
+        "storage",
+        "webRequest"
+    ],
+    "host_permissions": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
     ],
     "content_scripts": [
         {

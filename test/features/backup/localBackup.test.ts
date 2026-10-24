@@ -11,12 +11,11 @@ import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 const PROMPTS = 'lumaToc:myPromptsV1';
 const USAGE = 'lunaToc:promptUsageV1';
-const THEME = 'chatToc:themeSettings';
-const SIDEBAR = 'chatToc:sidebarPreferences';
+const SETTINGS = 'chatToc:accountSettings:v1';
 const ALIAS = 'chatToc:aliases:v1:conversation-123';
 const EXTRA_ALIAS = 'chatToc:aliases:v1:conversation-456';
-const prompt = (id: string, title = id) => ({
-  id, title, content: 'important prompt', createdAt: 1, updatedAt: 2,
+const prompt = (id: string, title = id, ownerId = 'account-1') => ({
+  id, ownerId, title, content: 'important prompt', createdAt: 1, updatedAt: 2,
 });
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -32,8 +31,12 @@ function sample(): LocalBackup {
           ownerId: 'account-1', aliases: { 'message-1': '自定义目录' },
         },
       },
-      theme: { followChatGPT: false, manualTheme: 'light' },
-      sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+      settings: {
+        'account-1': {
+          theme: { followChatGPT: false, manualTheme: 'light' },
+          sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+        },
+      },
     },
   };
 }
@@ -88,8 +91,7 @@ describe('versioned local backup', () => {
       [PROMPTS]: source.data.prompts,
       [USAGE]: source.data.promptUsage,
       [ALIAS]: source.data.aliases['conversation-123'],
-      [THEME]: source.data.theme,
-      [SIDEBAR]: source.data.sidebar,
+      [SETTINGS]: source.data.settings,
       'chatGpt:conversationBody': 'private conversation text',
       'secret:authorization': 'private token',
     });
@@ -100,7 +102,7 @@ describe('versioned local backup', () => {
     expect(serialized).not.toContain('private token');
     expect(parseLocalBackup(serialized)).toEqual(backup);
     expect(summarizeLocalBackup(backup)).toEqual({
-      prompts: 1, usage: 1, conversations: 1, aliases: 1,
+      prompts: 1, usage: 1, conversations: 1, aliases: 1, settingsAccounts: 1,
     });
     expect(box.set).not.toHaveBeenCalled();
     expect(box.remove).not.toHaveBeenCalled();
@@ -170,19 +172,51 @@ describe('versioned local backup', () => {
     expect(box.state).toEqual(original);
   });
 
-  it('uses the legacy theme only when no new theme record exists', async () => {
-    const box = storageHarness({ 'chatToc:theme': 'light' });
-    expect((await createLocalBackup(box.storage)).data.theme)
-      .toEqual({ followChatGPT: false, manualTheme: 'light' });
-    expect(box.set).not.toHaveBeenCalled();
+  it('imports v2 global preferences only when the backup identifies account owners', () => {
+    const current = sample();
+    const legacy = {
+      ...current,
+      version: 2,
+      data: {
+        prompts: current.data.prompts,
+        promptUsage: current.data.promptUsage,
+        aliases: current.data.aliases,
+        theme: { followChatGPT: false, manualTheme: 'light' },
+        sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+      },
+    };
+    const parsed = parseLocalBackup(JSON.stringify(legacy));
+    expect(parsed.version).toBe(BACKUP_VERSION);
+    expect(parsed.data.settings['account-1']).toEqual({
+      theme: { followChatGPT: false, manualTheme: 'light' },
+      sidebar: { layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true },
+    });
+    const unbound = { ...legacy, data: { ...legacy.data, prompts: [], promptUsage: {}, aliases: {} } };
+    expect(() => parseLocalBackup(JSON.stringify(unbound))).toThrow('没有账号归属');
   });
 
   it('rejects unknown versions, invalid JSON, unknown fields and oversized input', () => {
     const saved = sample();
     expect(() => parseLocalBackup('not json')).toThrow('JSON');
-    expect(() => parseLocalBackup(JSON.stringify({ ...saved, version: 2 }))).toThrow('格式或版本');
+    expect(() => parseLocalBackup(JSON.stringify({ ...saved, version: 1 }))).toThrow('格式或版本');
     expect(() => parseLocalBackup(JSON.stringify({ ...saved, token: 'secret' }))).toThrow('不支持');
     expect(() => parseLocalBackup(' '.repeat(MAX_BACKUP_BYTES + 1))).toThrow('12 MiB');
+  });
+
+  it('rejects a prompt ID collision across different accounts during merge', async () => {
+    const box = storageHarness({ [PROMPTS]: [prompt('saved', 'belongs to account two', 'account-2')] });
+    await expect(restoreLocalBackup(sample(), 'merge', box.storage))
+      .rejects.toThrow('账号归属不同');
+    expect(box.state[PROMPTS]).toEqual([prompt('saved', 'belongs to account two', 'account-2')]);
+  });
+
+  it('rejects unbound prompt and alias records in imported backups', () => {
+    const unboundPrompt = sample();
+    delete (unboundPrompt.data.prompts[0] as unknown as Record<string, unknown>).ownerId;
+    expect(() => parseLocalBackup(JSON.stringify(unboundPrompt))).toThrow('账号标识');
+    const unboundAlias = sample();
+    unboundAlias.data.aliases['conversation-123'].ownerId = '';
+    expect(() => parseLocalBackup(JSON.stringify(unboundAlias))).toThrow('账号标识');
   });
 
   it('rejects duplicate IDs, broken aliases and missing required categories before writes', () => {
@@ -193,7 +227,7 @@ describe('versioned local backup', () => {
     alias.data.aliases['conversation-123'].aliases['message-1'] = 'x'.repeat(241);
     expect(() => parseLocalBackup(JSON.stringify(alias))).toThrow('长度');
     const missing = sample();
-    delete (missing.data as unknown as Record<string, unknown>).theme;
+    delete (missing.data as unknown as Record<string, unknown>).settings;
     expect(() => parseLocalBackup(JSON.stringify(missing))).toThrow('缺少');
   });
 
@@ -224,9 +258,13 @@ describe('versioned local backup', () => {
       [PROMPTS]: [prompt('saved', 'older'), prompt('keep')],
       [USAGE]: { saved: { usageCount: 1, lastUsedAt: 1 } },
       [ALIAS]: { ownerId: 'account-1', aliases: { 'message-1': 'old', 'message-2': 'keep' } },
-      [EXTRA_ALIAS]: { ownerId: null, aliases: { 'message-3': 'untouched' } },
-      [THEME]: { followChatGPT: true, manualTheme: 'dark' },
-      [SIDEBAR]: { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false },
+      [EXTRA_ALIAS]: { ownerId: null, aliases: { 'message-3': 'unowned old alias' } },
+      [SETTINGS]: {
+        'account-1': {
+          theme: { followChatGPT: true, manualTheme: 'dark' },
+          sidebar: { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false },
+        },
+      },
       'other-key': 'untouched',
     });
     await restoreLocalBackup(imported, 'merge', box.storage);
@@ -235,10 +273,10 @@ describe('versioned local backup', () => {
     expect(box.state[ALIAS]).toEqual({
       ownerId: 'account-1', aliases: { 'message-1': '自定义目录', 'message-2': 'keep' },
     });
-    expect(box.state[EXTRA_ALIAS]).toBeDefined();
-    expect(box.state[THEME]).toEqual(imported.data.theme);
+    expect(box.state[EXTRA_ALIAS]).toBeUndefined();
+    expect(box.remove).toHaveBeenCalledWith([EXTRA_ALIAS]);
+    expect(box.state[SETTINGS]).toEqual(imported.data.settings);
     expect(box.state['other-key']).toBe('untouched');
-    expect(box.remove).not.toHaveBeenCalled();
   });
 
   it('verifies Chrome storage writes structurally regardless of object-key ordering', async () => {
@@ -306,12 +344,12 @@ describe('versioned local backup', () => {
   it('handles unusual but structurally valid alias keys without prototype collisions', async () => {
     const incoming = sample();
     incoming.data.aliases = Object.fromEntries([[
-      '__proto__', { ownerId: null, aliases: { 'message-1': 'safe value' } },
+      '__proto__', { ownerId: 'account-1', aliases: { 'message-1': 'safe value' } },
     ]]);
     const box = storageHarness({ [PROMPTS]: [prompt('saved')] });
     await restoreLocalBackup(incoming, 'merge', box.storage);
     expect(box.state['chatToc:aliases:v1:__proto__']).toEqual({
-      ownerId: null, aliases: { 'message-1': 'safe value' },
+      ownerId: 'account-1', aliases: { 'message-1': 'safe value' },
     });
     expect(Object.getPrototypeOf({})).toBe(Object.prototype);
   });
@@ -351,7 +389,7 @@ describe('versioned local backup', () => {
     expect(box.state).toEqual(original);
   });
 
-  it('serializes backup restore before a stale prompt commit and rejects the stale write', async () => {
+  it('preserves write order when a prompt commit follows a restore', async () => {
     const original = prompt('old');
     const backup = sample();
     backup.data.prompts = [prompt('restored')];
@@ -360,14 +398,17 @@ describe('versioned local backup', () => {
     const queue = createSerialWriteQueue();
     const promptWriter = createPromptWriteCoordinator(box.storage, queue);
 
-    const restore = queue.run(() => restoreLocalBackup(backup, 'replace', box.storage));
-    const staleCommit = promptWriter.commit({
-      type: PROMPT_COMMIT_TYPE, expected: [original], next: [prompt('stale')],
-    });
-
-    await restore;
-    await expect(staleCommit).resolves.toEqual({ ok: false, conflict: true });
+    await queue.run(() => restoreLocalBackup(backup, 'replace', box.storage));
     expect(box.state[PROMPTS]).toEqual([prompt('restored')]);
+
+    // The single-tab editor must read the restored collection before making
+    // a subsequent change. Cross-tab stale-write rejection is unsupported.
+    const subsequent = await promptWriter.commit({
+      type: PROMPT_COMMIT_TYPE, action: 'replace-account', ownerId: 'account-1',
+      next: [prompt('restored'), prompt('added')],
+    });
+    expect(subsequent).toEqual({ ok: true });
+    expect(box.state[PROMPTS]).toEqual([prompt('restored'), prompt('added')]);
   });
 
 });

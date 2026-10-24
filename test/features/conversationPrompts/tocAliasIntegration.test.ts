@@ -63,13 +63,13 @@ describe('renamed TOC entries', () => {
     input.value = 'Custom display title';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Custom display title', prompt.text));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Custom display title'));
     await vi.waitFor(() => expect(document.querySelector('.navigator-item-inline-input')).toBeNull());
     expect(prompt.text).toBe('Original ChatGPT question');
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('restore-toc');
-    expect(restore).toHaveBeenCalledWith(prompt, prompt.text);
+    expect(restore).toHaveBeenCalledWith(prompt);
   });
 
   it('cancels with Escape, saves on blur, and preserves the original message', async () => {
@@ -99,7 +99,7 @@ describe('renamed TOC entries', () => {
     input.value = 'Saved when blurred';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new FocusEvent('blur'));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Saved when blurred', null));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Saved when blurred'));
     await vi.waitFor(() => expect(document.querySelector('.navigator-item-text')?.textContent)
       .toBe('Saved when blurred'));
   });
@@ -188,7 +188,7 @@ describe('renamed TOC entries', () => {
     editor.value = 'First line\nSecond line';
     editor.dispatchEvent(new Event('input', { bubbles: true }));
     editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'First line\nSecond line', null));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'First line\nSecond line'));
   });
 
   it('closes the editor when the conversation is reset without saving', () => {
@@ -211,9 +211,9 @@ describe('renamed TOC entries', () => {
     expect(document.querySelector('.navigator-item-inline-input')).toBeNull();
     expect(rename).not.toHaveBeenCalled();
   });
-  it('keeps an edit-start precondition and explains overlapping changes', async () => {
+  it('preserves an editor draft when saving fails', async () => {
     let displayed = 'Old alias';
-    const rename = vi.fn(async () => { throw new Error('TOC alias changed in another tab; reopen the editor'); });
+    const rename = vi.fn(async () => { throw new Error('storage unavailable'); });
     const renderer = createTocListRenderer({
       getMessages: () => [prompt],
       getActiveIndex: () => null,
@@ -232,17 +232,17 @@ describe('renamed TOC entries', () => {
     editor.value = 'My draft';
     editor.dispatchEvent(new Event('input', { bubbles: true }));
     editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'My draft', 'Old alias'));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'My draft'));
     await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent)
-      .toContain('其他标签页修改'));
+      .toContain('保存失败'));
     expect(document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')?.value)
       .toBe('My draft');
   });
 
-  it('does not silently restore over a label changed after the menu opened', async () => {
+  it('shows a restore error without changing the current view', async () => {
     let label = 'Alias at menu open';
     const restore = vi.fn(async () => {
-      throw new Error('TOC alias changed in another tab; reopen the editor');
+      throw new Error('storage unavailable');
     });
     const renderer = createTocListRenderer({
       getMessages: () => [prompt],
@@ -255,11 +255,11 @@ describe('renamed TOC entries', () => {
     renderer.render();
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    label = 'Updated in another tab';
+    label = 'Updated';
     promptContextMenuController.select('restore-toc');
-    await vi.waitFor(() => expect(restore).toHaveBeenCalledWith(prompt, 'Alias at menu open'));
+    await vi.waitFor(() => expect(restore).toHaveBeenCalledWith(prompt));
     await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent)
-      .toContain('其他标签页修改'));
+      .toContain('恢复原文失败'));
   });
 
 });

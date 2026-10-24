@@ -1,4 +1,4 @@
-/** Cross-tab read/modify/write coordinator for prompt usage statistics. */
+/** Validates prompt usage changes against persisted prompts before saving. */
 import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
 import { isPromptList, PROMPT_STORAGE_KEY } from './promptWriteCoordinator';
 import type { PromptUsage, PromptUsageMap } from './promptUsageStore';

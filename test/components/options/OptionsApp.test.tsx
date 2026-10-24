@@ -3,8 +3,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OptionsApp } from '@/components/options/OptionsApp';
+import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import {
-  DEFAULT_SIDEBAR_PREFERENCES, SidebarSettingsConflictError,
+  DEFAULT_SIDEBAR_PREFERENCES,
 } from '@/features/sidebar/sidebarPreferences';
 
 const mocks = vi.hoisted(() => ({
@@ -39,7 +40,17 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('chrome', {
-    storage: { onChanged: { addListener: vi.fn(), removeListener: vi.fn() } },
+    storage: {
+      local: { get: vi.fn(async (key: string) => ({
+        [key]: key === ACCOUNT_SETTINGS_KEY ? {
+          'account-1': {
+            theme: { followChatGPT: true, manualTheme: 'dark' },
+            sidebar: { ...DEFAULT_SIDEBAR_PREFERENCES },
+          },
+        } : undefined,
+      })) },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
   });
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -66,29 +77,29 @@ function colorInput(value: string): HTMLInputElement {
   return input;
 }
 
-describe('Options sidebar conflict handling', () => {
-  it('shows a conflict, refreshes to the accepted value, then edits from the latest baseline', async () => {
+describe('Options sidebar save handling', () => {
+  it('shows a save failure, refreshes and allows retry', async () => {
     const newer = { ...DEFAULT_SIDEBAR_PREFERENCES, backgroundColor: 'green' as const };
     mocks.read.mockResolvedValueOnce({ ...DEFAULT_SIDEBAR_PREFERENCES })
       .mockResolvedValueOnce(newer)
       .mockResolvedValueOnce({ ...newer, backgroundColor: 'blue' });
-    mocks.write.mockRejectedValueOnce(new SidebarSettingsConflictError())
+    mocks.write.mockRejectedValueOnce(new Error('quota exceeded'))
       .mockResolvedValueOnce(undefined);
     await render();
 
     await act(async () => colorInput('blue').click());
     expect(mocks.write).toHaveBeenNthCalledWith(1,
-      { backgroundColor: 'blue' }, { backgroundColor: 'default' });
-    expect(host.textContent).toContain('设置已在其他页面修改');
+      { backgroundColor: 'blue' }, 'account-1');
+    expect(host.textContent).toContain('设置保存失败');
     expect(colorInput('green').checked).toBe(true);
 
     await act(async () => colorInput('blue').click());
     expect(mocks.write).toHaveBeenNthCalledWith(2,
-      { backgroundColor: 'blue' }, { backgroundColor: 'green' });
+      { backgroundColor: 'blue' }, 'account-1');
     expect(colorInput('blue').checked).toBe(true);
   });
 
-  it('disables inputs while a save is pending to avoid same-tab self-conflicts', async () => {
+  it('disables inputs while a save is pending to avoid duplicate submissions', async () => {
     let finishSave!: () => void;
     mocks.write.mockReturnValueOnce(new Promise<void>((resolve) => { finishSave = resolve; }));
     await render();

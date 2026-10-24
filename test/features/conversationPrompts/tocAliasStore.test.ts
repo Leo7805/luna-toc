@@ -1,4 +1,4 @@
-/** Per-tab alias cache tests using the real background coordinator and storage events. */
+/** Single-tab alias cache tests with background persistence and storage events. */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createTocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import { setActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
@@ -77,35 +77,16 @@ describe('TOC alias storage', () => {
     expect(saved[key]).toBeUndefined();
   });
 
-  it('two tabs update independent messages without clobbering either change', async () => {
-    const tabA = createTocAliasStore();
-    const tabB = createTocAliasStore();
-    await Promise.all([tabA.load(route), tabB.load(route)]);
-    await Promise.all([
-      tabA.update(route, 'msg-a', 'First', 'account-1', null),
-      tabB.update(route, 'msg-b', 'Second', 'account-1', null),
-    ]);
-    expect(tabA.get(route, 'msg-a')).toBe('First');
-    expect(tabB.get(route, 'msg-b')).toBe('Second');
-    expect(tabA.get(route, 'msg-b')).toBe('Second');
+  it('saves successive edits to distinct and identical messages', async () => {
+    const store = createTocAliasStore();
+    await store.update(route, 'msg-a', 'First', 'account-1');
+    await store.update(route, 'msg-b', 'Second', 'account-1');
+    await store.update(route, 'msg-a', 'Updated', 'account-1');
+    expect(store.get(route, 'msg-a')).toBe('Updated');
+    expect(store.get(route, 'msg-b')).toBe('Second');
     expect(saved[key]).toEqual({
-      ownerId: 'account-1', aliases: { 'msg-a': 'First', 'msg-b': 'Second' },
+      ownerId: 'account-1', aliases: { 'msg-a': 'Updated', 'msg-b': 'Second' },
     });
-  });
-
-  it('rejects stale editor and restore without overwriting a newer same-message edit', async () => {
-    const tabA = createTocAliasStore();
-    const tabB = createTocAliasStore();
-    await Promise.all([tabA.load(route), tabB.load(route)]);
-    const originallySeen = tabB.get(route, 'msg');
-    await tabA.update(route, 'msg', 'New title', 'account-1', null);
-    await expect(tabB.update(route, 'msg', 'Stale draft', 'account-1', originallySeen))
-      .rejects.toThrow('another tab');
-    await expect(tabB.update(route, 'msg', null, 'account-1', originallySeen))
-      .rejects.toThrow('another tab');
-    expect(tabA.get(route, 'msg')).toBe('New title');
-    expect(tabB.get(route, 'msg')).toBe('New title');
-    expect(saved[key]).toEqual({ ownerId: 'account-1', aliases: { msg: 'New title' } });
   });
 
   it('serializes delete after in-flight saves and rejects future updates', async () => {
@@ -137,7 +118,7 @@ describe('TOC alias storage', () => {
     await tabA.update(route, 'msg', 'Saved', 'account-1');
     await tabB.load(route);
     await tabA.removeConversation(route);
-    await expect(tabB.update(route, 'msg', 'Resurrect', 'account-1', 'Saved'))
+    await expect(tabB.update(route, 'msg', 'Resurrect', 'account-1'))
       .rejects.toThrow('deleted');
     worker = createTocAliasWriteCoordinator(chrome.storage.local);
     const reload = createTocAliasStore();
@@ -176,18 +157,18 @@ describe('TOC alias storage', () => {
     expect(store.get(route, 'msg')).toBeNull();
     await expect(store.update(route, 'other', 'Unscoped', null)).rejects.toThrow('not verified');
     setActiveConversationOwner('account-1');
-    expect(store.get(route, 'msg')).toBe('Private name');
+    await vi.waitFor(() => expect(store.get(route, 'msg')).toBe('Private name'));
   });
 
-  it('leaves legacy unowned records untouched rather than implicitly binding them', async () => {
+  it('removes unowned legacy aliases instead of attributing them to the active account', async () => {
     const legacy = { ownerId: null, aliases: { 'old-message': 'Saved under an unknown account' } };
     await chrome.storage.local.set({ [key]: legacy });
     const store = createTocAliasStore();
+    await vi.waitFor(() => expect(saved[key]).toBeUndefined());
     await store.load(route);
     expect(store.get(route, 'old-message')).toBeNull();
-    await expect(store.update(route, 'new-message', 'Title', 'account-1'))
-      .rejects.toThrow('explicit owner migration');
-    expect(saved[key]).toEqual(legacy);
+    await store.update(route, 'new-message', 'Title', 'account-1');
+    expect(saved[key]).toEqual({ ownerId: 'account-1', aliases: { 'new-message': 'Title' } });
   });
 
   it('does not claim a successful save without a background acknowledgement', async () => {

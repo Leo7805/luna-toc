@@ -4,15 +4,19 @@ import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {checkManifest,inventoryLicenses,EXPECTED_HOSTS} from '../../scripts/audit-extension.mjs';
 
-const safe={manifest_version:3,permissions:['storage'],background:{type:'module'},
+const safe={manifest_version:3,permissions:['storage','webRequest'],host_permissions:EXPECTED_HOSTS,
+  background:{type:'module'},
   content_scripts:[{world:'MAIN',matches:EXPECTED_HOSTS},{world:'ISOLATED',matches:EXPECTED_HOSTS}]};
 
-test('MV3 host and permission baseline is accepted',()=>{
-  assert.equal(checkManifest(safe).permissions[0],'storage');
+test('MV3 baseline permits only storage plus narrowly scoped webRequest observation',()=>{
+  assert.deepEqual(checkManifest(safe).permissions,['storage','webRequest']);
+  assert.deepEqual(checkManifest(safe).hosts,EXPECTED_HOSTS);
 });
-test('permission, injected host and external messaging expansion is blocked',()=>{
-  assert.throws(()=>checkManifest({...safe,permissions:['storage','tabs']}));
+test('permission, host and external messaging expansion remains blocked',()=>{
+  assert.throws(()=>checkManifest({...safe,permissions:['storage','tabs','webRequest']}));
+  assert.throws(()=>checkManifest({...safe,permissions:['storage','webRequest','webRequestBlocking']}));
   assert.throws(()=>checkManifest({...safe,host_permissions:['<all_urls>']}));
+  assert.throws(()=>checkManifest({...safe,host_permissions:[...EXPECTED_HOSTS,'https://example.com/*']}));
   assert.throws(()=>checkManifest({...safe,externally_connectable:{matches:['*://*/*']}}));
   assert.throws(()=>checkManifest({...safe,content_scripts:[{world:'MAIN',matches:['https://example.com/*']},safe.content_scripts[1]]}));
 });
