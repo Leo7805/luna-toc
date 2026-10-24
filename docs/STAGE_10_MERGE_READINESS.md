@@ -2,24 +2,24 @@
 
 - 复核日期：2026-10-24
 - 仓库：`PyRookie1/luna-toc-sc`
-- PR：<https://github.com/PyRookie1/luna-toc-sc/pull/16>（当前草稿）
-- 审查基准 head：`addac7fc74565dd4100217c20f026d218a40f038`（B026 代码提交；后续文档提交和 CI 需另核验）
+- PR：<https://github.com/PyRookie1/luna-toc-sc/pull/16>（准备转为可审查状态；尚未合并）
+- 本次最终合并审查的业务代码基准：`cb9b13bf7adc9e3f21be2fbd6c80d57f5885a177`；本次仅同步治理文档，须重新核验包含文档更新的 PR 最新 head。
 - 审查基准 main：`03a82a232f180b4f81d0d589ee52265937235974`。
-- 此前基准 CI：<https://github.com/PyRookie1/luna-toc-sc/actions/runs/40064299660>，success，验证的是 B026 修复之前的代码。B026 修复后的最新提交和文档提交必须重新通过所有 CI，才可计算完成。
-- 当前分支仍以 `03a82a232f180b4f81d0d589ee52265937235974` 为目标主分支；相对 main 的领先数和冲突检查以最终提交核验为准。此前审查的 CI 成功不能替代新提交的结果。
+- B026 修复及文档基准 CI：<https://github.com/PyRookie1/luna-toc-sc/actions/runs/40065419469>，success，精确对应 `cb9b13b`：80 个测试文件、526 项单元测试通过；模拟 Chromium 8 项子测试通过；类型检查、构建、打包、供应链审查均成功。更新本验收记录所生成的新 head 的 CI，须在合并授权前另行重新读取。
+- 2026-10-24 核对时：main 为 `03a82a232f180b4f81d0d589ee52265937235974`；修复分支相对 main 领先 20 个提交、落后 0 个，GitHub `mergeable_state: clean`。合并前再核对最终 head/base、Ruleset 和最新 CI。
 
 ## 准入检查（六项）
 
 | 准入条件 | 当前结果 | 证据或剩余工作 |
 |---|---|---|
-| ① 阶段功能及缺陷修复 | 已覆盖，待新 CI 核对 | 共享后台写入队列、统计并发、备份预检、孤立统计恢复；B026 页面通知触发持久删除路径已关闭。 |
-| ② 新增关键回归测试 | 已补充，待新 CI 核对 | 队列、统计、配额、回滚、Chrome 字段顺序、全量渲染与虚拟滚动；新增 B026 的伪造页面通知与模拟成功删除测试。 |
-| ③ 现有全量测试 | 待新 CI | 此前 80 文件／525 测试、模拟 Chromium 7 子测试已过；本次新增测试后数字和结果必须重新读取。 |
-| ④ 类型／构建／打包 | 待新 CI | 原 CI 成功，代码和测试已变化。 |
-| ⑤ 安全及数据兼容 | B026 已实施修复，待新 CI | ISOLATED 端不再让任何网页删除消息调用持久清理。代价：真实删除后可能保留历史本地别名。存储格式兼容，旧版脚本可能绕过队列。 |
-| ⑥ 提交／恢复／治理 | **阻断** | 提交和回滚方法已记录；GitHub `main` `protected:false`、Rulesets 为 `[]`，无阻止未经 PR 直接推送的保护。 |
+| ① 阶段功能及缺陷修复 | 通过 | 共享后台写入队列、统计并发、备份预检、孤立统计恢复；B026 页面通知触发持久删除路径已关闭。 |
+| ② 新增关键回归测试 | 通过 | 队列、统计、配额、回滚、Chrome 字段顺序、全量渲染与虚拟滚动；B026 伪造页面通知及模拟成功删除测试均通过。 |
+| ③ 现有全量测试 | 基准通过，等待最终文档 head CI | 80 文件／526 项测试，模拟 Chromium 8 子测试；此次仅更新治理记录，仍必须核对新提交 CI。 |
+| ④ 类型／构建／打包 | 基准通过，等待最终文档 head CI | 最新业务代码基准的 CI 成功；新治理文档提交的 CI 需重新核对。 |
+| ⑤ 安全及数据兼容 | 通过（保留已披露边界） | ISOLATED 端不再让网页删除消息调用持久清理。代价：真实删除后保留历史本地别名。存储格式兼容，旧版脚本可能绕过队列；未发现未处理 P0/阻断性 P1。 |
+| ⑥ 提交／恢复／治理 | 通过 | 已记录提交、兼容性和回滚；管理员启用 Ruleset [25771265](https://github.com/PyRookie1/luna-toc-sc/rules/25771265)，GitHub 返回 `main.protected:true`、`enforcement:active`、无 bypass、两项必过检查、严格最新提交、禁强推及禁删。 |
 
-**判定：待验收（暂不可合并）**。B026 代码修复已提交，但需等待最新提交 CI 和仓库保护规则生效；本文件并非合并授权。没有发现本 PR 引入新的权限或本地数据存储键迁移。
+**判定：待验收，待核对本次文档更新产生的新 head CI；通过后允许合并，但不代表用户已授权实际合并。** 当前无未处理的 P0/阻断性 P1。功能限制和真实 ChatGPT 未验证范围见下文。
 
 ## B026 安全修复及功能取舍
 
@@ -40,20 +40,18 @@
 - 回退代码：从合并前主分支提交创建独立修复分支与 PR，使用 `git revert` 方式回退 PR 引入的提交并重新 CI；不强推，不删除标签／Release。回退代码不自动恢复用户数据，用户应先导出 JSON 备份、刷新或关闭旧 ChatGPT 标签页，核对扩展版本与数据兼容性。
 - 未验证：真实 ChatGPT 登录态、旧版与新版内容脚本混合运行、实际设备上持久化恢复及 Chrome 存储持续故障。此类范围不可当作模拟测试已完成。
 
-## main 保护设置（需仓库管理员完成）
+## main 分支保护（已启用并验证）
 
-此连接没有写入 GitHub Rulesets／分支保护的权限，不能宣称设置已完成。
-
-1. 打开 <https://github.com/PyRookie1/luna-toc-sc/settings/rules>，或从仓库 **Settings → Rules → Rulesets** 进入。
-2. 创建 **New ruleset → New branch ruleset**，将分支目标设为 `main`，将规则状态设为 **Active**。
-3. 开启 **Require a pull request before merging** 和 **Require status checks to pass**；在近期 PR CI 记录中选择实际存在的 `Typecheck, test, build and package`、`Dependency advisory gate` 两个检查（以 GitHub 当前列出的准确检查名为准）。
-4. 禁止强制推送和删除主分支；不为普通推送启用绕过。保存后返回规则列表，确认规则 Active 并覆盖 `main`。
-5. 再读取 GitHub Rulesets、主分支保护状态和最新 CI；**保护未确认生效时，不标记准入通过**。
+2026-10-24 仓库管理员完成设置。GitHub API 的 Ruleset 详情已核实：
+- [Protect main - Require PR and CI](https://github.com/PyRookie1/luna-toc-sc/rules/25771265)，`enforcement: active`，目标分支 `~DEFAULT_BRANCH`（当前即 `main`），仓库返回 `main.protected: true`。
+- 要求 Pull Request，批准数为 0；需要 `Typecheck, test, build and package` 与 `Dependency advisory gate` 两个 GitHub Actions 检查通过，`strict_required_status_checks_policy: true`。
+- 启用 `deletion` 与 `non_fast_forward` 规则，禁止删分支及强推；`bypass_actors: []`，当前用户无绕过权。
+- 传统 branch protection API 返回 403（集成访问受限），但 Ruleset 详情和分支 `protected:true` 已足以核实该规则生效；不把 403 误认为规则失败。
 
 ## 合并前最终操作顺序
 
 1. B026 已实施非破坏性修复并补充回归；如存在新的失败，先修复并重新运行 CI。
 2. 确保最新提交的所有 CI 成功，无跳过的必需作业，PR diff 与评审范围一致。
-3. 管理员启用并验证 `main` 分支保护。
+3. `main` 分支保护已启用；合并前仅需复核 Ruleset 仍为 Active。
 4. 再核对 PR base/head 和 `mergeable_state`，完结安全及兼容评估，满足六项后将草稿转为 Ready for review。
 5. 单独请求用户授权合并；授权前不得执行 `merge`、启用自动合并或触发发布。

@@ -34,13 +34,8 @@
 
 ## Branch protection status
 
-**Current status as of 2026-10-24: not enabled.** The connected GitHub capability available to this task can read repository branches and create code changes, but does not expose a write operation for branch-protection rules or repository rulesets. No settings change is claimed.
+**Active and verified on 2026-10-24.** Administrator-created [Ruleset 25771265](https://github.com/PyRookie1/luna-toc-sc/rules/25771265), named `Protect main - Require PR and CI`, targets the default branch `main`. GitHub branch API reports `protected:true` and Rulesets API reports `enforcement: active`.
 
-Repository administrator setup:
-1. Open the repository on GitHub and select **Settings → Rules → Rulesets** (or **Settings → Branches → Add branch protection rule**, depending on the repository settings UI).
-2. Target the branch name `main`.
-3. Require a pull request before merging; require the latest `LunaTOC-SC CI / Typecheck, test, build and package` and `LunaTOC-SC CI / Dependency advisory gate` checks to pass.
-4. Require branch up-to-date checks if available; block force pushes and branch deletion. Do not allow bypass for routine code changes.
-5. Save the rule, then reopen the rule details and verify that it is active for `main`. Re-check the branch's `protected` status or repository Rulesets list after saving.
+Rules: PR required (0 approving reviews for this maintainer-owned repository); required GitHub Actions checks `Typecheck, test, build and package` and `Dependency advisory gate`; strict up-to-date checks; no force push or deletion; no bypass actors. The repository's classic branch-protection endpoint is not readable by the connected integration (403), but Ruleset details provide direct positive confirmation.
 
-Do not require a status context by guessing its name: select the exact check names emitted by the latest completed CI run. The rule must not be considered active until GitHub confirms the saved configuration.
+Do not disable or weaken these protections to force an individual merge; verify PR head SHA and current checks before each merge. A successful PR CI does not authorize publication.

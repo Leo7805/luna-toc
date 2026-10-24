@@ -116,7 +116,7 @@ Stage 10 introduces one rejection-safe queue in the Manifest V3 background worke
 
 ## D28 — Keep CI verification separate from publication and protect main administratively
 
-CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection is not active as of 2026-10-24; the available GitHub connector has no branch-protection write operation, so an administrator must configure the rule through GitHub settings. Until verified active, this remains a merge-governance blocker rather than a completed change.
+CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection was initially inactive and could not be changed through the available GitHub connector. On 2026-10-24 the administrator activated Ruleset 25771265 for `main`; GitHub confirms its active enforcement, required PR, strict two-job CI checks, blocked force push/deletion and no bypass. This closes the merge-governance blocker without changing application permissions or release policy.
 
 ## D29 — 不可信网页删除通知不得清除扩展本地数据（已决定）
 

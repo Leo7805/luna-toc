@@ -45,7 +45,7 @@ The MAIN-world page event `TOC_CONVERSATION_DELETED` is **not an authorized loca
 
 ## Repository branch protection
 
-As of 2026-10-24, `main` is not protected. The available GitHub connector supports reading branch metadata but does not expose a branch-protection write action. A repository administrator must apply the configuration in [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) and verify it in GitHub settings. Until then, protection is **not enabled**.
+As of 2026-10-24, `main` is **protected** under Active [Ruleset 25771265](https://github.com/PyRookie1/luna-toc-sc/rules/25771265). It requires PRs and both GitHub Actions checks (`Typecheck, test, build and package`; `Dependency advisory gate`), strict up-to-date head checks, and blocks force push/deletion without bypass. GitHub confirms `main.protected:true`. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md). This protection was configured by the repository administrator, not by the connected GitHub tool.
 
 ## Release and rollback
 
