@@ -58,6 +58,24 @@ describe('coordinated clear-all', () => {
     expect(box.state[USAGE]).toEqual({ saved: { usageCount: 3, lastUsedAt: 1 } });
   });
 
+  it('accepts verified rollback when Chrome reorders nested JSON object keys', async () => {
+    const box = harness();
+    const originalGet = box.get.getMockImplementation()!;
+    let readCount = 0;
+    box.get.mockImplementation(async (keys: string | string[]) => {
+      const values = await originalGet(keys);
+      readCount += 1;
+      if (readCount > 1 && values[USAGE]) {
+        const usage = (values[USAGE] as Record<string, { usageCount: number; lastUsedAt: number }>).saved;
+        if (usage) values[USAGE] = { saved: { lastUsedAt: usage.lastUsedAt, usageCount: usage.usageCount } };
+      }
+      return values;
+    });
+    box.failAfterMutation();
+    expect(await createPromptWriteCoordinator(box.storage).commit(clear()))
+      .toMatchObject({ ok: false, error: expect.stringContaining('已恢复') });
+  });
+
   it('does not claim rollback succeeded during a persistent storage failure', async () => {
     const box = harness();
     box.failPermanently();
