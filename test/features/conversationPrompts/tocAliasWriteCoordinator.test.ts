@@ -133,6 +133,14 @@ describe('background TOC alias coordinator', () => {
     expect(box.data[key]).toEqual({ ownerId: 'account-A', aliases: { msg: 'original' } });
   });
 
+  it('requires a non-null verified account even when old scripts submit a write', async () => {
+    const box = backing({ [key]: { ownerId: 'account-A', aliases: { msg: 'Keep' } } });
+    const writer = createTocAliasWriteCoordinator(box.storage);
+    expect(await writer.commit(update('msg', 'Keep', 'Changed', null)))
+      .toEqual({ ok: false, error: 'Verified ChatGPT account required for alias writes' });
+    expect(box.data[key]).toEqual({ ownerId: 'account-A', aliases: { msg: 'Keep' } });
+  });
+
   it('does not silently adopt all unowned legacy labels by editing a different message', async () => {
     const legacy = { ownerId: null, aliases: { 'private-old': 'Previous account title' } };
     const box = backing({ [key]: legacy });
