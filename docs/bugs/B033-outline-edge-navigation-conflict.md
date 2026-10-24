@@ -2,7 +2,7 @@
 
 - Date: 2026-10-24
 - Priority: P2
-- Status: Fix committed; implementation-head CI passed. The PR remains draft while CI reruns for this documentation update and live-site behavior remains unverified.
+- Status: Fix committed on `fix/b033-outline-scroll-conflict`; review and current CI status are tracked in [PR #20](https://github.com/PyRookie1/luna-toc-sc/pull/20). Real-site behavior remains unverified.
 
 ## Symptom
 
@@ -30,7 +30,7 @@ GitHub Actions run [#40102328225](https://github.com/PyRookie1/luna-toc-sc/actio
 - Headless Chromium MV3 fixture: 10 TAP tests including the parent test; the fixture is synthetic and does not use a live ChatGPT account.
 - Dependency advisory gate passed.
 
-The current branch adds only this verification record, so CI must pass again for the final PR head before merge eligibility is reconsidered. Real authenticated ChatGPT interaction remains unverified.
+CI runs [#40102328225](https://github.com/PyRookie1/luna-toc-sc/actions/runs/40102328225) and [#40102585182](https://github.com/PyRookie1/luna-toc-sc/actions/runs/40102585182) both passed for their respective heads. Check PR #20 for the latest head and required checks; future commits require fresh CI. Real authenticated ChatGPT interaction remains unverified.
 
 ## Rollback
 
