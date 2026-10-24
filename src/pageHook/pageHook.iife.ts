@@ -32,11 +32,7 @@ import {
 } from './conversationCapture';
 import { cancelBackfillsExcept, installConversationBackfill } from './conversationBackfill';
 import { installConversationRefresh } from './conversationRefresh';
-import {
-  getDeletionTarget,
-  installConversationLifecycle,
-  publishConfirmedDeletion,
-} from './conversationLifecycle';
+import { installConversationLifecycle } from './conversationLifecycle';
 import { installHistoryHook } from './historyHook';
 import { installTitleObserver } from './titleObserver';
 import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contractAlert/toolbarWarning';
@@ -91,8 +87,6 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
 
   window.fetch = async function (...args) {
     const requestMeta = inspectFetchRequest(args, platform);
-    const pendingDeletedConversation = getDeletionTarget(args);
-
     try {
       if (requestMeta?.isConversationGet) {
         const requestUrl = platform.pageHook.fetch.getFetchUrl(args[0]);
@@ -126,8 +120,6 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
     });
     const requestStartedAt = Date.now();
     const response = await originalFetch(...fetchArgs);
-    publishConfirmedDeletion(response, pendingDeletedConversation);
-
     try {
       if (requestMeta?.isConversationGet) {
         // Both full and paginated conversation requests can carry auth headers.
