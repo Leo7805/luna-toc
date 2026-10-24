@@ -4,7 +4,6 @@ import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_COLORS,
-  SIDEBAR_SETTINGS_KEY,
   normalizeSidebarPreferences,
   readSidebarPreferences,
   sidebarAppearance,

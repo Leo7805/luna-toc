@@ -77,11 +77,13 @@ export function subscribeThemeSettings(
     }
   };
   chrome.storage.onChanged.addListener(onChange);
-  const unsubscribeOwner = ownerId ? () => {} : subscribeActiveConversationOwner((nextOwner) => {
+  const unsubscribeOwner = ownerId ? () => {} : subscribeActiveConversationOwner(() => {
+    const nextOwner = getActiveConversationOwner();
     resolvedOwner = nextOwner;
     if (nextOwner) void readThemeSettings(nextOwner).then((settings) => {
       if (active) listener(settings);
     }).catch(() => undefined);
+    else if (active) listener({ ...DEFAULT_SETTINGS });
   });
   if (!resolvedOwner && !ownerId) {
     void resolveAccountSettingsOwner().then((owner) => {

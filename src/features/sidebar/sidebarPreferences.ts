@@ -112,11 +112,13 @@ export function subscribeSidebarPreferences(
     }
   };
   chrome.storage.onChanged.addListener(onChange);
-  const unsubscribeOwner = ownerId ? () => {} : subscribeActiveConversationOwner((nextOwner) => {
+  const unsubscribeOwner = ownerId ? () => {} : subscribeActiveConversationOwner(() => {
+    const nextOwner = getActiveConversationOwner();
     resolvedOwner = nextOwner;
     if (nextOwner) void readSidebarPreferences(nextOwner).then((settings) => {
       if (active) listener(settings);
     }).catch(() => undefined);
+    else if (active) listener({ ...DEFAULT_SIDEBAR_PREFERENCES });
   });
   if (!resolvedOwner && !ownerId) {
     void resolveAccountSettingsOwner().then((owner) => {
