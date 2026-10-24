@@ -71,6 +71,11 @@ export function createPromptUsageWriteCoordinator(
         const next: PromptUsageMap = { ...current };
         switch (request.action) {
           case 'record-use': {
+            const persistedPrompts: unknown = result[PROMPT_STORAGE_KEY];
+            if (!isPromptList(persistedPrompts) ||
+                !persistedPrompts.some((prompt) => prompt.id === request.promptId)) {
+              return { ok: false, error: 'Prompt no longer exists; usage not recorded' };
+            }
             const previous = current[request.promptId];
             if (previous && previous.usageCount >= Number.MAX_SAFE_INTEGER) {
               return { ok: false, error: 'Prompt usage count reached its supported limit' };
