@@ -105,7 +105,11 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
       await load(routeKey);
       if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
       if (ownerId !== getActiveConversationOwner()) throw new Error('ChatGPT account changed; title not saved');
-      const existingOwner = loaded.get(routeKey)?.ownerId;
+      const currentRecord = loaded.get(routeKey);
+      if (currentRecord?.ownerId === null && Object.keys(currentRecord.aliases).length > 0) {
+        throw new Error('Legacy aliases require explicit owner migration');
+      }
+      const existingOwner = currentRecord?.ownerId;
       if (existingOwner !== null && existingOwner !== undefined && existingOwner !== ownerId) {
         throw new Error('Conversation alias belongs to another account');
       }
