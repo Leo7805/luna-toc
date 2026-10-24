@@ -14,7 +14,7 @@ export type PromptCommitResponse =
   | { ok: false; conflict: true }
   | { ok: false; error: string };
 
-type PromptStorage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
+type PromptStorage = Pick<chrome.storage.StorageArea, 'get' | 'set'> & Partial<Pick<chrome.storage.StorageArea, 'remove'>>;
 const USAGE_STORAGE_KEY = 'lunaToc:promptUsageV1';
 
 function isValidPrompt(value: unknown): value is SavedPrompt {
@@ -105,7 +105,10 @@ export function createPromptWriteCoordinator(
                 if (hasUsage) previous[USAGE_STORAGE_KEY] = original[USAGE_STORAGE_KEY];
                 if (Object.keys(previous).length) await storage.set(previous);
                 const absent = keys.filter((key) => !Object.hasOwn(original, key));
-                if (absent.length) await storage.remove(absent);
+                if (absent.length) {
+                  if (!storage.remove) throw new Error('Storage cannot remove absent keys');
+                  await storage.remove(absent);
+                }
                 const restored = await storage.get(keys);
                 if (keys.some((key) => JSON.stringify(restored[key]) !== JSON.stringify(original[key]))) {
                   throw new Error('Rollback verification failed');
