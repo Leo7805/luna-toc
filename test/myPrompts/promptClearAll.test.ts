@@ -7,9 +7,9 @@ import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 
 const USAGE = 'lunaToc:promptUsageV1';
-const prompt: SavedPrompt = { id: 'saved', title: 'Saved', content: 'Text', createdAt: 1, updatedAt: 1 };
+const prompt: SavedPrompt = { id: 'saved', ownerId: 'account-1', title: 'Saved', content: 'Text', createdAt: 1, updatedAt: 1 };
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
-const clear = () => ({ type: PROMPT_COMMIT_TYPE, action: 'clear-all' as const });
+const clear = () => ({ type: PROMPT_COMMIT_TYPE, action: 'clear-account' as const, ownerId: 'account-1' });
 
 function harness() {
   const state: Record<string, unknown> = {
@@ -39,7 +39,7 @@ function harness() {
     failPermanently: () => { alwaysFail = true; } };
 }
 
-describe('coordinated clear-all', () => {
+describe('coordinated account prompt clearing', () => {
   it('clears prompts and usage together and permits an idempotent repeat', async () => {
     const box = harness();
     const writer = createPromptWriteCoordinator(box.storage);
@@ -47,6 +47,19 @@ describe('coordinated clear-all', () => {
     expect(box.state[PROMPT_STORAGE_KEY]).toEqual([]);
     expect(box.state[USAGE]).toEqual({});
     expect(await writer.commit(clear())).toEqual({ ok: true });
+  });
+
+  it('clears only the active account and preserves other accounts and their usage', async () => {
+    const other: SavedPrompt = { id: 'other', ownerId: 'account-2', title: 'Other', content: 'Other', createdAt: 2, updatedAt: 2 };
+    const box = harness();
+    box.state[PROMPT_STORAGE_KEY] = [prompt, other];
+    box.state[USAGE] = {
+      saved: { usageCount: 3, lastUsedAt: 1 },
+      other: { usageCount: 8, lastUsedAt: 2 },
+    };
+    expect(await createPromptWriteCoordinator(box.storage).commit(clear())).toEqual({ ok: true });
+    expect(box.state[PROMPT_STORAGE_KEY]).toEqual([other]);
+    expect(box.state[USAGE]).toEqual({ other: { usageCount: 8, lastUsedAt: 2 } });
   });
 
   it('rolls back both keys after partial write failure', async () => {

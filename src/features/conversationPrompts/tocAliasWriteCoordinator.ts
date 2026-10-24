@@ -1,4 +1,4 @@
-/** Validates and persists TOC alias updates in the MV3 worker. */
+/** Validates and persists account-bound TOC alias updates in the MV3 worker. */
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
 import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
@@ -7,7 +7,7 @@ export const TOC_ALIAS_DELETED_PREFIX = 'chatToc:aliases:deleted:v1:';
 export const TOC_ALIAS_COMMIT_TYPE = 'LUNA_TOC_ALIAS_COMMIT_V1';
 
 export interface TocAliasRecord {
-  ownerId: string | null;
+  ownerId: string;
   aliases: Record<string, string>;
 }
 export type TocAliasCommitRequest =
@@ -17,32 +17,42 @@ export type TocAliasCommitRequest =
     routeKey: string;
     messageId: string;
     label: string | null;
-    ownerId: string | null;
+    ownerId: string;
   }
-  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'delete-conversation'; routeKey: string }
-  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'cleanup-conversation'; routeKey: string; expected: TocAliasRecord };
+  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'delete-conversation'; routeKey: string; ownerId: string }
+  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'cleanup-conversation'; routeKey: string; expected: TocAliasRecord }
+  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'cleanup-unowned' };
 
 export type TocAliasCommitResponse =
   | { ok: true; record: TocAliasRecord | null }
   | { ok: true; deleted: true }
+  | { ok: true; cleaned: number }
   | { ok: false; conflict: true }
   | { ok: false; error: string };
 
 type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
 
-export const isValidTocMessageId =  (value: unknown): value is string =>
+export const isValidTocMessageId = (value: unknown): value is string =>
   typeof value === 'string' && !!value && value.length <= 256 &&
   value !== '__proto__' && value !== 'constructor' && value !== 'prototype';
 const validLabel = (value: unknown): value is string | null =>
   value === null || (typeof value === 'string' && !!value.trim() && value.length <= 240);
-const validOwner = (value: unknown): value is string | null =>
-  value === null || (typeof value === 'string' && !!value && value.length <= 256);
+const validOwner = (value: unknown): value is string =>
+  typeof value === 'string' && !!value && value.length <= 256;
+
+function isUnownedRecord(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return !Object.hasOwn(record, 'ownerId') || record.ownerId === null || record.ownerId === '';
+}
 
 export function isTocAliasCommitRequest(value: unknown): value is TocAliasCommitRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const input = value as Record<string, unknown>;
-  if (input.type !== TOC_ALIAS_COMMIT_TYPE || !isPermanentConversationId(input.routeKey)) return false;
-  if (input.action === 'delete-conversation') return true;
+  if (input.type !== TOC_ALIAS_COMMIT_TYPE) return false;
+  if (input.action === 'cleanup-unowned') return true;
+  if (!isPermanentConversationId(input.routeKey)) return false;
+  if (input.action === 'delete-conversation') return validOwner(input.ownerId);
   if (input.action === 'cleanup-conversation') {
     try { return parseTocAliasRecord(input.expected) !== null; }
     catch { return false; }
@@ -51,7 +61,7 @@ export function isTocAliasCommitRequest(value: unknown): value is TocAliasCommit
     validLabel(input.label) && validOwner(input.ownerId);
 }
 
-/** Reject malformed saved records instead of overwriting data we cannot interpret. */
+/** Reject malformed records and all records without a verified account owner. */
 export function parseTocAliasRecord(value: unknown): TocAliasRecord | null {
   if (value === undefined) return null;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -77,10 +87,7 @@ function sameRecord(a: TocAliasRecord, b: TocAliasRecord): boolean {
     keys.every((key) => Object.hasOwn(b.aliases, key) && a.aliases[key] === b.aliases[key]);
 }
 
-/**
- * Each job reads Chrome storage anew, so a restarted worker has no stale cache.
- * The injected queue serializes aliases against backup restore and other owned writes.
- */
+/** Background writes are serialized with prompts, settings, usage and backup restore. */
 export function createTocAliasWriteCoordinator(
   storage: Storage = chrome.storage.local,
   queue: SerialWriteQueue = createSerialWriteQueue()
@@ -91,25 +98,34 @@ export function createTocAliasWriteCoordinator(
         if (!isTocAliasCommitRequest(request)) {
           return { ok: false, error: 'Invalid TOC alias request' };
         }
-        if (request.action === 'update' && !request.ownerId) {
-          return { ok: false, error: 'Verified ChatGPT account required for alias writes' };
-        }
-        const key = TOC_ALIAS_PREFIX + request.routeKey;
-        const deletionKey = TOC_ALIAS_DELETED_PREFIX + request.routeKey;
         try {
+          if (request.action === 'cleanup-unowned') {
+            const all = await storage.get(null) as Record<string, unknown>;
+            const staleKeys = Object.entries(all)
+              .filter(([key, value]) => key.startsWith(TOC_ALIAS_PREFIX) && isUnownedRecord(value))
+              .map(([key]) => key);
+            if (staleKeys.length) await storage.remove(staleKeys);
+            return { ok: true, cleaned: staleKeys.length };
+          }
+
+          const key = TOC_ALIAS_PREFIX + request.routeKey;
+          const deletionKey = TOC_ALIAS_DELETED_PREFIX + request.routeKey;
           const state = await storage.get([key, deletionKey]);
           if (request.action === 'delete-conversation' ||
               request.action === 'cleanup-conversation') {
             if (request.action === 'cleanup-conversation') {
-              // A user selected exactly this preview; do not delete a newer
-              // edit, a restored record, or data now owned by another account.
+              // Do not delete a newer edit, restored record, or another account's data.
               if (Object.hasOwn(state, deletionKey)) return { ok: false, conflict: true };
               const current = parseTocAliasRecord(state[key]);
               if (!current || !sameRecord(current, request.expected)) {
                 return { ok: false, conflict: true };
               }
+            } else {
+              const current = parseTocAliasRecord(state[key]);
+              if (current && current.ownerId !== request.ownerId) {
+                return { ok: false, error: 'Conversation belongs to another account' };
+              }
             }
-            // Preserve explicit deletion across worker restarts and backup restore.
             if (!Object.hasOwn(state, deletionKey)) await storage.set({ [deletionKey]: true });
             await storage.remove(key);
             return { ok: true, deleted: true };
@@ -118,12 +134,7 @@ export function createTocAliasWriteCoordinator(
             return { ok: false, error: 'Conversation has been deleted' };
           }
           const previous = parseTocAliasRecord(state[key]);
-          if (previous?.ownerId === null && Object.keys(previous.aliases).length > 0) {
-            // A legacy unowned record cannot be silently attributed to whichever
-            // account edits a different message first.
-            return { ok: false, error: 'Legacy aliases require explicit owner migration' };
-          }
-          if (previous?.ownerId && request.ownerId && previous.ownerId !== request.ownerId) {
+          if (previous && previous.ownerId !== request.ownerId) {
             return { ok: false, error: 'Conversation belongs to another account' };
           }
           const oldLabel = previous?.aliases[request.messageId] ?? null;
@@ -134,7 +145,7 @@ export function createTocAliasWriteCoordinator(
             if (previous) await storage.remove(key);
             return { ok: true, record: null };
           }
-          const record = { ownerId: request.ownerId ?? previous?.ownerId ?? null, aliases };
+          const record = { ownerId: request.ownerId, aliases };
           if (oldLabel !== request.label || record.ownerId !== previous?.ownerId) {
             await storage.set({ [key]: record });
           }

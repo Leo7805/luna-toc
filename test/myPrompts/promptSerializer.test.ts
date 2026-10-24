@@ -17,6 +17,7 @@ describe('promptSerializer', () => {
       const prompts: SavedPrompt[] = [
         {
           id: '1',
+          ownerId: 'account-1',
           title: 'Code Reviewer',
           content: 'Review this diff for bugs.',
           createdAt: 1000,
@@ -34,6 +35,7 @@ describe('promptSerializer', () => {
       const prompts: SavedPrompt[] = [
         {
           id: '1',
+          ownerId: 'account-1',
           title: 'No Trailing Newline',
           content: 'line 1\nline 2',
           createdAt: 1000,
@@ -51,6 +53,7 @@ describe('promptSerializer', () => {
       const prompts: SavedPrompt[] = [
         {
           id: '1',
+          ownerId: 'account-1',
           title: 'Has Trailing Newline',
           content: 'line 1\nline 2\n',
           createdAt: 1000,
@@ -68,6 +71,7 @@ describe('promptSerializer', () => {
       const prompts: SavedPrompt[] = [
         {
           id: '1',
+          ownerId: 'account-1',
           title: 'Code Example',
           content: 'Here is code:\n```ts\nconsole.log(1);\n```',
           createdAt: 1000,
@@ -85,6 +89,7 @@ describe('promptSerializer', () => {
       const prompts: SavedPrompt[] = [
         {
           id: '1',
+          ownerId: 'account-1',
           title: 'Prompt 1',
           content: 'Content 1',
           createdAt: 1000,
@@ -92,6 +97,7 @@ describe('promptSerializer', () => {
         },
         {
           id: '2',
+          ownerId: 'account-1',
           title: 'Prompt 2',
           content: 'Content 2',
           createdAt: 2000,
@@ -166,6 +172,7 @@ describe('promptSerializer', () => {
       const original: SavedPrompt[] = [
         {
           id: '1',
+          ownerId: 'account-1',
           title: 'Refactor Plan',
           content: 'Step 1: Check\nStep 2: Act\n```bash\nnpm test\n```',
           createdAt: 100,
@@ -173,6 +180,7 @@ describe('promptSerializer', () => {
         },
         {
           id: '2',
+          ownerId: 'account-1',
           title: 'Summary',
           content: 'Please summarize in bullet points.',
           createdAt: 300,

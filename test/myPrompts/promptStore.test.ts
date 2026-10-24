@@ -2,15 +2,16 @@
 /** Single-tab prompt persistence with an acknowledged background writer. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPromptStore, type SavedPrompt } from '@/features/myPrompts/promptStore';
+import { setActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 import {
   createPromptWriteCoordinator, PROMPT_COMMIT_TYPE, PROMPT_STORAGE_KEY,
 } from '@/features/myPrompts/promptWriteCoordinator';
 
 const original: SavedPrompt = {
-  id: 'saved', title: 'Saved', content: 'Keep me', createdAt: 1, updatedAt: 1,
+  id: 'saved', ownerId: 'account-1', title: 'Saved', content: 'Keep me', createdAt: 1, updatedAt: 1,
 };
 const make = (id: string): SavedPrompt => ({
-  id, title: id, content: id, createdAt: 2, updatedAt: 2,
+  id, ownerId: 'account-1', title: id, content: id, createdAt: 2, updatedAt: 2,
 });
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -24,6 +25,7 @@ let messages: ReturnType<typeof vi.fn>;
 let getSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  setActiveConversationOwner('account-1');
   data = { [PROMPT_STORAGE_KEY]: [original] };
   writeError = null;
   readError = null;
@@ -77,14 +79,14 @@ beforeEach(() => {
   (chrome.runtime.sendMessage as typeof messages) = messages;
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); setActiveConversationOwner(null); });
 
 describe('single-tab My Prompts storage', () => {
   it('saves through the background and retains the storage key', async () => {
     const store = createPromptStore();
     await store.update((prompts) => [...prompts, make('added')]);
     expect(messages).toHaveBeenCalledWith(expect.objectContaining({
-      type: PROMPT_COMMIT_TYPE, next: [original, make('added')],
+      type: PROMPT_COMMIT_TYPE, action: 'replace-account', ownerId: 'account-1', next: [original, make('added')],
     }), expect.any(Function));
     expect(data[PROMPT_STORAGE_KEY]).toEqual([original, make('added')]);
     expect(writeSpy).toHaveBeenCalledTimes(1);
@@ -146,14 +148,21 @@ describe('single-tab My Prompts storage', () => {
     expect(data[PROMPT_STORAGE_KEY]).toEqual([]);
     expect(data['lunaToc:promptUsageV1']).toEqual({});
     expect(messages).toHaveBeenCalledWith(
-      { type: PROMPT_COMMIT_TYPE, action: 'clear-all' }, expect.any(Function)
+      { type: PROMPT_COMMIT_TYPE, action: 'clear-account', ownerId: 'account-1' }, expect.any(Function)
     );
   });
 
-  it('allows direct whole-list replacement without cross-tab snapshots', async () => {
+  it('isolates prompt lists by verified account and preserves other accounts on edits', async () => {
+    const otherAccount = { ...make('private-other'), ownerId: 'account-2' };
+    const unowned = { id: 'legacy', title: 'Legacy', content: 'Delete me', createdAt: 1, updatedAt: 1 };
+    data[PROMPT_STORAGE_KEY] = [original, otherAccount, unowned];
     const store = createPromptStore();
-    await store.saveAll([original, make('added')]);
-    expect((await store.getAll()).map((prompt) => prompt.id)).toEqual(['saved', 'added']);
+    expect((await store.getAll()).map((prompt) => prompt.id)).toEqual(['saved']);
+    expect(data[PROMPT_STORAGE_KEY]).toEqual([original, otherAccount]);
+    await store.update((prompts) => [...prompts, make('added')]);
+    expect(data[PROMPT_STORAGE_KEY]).toEqual([otherAccount, original, make('added')]);
+    setActiveConversationOwner('account-2');
+    expect((await store.getAll()).map((prompt) => prompt.id)).toEqual(['private-other']);
   });
 
   it('reports a background interruption without pretending to save', async () => {

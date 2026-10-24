@@ -192,7 +192,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       const routeKey='luna-stage-9-e2e';
       const aliasKey='chatToc:aliases:v1:'+routeKey;
       const fenceKey='chatToc:aliases:deleted:v1:'+routeKey;
-      const record={ownerId:null,aliases:{'user-1':'请保留此目录别名'}};
+      const record={ownerId:'fixture-account-a',aliases:{'user-1':'请保留此目录别名'}};
       await worker.evaluate(async({aliasKey,fenceKey,record})=>{
         await chrome.storage.local.remove(fenceKey);
         await chrome.storage.local.set({[aliasKey]:record});
@@ -270,7 +270,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         const optionsPage=await worker.evaluate(()=>chrome.runtime.getManifest().options_ui.page);
         await settings.goto('chrome-extension://'+extensionId+'/'+optionsPage);
         await worker.evaluate(async()=>chrome.storage.local.set({
-          'lumaToc:myPromptsV1':[{id:'e2e-prompt',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
+          'lumaToc:myPromptsV1':[{id:'e2e-prompt',ownerId:'fixture-account-a',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
           'lunaToc:promptUsageV1':{'e2e-prompt':{usageCount:2,lastUsedAt:3}},
           'chatToc:themeSettings':{followChatGPT:false,manualTheme:'light'},
           'chatToc:sidebarPreferences':{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
@@ -282,7 +282,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         const backup=JSON.parse(readFileSync(filePath,'utf8'));
         assert.equal(backup.data.prompts[0].id,'e2e-prompt');
         assert.equal(backup.data.promptUsage['e2e-prompt'].usageCount,2);
-        await worker.evaluate(async()=>chrome.storage.local.set({'lumaToc:myPromptsV1':[{id:'temporary',title:'temporary',content:'temporary',createdAt:1,updatedAt:2}], 'lunaToc:promptUsageV1':{temporary:{usageCount:1,lastUsedAt:3}}}));
+        await worker.evaluate(async()=>chrome.storage.local.set({'lumaToc:myPromptsV1':[{id:'temporary',ownerId:'fixture-account-a',title:'temporary',content:'temporary',createdAt:1,updatedAt:2}], 'lunaToc:promptUsageV1':{temporary:{usageCount:1,lastUsedAt:3}}}));
         await settings.locator('input[type="file"]').setInputFiles({name:'luna-toc-e2e-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
         await settings.locator('.settings-backup-preview').waitFor({state:'visible'});
         settings.on('dialog',dialog=>dialog.accept());

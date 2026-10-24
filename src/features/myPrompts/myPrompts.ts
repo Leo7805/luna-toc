@@ -11,7 +11,6 @@ import {
   initializePromptLibrary,
   onPromptsChanged,
   renderMyPrompts,
-  saveMyPrompts,
   showDialog,
 } from './promptLibrary';
 import { createPromptStore } from './promptStore';
@@ -39,7 +38,6 @@ initializePromptAutocomplete({
 
 export const myPrompts = {
   getMyPrompts,
-  saveMyPrompts,
   onPromptsChanged,
   showDialog,
   renderMyPrompts,

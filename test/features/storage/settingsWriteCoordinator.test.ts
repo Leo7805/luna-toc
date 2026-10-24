@@ -12,20 +12,14 @@ describe('single-tab background settings writer', () => {
       storage: { get, set, remove } as unknown as chrome.storage.StorageArea };
   }
 
-  it('validates and saves theme and sidebar settings', async () => {
+  it('validates and saves theme settings', async () => {
     const box = backing();
     const writer = createSettingsWriteCoordinator(box.storage, createSerialWriteQueue());
     const theme = { followChatGPT: false, manualTheme: 'light' as const };
-    const sidebar = { layoutMode: 'side-by-side' as const, backgroundColor: 'blue' as const, revealTint: true };
     expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'theme', settings: theme, removeLegacy: true }))
       .toEqual({ ok: true });
-    expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: sidebar }))
-      .toEqual({ ok: true });
     expect(box.data['chatToc:themeSettings']).toEqual(theme);
-    expect(box.data['chatToc:sidebarPreferences']).toEqual(sidebar);
     expect(box.remove).toHaveBeenCalledWith('chatToc:theme');
-    expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: { layoutMode: 'invalid' } }))
-      .toEqual({ ok: false, error: 'Invalid settings update request' });
   });
 
   it('merges sequential field patches without overwriting unrelated settings', async () => {

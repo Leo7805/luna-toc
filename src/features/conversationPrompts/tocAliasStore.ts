@@ -7,7 +7,7 @@ import {
   type TocAliasRecord, type TocAliasCommitRequest, type TocAliasCommitResponse,
 } from './tocAliasWriteCoordinator';
 
-const empty = (): TocAliasRecord => ({ ownerId: null, aliases: {} });
+const empty = (): TocAliasRecord => ({ ownerId: '', aliases: {} });
 const storageKey = (route: string) => TOC_ALIAS_PREFIX + route;
 const tombstoneKey = (route: string) => TOC_ALIAS_DELETED_PREFIX + route;
 
@@ -38,6 +38,7 @@ function sendCommit(request: TocAliasCommitRequest): Promise<TocAliasCommitRespo
 export function createTocAliasStore(onChanged: (routeKey: string) => void = () => {}) {
   const loaded = new Map<string, TocAliasRecord>();
   const loading = new Map<string, Promise<void>>();
+  const knownRoutes = new Set<string>();
   const deleted = new Set<string>();
   const listeners = new Set<(routeKey: string) => void>();
   const changesSeen = new Map<string, number>();
@@ -53,34 +54,46 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
 
   /** The deletion fence is read together with data on every cache miss. */
   async function read(routeKey: string): Promise<void> {
+    const ownerId = getActiveConversationOwner();
+    if (!ownerId) {
+      loaded.delete(routeKey);
+      deleted.delete(routeKey);
+      notify(routeKey);
+      return;
+    }
     const seen = changesSeen.get(routeKey) ?? 0;
     const values = await chrome.storage.local.get([storageKey(routeKey), tombstoneKey(routeKey)]);
-    // A storage notification that arrived while reading has newer cache state.
-    if ((changesSeen.get(routeKey) ?? 0) !== seen) return;
+    // A storage event or account switch that arrived while reading has newer cache state.
+    if ((changesSeen.get(routeKey) ?? 0) !== seen || getActiveConversationOwner() !== ownerId) return;
     if (Object.hasOwn(values, tombstoneKey(routeKey))) {
       deleted.add(routeKey);
       loaded.delete(routeKey);
     } else {
       deleted.delete(routeKey);
-      loaded.set(routeKey, normalizeRecord(values[storageKey(routeKey)]));
+      const record = normalizeRecord(values[storageKey(routeKey)]);
+      loaded.set(routeKey, record.ownerId === ownerId ? record : empty());
     }
     notify(routeKey);
   }
 
   async function load(routeKey: string): Promise<void> {
-    if (!isPermanentConversationId(routeKey) || loaded.has(routeKey) || deleted.has(routeKey)) return;
+    if (!isPermanentConversationId(routeKey)) return;
+    knownRoutes.add(routeKey);
+    if (!getActiveConversationOwner() || loaded.has(routeKey) || deleted.has(routeKey)) return;
     const pending = loading.get(routeKey);
     if (pending) return pending;
     const job = read(routeKey);
     loading.set(routeKey, job);
-    try { await job; } finally { loading.delete(routeKey); }
+    try { await job; } finally {
+      if (loading.get(routeKey) === job) loading.delete(routeKey);
+    }
   }
 
   function get(routeKey: string, messageId: string): string | null {
     if (deleted.has(routeKey)) return null;
     const record = loaded.get(routeKey);
     const trustedOwner = getActiveConversationOwner();
-    // Legacy unowned records remain stored for backup, but are not exposed across accounts.
+    // A record is visible only to its verified owner.
     if (!trustedOwner || !record?.ownerId || record.ownerId !== trustedOwner) return null;
     return record.aliases[messageId] ?? null;
   }
@@ -106,11 +119,8 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
       if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
       if (ownerId !== getActiveConversationOwner()) throw new Error('ChatGPT account changed; title not saved');
       const currentRecord = loaded.get(routeKey);
-      if (currentRecord?.ownerId === null && Object.keys(currentRecord.aliases).length > 0) {
-        throw new Error('Legacy aliases require explicit owner migration');
-      }
       const existingOwner = currentRecord?.ownerId;
-      if (existingOwner !== null && existingOwner !== undefined && existingOwner !== ownerId) {
+      if (existingOwner && existingOwner !== ownerId) {
         throw new Error('Conversation alias belongs to another account');
       }
       const beforeEvents = changesSeen.get(routeKey) ?? 0;
@@ -140,13 +150,15 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
   /** A deletion is fenced in persistent storage before aliases are removed. */
   function removeConversation(routeKey: string): Promise<void> {
     if (!isPermanentConversationId(routeKey)) return Promise.resolve();
+    const ownerId = getActiveConversationOwner();
+    if (!ownerId) return Promise.reject(new Error('ChatGPT account not verified; conversation aliases were not deleted'));
     deleted.add(routeKey);
     loaded.delete(routeKey);
     notify(routeKey);
     const job = writeQueue.catch(() => undefined).then(async () => {
       try {
         const response = await sendCommit({
-          type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey,
+          type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey, ownerId,
         });
         if (!response.ok) throw new Error('error' in response ? response.error : 'Deletion conflict');
       } catch (error) {
@@ -170,17 +182,20 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
 
   /** Never include conversations with an explicit successful deletion fence. */
   async function references(): Promise<string[]> {
-    const values = await chrome.storage.local.get(null);
-    return Object.keys(values)
-      .filter((key) => key.startsWith(TOC_ALIAS_PREFIX))
-      .map((key) => key.slice(TOC_ALIAS_PREFIX.length))
+    const ownerId = getActiveConversationOwner();
+    if (!ownerId) return [];
+    const values = await chrome.storage.local.get(null) as Record<string, unknown>;
+    return Object.entries(values)
+      .filter(([key, value]) => key.startsWith(TOC_ALIAS_PREFIX) &&
+        normalizeRecord(value).ownerId === ownerId)
+      .map(([key]) => key.slice(TOC_ALIAS_PREFIX.length))
       .filter((route) => isPermanentConversationId(route) &&
         !deleted.has(route) && !Object.hasOwn(values, tombstoneKey(route)));
   }
 
   async function owner(routeKey: string): Promise<string | null> {
     await load(routeKey);
-    return deleted.has(routeKey) ? null : loaded.get(routeKey)?.ownerId ?? null;
+    return deleted.has(routeKey) ? null : loaded.get(routeKey)?.ownerId || null;
   }
 
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
@@ -206,16 +221,37 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
         const route = key.slice(TOC_ALIAS_PREFIX.length);
         markEvent(route);
         if (deleted.has(route)) continue;
-        loaded.set(route, normalizeRecord(change.newValue));
+        const ownerId = getActiveConversationOwner();
+        if (!ownerId) { notify(route); continue; }
+        if (change.newValue === undefined) {
+          if (loaded.get(route)?.ownerId === ownerId) loaded.delete(route);
+          void load(route).catch(() => undefined);
+          notify(route);
+          continue;
+        }
+        const record = normalizeRecord(change.newValue);
+        if (record.ownerId !== ownerId) continue;
+        loaded.set(route, record);
         notify(route);
       }
     });
   }
 
-  // Auth changes must immediately invalidate what the sidebar is allowed to show.
+  // Clear stale cache entries on account changes, then reload the same routes for the new owner.
   subscribeActiveConversationOwner(() => {
-    for (const routeKey of loaded.keys()) notify(routeKey);
+    const routes = [...new Set([...knownRoutes, ...loaded.keys(), ...loading.keys(), ...deleted])];
+    loaded.clear();
+    deleted.clear();
+    loading.clear();
+    changesSeen.clear();
+    routes.forEach((routeKey) => {
+      notify(routeKey);
+      void load(routeKey).catch(() => undefined);
+    });
   });
+
+  // Unowned legacy aliases are explicitly unsupported and removed by the serialized writer.
+  void sendCommit({ type: TOC_ALIAS_COMMIT_TYPE, action: 'cleanup-unowned' }).catch(() => undefined);
 
   return {
     load, get, update, removeConversation, references, owner,

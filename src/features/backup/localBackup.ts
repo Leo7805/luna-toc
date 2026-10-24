@@ -18,12 +18,12 @@ const THEME_KEY = 'chatToc:themeSettings';
 const LEGACY_THEME_KEY = 'chatToc:theme';
 const SIDEBAR_KEY = 'chatToc:sidebarPreferences';
 export const BACKUP_FORMAT = 'luna-toc-local-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const MAX_BACKUP_BYTES = 12 * 1024 * 1024;
 const MAX_ENTRIES = 20_000;
 
 export interface BackupAliasRecord {
-  ownerId: string | null;
+  ownerId: string;
   aliases: Record<string, string>;
 }
 
@@ -74,17 +74,31 @@ function integer(value: unknown, label: string): number {
   return value;
 }
 
+function isUnownedPromptRecord(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return !Object.hasOwn(item, 'ownerId') || item.ownerId === null || item.ownerId === '';
+}
+
+function isUnownedAliasRecord(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return !Object.hasOwn(item, 'ownerId') || item.ownerId === null || item.ownerId === '';
+}
+
 function validatePrompts(value: unknown): SavedPrompt[] {
   if (!Array.isArray(value) || value.length > MAX_ENTRIES) throw new Error('提示词列表无效或过大。');
   const ids = new Set<string>();
   return value.map((item, index) => {
     const raw = record(item, `提示词 #${index + 1}`);
-    keysOnly(raw, ['id', 'title', 'content', 'createdAt', 'updatedAt'], '提示词');
+    keysOnly(raw, ['id', 'ownerId', 'title', 'content', 'createdAt', 'updatedAt'], '提示词');
     const id = text(raw.id, '提示词 ID', 256);
+    const ownerId = text(raw.ownerId, '账号标识', 256);
     if (ids.has(id)) throw new Error('备份包含重复的提示词 ID。');
     ids.add(id);
     return {
       id,
+      ownerId,
       title: text(raw.title, '提示词标题', 1_000),
       content: text(raw.content, '提示词内容', 1_000_000),
       createdAt: integer(raw.createdAt, '创建时间'),
@@ -115,7 +129,7 @@ function validateAliases(value: unknown): Record<string, BackupAliasRecord> {
     if (!isPermanentConversationId(routeKey)) throw new Error('会话 ID 无效。');
     const item = record(entry, '会话别名');
     keysOnly(item, ['ownerId', 'aliases'], '会话别名');
-    const ownerId = item.ownerId === null ? null : text(item.ownerId, '账号标识', 256);
+    const ownerId = text(item.ownerId, '账号标识', 256);
     const aliases = record(item.aliases, '别名映射');
     total += Object.keys(aliases).length;
     if (total > MAX_ENTRIES) throw new Error('目录消息别名过多。');
@@ -199,7 +213,7 @@ export async function createLocalBackup(
 ): Promise<LocalBackup> {
   const all = await storage.get(null) as Record<string, unknown>;
   const aliases: Record<string, unknown> = Object.fromEntries(Object.entries(all)
-    .filter(([key]) => key.startsWith(ALIAS_PREFIX))
+    .filter(([key, value]) => key.startsWith(ALIAS_PREFIX) && !isUnownedAliasRecord(value))
     .map(([key, value]) => [key.slice(ALIAS_PREFIX.length), value]));
   const theme = all[THEME_KEY] ?? (
     all[LEGACY_THEME_KEY] === 'light' || all[LEGACY_THEME_KEY] === 'dark'
@@ -209,7 +223,9 @@ export async function createLocalBackup(
   // A deleted prompt can leave usage metadata behind if its asynchronous cleanup
   // failed. Omit that orphan from the read-only export snapshot; never weaken
   // validation of imported files or mutate the user's storage while exporting.
-  const prompts = validatePrompts(all[PROMPTS_KEY] ?? []);
+  const rawPrompts = all[PROMPTS_KEY] ?? [];
+  if (!Array.isArray(rawPrompts)) throw new Error('提示词列表无效或过大。');
+  const prompts = validatePrompts(rawPrompts.filter((item) => !isUnownedPromptRecord(item)));
   const existingUsage = validateUsage(all[USAGE_KEY] ?? {});
   const validPromptIds = new Set(prompts.map((prompt) => prompt.id));
   const promptUsage = Object.fromEntries(Object.entries(existingUsage)
@@ -279,7 +295,13 @@ export async function restoreLocalBackup(
   if (mode === 'merge') {
     const current = await createLocalBackup({ ...storage, get: async () => original } as Storage);
     const prompts = new Map(current.data.prompts.map((prompt) => [prompt.id, prompt]));
-    for (const prompt of validated.data.prompts) prompts.set(prompt.id, prompt);
+    for (const prompt of validated.data.prompts) {
+      const existing = prompts.get(prompt.id);
+      if (existing && existing.ownerId !== prompt.ownerId) {
+        throw new Error('提示词 ID 的账号归属不同，已取消合并。');
+      }
+      prompts.set(prompt.id, prompt);
+    }
     // A null prototype avoids inherited-key collisions and setter effects for unusual IDs.
     const aliases: Record<string, BackupAliasRecord> = Object.assign(
       Object.create(null) as Record<string, BackupAliasRecord>, current.data.aliases
@@ -291,7 +313,7 @@ export async function restoreLocalBackup(
         throw new Error('同一会话的账号归属不同，已取消合并。');
       }
       aliases[route] = {
-        ownerId: imported.ownerId ?? present?.ownerId ?? null,
+        ownerId: imported.ownerId,
         aliases: { ...present?.aliases, ...imported.aliases },
       };
     }
@@ -310,9 +332,10 @@ export async function restoreLocalBackup(
   for (const [route, entry] of Object.entries(nextData.aliases)) {
     values[ALIAS_PREFIX + route] = entry;
   }
-  const obsolete = mode === 'replace'
-    ? Object.keys(original).filter((key) => key.startsWith(ALIAS_PREFIX) && !Object.hasOwn(values, key))
-    : [];
+  const obsolete = Object.keys(original).filter((key) => key.startsWith(ALIAS_PREFIX) &&
+    (mode === 'replace'
+      ? !Object.hasOwn(values, key)
+      : isUnownedAliasRecord(original[key])));
   // Explicit restore may revive a deleted conversation. Clear its durable fence
   // only as part of the user-confirmed restore, with rollback on failure.
   const revived = Object.keys(nextData.aliases)

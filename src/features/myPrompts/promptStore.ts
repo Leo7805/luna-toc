@@ -1,4 +1,4 @@
-/** Single-tab prompt storage with ordered saves and acknowledged background writes. */
+/** Account-scoped prompt storage with ordered writes and acknowledged background commits. */
 import {
   PROMPT_COMMIT_TYPE,
   PROMPT_STORAGE_KEY,
@@ -7,9 +7,14 @@ import {
   type PromptCommitRequest,
   type PromptCommitResponse,
 } from './promptWriteCoordinator';
+import {
+  getActiveConversationOwner,
+  subscribeActiveConversationOwner,
+} from '@/navigation/lifecycle/conversationOwner';
 
 export interface SavedPrompt {
   id: string;
+  ownerId: string;
   title: string;
   content: string;
   createdAt: number;
@@ -20,10 +25,9 @@ export type PromptsChangedListener = (prompts: SavedPrompt[]) => void;
 
 export interface PromptStore {
   getAll(): Promise<SavedPrompt[]>;
-  /** Replaces the collection. Prefer update() for ordinary edits. */
-  saveAll(prompts: SavedPrompt[]): Promise<void>;
-  /** Clears prompts and usage together after user confirmation. */
+  /** Clears only the verified account's prompts and their usage metadata. */
   clearAll(): Promise<void>;
+  /** Applies an edit to the active account's latest prompt list. */
   update(transform: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void>;
   subscribe(listener: PromptsChangedListener): () => void;
 }
@@ -75,12 +79,12 @@ async function readFresh(): Promise<SavedPrompt[]> {
   throw failure instanceof Error ? failure : new Error('Prompt storage could not be read');
 }
 
-/** Rejects invalid contexts and unacknowledged background saves. */
 function backgroundCommit(request: PromptCommitRequest): Promise<void> {
   if (!isContextValid()) {
     return Promise.reject(new Error('Invalid extension context: prompts were not saved'));
   }
-  if (request.action !== 'clear-all' && !isPromptList(request.next)) {
+  if (request.action === 'replace-account' &&
+      (!isPromptList(request.next) || request.next.some((prompt) => prompt.ownerId !== request.ownerId))) {
     return Promise.reject(new Error('Invalid prompt data: prompts were not saved'));
   }
   return new Promise((resolve, reject) => {
@@ -101,16 +105,34 @@ export function createPromptStore(): PromptStore {
   let cache: SavedPrompt[] = [];
   let hydrated = false;
   let writeQueue: Promise<void> = Promise.resolve();
+  let cleanupPromise: Promise<void> | null = null;
   const listeners = new Set<PromptsChangedListener>();
 
-  const snapshot = (): SavedPrompt[] => clone(cache);
-  const publish = (prompts: SavedPrompt[]): void => {
-    cache = clone(prompts);
-    hydrated = true;
+  const snapshot = (): SavedPrompt[] => {
+    const ownerId = getActiveConversationOwner();
+    return ownerId ? clone(cache.filter((prompt) => prompt.ownerId === ownerId)) : [];
+  };
+  const notify = (): void => {
     const next = snapshot();
     listeners.forEach((listener) => {
       try { listener(clone(next)); } catch { /* Listener errors cannot abort a save. */ }
     });
+  };
+  const publish = (prompts: SavedPrompt[]): void => {
+    cache = clone(prompts);
+    hydrated = true;
+    notify();
+  };
+  const ensureUnownedCleaned = (): Promise<void> => {
+    if (!cleanupPromise) {
+      cleanupPromise = backgroundCommit({
+        type: PROMPT_COMMIT_TYPE, action: 'cleanup-unowned',
+      }).catch((error) => {
+        cleanupPromise = null;
+        throw error;
+      });
+    }
+    return cleanupPromise;
   };
 
   if (isContextValid()) {
@@ -120,9 +142,37 @@ export function createPromptStore(): PromptStore {
         const next = changes[PROMPT_STORAGE_KEY].newValue;
         if (next === undefined) publish([]);
         else if (isPromptList(next)) publish(next);
+        else {
+          cleanupPromise = null;
+          void ensureUnownedCleaned().catch(() => undefined);
+        }
       });
     } catch { /* Context might already have been invalidated. */ }
   }
+
+  subscribeActiveConversationOwner(() => {
+    notify();
+    void getAll().catch(() => undefined);
+  });
+
+  async function getAll(): Promise<SavedPrompt[]> {
+    const ownerId = getActiveConversationOwner();
+    if (!ownerId) {
+      try { await ensureUnownedCleaned(); } catch { /* Never expose unbound data. */ }
+      return [];
+    }
+    await writeQueue;
+    try {
+      await ensureUnownedCleaned();
+      const latest = await readFresh();
+      if (!hydrated || !equalPromptLists(cache, latest)) publish(latest);
+      return snapshot();
+    } catch (error) {
+      if (hydrated) return snapshot();
+      throw error;
+    }
+  }
+
 
   const enqueue = (operation: () => Promise<void>): Promise<void> => {
     const task = writeQueue.catch(() => undefined).then(operation);
@@ -131,37 +181,42 @@ export function createPromptStore(): PromptStore {
   };
 
   return {
-    async getAll(): Promise<SavedPrompt[]> {
-      await writeQueue;
-      try {
-        const latest = await readFresh();
-        if (!hydrated || !equalPromptLists(cache, latest)) publish(latest);
-        return snapshot();
-      } catch (error) {
-        if (hydrated) return snapshot();
-        throw error;
-      }
-    },
-    saveAll(prompts: SavedPrompt[]): Promise<void> {
-      const next = clone(prompts);
-      return enqueue(async () => {
-        await backgroundCommit({ type: PROMPT_COMMIT_TYPE, next });
-        publish(next);
-      });
-    },
+    getAll,
     clearAll(): Promise<void> {
+      const ownerId = getActiveConversationOwner();
+      if (!ownerId) return Promise.reject(new Error('ChatGPT account not verified; prompts were not cleared'));
       return enqueue(async () => {
-        await backgroundCommit({ type: PROMPT_COMMIT_TYPE, action: 'clear-all' });
-        publish([]);
+        if (ownerId !== getActiveConversationOwner()) {
+          throw new Error('ChatGPT account changed; prompts were not cleared');
+        }
+        await ensureUnownedCleaned();
+        const latest = await readFresh();
+        await backgroundCommit({
+          type: PROMPT_COMMIT_TYPE, action: 'clear-account', ownerId,
+        });
+        publish(latest.filter((prompt) => prompt.ownerId !== ownerId));
       });
     },
     update(transform: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void> {
+      const ownerId = getActiveConversationOwner();
+      if (!ownerId) return Promise.reject(new Error('ChatGPT account not verified; prompts were not saved'));
       return enqueue(async () => {
+        if (ownerId !== getActiveConversationOwner()) {
+          throw new Error('ChatGPT account changed; prompts were not saved');
+        }
+        await ensureUnownedCleaned();
         const latest = await readFresh();
-        const next = transform(clone(latest));
-        if (!isPromptList(next)) throw new Error('Invalid prompt update');
-        await backgroundCommit({ type: PROMPT_COMMIT_TYPE, next });
-        publish(next);
+        const current = latest.filter((prompt) => prompt.ownerId === ownerId);
+        const nextOwned = transform(clone(current));
+        if (!isPromptList(nextOwned) || nextOwned.some((prompt) => prompt.ownerId !== ownerId)) {
+          throw new Error('Invalid prompt update');
+        }
+        const nextAll = [...latest.filter((prompt) => prompt.ownerId !== ownerId), ...nextOwned];
+        if (!isPromptList(nextAll)) throw new Error('Invalid prompt update');
+        await backgroundCommit({
+          type: PROMPT_COMMIT_TYPE, action: 'replace-account', ownerId, next: nextOwned,
+        });
+        publish(nextAll);
       });
     },
     subscribe(listener: PromptsChangedListener): () => void {

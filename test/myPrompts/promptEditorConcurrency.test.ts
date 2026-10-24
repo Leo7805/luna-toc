@@ -7,21 +7,22 @@ import {
 import { promptEditorController } from '@/features/myPrompts/promptEditor';
 import type { PromptStore, SavedPrompt } from '@/features/myPrompts/promptStore';
 import type { PromptUsageStore } from '@/features/myPrompts/promptUsageStore';
+import { setActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 
 const first: SavedPrompt = {
-  id: 'prompt-1', title: 'Old title', content: 'old content',
+  id: 'prompt-1', ownerId: 'account-1', title: 'Old title', content: 'old content',
   createdAt: 1, updatedAt: 1,
 };
 let saved: SavedPrompt[];
 const clone = (rows: SavedPrompt[]): SavedPrompt[] => rows.map((row) => ({ ...row }));
 
 beforeEach(() => {
+  setActiveConversationOwner('account-1');
   document.body.innerHTML = '';
   saved = clone([first]);
   const store: PromptStore = {
     clearAll: vi.fn(async () => {}),
     getAll: async () => clone(saved),
-    saveAll: async (next) => { saved = clone(next); },
     update: async (transform) => {
       saved = clone(transform(clone(saved)));
     },
@@ -43,6 +44,7 @@ beforeEach(() => {
 afterEach(() => {
   promptEditorController.close();
   document.body.innerHTML = '';
+  setActiveConversationOwner(null);
 });
 
 describe('My Prompts editor saves', () => {

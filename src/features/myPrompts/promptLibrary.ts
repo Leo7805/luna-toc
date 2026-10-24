@@ -7,6 +7,7 @@ import type {
   PromptStore,
   SavedPrompt,
 } from './promptStore';
+import { getActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 import type { PromptUsageStore } from './promptUsageStore';
 import {
   promptEditorController,
@@ -82,15 +83,6 @@ export async function getMyPrompts(): Promise<SavedPrompt[]> {
 }
 
 /**
- * Persists prompts through the prompt store.
- * @param {Array} prompts
- * @returns {Promise<void>}
- */
-export async function saveMyPrompts(prompts: SavedPrompt[]): Promise<void> {
-  return requirePromptStore().saveAll(prompts);
-}
-
-/**
  * Registers a listener for prompt store changes.
  * @param {(prompts: Array) => void} listener
  * @returns {() => void}
@@ -161,9 +153,12 @@ function importMyPrompts(onImport: VoidCallback): void {
         return;
       }
 
+      const ownerId = getActiveConversationOwner();
+      if (!ownerId) throw new Error('ChatGPT 账号未验证，无法导入提示词。');
       const importedAt = Date.now();
       const importedPrompts = promptsToImport.map((prompt, index) => ({
-        id: `prompt-${importedAt}-${index}`,
+        id: `prompt-${importedAt}-${index}-${crypto.randomUUID()}`,
+        ownerId,
         title: prompt.title,
         content: prompt.content,
         createdAt: importedAt,
@@ -179,7 +174,7 @@ function importMyPrompts(onImport: VoidCallback): void {
     } catch (error) {
       await showPromptModal({
         title: '导入提示词',
-        message: '无法从所选文件导入提示词。',
+        message: error instanceof Error ? error.message : '无法从所选文件导入提示词。',
       });
     }
   });
@@ -367,14 +362,14 @@ function createSortBar(
   return bar;
 }
 
-/** Clears all saved prompts and their associated usage metadata. */
+/** Clears the verified account's prompts and their associated usage metadata. */
 async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   const prompts = await getMyPrompts();
   if (!prompts.length) return;
 
   const shouldClear = await showPromptModal({
     title: '清空我的提示词',
-    message: `确定永久删除全部 ${prompts.length} 条提示词吗？`,
+    message: `确定永久删除当前账号的全部 ${prompts.length} 条提示词吗？`,
     confirm: true,
     confirmText: '全部清空',
   });
@@ -463,6 +458,8 @@ async function savePromptEditorValues(
   createId: string
 ): Promise<void> {
   try {
+    const ownerId = getActiveConversationOwner();
+    if (!ownerId) throw new Error('ChatGPT 账号未验证，提示词未保存。');
     await requirePromptStore().update((prompts) => {
       const isNew = !item?.id;
       if (isNew) {
@@ -476,6 +473,7 @@ async function savePromptEditorValues(
         const now = Date.now();
         prompts.push({
           id: createId,
+          ownerId,
           title,
           content,
           createdAt: now,

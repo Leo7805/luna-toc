@@ -12,7 +12,6 @@ export type SettingsCommitRequest =
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'theme'; settings: ThemeSettings; removeLegacy?: boolean }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'migrate-theme'; settings: ThemeSettings }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'cleanup-legacy-theme' }
-  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar'; settings: SidebarPreferences }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar-patch'; patch: Partial<SidebarPreferences> };
 export type SettingsCommitResponse = { ok: true } | { ok: false; error: string };
 type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
@@ -51,7 +50,6 @@ function isRequest(value: unknown): value is SettingsCommitRequest {
     (item.removeLegacy === undefined || typeof item.removeLegacy === 'boolean');
   if (item.action === 'migrate-theme') return isTheme(item.settings);
   if (item.action === 'cleanup-legacy-theme') return true;
-  if (item.action === 'sidebar') return isSidebar(item.settings);
   return item.action === 'sidebar-patch' && isSidebarPatch(item.patch);
 }
 export function createSettingsWriteCoordinator(
@@ -81,8 +79,6 @@ export function createSettingsWriteCoordinator(
             : { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false };
           const merged = { ...baseline, ...request.patch };
           await storage.set({ [SIDEBAR_KEY]: merged });
-        } else {
-          await storage.set({ [SIDEBAR_KEY]: request.settings });
         }
         return { ok: true };
       } catch (error) {

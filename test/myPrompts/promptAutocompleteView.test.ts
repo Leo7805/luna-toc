@@ -6,6 +6,7 @@ import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 const prompts: SavedPrompt[] = [
   {
     id: 'first',
+    ownerId: 'account-1',
     title: 'First',
     content: 'First prompt',
     createdAt: 1,
@@ -13,6 +14,7 @@ const prompts: SavedPrompt[] = [
   },
   {
     id: 'second',
+    ownerId: 'account-1',
     title: 'Second',
     content: 'Second prompt',
     createdAt: 2,
