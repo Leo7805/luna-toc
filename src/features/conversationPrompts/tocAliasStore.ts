@@ -88,7 +88,7 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
   /** Saves a label without cross-tab version comparisons. */
   function update(
     routeKey: string, messageId: string, text: string | null,
-    ownerId: string | null, _expectedAlias?: string | null
+    ownerId: string | null
   ): Promise<void> {
     if (!isPermanentConversationId(routeKey) || !messageId) {
       return Promise.reject(new Error('Conversation must have a permanent ID'));
@@ -119,12 +119,13 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
         routeKey, messageId, label, ownerId,
       });
       if (!response.ok) {
-        if (response.error === 'Conversation has been deleted') {
+        const failure = 'error' in response ? response.error : 'Alias save was not accepted';
+        if (failure === 'Conversation has been deleted') {
           deleted.add(routeKey);
           loaded.delete(routeKey);
           notify(routeKey);
         }
-        throw new Error(response.error);
+        throw new Error(failure);
       }
       if (!('record' in response)) throw new Error('Unexpected TOC alias response');
       if (!deleted.has(routeKey) && (changesSeen.get(routeKey) ?? 0) === beforeEvents) {

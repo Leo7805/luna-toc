@@ -115,23 +115,23 @@ export const navigatorController = (() => {
       tocAliasStore.get(getCurrentConversationKey(), message.id) ?? message.text,
     isRenamed: (message) => tocAliasStore.get(getCurrentConversationKey(), message.id) !== null,
     canRename: () => isPermanentConversationId(getCurrentConversationKey()),
-    onRenamePrompt: async (message, title, expectedAlias) => {
+    onRenamePrompt: async (message, title) => {
       const routeKey = getCurrentConversationKey();
       if (!isPermanentConversationId(routeKey) ||
           !conversationStore.getMessages().some((item) => item.id === message.id)) {
         throw new Error('Conversation changed while editing title');
       }
       await tocAliasStore.update(routeKey, message.id,
-        title === message.text ? null : title, getActiveConversationOwner(), expectedAlias);
+        title === message.text ? null : title, getActiveConversationOwner());
     },
-    onRestorePrompt: async (message, expectedAlias) => {
+    onRestorePrompt: async (message) => {
       const routeKey = getCurrentConversationKey();
       if (!isPermanentConversationId(routeKey) ||
           !conversationStore.getMessages().some((item) => item.id === message.id)) {
         throw new Error('Conversation changed while restoring title');
       }
       await tocAliasStore.update(routeKey, message.id,
-        null, getActiveConversationOwner(), expectedAlias);
+        null, getActiveConversationOwner());
     },
     onPromptCountReported: (count) => {
       if (count === reportedPromptCount) return;
