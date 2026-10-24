@@ -8,8 +8,6 @@ import {
   copilotFetch,
   copilotRequest,
   createCopilotJumpId,
-  createCopilotNavigationTurns,
-  createCopilotRenderedFingerprintCollector,
   findCopilotRenderedPrompt,
   getCopilotConversationLinkSelector,
   getCopilotCurrentRouteKey,
@@ -98,8 +96,6 @@ export const copilotPlatform: Platform = {
   },
   contentCapture: {
     inspectFetchRequest: inspectCopilotFetchRequest,
-    createNavigationTurns: createCopilotNavigationTurns as never,
-    createRenderedFingerprintCollector: createCopilotRenderedFingerprintCollector as never,
     isNewChatRouteKey: isCopilotNewChatRouteKey,
   },
   diagnostics: {

@@ -3,23 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { APP_CONFIG } from '@/config/config';
 
 describe('APP_CONFIG', () => {
-  it('defines usable Assistant fingerprint limits', () => {
-    const fingerprint = APP_CONFIG.navigation.fingerprint;
-
-    expect(fingerprint.countPerAssistant).toBeGreaterThan(0);
-    expect(fingerprint.probeLength).toBeGreaterThan(0);
-    expect(fingerprint.verificationLength).toBeGreaterThan(
-      fingerprint.probeLength
-    );
-    expect(fingerprint.segmentViewportRatio).toBeGreaterThan(0);
-    expect(fingerprint.segmentOverlapRatio).toBeGreaterThanOrEqual(0);
-    expect(fingerprint.estimatedCharsPerVisualLine).toBeGreaterThan(0);
-    expect(fingerprint.estimatedRowsPerViewport).toBeGreaterThan(0);
-    expect(fingerprint.maximumSegmentsPerAssistant).toBeGreaterThan(0);
-    expect(fingerprint.buildBatchSize).toBeGreaterThan(0);
-    expect(fingerprint.buildTimeBudgetMs).toBeGreaterThan(0);
-  });
-
   it('defines a bounded position-search budget', () => {
     const search = APP_CONFIG.navigation.search;
 

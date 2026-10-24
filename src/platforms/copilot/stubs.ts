@@ -52,14 +52,6 @@ export function probeCopilotFetchContract(
   notImplemented();
 }
 
-export function createCopilotNavigationTurns(_data: unknown): never {
-  notImplemented();
-}
-
-export function createCopilotRenderedFingerprintCollector(_opts: unknown): never {
-  notImplemented();
-}
-
 export function inspectCopilotFetchRequest(
   _args: Parameters<typeof fetch>,
   _fallbackRouteKey: string

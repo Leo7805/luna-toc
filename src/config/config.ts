@@ -154,25 +154,6 @@ export const APP_CONFIG = {
     },
   },
   navigation: {
-    fingerprint: {
-      countPerAssistant: 3,
-      probeLength: 40,
-      verificationLength: 256,
-      segmentViewportRatio: 0.75,
-      segmentOverlapRatio: 0.15,
-      estimatedCharsPerVisualLine: 60,
-      estimatedRowsPerViewport: 30,
-      maximumSegmentsPerAssistant: 20,
-      buildBatchSize: 10,
-      buildTimeBudgetMs: 8,
-      observationDebounceMs: 750,
-    },
-    anchorCache: {
-      maxConversations: 50,
-      maxAnchorsPerConversation: 100,
-      maxAgeMs: 30 * 24 * 60 * 60 * 1_000,
-      viewportWidthTolerance: 48,
-    },
     search: {
       maxAttempts: 32,
       maxUnproductiveAttempts: 6,

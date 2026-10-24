@@ -23,10 +23,6 @@ import {
   postContractUpdate,
 } from './pageHook';
 import {
-  createChatGptNavigationTurns,
-} from './navigationAdapter';
-import { createRenderedFingerprintCollector } from './renderedFingerprintCollector';
-import {
   inspectFetchRequest,
   isNewChatRouteKey,
 } from './contentCapture';
@@ -167,8 +163,6 @@ export const chatGptPlatform: Platform = {
   },
   contentCapture: {
     inspectFetchRequest,
-    createNavigationTurns: createChatGptNavigationTurns,
-    createRenderedFingerprintCollector,
     isNewChatRouteKey,
   },
   diagnostics: {

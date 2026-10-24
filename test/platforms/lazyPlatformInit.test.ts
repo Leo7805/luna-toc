@@ -59,47 +59,4 @@ describe('lazy platform initialisation', () => {
     expect(module).toBeDefined();
     expect(module.navigatorController).toBeDefined();
   });
-
-  it('does not create or start renderedFingerprintCollector during attach in navigatorController', async () => {
-    Object.defineProperty(window, 'location', {
-      value: { ...window.location, host: 'chatgpt.com' },
-      writable: true,
-      configurable: true,
-    });
-
-    const collectorInstance = {
-      collect: vi.fn(),
-      observe: vi.fn(),
-      setContext: vi.fn(),
-      disconnect: vi.fn(),
-    };
-    const createCollectorSpy = vi.fn(() => collectorInstance);
-
-    vi.doMock('@/platforms', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@/platforms')>();
-      const activePlatform = actual.getActivePlatform('chatgpt.com');
-      return {
-        ...actual,
-        getActivePlatform: vi.fn(() => ({
-          ...activePlatform,
-          contentCapture: {
-            ...activePlatform.contentCapture,
-            createRenderedFingerprintCollector: createCollectorSpy,
-          },
-        })),
-      };
-    });
-
-    const { navigatorController } = await import('@/navigation/navigatorController');
-
-    // At import time, createRenderedFingerprintCollector has not been called
-    expect(createCollectorSpy).not.toHaveBeenCalled();
-
-    // Calling attach() must NOT start the unused fingerprint collector
-    navigatorController.init();
-    navigatorController.attach();
-
-    expect(createCollectorSpy).not.toHaveBeenCalled();
-    expect(collectorInstance.observe).not.toHaveBeenCalled();
-  });
 });

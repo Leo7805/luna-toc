@@ -16,8 +16,6 @@
  * matchMedia) stays in `src/pageHook/`; only platform-specific dispatch
  * points use this interface.
  */
-import type { ResponseFingerprintRecord } from '@/navigation/fingerprint/index';
-import type { NavigationTurn } from '@/navigation/navigationData';
 
 /**
  * Literal platform id. Add new members as adapters are added.
@@ -126,50 +124,14 @@ export interface ContentRequestMeta {
 }
 
 /**
- * Content-side data adapter. Converts host payloads into platform-agnostic
- * navigation turns, creates the rendered-text fingerprint collector, and
- * tells the controller whether a given route key represents a "new chat".
+ * Content-side data adapter. Inspects fetch requests and identifies route key types.
  */
 export interface PlatformContentCapture {
   inspectFetchRequest(
     args: Parameters<typeof fetch>,
     fallbackRouteKey: string
   ): ContentRequestMeta | null;
-  createNavigationTurns(data: unknown): NavigationTurn[];
-  createRenderedFingerprintCollector(
-    opts: PlatformRenderedFingerprintCollectorOptions
-  ): PlatformRenderedFingerprintCollector;
   isNewChatRouteKey(routeKey: string): boolean;
-}
-
-/**
- * Rendered-text fingerprint collector context — passed in by the controller.
- */
-export interface PlatformRenderedFingerprintContext {
-  conversationKey: string;
-  revision: number;
-  responsePromptIndexes: ReadonlyMap<string, number>;
-}
-
-/**
- * Rendered-text fingerprint collector options.
- */
-export interface PlatformRenderedFingerprintCollectorOptions {
-  debounceMs?: number;
-  onFingerprintRecord: (
-    context: PlatformRenderedFingerprintContext,
-    record: ResponseFingerprintRecord
-  ) => void;
-}
-
-/**
- * Collector instance returned by `createRenderedFingerprintCollector`.
- */
-export interface PlatformRenderedFingerprintCollector {
-  collect(root?: ParentNode): Promise<void>;
-  observe(root?: HTMLElement): void;
-  setContext(context: PlatformRenderedFingerprintContext | null): void;
-  disconnect(): void;
 }
 
 /**
