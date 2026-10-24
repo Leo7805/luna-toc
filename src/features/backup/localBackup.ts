@@ -42,7 +42,9 @@ export interface LocalBackup {
 }
 export type RestoreMode = 'merge' | 'replace';
 
-type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
+type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove' | 'getBytesInUse'>;
+const DEFAULT_STORAGE_QUOTA_BYTES = 10 * 1024 * 1024;
+export const BACKUP_STORAGE_MESSAGE_TYPE = 'LUNA_TOC_BACKUP_STORAGE_V1';
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -200,9 +202,17 @@ export async function createLocalBackup(
       ? { followChatGPT: false, manualTheme: all[LEGACY_THEME_KEY] }
       : { followChatGPT: true, manualTheme: 'dark' }
   );
+  // A deleted prompt can leave usage metadata behind if its asynchronous cleanup
+  // failed. Omit that orphan from the read-only export snapshot; never weaken
+  // validation of imported files or mutate the user's storage while exporting.
+  const prompts = validatePrompts(all[PROMPTS_KEY] ?? []);
+  const existingUsage = validateUsage(all[USAGE_KEY] ?? {});
+  const validPromptIds = new Set(prompts.map((prompt) => prompt.id));
+  const promptUsage = Object.fromEntries(Object.entries(existingUsage)
+    .filter(([id]) => validPromptIds.has(id)));
   const data = validateData({
-    prompts: all[PROMPTS_KEY] ?? [],
-    promptUsage: all[USAGE_KEY] ?? {},
+    prompts,
+    promptUsage,
     aliases,
     theme,
     sidebar: all[SIDEBAR_KEY] ?? { ...DEFAULT_SIDEBAR_PREFERENCES },
@@ -214,6 +224,24 @@ export async function createLocalBackup(
     throw new Error('本地数据超过 12 MiB，无法生成此格式的备份。');
   }
   return backup;
+}
+
+/** Compare JSON-like storage values without relying on Chrome's object-key order. */
+function storageValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (left === null || right === null ||
+      typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+      return false;
+    }
+    return left.every((value, index) => storageValuesEqual(value, right[index]));
+  }
+  const expected = left as Record<string, unknown>;
+  const actual = right as Record<string, unknown>;
+  const keys = Object.keys(expected);
+  return keys.length === Object.keys(actual).length &&
+    keys.every((key) => Object.hasOwn(actual, key) && storageValuesEqual(expected[key], actual[key]));
 }
 
 /** Previews validated content; no storage writes. */
@@ -230,9 +258,9 @@ export function summarizeLocalBackup(backup: LocalBackup): {
 }
 
 /**
- * Restore only allowlisted keys. Every write has a pre-write snapshot and
- * compensating rollback; concurrent writes from other tabs are not transactional
- * (addressed in the following stage).
+ * Restore only allowlisted keys. The caller executes this inside the background's
+ * shared serial queue so current owned writes cannot interleave. Every restore
+ * performs a capacity preflight before mutation and keeps compensating rollback.
  */
 export async function restoreLocalBackup(
   backup: LocalBackup,
@@ -288,6 +316,7 @@ export async function restoreLocalBackup(
     .filter((key) => Object.hasOwn(original, key));
   const removals = [...obsolete, ...revived];
   const changed = [...new Set([...Object.keys(values), ...removals])];
+  await assertStorageCapacity(storage, changed, values);
   const oldValues = Object.fromEntries(changed
     .filter((key) => Object.hasOwn(original, key)).map((key) => [key, original[key]]));
   const originallyAbsent = changed.filter((key) => !Object.hasOwn(original, key));
@@ -295,9 +324,11 @@ export async function restoreLocalBackup(
     await storage.set(values);
     if (removals.length) await storage.remove(removals);
     const actual = await storage.get([...Object.keys(values), ...revived]);
-    if (Object.keys(values).some((key) => JSON.stringify(actual[key]) !== JSON.stringify(values[key])) ||
-        revived.some((key) => Object.hasOwn(actual, key))) {
-      throw new Error('写入后核对失败。');
+    const mismatchedCount = Object.keys(values)
+      .filter((key) => !storageValuesEqual(values[key], actual[key])).length;
+    const revivalFailed = revived.some((key) => Object.hasOwn(actual, key));
+    if (mismatchedCount || revivalFailed) {
+      throw new Error(`写入后核对失败（${mismatchedCount} 项数据不一致${revivalFailed ? '，删除标记未清理' : ''}）。`);
     }
   } catch (error) {
     try {
@@ -308,4 +339,56 @@ export async function restoreLocalBackup(
     }
     throw new Error(`恢复失败，原有数据已回滚：${error instanceof Error ? error.message : '存储错误'}`);
   }
+}
+
+async function assertStorageCapacity(
+  storage: Storage, changedKeys: string[], nextValues: Record<string, unknown>
+): Promise<void> {
+  const quota = (storage as Storage & { QUOTA_BYTES?: number }).QUOTA_BYTES ?? DEFAULT_STORAGE_QUOTA_BYTES;
+  const [currentBytes, replacedBytes] = await Promise.all([
+    storage.getBytesInUse(null), storage.getBytesInUse(changedKeys),
+  ]);
+  const encoder = new TextEncoder();
+  const incomingBytes = Object.entries(nextValues).reduce((total, [key, value]) =>
+    total + encoder.encode(JSON.stringify({ [key]: value })).byteLength, 0);
+  const projected = Math.max(0, currentBytes - replacedBytes) + incomingBytes;
+  if (!Number.isFinite(projected) || projected > quota) {
+    throw new Error(
+      `恢复后的本地数据预计占用约 ${Math.ceil(projected / 1024)} KiB，超过 Chrome 本地存储 ${Math.floor(quota / 1024)} KiB 限制；未执行写入。请清理本地数据或使用更小的备份。`
+    );
+  }
+}
+
+export interface BackupStorageMessage {
+  type: typeof BACKUP_STORAGE_MESSAGE_TYPE;
+  action: 'export' | 'restore';
+  backup?: unknown;
+  mode?: RestoreMode;
+}
+export type BackupStorageResponse =
+  | { ok: true; backup?: LocalBackup }
+  | { ok: false; error: string };
+
+function sendBackupMessage(message: BackupStorageMessage): Promise<BackupStorageResponse> {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+    return Promise.reject(new Error('扩展后台不可用，未执行本地数据操作。'));
+  }
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response: BackupStorageResponse | undefined) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? '扩展后台不可用'));
+      else if (response && typeof response.ok === 'boolean') resolve(response);
+      else reject(new Error('扩展后台未确认备份操作结果。'));
+    });
+  });
+}
+export async function requestLocalBackup(): Promise<LocalBackup> {
+  const response = await sendBackupMessage({ type: BACKUP_STORAGE_MESSAGE_TYPE, action: 'export' });
+  if (!response.ok || !response.backup) {
+    throw new Error(!response.ok ? response.error : '扩展后台未返回备份内容。');
+  }
+  return parseLocalBackup(JSON.stringify(response.backup));
+}
+export async function requestLocalBackupRestore(backup: LocalBackup, mode: RestoreMode): Promise<void> {
+  const response = await sendBackupMessage({ type: BACKUP_STORAGE_MESSAGE_TYPE, action: 'restore', backup, mode });
+  if (!response.ok) throw new Error(response.error);
 }

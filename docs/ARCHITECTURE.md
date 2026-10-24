@@ -28,8 +28,8 @@
 - `src/navigation/state/conversationStore.ts` 管理缓存和会话状态。主动刷新已核验的快照为权威结果；新的非权威分页也不能恢复旧编辑分支，但独立观察到的用户新消息可加入当前目录。
 - `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新；权威刷新失败或 15 秒超时会将缓存标为未验证，迟到的分页数据不得重置验证状态；成功删除则清空当前视图。
 - `src/navigation/jump/navigationSnapshotStore.ts` 限制标签页内快照数量，提供逐会话删除和全量重置；会话切换不保留无界的原始分页消息集合。
-- `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话接口识别登录账号，并识别成功的 DELETE 或 `is_visible=false` 删除操作；归档不作为删除。单一接口 GET 返回 404/410 可能是 API 不兼容或权限问题，不作为本地删除证据。
-- `src/navigation/lifecycle/conversationLifecycle.ts` 处理账号识别与明确成功的删除通知；`src/navigation/lifecycle/conversationOwner.ts` 保存已验证登录账号身份。不会依赖不确定的服务端存在性查询破坏本地别名，不启用后台轮询。
+- `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话接口识别登录账号，并观察成功的 DELETE 或 `is_visible=false` 页面操作；但 MAIN world 发出的删除通知属于不可信的页面通道，不能授权扩展删除本地数据。归档不作为删除。单一接口 GET 返回 404/410 可能是 API 不兼容或权限问题，也不作为本地删除证据。
+- `src/navigation/lifecycle/conversationLifecycle.ts` 处理账号识别，但忽略不可信 `TOC_CONVERSATION_DELETED` 页面消息，避免伪造的成功删除通知清理持久目录别名或导航缓存；`src/navigation/lifecycle/conversationOwner.ts` 保存页面识别到的账号身份。此取舍意味着删除 ChatGPT 会话后本地别名可能残留。不启用后台轮询。
 
 ## 目录与导航
 
@@ -50,7 +50,7 @@
 - `src/features/myPrompts/promptUsageStore.ts` 在启动时按现存提示词 ID 清理孤立使用统计，并在写入失败时回滚内存状态。
 - 原有浏览器存储键继续兼容已有数据，不因产品显示名称变化而更名。
 
-后台统一写入为使用新协议的提示词界面提供串行快照提交。Chrome 存储自身没有跨上下文 CAS 事务；设置页的备份恢复、旧版扩展或其他直接写存储的入口仍未加入这条队列。恢复备份时应避免同时使用其他标签页，详见 [本地备份与恢复](LOCAL_BACKUP.md)。
+提示词、目录别名、使用统计、主题和侧边栏设置均通过 `src/background.ts` 的共享 `SerialWriteQueue` 写入；备份导出在同一队列读取一致快照，恢复也在队列内执行容量预检、写入核对和补偿回滚。因此新版扩展自己的受管写入不会与备份恢复交错。Chrome storage 仍不提供跨上下文原子事务，旧版本脚本或未来新增的直接写入路径可能绕过队列；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
 
 ## UI 与构建
 
@@ -69,6 +69,10 @@
 ## 本地数据备份与恢复
 
 `src/features/backup/localBackup.ts` 提供本地 JSON v1 备份、字段校验、合并/覆盖恢复与失败回滚；只读取明确许可的本地键（提示词、使用统计、目录别名、主题、侧边栏偏好），不导出 ChatGPT 对话或凭证。`src/components/options/LocalBackupSettings.tsx` 将选择文件、内容预览和二次确认放在扩展设置页；原 Markdown 提示词导入导出保持不变。普通目录编辑已经通过后台串行协调；备份恢复仍属于单独的批量本地写入，并非同一事务。显式恢复旧会话别名会移除其删除标记；详见 [本地备份与恢复](LOCAL_BACKUP.md)。
+
+## 阶段十：统一本地写入与容量保护
+
+`src/features/storage/serialWriteQueue.ts` 提供 rejection-safe 的串行队列；后台将提示词、目录别名、使用统计、主题和侧边栏偏好以及批量备份恢复接入同一实例。使用统计由后台从最新存储值执行递增/删除/清理，避免每个标签页用旧缓存覆盖另一个标签页的计数。备份恢复先用 `getBytesInUse` 计算受影响数据和待写入值的预计占用，超过 `storage.local` 容量时在任何写入之前拒绝。此协调只约束当前版本遵循协议的扩展写入，不构成 Chrome storage 的通用事务。
 
 ## 阶段九：自动化浏览器验收与供应链审查
 

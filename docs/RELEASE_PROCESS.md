@@ -30,3 +30,12 @@
 ## 适用范围及未验证项
 
 本阶段只改变构建、发布和项目说明，不修改扩展的业务代码、存储格式或权限。PR CI 通过仅证明自动化检查通过，不代表真实 ChatGPT 浏览器交互已完成验收。
+
+
+## Branch protection status
+
+**Active and verified on 2026-10-24.** Administrator-created [Ruleset 25771265](https://github.com/PyRookie1/luna-toc-sc/rules/25771265), named `Protect main - Require PR and CI`, targets the default branch `main`. GitHub branch API reports `protected:true` and Rulesets API reports `enforcement: active`.
+
+Rules: PR required (0 approving reviews for this maintainer-owned repository); required GitHub Actions checks `Typecheck, test, build and package` and `Dependency advisory gate`; strict up-to-date checks; no force push or deletion; no bypass actors. The repository's classic branch-protection endpoint is not readable by the connected integration (403), but Ruleset details provide direct positive confirmation.
+
+Do not disable or weaken these protections to force an individual merge; verify PR head SHA and current checks before each merge. A successful PR CI does not authorize publication.

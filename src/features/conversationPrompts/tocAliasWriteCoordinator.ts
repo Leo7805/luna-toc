@@ -1,5 +1,6 @@
 /** Coordinates TOC alias writes across content-script tabs in the MV3 worker. */
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
+import { createSerialWriteQueue, type SerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 export const TOC_ALIAS_PREFIX = 'chatToc:aliases:v1:';
 export const TOC_ALIAS_DELETED_PREFIX = 'chatToc:aliases:deleted:v1:';
@@ -66,15 +67,16 @@ export function parseTocAliasRecord(value: unknown): TocAliasRecord | null {
 }
 
 /**
- * All new alias writes go through a single read-modify-write queue. Each job
- * reads Chrome storage anew, so a restarted worker has no stale authoritative
- * cache. This protocol does not make unrelated legacy/backup writers atomic.
+ * Each job reads Chrome storage anew, so a restarted worker has no stale cache.
+ * The injected queue serializes aliases against backup restore and other owned writes.
  */
-export function createTocAliasWriteCoordinator(storage: Storage = chrome.storage.local) {
-  let queue: Promise<void> = Promise.resolve();
+export function createTocAliasWriteCoordinator(
+  storage: Storage = chrome.storage.local,
+  queue: SerialWriteQueue = createSerialWriteQueue()
+) {
   return {
     commit(request: unknown): Promise<TocAliasCommitResponse> {
-      const job = queue.catch(() => undefined).then(async (): Promise<TocAliasCommitResponse> => {
+      return queue.run(async (): Promise<TocAliasCommitResponse> => {
         if (!isTocAliasCommitRequest(request)) {
           return { ok: false, error: 'Invalid TOC alias request' };
         }
@@ -114,8 +116,6 @@ export function createTocAliasWriteCoordinator(storage: Storage = chrome.storage
           return { ok: false, error: error instanceof Error ? error.message : 'TOC alias storage failed' };
         }
       });
-      queue = job.then(() => undefined, () => undefined);
-      return job;
     },
   };
 }

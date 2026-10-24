@@ -1,7 +1,7 @@
 /** Local backup controls in the extension options page. */
 import { useState, type ChangeEvent } from 'react';
 import {
-  createLocalBackup, parseLocalBackup, restoreLocalBackup, summarizeLocalBackup,
+  requestLocalBackup, parseLocalBackup, requestLocalBackupRestore, summarizeLocalBackup,
   MAX_BACKUP_BYTES, type LocalBackup, type RestoreMode,
 } from '@/features/backup/localBackup';
 
@@ -27,7 +27,7 @@ export function LocalBackupSettings(): React.JSX.Element {
     setBusy(true);
     show('');
     try {
-      const backup = await createLocalBackup();
+      const backup = await requestLocalBackup();
       const url = URL.createObjectURL(new Blob(
         [JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' }
       ));
@@ -73,11 +73,11 @@ export function LocalBackupSettings(): React.JSX.Element {
   const restore = async (): Promise<void> => {
     if (!preview || busy) return;
     const action = mode === 'replace' ? '覆盖本地提示词、设置和别名' : '合并提示词与别名，并采用备份中的设置';
-    if (!window.confirm(`确认${action}？请关闭其他 ChatGPT 标签页以减少同时写入冲突。`)) return;
+    if (!window.confirm(`确认${action}？新版扩展会协调本地写入；恢复前请刷新其他 ChatGPT 标签页，避免旧版本脚本继续写入。`)) return;
     setBusy(true);
     show('');
     try {
-      await restoreLocalBackup(preview, mode);
+      await requestLocalBackupRestore(preview, mode);
       setPreview(null);
       setFileName('');
       show('恢复成功。已打开的 ChatGPT 页面可能需要刷新才能读取完整数据。');

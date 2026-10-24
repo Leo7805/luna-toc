@@ -80,3 +80,10 @@ highlight behavior. No data migration or backup change is required.
 
 CI test success is not equivalent to real ChatGPT environment performance
 acceptance.
+
+
+## Stage 10 — Chromium synthetic large-conversation fixture
+
+The browser E2E suite builds a local fixture containing 500 user/assistant message pairs and records time-to-500-item TOC plus a far-target click/jump. The fixture is served from a mocked `chatgpt.com` origin; all HTTP(S) traffic outside the fixture is blocked. The log line `[LunaTOC browser synthetic]` includes the workload, environment, TOC build time and jump time.
+
+These measurements are browser-level regression observations for a fully mounted synthetic DOM, not measurements of live ChatGPT virtualization, real network latency, memory use or user-perceived production performance. There is deliberately no hard millisecond gate until repeated runner variance and a stable baseline are established. Actual numbers and the workflow URL must be added after the Stage 10 CI run completes; no performance gain is claimed in advance.

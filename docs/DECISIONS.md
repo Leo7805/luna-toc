@@ -108,3 +108,22 @@
 ## D26 — 无账号的 Chromium 端到端测试与供应链门槛（阶段九）
 
 采用 Playwright Chromium 持久浏览器上下文加载真实构建的 MV3 扩展；用固定 HTML/API 响应模拟 ChatGPT 而不连接正式页面与真实账户。对比仅使用 jsdom 的方案，这可以覆盖真实内容脚本注入、浏览器存储、设置同步和布局渲染，同时避免测试依赖 ChatGPT 登录与实时 DOM。代价是 CI 下载浏览器的时间和模拟结构的覆盖局限；真实 ChatGPT 页面与编辑历史仍需后续独立验收，不能标为通过。为保持现有锁文件和生产依赖稳定，Playwright 作为固定版本的 CI 临时测试工具在构建后安装；升级时需专门审查兼容性与许可证。保留只读 GitHub Actions 权限，CI 对包内 Manifest 权限、源 Manifest 权限、锁文件许可证及完整性字段进行审查，并通过 npm 公告库阻断高危已知依赖漏洞；审查输出必须留档且不能视为零漏洞承诺。回退：移除新 CI 步骤和测试脚本的阶段提交，恢复原有 Vitest 与构建检查，扩展产物格式与用户数据不变。
+
+
+## D27 — Shared serial queue for all current local-data mutations
+
+Stage 10 introduces one rejection-safe queue in the Manifest V3 background worker. Prompt list commits, TOC alias commits, usage counters, theme/sidebar preferences, and backup export/restore all use the same queue. Prompt usage reconciliation reads the latest persisted prompt list rather than trusting a stale tab-local list. Backup restore estimates post-restore storage usage before the first write and rejects over-quota restores. This avoids interleaving among current extension write paths but is not a Chrome Storage transaction; old-version scripts and any future direct writers can bypass it. Rollback remains compensating rather than atomic.
+
+## D28 — Keep CI verification separate from publication and protect main administratively
+
+CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection was initially inactive and could not be changed through the available GitHub connector. On 2026-10-24 the administrator activated Ruleset 25771265 for `main`; GitHub confirms its active enforcement, required PR, strict two-job CI checks, blocked force push/deletion and no bypass. This closes the merge-governance blocker without changing application permissions or release policy.
+
+## D29 — 不可信网页删除通知不得清除扩展本地数据（已决定）
+
+阶段十发现 MAIN world 向 ISOLATED world 发布的 `TOC_CONVERSATION_DELETED` 事件可以被同源网页脚本伪造。仅凭 `event.source`、`origin`、会话 ID 和网页可访问的令牌，都不足以证明该事件来自成功的真实删除操作。
+
+本阶段采用**保守、不破坏数据的方案**：`src/navigation/lifecycle/conversationLifecycle.ts` 显式忽略来自 `window.postMessage` 的删除通知，不再执行 `tocAliasStore.removeConversation` 或 `navigatorController.handleConversationDeleted`。页面钩子仍可能发出观察到的事件，但它不能越过持久数据的权限边界。验证新增单元测试与模拟 Chromium 端到端测试，分别检查页面伪造删除、页面模拟成功 DELETE 不会清空持久别名或安装删除屏障。不会新增扩展权限、网络请求或迁移存储键。
+
+**已知功能取舍**：真正从 ChatGPT 删除的会话，其旧本地目录别名及相关缓存不会因为页面通知被清理，可能保存在浏览器本地及用户导出的备份中。这些本地记录既不会自动上传，也不代表会话仍存在于 ChatGPT 服务器。用户仍能对可见会话撤销单条目录别名；针对已删除会话的可信独立确认或显式清理界面须作为单独后续需求设计与验收。在此之前，宁可保留陈旧本地文字，也不相信无法认证的页面通知。
+
+回退：若需恢复自动清理，必须先实现可靠的扩展侧验证或用户明确授权的持久清理，并补充安全回归测试；不可仅通过重新接通 `postMessage` 的删除路径回退。

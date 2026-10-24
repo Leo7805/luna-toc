@@ -6,6 +6,8 @@ import {
   createLocalBackup, parseLocalBackup, restoreLocalBackup, summarizeLocalBackup,
   type LocalBackup,
 } from '@/features/backup/localBackup';
+import { createPromptWriteCoordinator, PROMPT_COMMIT_TYPE } from '@/features/myPrompts/promptWriteCoordinator';
+import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 const PROMPTS = 'lumaToc:myPromptsV1';
 const USAGE = 'lunaToc:promptUsageV1';
@@ -41,6 +43,16 @@ function storageHarness(initial: Record<string, unknown> = {}) {
   let setFailure: 'none' | 'before' | 'after' = 'none';
   let removeFailure = false;
   let getFailure = false;
+  let usageOverride: number | null = null;
+  const byteCount = (keys?: string | string[] | null): number => {
+    const selected = keys == null ? Object.keys(state) : typeof keys === 'string' ? [keys] : keys;
+    const encoder = new TextEncoder();
+    return selected.filter((key) => Object.hasOwn(state, key)).reduce((total, key) =>
+      total + encoder.encode(JSON.stringify(key)).byteLength +
+        encoder.encode(JSON.stringify(state[key])).byteLength, 0);
+  };
+  const getBytesInUse = vi.fn(async (keys?: string | string[] | null) =>
+    keys == null && usageOverride !== null ? usageOverride : byteCount(keys));
   const get = vi.fn(async (keys?: string | string[] | null) => {
     if (getFailure) throw new Error('storage read failed');
     if (keys === null || keys === undefined) return clone(state);
@@ -57,9 +69,10 @@ function storageHarness(initial: Record<string, unknown> = {}) {
     if (removeFailure) { removeFailure = false; throw new Error('remove failed'); }
     for (const key of typeof keys === 'string' ? [keys] : keys) delete state[key];
   });
-  const storage = { get, set, remove } as unknown as Pick<chrome.storage.StorageArea, 'get'|'set'|'remove'>;
+  const storage = { get, set, remove, getBytesInUse, QUOTA_BYTES: 10 * 1024 * 1024 } as unknown as Pick<chrome.storage.StorageArea, 'get'|'set'|'remove'|'getBytesInUse'>;
   return {
-    storage, state, get, set, remove,
+    storage, state, get, set, remove, getBytesInUse,
+    setUsageOverride: (value: number | null) => { usageOverride = value; },
     failSet: (when: 'before' | 'after') => { setFailure = when; },
     failRemove: () => { removeFailure = true; },
     failGet: () => { getFailure = true; },
@@ -91,6 +104,70 @@ describe('versioned local backup', () => {
     });
     expect(box.set).not.toHaveBeenCalled();
     expect(box.remove).not.toHaveBeenCalled();
+  });
+
+
+  it('exports orphan-free usage without silently changing local storage', async () => {
+    const orphan = { usageCount: 9, lastUsedAt: 9 };
+    const box = storageHarness({
+      [PROMPTS]: [prompt('saved')],
+      [USAGE]: {
+        saved: { usageCount: 2, lastUsedAt: 3 },
+        deleted: orphan,
+      },
+    });
+    const backup = await createLocalBackup(box.storage);
+    expect(backup.data.promptUsage).toEqual({ saved: { usageCount: 2, lastUsedAt: 3 } });
+    expect(box.state[USAGE]).toEqual({
+      saved: { usageCount: 2, lastUsedAt: 3 }, deleted: orphan,
+    });
+    expect(box.set).not.toHaveBeenCalled();
+    expect(box.remove).not.toHaveBeenCalled();
+    expect(parseLocalBackup(JSON.stringify(backup))).toEqual(backup);
+  });
+
+  it('merges a valid import with local orphan statistics and reconciles usage', async () => {
+    const box = storageHarness({
+      [PROMPTS]: [prompt('temporary')],
+      [USAGE]: {
+        temporary: { usageCount: 1, lastUsedAt: 2 },
+        deleted: { usageCount: 9, lastUsedAt: 9 },
+      },
+      'other-key': 'preserve',
+    });
+    await restoreLocalBackup(sample(), 'merge', box.storage);
+    expect(box.state[PROMPTS]).toEqual([prompt('temporary'), prompt('saved')]);
+    expect(box.state[USAGE]).toEqual({
+      temporary: { usageCount: 1, lastUsedAt: 2 },
+      saved: { usageCount: 2, lastUsedAt: 3 },
+    });
+    expect(box.state['other-key']).toBe('preserve');
+  });
+
+  it('still rejects imported orphan usage and preserves all local records', async () => {
+    const incoming = sample();
+    incoming.data.promptUsage.deleted = { usageCount: 1, lastUsedAt: 2 };
+    const box = storageHarness({
+      [PROMPTS]: [prompt('current')],
+      [USAGE]: { deleted: { usageCount: 3, lastUsedAt: 4 } },
+    });
+    const original = clone(box.state);
+    expect(() => parseLocalBackup(JSON.stringify(incoming))).toThrow('引用了不存在的提示词');
+    await expect(restoreLocalBackup(incoming, 'merge', box.storage))
+      .rejects.toThrow('引用了不存在的提示词');
+    expect(box.state).toEqual(original);
+    expect(box.set).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the orphan usage cleanup if a merge write fails', async () => {
+    const box = storageHarness({
+      [PROMPTS]: [prompt('temporary')],
+      [USAGE]: { deleted: { usageCount: 9, lastUsedAt: 9 } },
+    });
+    const original = clone(box.state);
+    box.failSet('after');
+    await expect(restoreLocalBackup(sample(), 'merge', box.storage)).rejects.toThrow('已回滚');
+    expect(box.state).toEqual(original);
   });
 
   it('uses the legacy theme only when no new theme record exists', async () => {
@@ -152,6 +229,25 @@ describe('versioned local backup', () => {
     expect(box.remove).not.toHaveBeenCalled();
   });
 
+  it('verifies Chrome storage writes structurally regardless of object-key ordering', async () => {
+    const backup = sample();
+    backup.data.prompts.push(prompt('extra'));
+    backup.data.promptUsage.extra = { usageCount: 4, lastUsedAt: 5 };
+    const box = storageHarness({ [PROMPTS]: [prompt('current')] });
+    const originalGet = box.storage.get.bind(box.storage);
+    box.storage.get = (async (keys?: string | string[] | null) => {
+      const result = await originalGet(keys);
+      if (Array.isArray(keys) && Object.hasOwn(result, USAGE)) {
+        const usage = result[USAGE] as Record<string, unknown>;
+        result[USAGE] = Object.fromEntries(Object.entries(usage).reverse());
+      }
+      return result;
+    }) as typeof box.storage.get;
+    await restoreLocalBackup(backup, 'replace', box.storage);
+    expect(box.state[USAGE]).toEqual(backup.data.promptUsage);
+    expect(box.state[PROMPTS]).toEqual(backup.data.prompts);
+  });
+
   it('replaces only owned records and removes outdated alias entries', async () => {
     const box = storageHarness({
       [PROMPTS]: [prompt('old')], [EXTRA_ALIAS]: { ownerId: null, aliases: { x: 'old' } },
@@ -208,6 +304,15 @@ describe('versioned local backup', () => {
     expect(Object.getPrototypeOf({})).toBe(Object.prototype);
   });
 
+  it('rejects an over-quota restore before any local storage writes', async () => {
+    const box = storageHarness({ [PROMPTS]: [prompt('existing')] });
+    box.setUsageOverride(10 * 1024 * 1024);
+    await expect(restoreLocalBackup(sample(), 'replace', box.storage))
+      .rejects.toThrow('未执行写入');
+    expect(box.set).not.toHaveBeenCalled();
+    expect(box.remove).not.toHaveBeenCalled();
+  });
+
   it('does not write if reading current storage fails', async () => {
     const box = storageHarness();
     box.failGet();
@@ -232,6 +337,25 @@ describe('versioned local backup', () => {
     await expect(restoreLocalBackup(sample(), 'replace', box.storage))
       .rejects.toThrow('已回滚');
     expect(box.state).toEqual(original);
+  });
+
+  it('serializes backup restore before a stale prompt commit and rejects the stale write', async () => {
+    const original = prompt('old');
+    const backup = sample();
+    backup.data.prompts = [prompt('restored')];
+    backup.data.promptUsage = { restored: { usageCount: 1, lastUsedAt: 3 } };
+    const box = storageHarness({ [PROMPTS]: [original] });
+    const queue = createSerialWriteQueue();
+    const promptWriter = createPromptWriteCoordinator(box.storage, queue);
+
+    const restore = queue.run(() => restoreLocalBackup(backup, 'replace', box.storage));
+    const staleCommit = promptWriter.commit({
+      type: PROMPT_COMMIT_TYPE, expected: [original], next: [prompt('stale')],
+    });
+
+    await restore;
+    await expect(staleCommit).resolves.toEqual({ ok: false, conflict: true });
+    expect(box.state[PROMPTS]).toEqual([prompt('restored')]);
   });
 
 });

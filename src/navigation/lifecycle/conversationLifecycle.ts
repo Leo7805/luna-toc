@@ -1,15 +1,13 @@
 /**
  * Connects browser-page lifecycle events with local TOC titles and caches.
  * Performs one validation per page load and does not schedule background polls.
+ * Page-originated deletion notifications are advisory, never storage authority.
  */
 import { setActiveConversationOwner } from './conversationOwner';
-import { navigatorController } from '@/navigation/navigatorController';
-import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import {
   TOC_LIFECYCLE_CHECK_REQUEST,
   TOC_LIFECYCLE_CHECK_RESULT,
   TOC_CONVERSATION_DELETED,
-  isPermanentConversationId,
 } from './protocol';
 
 let installed = false;
@@ -24,13 +22,13 @@ export function initializeConversationLifecycle(): void {
     const data = event.data as {
       type?: unknown;
       requestId?: unknown;
-      routeKey?: unknown;
       ownerId?: unknown;
     } | null;
-    if (data?.type === TOC_CONVERSATION_DELETED && isPermanentConversationId(data.routeKey)) {
-      void tocAliasStore.removeConversation(data.routeKey).catch(() => undefined);
-      navigatorController.handleConversationDeleted(data.routeKey);
-    }
+    // Messages on the page's window are controlled by page scripts. Even a
+    // same-origin "deletion confirmed" message cannot prove the HTTP mutation
+    // succeeded, so it must never delete extension-owned aliases or caches.
+    // Preserve local data until a separate trusted user action handles cleanup.
+    if (data?.type === TOC_CONVERSATION_DELETED) return;
     if (data?.type !== TOC_LIFECYCLE_CHECK_RESULT || data.requestId !== requestId) return;
     const ownerId = typeof data.ownerId === 'string' && data.ownerId ? data.ownerId : null;
     setActiveConversationOwner(ownerId);

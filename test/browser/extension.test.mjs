@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {existsSync,mkdtempSync,rmSync,mkdirSync} from 'node:fs';
+import {existsSync,mkdtempSync,rmSync,mkdirSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {chromium} from 'playwright';
@@ -12,41 +12,58 @@ import {chromium} from 'playwright';
 const dist=resolve('dist');
 const conversationId='luna-stage-9-e2e';
 const url='https://chatgpt.com/c/'+conversationId;
-const html=[
-'<!doctype html><html lang="zh"><head><meta charset="UTF-8"><title>测试会话 - ChatGPT</title>',
-'<style>body{margin:0;font-family:Arial}#root{display:flex;height:100vh}',
-'#native-nav{width:170px;background:#eee;flex-shrink:0}',
-'main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto}',
-'#thread{flex:1;overflow:auto;padding:20px}article{padding:24px}',
-'#thread-bottom-container{padding:12px;border-top:1px solid #999}',
-'.ProseMirror{border:1px solid #999;min-height:40px}</style></head><body>',
-'<div id="root"><nav id="native-nav"><a href="/c/luna-stage-9-e2e">会话</a></nav>',
-'<main id="chat-main"><div id="thread">',
-'<article data-turn="user" data-testid="conversation-turn-1" data-message-id="user-1"><div data-message-author-role="user">第一条测试问题</div></article>',
-'<article data-turn="assistant" data-message-id="answer-1"><h2>回答一</h2></article>',
-'<article data-turn="user" data-testid="conversation-turn-2" data-message-id="user-2"><div data-message-author-role="user">第二条测试问题</div></article>',
-'<article data-turn="assistant" data-message-id="answer-2"><h3>回答二</h3></article>',
-'</div><div id="thread-bottom-container"><div class="ProseMirror" contenteditable="true" role="textbox" id="prompt-textarea"></div></div></main></div>',
-'<script>window.addEventListener("load",()=>fetch("/backend-api/conversations/luna-stage-9-e2e?num_turns=4").catch(()=>{}))</script>',
-'</body></html>'
-].join('');
-const items=[
-  {id:'user-1',author:{role:'user'},content:{parts:['第一条测试问题']},parent:null,create_time:1},
-  {id:'answer-1',author:{role:'assistant'},content:{parts:['回答一']},parent:'user-1',create_time:2},
-  {id:'user-2',author:{role:'user'},content:{parts:['第二条测试问题']},parent:'answer-1',create_time:3},
-  {id:'answer-2',author:{role:'assistant'},content:{parts:['回答二']},parent:'user-2',create_time:4},
-];
-const payload=JSON.stringify({messages:items,current_node:'answer-2',
-  page_info:{has_previous_page:false,has_next_page:false}});
+function createHtml(messageCount=2){
+ const messages=Array.from({length:messageCount},(_,index)=>{const n=index+1;const question=n===1?'第一条测试问题':n===2?'第二条测试问题':`第${n}条测试问题`;return `<article data-turn="user" data-testid="conversation-turn-${n}" data-message-id="user-${n}" data-chatgpt-search-unit-key="turn-${n}:user" data-chatgpt-search-message-ids="user-${n}"><div data-message-author-role="user">${question}</div></article><article data-turn="assistant" data-message-id="answer-${n}" data-chatgpt-search-unit-key="turn-${n}:assistant" data-chatgpt-search-message-ids="answer-${n}"><h2>回答${n}</h2></article>`;}).join('');
+ return ['<!doctype html><html lang="zh"><head><meta charset="UTF-8"><title>测试会话 - ChatGPT</title>','<style>body{margin:0;font-family:Arial}#root{display:flex;height:100vh}','#native-nav{width:170px;background:#eee;flex-shrink:0}','main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto}','#thread{flex:1;overflow:auto;padding:20px}article{box-sizing:border-box;height:72px;padding:12px}','#thread-bottom-container{padding:12px;border-top:1px solid #999}','.ProseMirror{border:1px solid #999;min-height:40px}</style></head><body>',`<div id="root"><nav id="native-nav"><a href="/c/${conversationId}">会话</a></nav>`,`<main id="chat-main"><div id="thread" class="thread-scroll-container">${messages}</div>`,'<div id="thread-bottom-container"><div class="ProseMirror" contenteditable="true" role="textbox" id="prompt-textarea"></div></div></main></div>','<script>window.addEventListener("load",()=>fetch("/backend-api/conversations/"+location.pathname.split("/").pop()+"?num_turns=4").catch(()=>{}))</script>','</body></html>'].join('');
+}
+/** Synthetic virtual host: only 24 pairs are mounted in the 500-turn scroll range. */
+function createVirtualizedHtml(count){
+  const script=[
+    '<script>(function(){',
+    'const thread=document.getElementById("thread");',
+    'const turns=Array.from(thread.querySelectorAll("article"));',
+    'const pairs=Array.from({length:'+count+'},(_,n)=>[turns[n*2],turns[n*2+1]]);',
+    'const rowHeight=144,windowSize=24,overscan=5;',
+    'const top=document.createElement("div"),visible=document.createElement("div"),bottom=document.createElement("div");',
+    'thread.replaceChildren(top,visible,bottom);',
+    'function render(){',
+    'const start=Math.max(0,Math.min('+count+'-windowSize,Math.floor(thread.scrollTop/rowHeight)-overscan));',
+    'top.style.height=(start*rowHeight)+"px";',
+    'bottom.style.height=(('+count+'-start-windowSize)*rowHeight)+"px";',
+    'visible.replaceChildren(...pairs.slice(start,start+windowSize).flatMap(pair=>pair));',
+    '}',
+    'thread.addEventListener("scroll",render);render();',
+    '})()</script>'
+  ].join('');
+  return createHtml(count).replace('</body>',script+'</body>');
+}
+const html=createHtml(2),largeHtml=createHtml(500),virtualHtml=createVirtualizedHtml(500);
+function createPayload(count){const messages=[];let parent=null;for(let n=1;n<=count;n++){messages.push({id:`user-${n}`,author:{role:'user'},content:{parts:[n===1?'第一条测试问题':n===2?'第二条测试问题':`第${n}条测试问题`]},parent,create_time:n*2-1});messages.push({id:`answer-${n}`,author:{role:'assistant'},content:{parts:[`回答${n}`]},parent:`user-${n}`,create_time:n*2});parent=`answer-${n}`;}return {messages,current_node:parent,page_info:{has_previous_page:false,has_next_page:false}};}
+const payload=JSON.stringify(createPayload(2)),largePayload=JSON.stringify(createPayload(500));
+
+
+/** Assert the requested user turn, not another turn, lies inside the feed viewport. */
+async function waitForTurnVisible(page,messageId,timeout=15000){
+  await page.waitForFunction((id)=>{
+    const target=Array.from(document.querySelectorAll('[data-chatgpt-search-message-ids]'))
+      .find(node=>node.getAttribute('data-chatgpt-search-message-ids')===id);
+    const feed=document.querySelector('.thread-scroll-container');
+    if(!target||!feed)return false;
+    const rect=target.getBoundingClientRect(),bounds=feed.getBoundingClientRect();
+    return rect.top>=bounds.top-1&&rect.bottom<=bounds.bottom+1;
+  },messageId,{timeout});
+}
 
 /** Intercept the real extension's host origin; all other HTTP traffic is denied. */
 async function installFixture(context){
   await context.route('https://chatgpt.com/**',async route=>{
     const p=new URL(route.request().url()).pathname;
     if(route.request().isNavigationRequest()){
-      await route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html});
+      const path=new URL(route.request().url()).pathname;
+       await route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:path.includes('luna-stage-10-large-e2e')?largeHtml:path.includes('luna-stage-10-virtual-e2e')?virtualHtml:html});
     }else if(/^\/backend-api\/conversations\/[^/]+$/.test(p)){
-      await route.fulfill({status:200,contentType:'application/json',body:payload});
+      const id=p.split('/').pop();
+       await route.fulfill({status:200,contentType:'application/json',body:id.startsWith('luna-stage-10-')?largePayload:payload});
     }else if(p==='/backend-api/me'||p==='/backend-api/accounts/check'){
       await route.fulfill({status:401,contentType:'application/json',body:'{}'});
     }else{
@@ -141,6 +158,124 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       assert.equal(await page.locator('#luna-toc-sidebar').count(),1);
       await page.reload({waitUntil:'domcontentloaded'});
       await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached'});
+    });
+
+
+    await t.test('B026: forged and page-confirmed deletions never erase local aliases',{timeout:20000},async()=>{
+      const routeKey='luna-stage-9-e2e';
+      const aliasKey='chatToc:aliases:v1:'+routeKey;
+      const fenceKey='chatToc:aliases:deleted:v1:'+routeKey;
+      const record={ownerId:null,aliases:{'user-1':'请保留此目录别名'}};
+      await worker.evaluate(async({aliasKey,fenceKey,record})=>{
+        await chrome.storage.local.remove(fenceKey);
+        await chrome.storage.local.set({[aliasKey]:record});
+      },{aliasKey,fenceKey,record});
+      // Run in the actual page world, not through an extension content script.
+      await page.evaluate(async routeKey=>{
+        window.postMessage({type:'LUNA_TOC_CONVERSATION_DELETED',routeKey},location.origin);
+        await new Promise(resolve=>setTimeout(resolve,250));
+      },routeKey);
+      let state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
+      assert.deepEqual(state[aliasKey],record,'a same-origin page script cannot erase an alias');
+      assert.equal(Object.hasOwn(state,fenceKey),false,'a forged page event must not create a deletion fence');
+
+      // Even an observed HTTP DELETE from MAIN world uses the same untrusted
+      // postMessage boundary. It remains informational until a trusted verifier exists.
+      const result=await page.evaluate(async routeKey=>{
+        const response=await fetch('/backend-api/conversations/'+routeKey,{method:'DELETE'});
+        await new Promise(resolve=>setTimeout(resolve,250));
+        return {ok:response.ok,status:response.status};
+      },routeKey);
+      assert.equal(result.ok,true,'fixture must simulate a successful host deletion request');
+      state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
+      assert.deepEqual(state[aliasKey],record,'page-reported deletion must not erase local aliases');
+      assert.equal(Object.hasOwn(state,fenceKey),false,'a page-reported deletion must not persist a fence');
+      // The fixture is disposable; do not need to clean real user data.
+    });
+
+    await t.test('500-message fully mounted fixture builds a TOC and supports a far jump',{timeout:60000},async()=>{
+      const started=Date.now();
+      await page.goto('https://chatgpt.com/c/luna-stage-10-large-e2e',{waitUntil:'domcontentloaded'});
+      await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
+      await page.evaluate(async()=>fetch('/backend-api/conversations/luna-stage-10-large-e2e?num_turns=500'));
+      await page.waitForFunction(()=>document.querySelectorAll('.navigator-item').length===500,undefined,{timeout:20000});
+      const tocBuildMs=Date.now()-started,jumpStarted=Date.now();
+      const sidebar=page.locator('#luna-toc-sidebar');
+      if(await sidebar.getAttribute('aria-hidden')!=='false'){
+        await page.locator('#luna-toc-toggle-btn').click({force:true});
+        await page.locator('#luna-toc-sidebar[aria-hidden="false"]').waitFor({state:'visible'});
+      }
+      const lastItem=page.locator('.navigator-item').last();
+      await lastItem.evaluate(element=>element.scrollIntoView({block:'nearest',inline:'nearest'}));
+      await lastItem.click();
+      await waitForTurnVisible(page,'user-500');
+      console.log('[LunaTOC browser synthetic]',JSON.stringify({messages:500,environment:'headless Chromium fixture; no live ChatGPT',tocBuildMs,farJumpMs:Date.now()-jumpStarted}));
+    });
+
+    await t.test('500-message virtualized fixture mounts and jumps to an offscreen target',{timeout:60000},async()=>{
+      await page.goto('https://chatgpt.com/c/luna-stage-10-virtual-e2e',{waitUntil:'domcontentloaded'});
+      await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached',timeout:20000});
+      await page.evaluate(async()=>fetch('/backend-api/conversations/luna-stage-10-virtual-e2e?num_turns=500'));
+      await page.waitForFunction(()=>document.querySelectorAll('.navigator-item').length===500,undefined,{timeout:20000});
+      const mountedBefore=await page.locator('[data-chatgpt-search-unit-key$=":user"]').count();
+      assert.ok(mountedBefore<500,'fixture must not pre-mount the jump target');
+      assert.equal(await page.locator('[data-chatgpt-search-message-ids="user-500"]').count(),0);
+      const sidebar=page.locator('#luna-toc-sidebar');
+      if(await sidebar.getAttribute('aria-hidden')!=='false'){
+        await page.locator('#luna-toc-toggle-btn').click({force:true});
+        await page.locator('#luna-toc-sidebar[aria-hidden="false"]').waitFor({state:'visible'});
+      }
+      const started=Date.now(),lastItem=page.locator('.navigator-item').last();
+      await lastItem.evaluate(element=>element.scrollIntoView({block:'nearest',inline:'nearest'}));
+      await lastItem.click();
+      await waitForTurnVisible(page,'user-500',20000);
+      const mountedAfter=await page.locator('[data-chatgpt-search-unit-key$=":user"]').count();
+      assert.ok(mountedAfter<500,'virtualized fixture must keep a bounded DOM mount window');
+      console.log('[LunaTOC browser synthetic virtual]',JSON.stringify({
+        messages:500,environment:'headless Chromium virtual-scroll fixture; no live ChatGPT',
+        mountedBefore,mountedAfter,farJumpMs:Date.now()-started
+      }));
+    });
+
+    await t.test('backup export and restore use the shared background writer',async()=>{
+      const settings=await context.newPage();
+      try{
+        const optionsPage=await worker.evaluate(()=>chrome.runtime.getManifest().options_ui.page);
+        await settings.goto('chrome-extension://'+extensionId+'/'+optionsPage);
+        await worker.evaluate(async()=>chrome.storage.local.set({
+          'lumaToc:myPromptsV1':[{id:'e2e-prompt',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
+          'lunaToc:promptUsageV1':{'e2e-prompt':{usageCount:2,lastUsedAt:3}},
+          'chatToc:themeSettings':{followChatGPT:false,manualTheme:'light'},
+          'chatToc:sidebarPreferences':{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
+        }));
+        const downloadPromise=settings.waitForEvent('download');
+        await settings.getByRole('button',{name:'导出本地数据'}).click();
+        const download=await downloadPromise,filePath=await download.path();
+        assert.ok(filePath,'backup download should complete');
+        const backup=JSON.parse(readFileSync(filePath,'utf8'));
+        assert.equal(backup.data.prompts[0].id,'e2e-prompt');
+        assert.equal(backup.data.promptUsage['e2e-prompt'].usageCount,2);
+        await worker.evaluate(async()=>chrome.storage.local.set({'lumaToc:myPromptsV1':[{id:'temporary',title:'temporary',content:'temporary',createdAt:1,updatedAt:2}], 'lunaToc:promptUsageV1':{temporary:{usageCount:1,lastUsedAt:3}}}));
+        await settings.locator('input[type="file"]').setInputFiles({name:'luna-toc-e2e-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+        await settings.locator('.settings-backup-preview').waitFor({state:'visible'});
+        settings.on('dialog',dialog=>dialog.accept());
+        await settings.getByRole('button',{name:'确认恢复'}).click();
+        const status=settings.locator('[role="status"]');
+        const statusAppeared=await status.waitFor({state:'visible',timeout:15000}).then(()=>true).catch(()=>false);
+        if(!statusAppeared){
+          const bodyText=await settings.locator('body').innerText();
+          const currentPrompts=await worker.evaluate(async()=>chrome.storage.local.get('lumaToc:myPromptsV1'));
+          throw new Error('backup restore status missing; page='+bodyText.slice(-500)+'; storedPrompts='+JSON.stringify(currentPrompts));
+        }
+        const statusText=await status.innerText();
+        assert.match(statusText,/恢复成功/, 'backup restore reported an error: '+statusText);
+        const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:themeSettings','chatToc:sidebarPreferences']));
+        assert.deepEqual(restored['lumaToc:myPromptsV1'].map(prompt=>prompt.id).sort(),['e2e-prompt','temporary']);
+        assert.equal(restored['lunaToc:promptUsageV1'].temporary.usageCount,1);
+        assert.equal(restored['lunaToc:promptUsageV1']['e2e-prompt'].usageCount,2);
+        assert.deepEqual(restored['chatToc:themeSettings'],backup.data.theme);
+        assert.deepEqual(restored['chatToc:sidebarPreferences'],backup.data.sidebar);
+      }finally{await settings.close();}
     });
   }catch(error){
     if(page&&!page.isClosed()){

@@ -2,9 +2,15 @@
  * Service-worker bridge for per-tab compatibility warnings in Chrome's toolbar.
  */
 import {
-  PROMPT_COMMIT_TYPE,
-  createPromptWriteCoordinator,
+  PROMPT_COMMIT_TYPE, createPromptWriteCoordinator,
 } from '@/features/myPrompts/promptWriteCoordinator';
+import { PROMPT_USAGE_COMMIT_TYPE, createPromptUsageWriteCoordinator } from '@/features/myPrompts/promptUsageWriteCoordinator';
+import { SETTINGS_COMMIT_TYPE, createSettingsWriteCoordinator } from '@/features/storage/settingsWriteCoordinator';
+import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
+import {
+  BACKUP_STORAGE_MESSAGE_TYPE, createLocalBackup, restoreLocalBackup,
+  type BackupStorageMessage, type BackupStorageResponse, type LocalBackup,
+} from '@/features/backup/localBackup';
 import {
   TOC_ALIAS_COMMIT_TYPE,
   createTocAliasWriteCoordinator,
@@ -16,6 +22,7 @@ import {
 import { createToolbarWarningController } from '@/features/contractAlert/toolbarBackground';
 
 const toolbar = createToolbarWarningController(chrome.storage.session, chrome.action);
+const storageWriteQueue = createSerialWriteQueue();
 chrome.runtime.onMessage.addListener((message: unknown, sender) => {
   if (!message || typeof message !== 'object') return;
   const payload = message as { type?: unknown; detail?: unknown; revision?: unknown };
@@ -56,7 +63,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
  * Handle prompt writes only from this extension. Returning true keeps the
  * MV3 message event alive until the queued storage write has completed.
  */
-const promptCoordinator = createPromptWriteCoordinator();
+const promptCoordinator = createPromptWriteCoordinator(chrome.storage.local, storageWriteQueue);
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!message || typeof message !== 'object' ||
       (message as { type?: unknown }).type !== PROMPT_COMMIT_TYPE) return;
@@ -71,7 +78,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
 });
 
 /** Serializes TOC alias mutations and confirmed deletion fences across tabs. */
-const tocAliasCoordinator = createTocAliasWriteCoordinator();
+const tocAliasCoordinator = createTocAliasWriteCoordinator(chrome.storage.local, storageWriteQueue);
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!message || typeof message !== 'object' ||
       (message as { type?: unknown }).type !== TOC_ALIAS_COMMIT_TYPE) return;
@@ -82,5 +89,58 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   void tocAliasCoordinator.commit(message).then(sendResponse, () =>
     sendResponse({ ok: false, error: 'TOC alias writer unavailable' })
   );
+  return true;
+});
+
+
+const promptUsageCoordinator = createPromptUsageWriteCoordinator(chrome.storage.local, storageWriteQueue);
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  if (!message || typeof message !== 'object' ||
+      (message as { type?: unknown }).type !== PROMPT_USAGE_COMMIT_TYPE) return;
+  if (sender.id !== chrome.runtime.id) {
+    sendResponse({ ok: false, error: 'Untrusted extension message sender' });
+    return false;
+  }
+  void promptUsageCoordinator.commit(message).then(sendResponse, () =>
+    sendResponse({ ok: false, error: 'Prompt usage writer unavailable' })
+  );
+  return true;
+});
+
+const settingsCoordinator = createSettingsWriteCoordinator(chrome.storage.local, storageWriteQueue);
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  if (!message || typeof message !== 'object' ||
+      (message as { type?: unknown }).type !== SETTINGS_COMMIT_TYPE) return;
+  if (sender.id !== chrome.runtime.id) {
+    sendResponse({ ok: false, error: 'Untrusted extension message sender' });
+    return false;
+  }
+  void settingsCoordinator.commit(message).then(sendResponse, () =>
+    sendResponse({ ok: false, error: 'Settings writer unavailable' })
+  );
+  return true;
+});
+
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  if (!message || typeof message !== 'object' ||
+      (message as { type?: unknown }).type !== BACKUP_STORAGE_MESSAGE_TYPE) return;
+  if (sender.id !== chrome.runtime.id) {
+    sendResponse({ ok: false, error: 'Untrusted extension message sender' });
+    return false;
+  }
+  const request = message as BackupStorageMessage;
+  void storageWriteQueue.run(async (): Promise<BackupStorageResponse> => {
+    if (request.action === 'export') {
+      return { ok: true, backup: await createLocalBackup(chrome.storage.local) };
+    }
+    if (request.action !== 'restore' ||
+        (request.mode !== 'merge' && request.mode !== 'replace')) {
+      return { ok: false, error: 'Invalid backup request' };
+    }
+    await restoreLocalBackup(request.backup as LocalBackup, request.mode, chrome.storage.local);
+    return { ok: true };
+  }).then(sendResponse, (error: unknown) => sendResponse({
+    ok: false, error: error instanceof Error ? error.message : 'Local backup operation failed',
+  }));
   return true;
 });
