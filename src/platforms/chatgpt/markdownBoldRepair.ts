@@ -70,7 +70,21 @@ export function startMarkdownBoldRepair(
     characterData: true,
   });
 
-  return () => observer.disconnect();
+  // document_start may run before the HTML parser has attached all answer nodes.
+  // A one-time scan after parsing closes that gap even if parser insertions were
+  // not observable in the initial mutation stream.
+  const repairAfterInitialDocumentParse = () =>
+    repairMountedAssistantResponses(root);
+  if (root.readyState === 'loading') {
+    root.addEventListener('DOMContentLoaded', repairAfterInitialDocumentParse, {
+      once: true,
+    });
+  }
+
+  return () => {
+    observer.disconnect();
+    root.removeEventListener('DOMContentLoaded', repairAfterInitialDocumentParse);
+  };
 }
 
 export function repairMarkdownBoldTextNode(textNode: Text): boolean {
