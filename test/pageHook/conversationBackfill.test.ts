@@ -316,7 +316,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
   it('releases a hung network request after timeout and permits a fresh retry', async () => {
     const platform = getActivePlatform('chatgpt.com');
     const pendingFetch = vi.fn(() => new Promise<Response>(() => {}));
-    installConversationBackfill({ originalFetch: pendingFetch as typeof fetch, platform });
+    installConversationBackfill({ originalFetch: pendingFetch as unknown as typeof fetch, platform });
     vi.useFakeTimers();
     expect(startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
@@ -343,7 +343,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
   it('also times out stalled response.json parsing', async () => {
     const platform = getActivePlatform('chatgpt.com');
     const response = { ok: true, json: () => new Promise<unknown>(() => {}) };
-    installConversationBackfill({ originalFetch: vi.fn().mockResolvedValue(response) as typeof fetch, platform });
+    installConversationBackfill({ originalFetch: vi.fn().mockResolvedValue(response) as unknown as typeof fetch, platform });
     vi.useFakeTimers();
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
@@ -358,7 +358,7 @@ describe('conversationBackfill signal exhaustiveness', () => {
     let finish!: (response: Response) => void;
     const pending = new Promise<Response>((resolve) => { finish = resolve; });
     const mockFetch = vi.fn().mockReturnValue(pending);
-    installConversationBackfill({ originalFetch: mockFetch as typeof fetch, platform });
+    installConversationBackfill({ originalFetch: mockFetch as unknown as typeof fetch, platform });
     startBackfillIfNeeded(
       { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
       'route-old', null
