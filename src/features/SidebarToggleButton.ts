@@ -11,32 +11,6 @@ export const RIGHT_POSITION_MARGIN = 0;
 export const POSITION_STORAGE_KEY = 'chatTocToggleButtonPosition';
 
 /**
- * Creates the floating sidebar visibility toggle button (legacy Vanilla creator).
- * @returns {HTMLButtonElement}
- */
-export function createSidebarToggleButton(): HTMLButtonElement {
-  const toggleBtn = document.createElement('button');
-
-  toggleBtn.id = 'luna-toc-toggle-btn';
-  toggleBtn.className = 'luna-toc-sidebar-visible';
-  toggleBtn.innerHTML = `
-      <svg aria-hidden="true" viewBox="0 0 64 64">
-        <path
-          fill="currentColor"
-          d="M48 8A26 26 0 1 1 15 48C29 52 43 43 49 29C52 21 51 13 48 8Z"
-        />
-      </svg>
-      <span class="toggle-sidebar-label" aria-hidden="true">TOC</span>
-    `;
-
-  document.body.appendChild(toggleBtn);
-  initDrag(toggleBtn);
-  restorePosition(toggleBtn);
-
-  return toggleBtn;
-}
-
-/**
  * Enables pointer dragging for the toggle button with boundary clamping and persistence.
  *
  * @param {HTMLButtonElement} toggleBtn The button element.

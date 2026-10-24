@@ -46,7 +46,6 @@ export interface TocListRendererOptions {
   onSavePrompt?: (message: NavigatorMessage) => void;
   onPromptCountReported?: (count: number) => void;
   onRefreshObservers?: () => void;
-  getJumpProgress?: () => any;
   isFollowingMode?: () => boolean;
   getFilterMode?: () => TocFilterMode;
 }

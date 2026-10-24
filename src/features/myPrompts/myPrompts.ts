@@ -17,7 +17,6 @@ import {
   initializePromptLibrary,
   insertPrompt,
   onPromptsChanged,
-  renderMyPrompts,
   saveMyPrompts,
   showDialog,
 } from './promptLibrary';
@@ -51,7 +50,6 @@ export const myPrompts = {
   importMyPrompts,
   insertPrompt,
   showDialog,
-  renderMyPrompts,
   initAutocomplete,
   insertIntoChatGPTInput,
 };

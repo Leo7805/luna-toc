@@ -310,18 +310,3 @@ async function savePromptEditorValues(
     throw error;
   }
 }
-
-/**
- * Legacy compatibility stub. MyPrompts UI rendering is now managed
- * declaratively by MyPromptsView via React portal.
- * @param {HTMLElement} [_container]
- * @param {string} [_searchQuery]
- * @param {() => void} [_onRefresh]
- */
-export async function renderMyPrompts(
-  _container?: HTMLElement,
-  _searchQuery = '',
-  _onRefresh: VoidCallback = () => {}
-): Promise<void> {
-  // Legacy stub: rendering is now managed declaratively by MyPromptsView
-}
