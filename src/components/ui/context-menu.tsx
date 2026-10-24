@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   BookmarkPlusIcon,
+  CheckIcon,
   ClipboardIcon,
   CopyIcon,
   PencilLineIcon,
@@ -13,9 +14,10 @@ import {
 export interface ContextMenuItem {
   id: string;
   label: string;
-  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line';
+  icon?: 'clipboard' | 'copy' | 'trash' | 'bookmark-plus' | 'pencil-line' | 'check';
   variant?: 'default' | 'destructive';
   disabled?: boolean;
+  selected?: boolean;
 }
 
 interface ContextMenuProps {
@@ -114,7 +116,8 @@ export function ContextMenu({
           <button
             key={item.id}
             type="button"
-            role="menuitem"
+            role={item.selected !== undefined ? 'menuitemradio' : 'menuitem'}
+            aria-checked={item.selected}
             disabled={item.disabled}
             className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               isDestructive
@@ -123,8 +126,19 @@ export function ContextMenu({
             }`}
             onClick={() => onSelect(item.id)}
           >
+            {item.selected !== undefined && (
+              <span className="flex size-4 shrink-0 items-center justify-center">
+                {item.selected && (
+                  <CheckIcon
+                    aria-hidden="true"
+                    className="size-4 text-primary"
+                    strokeWidth={2.2}
+                  />
+                )}
+              </span>
+            )}
             <ContextMenuIcon icon={item.icon} />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
           </button>
         );
       })}

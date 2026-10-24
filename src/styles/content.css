@@ -94,6 +94,9 @@ html[data-lunatoc-theme='dark'] {
   --ct-toggle-label-color: #dce6f5;
   --ct-toggle-label-shadow: #101827;
 
+  /* TOC Filter indicator */
+  --ct-filter-indicator: #38bdf8;
+
   /* Misc */
   --ct-sidebar-box-shadow-jump: 0 10px 30px rgba(15, 23, 42, 0.22);
   --ct-sidebar-shadow: none;
@@ -201,6 +204,9 @@ html[data-lunatoc-theme='light'] {
   --ct-toggle-label-color: #23456f;
   --ct-toggle-label-shadow: #eef5ff;
 
+  /* TOC Filter indicator */
+  --ct-filter-indicator: #0284c7;
+
   /* Misc */
   --ct-sidebar-box-shadow-jump: 0 10px 30px rgba(82, 110, 245, 0.1);
   --ct-sidebar-shadow: -4px 0 24px rgba(35, 69, 111, 0.08);
@@ -288,6 +294,10 @@ html[data-lunatoc-theme='light'] {
 }
 
 #navigator-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   margin: 0;
   min-width: 0;
   padding: 1px 4px;
@@ -306,6 +316,20 @@ html[data-lunatoc-theme='light'] {
   white-space: nowrap;
   cursor: pointer;
   transition: color 150ms ease;
+}
+
+.navigator-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigator-filter-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ct-filter-indicator);
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 #navigator-title:hover {

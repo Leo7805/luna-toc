@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 
 import { PromptAutocompleteHost } from '@/components/my-prompts/PromptAutocomplete';
 import { PromptContextMenuHost } from '@/components/my-prompts/PromptContextMenu';
+import { TocFilterContextMenuHost } from '@/components/toc-filter/TocFilterContextMenu';
 import { PromptEditorDialogHost } from '@/components/my-prompts/PromptEditorDialog';
 import { CustomTocTitleDialogHost } from '@/components/custom-toc-titles/CustomTocTitleDialog';
 import { ConfirmDialogHost } from '@/components/my-prompts/ConfirmDialog';
@@ -63,6 +64,7 @@ export async function initializeReactHost(): Promise<void> {
     <>
       <PromptAutocompleteHost />
       <PromptContextMenuHost />
+      <TocFilterContextMenuHost />
       <PromptEditorDialogHost />
       <CustomTocTitleDialogHost />
       <ConfirmDialogHost />

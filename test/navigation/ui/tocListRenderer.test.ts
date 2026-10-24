@@ -217,6 +217,165 @@ describe('tocListRenderer', () => {
     await removeCustomTitle('msg-2');
   });
 
+  describe('TOC filter mode integration', () => {
+    let resetFilterMode: typeof import('@/features/tocFilter/tocFilterStore').resetTocFilterMode;
+    let setFilterMode: typeof import('@/features/tocFilter/tocFilterStore').setTocFilterMode;
+    let setCustomTitleFn: typeof import('@/features/customTocTitles/customTocTitleStore').setCustomTitle;
+    let removeCustomTitleFn: typeof import('@/features/customTocTitles/customTocTitleStore').removeCustomTitle;
+    let initPromptMarkFn: typeof import('@/features/conversationPrompts/promptMark').initializePromptMark;
+
+    beforeEach(async () => {
+      const filterStore = await import('@/features/tocFilter/tocFilterStore');
+      resetFilterMode = filterStore.resetTocFilterMode;
+      setFilterMode = filterStore.setTocFilterMode;
+      resetFilterMode();
+
+      const titleStore = await import('@/features/customTocTitles/customTocTitleStore');
+      setCustomTitleFn = titleStore.setCustomTitle;
+      removeCustomTitleFn = titleStore.removeCustomTitle;
+
+      const markModule = await import('@/features/conversationPrompts/promptMark');
+      initPromptMarkFn = markModule.initializePromptMark;
+      initPromptMarkFn({ conversationKey: 'test-convo' });
+    });
+
+    afterEach(async () => {
+      resetFilterMode?.();
+      await removeCustomTitleFn?.('msg-1');
+      await removeCustomTitleFn?.('msg-2');
+      await removeCustomTitleFn?.('msg-3');
+    });
+
+    it('renders only renamed prompts and preserves original index and numbering', async () => {
+      await setCustomTitleFn('msg-2', 'Renamed Step 2');
+
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+        getFilterMode: () => 'renamed',
+      });
+
+      renderer.render();
+
+      expect(listElement.children.length).toBe(1);
+      const row = listElement.children[0] as HTMLElement;
+      expect(row.dataset.messageId).toBe('msg-2');
+      expect(row.dataset.messageIndex).toBe('1');
+      expect(row.querySelector('.navigator-item-index')?.textContent).toBe('2.');
+      expect(row.querySelector('.navigator-item-text')?.textContent).toBe('Renamed Step 2');
+      expect(hintElement.hidden).toBe(true);
+
+      renderer.destroy?.();
+    });
+
+    it('renders only bookmarked prompts when filter mode is "bookmarked"', () => {
+      // Bookmark msg-1
+      const markButton = document.createElement('button');
+      const item = document.createElement('div');
+      item.dataset.messageId = 'msg-1';
+
+      // Toggle mark on msg-1
+      sessionStorage.setItem('chatToc:marks:test-convo', JSON.stringify(['msg-1']));
+      initPromptMarkFn({ conversationKey: 'test-convo' });
+
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+        getFilterMode: () => 'bookmarked',
+      });
+
+      renderer.render();
+
+      expect(listElement.children.length).toBe(1);
+      const row = listElement.children[0] as HTMLElement;
+      expect(row.dataset.messageId).toBe('msg-1');
+      expect(row.querySelector('.navigator-item-index')?.textContent).toBe('1.');
+      expect(hintElement.hidden).toBe(true);
+
+      renderer.destroy?.();
+    });
+
+    it('renders prompts matching renamed OR bookmarked (logical OR)', async () => {
+      await setCustomTitleFn('msg-2', 'Renamed Step 2');
+      sessionStorage.setItem('chatToc:marks:test-convo', JSON.stringify(['msg-1']));
+      initPromptMarkFn({ conversationKey: 'test-convo' });
+
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+        getFilterMode: () => 'renamed_or_bookmarked',
+      });
+
+      renderer.render();
+
+      expect(listElement.children.length).toBe(2);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-1');
+      expect((listElement.children[1] as HTMLElement).dataset.messageId).toBe('msg-2');
+
+      renderer.destroy?.();
+    });
+
+    it('combines TOC filter mode with search query', async () => {
+      await setCustomTitleFn('msg-1', 'Alpha prompt');
+      await setCustomTitleFn('msg-3', 'Coding prompt with custom title');
+
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+        getFilterMode: () => 'renamed',
+      });
+
+      renderer.setSearchQuery('coding');
+
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-3');
+
+      renderer.destroy?.();
+    });
+
+    it('displays "No prompts match the active filter." when filter matches zero prompts', () => {
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+        getFilterMode: () => 'renamed',
+      });
+
+      renderer.render();
+
+      expect(listElement.children.length).toBe(0);
+      expect(hintElement.hidden).toBe(false);
+      expect(hintElement.textContent).toBe('No prompts match the active filter.');
+
+      renderer.destroy?.();
+    });
+
+    it('dynamically re-renders the list when filter mode changes in the store', async () => {
+      await setCustomTitleFn('msg-2', 'Renamed Step 2');
+
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+
+      renderer.render();
+      expect(listElement.children.length).toBe(3);
+
+      // Change store mode to renamed
+      setFilterMode('renamed');
+
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-2');
+
+      renderer.destroy?.();
+    });
+  });
+
   describe('initial active TOC scroll-position synchronization', () => {
     let scrollToMock: ReturnType<typeof vi.fn>;
     const origGetBCR = window.HTMLElement.prototype.getBoundingClientRect;

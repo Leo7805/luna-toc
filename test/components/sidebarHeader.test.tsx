@@ -18,6 +18,10 @@ import { myPrompts } from '@/features/myPrompts/myPrompts';
 import { navigatorController } from '@/navigation/navigatorController';
 import { setReactPortalContainer } from '@/reactHost/portalContainer';
 import type { SavedPrompt } from '@/features/myPrompts/promptStore';
+import {
+  setTocFilterMode,
+  resetTocFilterMode,
+} from '@/features/tocFilter/tocFilterStore';
 
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -129,6 +133,7 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
       root.unmount();
       sidebarController.setViewMode('toc');
       sidebarController.resetReadyForTesting();
+      resetTocFilterMode();
     });
     setReactPortalContainer(null);
     vi.restoreAllMocks();
@@ -520,6 +525,56 @@ describe('SidebarHeader and SidebarSearchBar React Migration', () => {
     });
     expect(searchInput.style.display).toBe('none');
     expect(document.activeElement).not.toBe(searchInput);
+  });
+
+  it('20. Renders passive filter indicator when TOC filter mode is active, and hides it when all or in MyPrompts', () => {
+    const titleBtn = document.getElementById('navigator-title') as HTMLButtonElement;
+    expect(titleBtn).not.toBeNull();
+
+    // Default mode is 'all': indicator should not exist
+    expect(titleBtn.querySelector('.navigator-filter-indicator')).toBeNull();
+    expect(titleBtn.querySelector('.navigator-title-text')?.textContent).toBe('ChatTOC');
+
+    // Activate 'renamed' filter
+    act(() => {
+      setTocFilterMode('renamed');
+    });
+
+    const indicator = titleBtn.querySelector('.navigator-filter-indicator') as HTMLElement;
+    expect(indicator).not.toBeNull();
+    expect(indicator.getAttribute('aria-label')).toBe('Filtered');
+    expect(indicator.getAttribute('title')).toBe('TOC Filter Active');
+    expect(titleBtn.querySelector('.navigator-title-text')?.textContent).toBe('ChatTOC');
+
+    // Switch to 'bookmarked'
+    act(() => {
+      setTocFilterMode('bookmarked');
+    });
+    expect(titleBtn.querySelector('.navigator-filter-indicator')).not.toBeNull();
+
+    // Switch to 'renamed_or_bookmarked'
+    act(() => {
+      setTocFilterMode('renamed_or_bookmarked');
+    });
+    expect(titleBtn.querySelector('.navigator-filter-indicator')).not.toBeNull();
+
+    // Switch viewMode to 'myPrompts' -> indicator should hide
+    act(() => {
+      sidebarController.setViewMode('myPrompts');
+    });
+    expect(titleBtn.querySelector('.navigator-filter-indicator')).toBeNull();
+
+    // Switch back to 'toc' -> indicator should reappear
+    act(() => {
+      sidebarController.setViewMode('toc');
+    });
+    expect(titleBtn.querySelector('.navigator-filter-indicator')).not.toBeNull();
+
+    // Reset filter mode to 'all' -> indicator should disappear
+    act(() => {
+      setTocFilterMode('all');
+    });
+    expect(titleBtn.querySelector('.navigator-filter-indicator')).toBeNull();
   });
 });
 

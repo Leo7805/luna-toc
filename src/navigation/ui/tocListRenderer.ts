@@ -27,6 +27,12 @@ import {
   startSettleTimer,
 } from '@/navigation/loading/promptLoadingState';
 import { getNavigationState } from '@/navigation/loading/jumpProgressState';
+import {
+  getTocFilterMode,
+  matchesTocFilter,
+  subscribeTocFilter,
+  type TocFilterMode,
+} from '@/features/tocFilter/tocFilterStore';
 
 export interface RenderOptions {
   refreshObservers?: boolean;
@@ -42,6 +48,7 @@ export interface TocListRendererOptions {
   onRefreshObservers?: () => void;
   getJumpProgress?: () => any;
   isFollowingMode?: () => boolean;
+  getFilterMode?: () => TocFilterMode;
 }
 
 export interface TocListRenderer {
@@ -62,6 +69,7 @@ export interface TocListRenderer {
   ensureActiveItemVisible(): boolean;
   pickStatusBandState(completed: boolean | null): SidebarStatusState;
   createNavigatorItem(message: NavigatorMessage, index: number): HTMLElement;
+  destroy?(): void;
 }
 
 function normalizeText(text: string): string {
@@ -449,10 +457,15 @@ export function createTocListRenderer(
     setPromptMessages(conversationMessages);
     options.onPromptCountReported?.(conversationMessages.length);
 
+    const filterMode = options.getFilterMode
+      ? options.getFilterMode()
+      : getTocFilterMode();
+
     const normalizedQuery = normalizeText(searchQuery).toLowerCase();
     const visibleMessages = conversationMessages
       .map((message, index) => ({ message, index }))
       .filter(({ message }) => {
+        if (!matchesTocFilter(message.id, filterMode)) return false;
         if (!normalizedQuery) return true;
         return normalizeText(message.text)
           .toLowerCase()
@@ -462,9 +475,18 @@ export function createTocListRenderer(
     if (hint) {
       const hasMessages = conversationMessages.length > 0;
       const hasQuery = normalizedQuery.length > 0;
+      const isFiltered = filterMode !== 'all';
 
-      hint.hidden = hasMessages && (!hasQuery || visibleMessages.length > 0);
-      hint.textContent = hasQuery ? 'No matching prompts.' : EMPTY_HINT_TEXT;
+      hint.hidden =
+        hasMessages && ((!hasQuery && !isFiltered) || visibleMessages.length > 0);
+      hint.textContent =
+        visibleMessages.length === 0 && hasMessages
+          ? hasQuery
+            ? 'No matching prompts.'
+            : 'No prompts match the active filter.'
+          : hasQuery
+            ? 'No matching prompts.'
+            : EMPTY_HINT_TEXT;
     }
 
     visibleMessages.forEach(({ message, index }) => {
@@ -496,6 +518,14 @@ export function createTocListRenderer(
     }
   }
 
+  const unsubscribeFilter = subscribeTocFilter(() => {
+    render();
+  });
+
+  function destroy(): void {
+    unsubscribeFilter();
+  }
+
   return {
     render,
     setSearchQuery,
@@ -509,5 +539,6 @@ export function createTocListRenderer(
     ensureActiveItemVisible,
     pickStatusBandState,
     createNavigatorItem,
+    destroy,
   };
 }

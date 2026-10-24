@@ -3,12 +3,17 @@
  * button, the conversation / section title, and the search toggle button.
  */
 import React, { useSyncExternalStore } from 'react';
+import { Filter } from 'lucide-react';
 import {
   isSidebarPinned,
   subscribeSidebarPinned,
   toggleSidebarPinned,
 } from '@/features/sidebarVisibility';
 import { sidebarController } from '@/features/sidebar/sidebarController';
+import {
+  getTocFilterMode,
+  subscribeTocFilter,
+} from '@/features/tocFilter/tocFilterStore';
 
 /**
  * Top header bar component.
@@ -26,7 +31,13 @@ export function SidebarHeaderBar(): React.JSX.Element {
     sidebarController.getHeaderSnapshot
   );
 
+  const filterMode = useSyncExternalStore(
+    subscribeTocFilter,
+    getTocFilterMode
+  );
+
   const { viewMode, title, isSearchDisabled } = headerState;
+  const isFilterActive = viewMode === 'toc' && filterMode !== 'all';
 
   const handleTitleClick = (): void => {
     sidebarController.handleTitleClick();
@@ -65,7 +76,16 @@ export function SidebarHeaderBar(): React.JSX.Element {
         data-tooltip-overflow-only="true"
         onClick={handleTitleClick}
       >
-        {title}
+        <span className="navigator-title-text">{title}</span>
+        {isFilterActive && (
+          <span
+            className="navigator-filter-indicator"
+            aria-label="Filtered"
+            title="TOC Filter Active"
+          >
+            <Filter size={12} aria-hidden="true" />
+          </span>
+        )}
       </button>
 
       <button

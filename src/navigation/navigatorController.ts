@@ -535,7 +535,10 @@ export const navigatorController = (() => {
   function initMarkedPrompts(): void {
     initializePromptMark({
       conversationKey: getCurrentConversationKey(),
-      onMarkChanged: syncMarkState,
+      onMarkChanged: () => {
+        syncMarkState();
+        render();
+      },
     });
   }
 

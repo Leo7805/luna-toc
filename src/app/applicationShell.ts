@@ -26,6 +26,10 @@ import {
 } from '@/features/theme/promptColorSettings';
 import { APP_CONFIG } from '@/config/config';
 import { initializeCustomTocTitles } from '@/features/customTocTitles/customTocTitleStore';
+import {
+  openTocFilterMenu,
+  resetTocFilterMode,
+} from '@/features/tocFilter/tocFilterStore';
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
 import { initFloatingPanel } from '@/features/sidebar/FloatingPanel';
@@ -221,11 +225,22 @@ export async function initializeApplication(): Promise<void> {
     onRouteChanged: () => {
       sidebarController.clearSearch();
       sidebarController.setNavigatorTitle();
+      resetTocFilterMode();
     },
     onSavePrompt: sidebarController.handleSavePrompt,
     onTitleChanged: sidebarController.setNavigatorTitle,
   });
   const sidebar = await createSidebar();
+  sidebar.addEventListener('contextmenu', (event) => {
+    if (sidebarController.getViewSnapshot().viewMode !== 'toc') return;
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest('input, textarea')) return;
+    if (target.closest('.navigator-item')) return;
+
+    event.preventDefault();
+    openTocFilterMenu({ left: event.clientX, top: event.clientY });
+  });
   sidebarController.init();
   initSidebarResize(sidebar);
   initFloatingPanel();
