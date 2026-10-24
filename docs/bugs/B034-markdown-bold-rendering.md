@@ -2,7 +2,7 @@
 
 - Date: 2026-10-24
 - Priority: P2
-- Status: Implemented on `feat/b034-markdown-bold-repair`; automated CI and real-site compatibility are tracked by the pull request.
+- Status: Implemented on `feat/b034-markdown-bold-repair`; [PR #21](https://github.com/PyRookie1/luna-toc-sc/pull/21) tracks automated CI and real-site compatibility.
 
 ## Symptom
 
@@ -10,7 +10,9 @@ Some ChatGPT assistant answers display complete `**bold text**` delimiters liter
 
 ## Scope and root cause
 
-The raw delimiter pair reaches a rendered assistant Markdown text node. LunaTOC-SC previously read rendered text for navigation but did not provide a display compatibility fallback for this case. The extension cannot determine why ChatGPT emitted or retained the raw markers, so this fix is limited to display repair.
+**Observed report:** Some answers show the paired markers literally. The live ChatGPT DOM for a reported occurrence has not yet been inspected.
+
+**Working hypothesis, not confirmed on a live site:** The raw delimiter pair is present as ordinary text inside an assistant Markdown container. LunaTOC-SC previously had no display compatibility fallback for that case. The extension cannot determine why ChatGPT emitted or retained the raw markers, so this fix is limited to display repair.
 
 ## Fix
 
