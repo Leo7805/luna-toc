@@ -3,7 +3,7 @@ import { createPromptUsageWriteCoordinator, PROMPT_USAGE_COMMIT_TYPE } from '@/f
 import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 const request = (action: string, extra: Record<string, unknown> = {}) => ({ type: PROMPT_USAGE_COMMIT_TYPE, action, ...extra });
 function backing(initial: Record<string, unknown> = {}) {
- const state={...initial};let failNext=false;
+ const state={ 'lumaToc:myPromptsV1': [{ id: 'p', title: 'p', content: 'p', createdAt: 1, updatedAt: 1 }], ...initial };let failNext=false;
  const get=vi.fn(async()=>({'lunaToc:promptUsageV1':state['lunaToc:promptUsageV1'],'lumaToc:myPromptsV1':state['lumaToc:myPromptsV1']}));
  const set=vi.fn(async(values:Record<string,unknown>)=>{if(failNext){failNext=false;throw new Error('quota exceeded');}Object.assign(state,values);});
  return {state,get,set,storage:{get,set} as unknown as Pick<chrome.storage.StorageArea,'get'|'set'>,failOnce:()=>{failNext=true;}};
