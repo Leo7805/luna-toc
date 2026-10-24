@@ -39,6 +39,7 @@
 - `src/platforms/chatgpt/virtualSearchAdapter.ts` 从当前已挂载的 DOM 读取消息标识，拒绝含歧义的文本匹配。
 - `src/navigation/jump/viewportWalker.ts` 沿 ChatGPT 虚拟滚动容器寻找未挂载的目标消息，支持取消正在进行的查找。
 - `src/navigation/jump/headingExtractor.ts` 选取实际出现的前三种标题级别（以 HTML 标题序号从浅到深排序），跳过不存在的级别并压缩为三级展示；`src/navigation/jump/outline.ts` 与 `outlineNavigation.ts` 渲染与定位已挂载回答的标题，避免使用已脱离 DOM 的缓存元素。点击目录项时仍执行精确跳转，并切换该项回答标题的展开状态：首次展开、再次点击收起、再点击重新展开；对于虚拟化回答，重复点击可取消尚未完成的展开请求。
+- `src/navigation/navigatorController.ts` 在顶部/底部边缘跳转前调用 `cancelOutlineNavigation()`，统一处理目录标题跳转的取消；旧标题的延迟重试和下一帧位置校正不得覆盖用户后发起的边缘跳转。
 
 页面结构或接口发生变化时，先更新 ChatGPT 平台适配层，再验证导航行为。
 

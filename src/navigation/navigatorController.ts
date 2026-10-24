@@ -42,6 +42,7 @@ import {
   resetOutline,
   scheduleBuild,
 } from './jump/outline';
+import { cancelOutlineNavigation } from './jump/outlineNavigation';
 import { setSidebarStatus } from './ui/sidebarStatus';
 import { previewTooltip } from '@/features/tooltip';
 import {
@@ -315,6 +316,8 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToEdge(edge: 'top' | 'bottom'): void {
+    // A new edge target supersedes any delayed heading retry or frame correction.
+    cancelOutlineNavigation();
     jumpToPageEdge(edge, 'auto');
   }
 
@@ -337,6 +340,8 @@ export const navigatorController = (() => {
    * @param {'top' | 'bottom'} edge
    */
   function jumpToAbsoluteEdge(edge: 'top' | 'bottom'): void {
+    // Keep double-click edge navigation under the same scroll-intent arbitration.
+    cancelOutlineNavigation();
     jumpToPageEdge(edge, 'auto');
   }
 

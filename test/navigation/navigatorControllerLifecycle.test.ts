@@ -6,6 +6,7 @@ import { navigatorController } from '@/navigation/navigatorController';
 import { getActivePlatform } from '@/platforms';
 import { isLoading, setLoading } from '@/navigation/loading/promptLoadingState';
 import * as promptNav from '@/navigation/jump/promptNavigation';
+import * as outlineNavigation from '@/navigation/jump/outlineNavigation';
 
 describe('navigatorController lifecycle and coordination', () => {
   beforeEach(() => {
@@ -45,6 +46,36 @@ describe('navigatorController lifecycle and coordination', () => {
     expect(typeof navigatorController.resetView).toBe('function');
     expect(typeof navigatorController.setJumpProgress).toBe('function');
     expect(typeof navigatorController.setSearchQuery).toBe('function');
+  });
+
+  it('cancels pending outline positioning before edge navigation', () => {
+    const cancelOutlineNavigation = vi.spyOn(
+      outlineNavigation,
+      'cancelOutlineNavigation'
+    );
+    const jumpToAbsoluteEdge = vi.spyOn(
+      promptNav,
+      'jumpToAbsoluteEdge'
+    ).mockImplementation(() => {});
+
+    const expectCancellationBeforeJump = () => {
+      expect(cancelOutlineNavigation).toHaveBeenCalledOnce();
+      expect(jumpToAbsoluteEdge).toHaveBeenCalledOnce();
+      expect(cancelOutlineNavigation.mock.invocationCallOrder[0]).toBeLessThan(
+        jumpToAbsoluteEdge.mock.invocationCallOrder[0]
+      );
+    };
+
+    navigatorController.jumpToEdge('bottom');
+    expect(jumpToAbsoluteEdge).toHaveBeenCalledWith('bottom', 'auto');
+    expectCancellationBeforeJump();
+
+    cancelOutlineNavigation.mockClear();
+    jumpToAbsoluteEdge.mockClear();
+
+    navigatorController.jumpToAbsoluteEdge('top');
+    expect(jumpToAbsoluteEdge).toHaveBeenCalledWith('top', 'auto');
+    expectCancellationBeforeJump();
   });
 
   it('uses the platform route key for project conversations', () => {
