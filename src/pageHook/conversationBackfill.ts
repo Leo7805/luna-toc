@@ -18,8 +18,13 @@ import type { ConversationPayload } from './fetchHelpers';
 // server does not cap `num_turns` at least up to 100, and the payload is
 // bounded by message count (user + assistant), not prompt count.
 const BACKFILL_NUM_TURNS = 100;
+export const BACKFILL_PAGE_TIMEOUT_MS = 15_000;
 
-const backfillingConversationIds = new Set<string>();
+interface BackfillJob {
+  controller: AbortController;
+  cancelledByNavigation: boolean;
+}
+const jobs = new Map<string, BackfillJob>();
 let originalFetch: typeof fetch = window.fetch.bind(window);
 let installedPlatform: Platform | null = null;
 
@@ -54,16 +59,14 @@ export function startBackfillIfNeeded(
   const pageInfo = (data as ConversationPayload | undefined)?.page_info;
 
   if (!pageInfo?.has_previous_page || !pageInfo?.start_cursor) return false;
-  if (!routeKey || backfillingConversationIds.has(routeKey)) return false;
+  if (!routeKey || jobs.has(routeKey)) return false;
 
-  backfillingConversationIds.add(routeKey);
-  backfillPreviousPages(
-    routeKey,
-    pageInfo.start_cursor,
-    authHeaders,
-    requestStartedAt
+  const job: BackfillJob = { controller: new AbortController(), cancelledByNavigation: false };
+  jobs.set(routeKey, job);
+  void backfillPreviousPages(
+    routeKey, pageInfo.start_cursor, authHeaders, job, requestStartedAt
   ).finally(() => {
-    backfillingConversationIds.delete(routeKey);
+    if (jobs.get(routeKey) === job) jobs.delete(routeKey);
   });
   return true;
 }
@@ -77,34 +80,35 @@ async function backfillPreviousPages(
   conversationId: string,
   startCursor: string,
   authHeaders: Record<string, string> | null,
+  job: BackfillJob,
   requestStartedAt?: number
 ): Promise<void> {
   const platform = installedPlatform ?? getActivePlatform();
   let cursor = startCursor;
   let isComplete = false;
+  const seenCursors = new Set<string>();
 
   try {
     for (let page = 0; page < platform.config.backfillMaxPages; page += 1) {
-      if (!cursor) return;
+      if (!cursor || job.controller.signal.aborted || seenCursors.has(cursor)) return;
+      seenCursors.add(cursor);
 
       let data: ConversationPayload;
 
       try {
-        const response = await originalFetch(
+        // Timeout covers both the network response and body parsing. Racing
+        // against the abort event also frees the job if a host fetch ignores
+        // AbortSignal and never settles.
+        data = await fetchBackfillPage(
           platform.pageHook.buildBackfillUrl(conversationId, cursor),
-          {
-            method: 'GET',
-            credentials: 'include',
-            headers: authHeaders ?? undefined,
-          }
+          authHeaders, job.controller
         );
-
-        if (!response.ok) return;
-        data = (await response.json()) as ConversationPayload;
+        if (job.controller.signal.aborted) return;
       } catch {
         return;
       }
 
+      if (job.controller.signal.aborted) return;
       postConversationPayload(data, conversationId, platform, requestStartedAt);
 
       const pageInfo = data?.page_info;
@@ -123,7 +127,53 @@ async function backfillPreviousPages(
     // or hitting `BACKFILL_MAX_PAGES` on a conversation longer than the
     // cap), always tell the navigator this route is done streaming pages.
     // The controller only flips out of `loading` once it sees this signal.
-    postConversationEnded(conversationId, platform, isComplete);
+    if (!job.cancelledByNavigation) postConversationEnded(conversationId, platform, isComplete);
+  }
+}
+
+/** Cancels jobs for routes no longer active after SPA navigation. */
+export function cancelBackfillsExcept(activeRouteKey: string): void {
+  for (const [routeKey, job] of jobs) {
+    if (routeKey === activeRouteKey) continue;
+    job.cancelledByNavigation = true;
+    jobs.delete(routeKey);
+    job.controller.abort();
+  }
+}
+
+/** Per-page timeout releases hung fetches and hung JSON parsing alike. */
+async function fetchBackfillPage(
+  url: string,
+  authHeaders: Record<string, string> | null,
+  controller: AbortController
+): Promise<ConversationPayload> {
+  const signal = controller.signal;
+  if (signal.aborted) throw new Error('Backfill cancelled');
+  let abortListener: (() => void) | undefined;
+  const interrupted = new Promise<never>((_, reject) => {
+    abortListener = () => reject(new Error('Backfill cancelled or timed out'));
+    signal.addEventListener('abort', abortListener, { once: true });
+  });
+  const timeoutId = window.setTimeout(() => controller.abort(), BACKFILL_PAGE_TIMEOUT_MS);
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await originalFetch(url, {
+          method: 'GET',
+          credentials: 'include',
+          headers: authHeaders ?? undefined,
+          signal,
+        });
+        if (!response.ok) throw new Error('Backfill HTTP error');
+        const data = (await response.json()) as ConversationPayload;
+        if (signal.aborted) throw new Error('Backfill cancelled');
+        return data;
+      })(),
+      interrupted,
+    ]);
+  } finally {
+    window.clearTimeout(timeoutId);
+    if (abortListener) signal.removeEventListener('abort', abortListener);
   }
 }
 
@@ -133,7 +183,7 @@ async function backfillPreviousPages(
  * signal while backfill's `finally` will post one.
  */
 export function isBackfilling(routeKey: string): boolean {
-  return backfillingConversationIds.has(routeKey);
+  return jobs.has(routeKey);
 }
 
 /**
