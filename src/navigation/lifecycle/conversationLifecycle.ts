@@ -3,7 +3,7 @@
  * before removing local conversation aliases. MAIN-world messages are hints only.
  */
 import { CHATGPT_MESSAGE_TYPES } from '@/platforms/chatgpt/messages';
-import { TOC_CONVERSATION_DELETED, isPermanentConversationId } from './protocol';
+import { TOC_TRUSTED_CONVERSATION_DELETED, isPermanentConversationId } from './protocol';
 import { getActiveConversationOwner, setActiveConversationOwner } from './conversationOwner';
 import { SETTINGS_COMMIT_TYPE } from '@/features/storage/settingsWriteCoordinator';
 import {
@@ -68,71 +68,42 @@ export async function refreshTrustedConversationOwner(
 }
 
 /**
- * Confirms identity before and after checking both known conversation endpoint
- * forms. A page-posted deletion hint alone can never remove local data.
+ * Handles only a deletion notice sent through the extension runtime by the
+ * background webRequest observer. Page-originated postMessage is not trusted.
  */
-export async function verifyConfirmedConversationDeletion(
-  routeKey: string,
-  expectedOwnerId: string,
-  trustedFetch: typeof fetch = globalThis.fetch
-): Promise<boolean> {
-  if (!isPermanentConversationId(routeKey) ||
-      !isValidAccountOwnerId(expectedOwnerId) ||
-      getActiveConversationOwner() !== expectedOwnerId ||
-      typeof trustedFetch !== 'function') return false;
-
-  const ownerBefore = await readTrustedConversationOwner(trustedFetch);
-  if (ownerBefore !== expectedOwnerId || getActiveConversationOwner() !== expectedOwnerId) return false;
-
-  const savedOwner = await tocAliasStore.owner(routeKey).catch(() => null);
-  if (savedOwner && savedOwner !== expectedOwnerId) return false;
-
-  const endpoints = [
-    `/backend-api/conversation/${encodeURIComponent(routeKey)}`,
-    `/backend-api/conversations/${encodeURIComponent(routeKey)}`,
-  ];
-  const checks = await Promise.all(endpoints.map(async (path) => {
-    try {
-      return await trustedFetch(new URL(path, location.origin).toString(), {
-        method: 'GET', credentials: 'include', cache: 'no-store',
-      });
-    } catch {
-      return null;
-    }
-  }));
-  // If either endpoint still returns the conversation, preserve the local alias.
-  if (checks.some((response) => !response || response.ok ||
-      (response.status !== 404 && response.status !== 410))) return false;
-
-  const ownerAfter = await readTrustedConversationOwner(trustedFetch);
-  return ownerAfter === expectedOwnerId && getActiveConversationOwner() === expectedOwnerId;
-}
-
-/** Deletes local aliases and clears navigation only after independent server corroboration. */
-export async function handleConversationDeletionHint(
+export async function handleTrustedConversationDeletion(
   routeKey: string,
   trustedFetch: typeof fetch = globalThis.fetch
 ): Promise<boolean> {
   const ownerId = getActiveConversationOwner();
-  if (!ownerId || !isPermanentConversationId(routeKey)) return false;
-  const key = ownerId + '\u0000' + routeKey;
-  if (deletionChecksInFlight.has(key)) return false;
-  deletionChecksInFlight.add(key);
+  if (!ownerId || !isPermanentConversationId(routeKey) ||
+      typeof trustedFetch !== 'function') return false;
+
+  const verifiedOwner = await readTrustedConversationOwner(trustedFetch);
+  if (verifiedOwner !== ownerId || getActiveConversationOwner() !== ownerId) return false;
+
+  let savedOwner: string | null;
   try {
-    if (!await verifyConfirmedConversationDeletion(routeKey, ownerId, trustedFetch)) return false;
-    if (getActiveConversationOwner() !== ownerId) return false;
-    try {
-      await tocAliasStore.removeConversation(routeKey);
-    } catch (error) {
-      // The server deletion is confirmed, so clear stale navigation state even if local storage is unavailable.
-      console.warn('[LunaTOC] Confirmed conversation deletion; local alias cleanup failed', error);
-    }
-    if (getActiveConversationOwner() !== ownerId) return false;
-    navigatorController.handleConversationDeleted(routeKey);
-    return true;
-  } finally {
-    deletionChecksInFlight.delete(key);
+    savedOwner = await tocAliasStore.owner(routeKey);
+  } catch {
+    // A storage read failure is not proof that the route has no saved owner.
+    return false;
   }
+  if (savedOwner && savedOwner !== ownerId) return false;
+  if (getActiveConversationOwner() !== ownerId) return false;
+
+  let localCleanupSucceeded = false;
+  try {
+    await tocAliasStore.removeConversation(routeKey);
+    localCleanupSucceeded = true;
+  } catch (error) {
+    // The remote mutation was confirmed by Chrome. Clear stale navigation even
+    // if local storage is temporarily unavailable, but report cleanup failure.
+    console.warn('[LunaTOC] Confirmed conversation deletion; local alias cleanup failed', error);
+  }
+  if (getActiveConversationOwner() !== ownerId) return false;
+  navigatorController.handleConversationDeleted(routeKey);
+  return localCleanupSucceeded;
 }
 
 /** Recheck after navigation/focus; page-originated identity values are never accepted. */
@@ -142,14 +113,28 @@ export function initializeConversationLifecycle(): void {
 
   if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage?.addListener) {
     chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-      if (!message || typeof message !== 'object' ||
-          (message as { type?: unknown }).type !== GET_ACTIVE_ACCOUNT_OWNER_MESSAGE) return;
-      if (sender.id !== chrome.runtime.id) {
-        sendResponse({ ownerId: null });
+      if (!message || typeof message !== 'object') return;
+      const payload = message as { type?: unknown; routeKey?: unknown };
+      if (payload.type === GET_ACTIVE_ACCOUNT_OWNER_MESSAGE) {
+        if (sender.id !== chrome.runtime.id) {
+          sendResponse({ ownerId: null });
+          return false;
+        }
+        sendResponse({ ownerId: getActiveConversationOwner() });
         return false;
       }
-      sendResponse({ ownerId: getActiveConversationOwner() });
-      return false;
+      if (payload.type !== TOC_TRUSTED_CONVERSATION_DELETED) return;
+      // Only an extension runtime message can carry this authority; a page can
+      // dispatch arbitrary window.postMessage events but cannot invoke this channel.
+      if (sender.id !== chrome.runtime.id || !isPermanentConversationId(payload.routeKey)) {
+        sendResponse({ ok: false });
+        return false;
+      }
+      void handleTrustedConversationDeletion(payload.routeKey).then(
+        (ok) => sendResponse({ ok }),
+        () => sendResponse({ ok: false })
+      );
+      return true;
     });
   }
 
@@ -178,15 +163,9 @@ export function initializeConversationLifecycle(): void {
   window.addEventListener('popstate', () => check());
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.source !== window || event.origin !== location.origin) return;
-    const data = event.data as { type?: unknown; routeKey?: unknown } | null;
-    if (data?.type === CHATGPT_MESSAGE_TYPES.routeChanged) {
-      check();
-      return;
-    }
-    if (data?.type === TOC_CONVERSATION_DELETED && isPermanentConversationId(data.routeKey)) {
-      void handleConversationDeletionHint(data.routeKey).catch((error) => {
-        console.warn('[LunaTOC] Conversation deletion verification failed', error);
-      });
-    }
+    const data = event.data as { type?: unknown } | null;
+    if (data?.type === CHATGPT_MESSAGE_TYPES.routeChanged) check();
+    // Deliberately ignore all page postMessage deletion claims. The background
+    // observer uses chrome.runtime to send verified successful mutation events.
   });
 }
