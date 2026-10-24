@@ -10,8 +10,14 @@ export interface SidebarPreferences {
 }
 
 import { SETTINGS_COMMIT_TYPE, type SettingsCommitResponse } from '@/features/storage/settingsWriteCoordinator';
+import {
+  ACCOUNT_SETTINGS_KEY, readStoredAccountSettings, resolveAccountSettingsOwner,
+  isValidAccountOwnerId,
+} from '@/features/storage/accountSettings';
+import { getActiveConversationOwner, subscribeActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 
-export const SIDEBAR_SETTINGS_KEY = 'chatToc:sidebarPreferences';
+/** Compatibility export: account preferences are stored together under one key. */
+export const SIDEBAR_SETTINGS_KEY = ACCOUNT_SETTINGS_KEY;
 export const SIDEBAR_COLORS: ReadonlyArray<{
   id: SidebarColor;
   label: string;
@@ -48,20 +54,29 @@ export function normalizeSidebarPreferences(value: unknown): SidebarPreferences 
   };
 }
 
-/** Reads current options, defaulting to the historical overlay behavior. */
-export async function readSidebarPreferences(): Promise<SidebarPreferences> {
-  const values = await chrome.storage.local.get(SIDEBAR_SETTINGS_KEY);
-  return normalizeSidebarPreferences(values[SIDEBAR_SETTINGS_KEY]);
+/** Reads only the requested or independently verified active account's preferences. */
+export async function readSidebarPreferences(ownerId?: string): Promise<SidebarPreferences> {
+  const owner = ownerId ?? await resolveAccountSettingsOwner();
+  if (!owner || !isValidAccountOwnerId(owner)) return { ...DEFAULT_SIDEBAR_PREFERENCES };
+  const record = await readStoredAccountSettings(owner);
+  const raw = record && typeof record === 'object' && !Array.isArray(record)
+    ? (record as Record<string, unknown>).sidebar : undefined;
+  return normalizeSidebarPreferences(raw);
 }
 
-/** Persists only the changed preferences while preserving other settings. */
+/** Persists a patch only to its account; the background writer validates ownership and values. */
 export async function writeSidebarPreferences(
-  patch: Partial<SidebarPreferences>
+  patch: Partial<SidebarPreferences>,
+  ownerId?: string
 ): Promise<void> {
   if (!chrome.runtime?.id) throw new Error('Invalid extension context: sidebar setting not saved');
+  const owner = ownerId ?? await resolveAccountSettingsOwner();
+  if (!owner || !isValidAccountOwnerId(owner)) {
+    throw new Error('无法确认当前 ChatGPT 账号，侧边栏设置未保存。');
+  }
   await new Promise<void>((resolve, reject) => {
     chrome.runtime.sendMessage({
-      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch,
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', ownerId: owner, patch,
     }, (response: SettingsCommitResponse | undefined) => {
       if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message ?? 'Settings writer unavailable'));
       else if (response?.ok) resolve();
@@ -71,19 +86,51 @@ export async function writeSidebarPreferences(
   });
 }
 
-/** Reacts to changes made in the options page or another browser context. */
+/** Reacts to one account's changes and follows verified account switches in page contexts. */
 export function subscribeSidebarPreferences(
-  listener: (settings: SidebarPreferences) => void
+  listener: (settings: SidebarPreferences) => void,
+  ownerId?: string
 ): () => void {
+  let resolvedOwner = ownerId ?? getActiveConversationOwner();
+  let active = true;
+  const publish = (mapValue: unknown, requestedOwner: string | null | undefined): void => {
+    if (!active) return;
+    const owner = ownerId ?? requestedOwner ?? resolvedOwner;
+    if (!owner || !mapValue || typeof mapValue !== 'object' || Array.isArray(mapValue)) return;
+    const map = mapValue as Record<string, unknown>;
+    const record = Object.hasOwn(map, owner) ? map[owner] : null;
+    const raw = record && typeof record === 'object' && !Array.isArray(record)
+      ? (record as Record<string, unknown>).sidebar : undefined;
+    listener(normalizeSidebarPreferences(raw));
+  };
   const onChange = (
     changes: Record<string, chrome.storage.StorageChange>,
     areaName: string
   ): void => {
-    if (areaName !== 'local' || !changes[SIDEBAR_SETTINGS_KEY]) return;
-    listener(normalizeSidebarPreferences(changes[SIDEBAR_SETTINGS_KEY].newValue));
+    if (areaName === 'local' && changes[ACCOUNT_SETTINGS_KEY]) {
+      publish(changes[ACCOUNT_SETTINGS_KEY].newValue, getActiveConversationOwner());
+    }
   };
   chrome.storage.onChanged.addListener(onChange);
-  return () => chrome.storage.onChanged.removeListener(onChange);
+  const unsubscribeOwner = ownerId ? () => {} : subscribeActiveConversationOwner((nextOwner) => {
+    resolvedOwner = nextOwner;
+    if (nextOwner) void readSidebarPreferences(nextOwner).then((settings) => {
+      if (active) listener(settings);
+    }).catch(() => undefined);
+  });
+  if (!resolvedOwner && !ownerId) {
+    void resolveAccountSettingsOwner().then((owner) => {
+      resolvedOwner = owner;
+      if (owner) void readSidebarPreferences(owner).then((settings) => {
+        if (active) listener(settings);
+      }).catch(() => undefined);
+    });
+  }
+  return () => {
+    active = false;
+    chrome.storage.onChanged.removeListener(onChange);
+    unsubscribeOwner();
+  };
 }
 
 function hexRgb(hex: string): [number, number, number] {
