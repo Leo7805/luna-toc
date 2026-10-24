@@ -20,7 +20,8 @@ export type TocAliasCommitRequest =
     label: string | null;
     ownerId: string | null;
   }
-  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'delete-conversation'; routeKey: string };
+  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'delete-conversation'; routeKey: string }
+  | { type: typeof TOC_ALIAS_COMMIT_TYPE; action: 'cleanup-conversation'; routeKey: string; expected: TocAliasRecord };
 
 export type TocAliasCommitResponse =
   | { ok: true; record: TocAliasRecord | null }
@@ -43,6 +44,10 @@ export function isTocAliasCommitRequest(value: unknown): value is TocAliasCommit
   const input = value as Record<string, unknown>;
   if (input.type !== TOC_ALIAS_COMMIT_TYPE || !isPermanentConversationId(input.routeKey)) return false;
   if (input.action === 'delete-conversation') return true;
+  if (input.action === 'cleanup-conversation') {
+    try { return parseTocAliasRecord(input.expected) !== null; }
+    catch { return false; }
+  }
   return input.action === 'update' && isValidTocMessageId(input.messageId) &&
     validLabel(input.expected) && validLabel(input.label) && validOwner(input.ownerId);
 }
@@ -66,6 +71,13 @@ export function parseTocAliasRecord(value: unknown): TocAliasRecord | null {
   return { ownerId: raw.ownerId, aliases: Object.fromEntries(entries) as Record<string, string> };
 }
 
+function sameRecord(a: TocAliasRecord, b: TocAliasRecord): boolean {
+  const keys = Object.keys(a.aliases);
+  return a.ownerId === b.ownerId &&
+    keys.length === Object.keys(b.aliases).length &&
+    keys.every((key) => Object.hasOwn(b.aliases, key) && a.aliases[key] === b.aliases[key]);
+}
+
 /**
  * Each job reads Chrome storage anew, so a restarted worker has no stale cache.
  * The injected queue serializes aliases against backup restore and other owned writes.
@@ -87,9 +99,19 @@ export function createTocAliasWriteCoordinator(
         const deletionKey = TOC_ALIAS_DELETED_PREFIX + request.routeKey;
         try {
           const state = await storage.get([key, deletionKey]);
-          if (request.action === 'delete-conversation') {
-            // The durable fence must precede removal. If removal fails,
-            // stale tabs are still blocked from resurrecting the conversation.
+          if (request.action === 'delete-conversation' ||
+              request.action === 'cleanup-conversation') {
+            if (request.action === 'cleanup-conversation') {
+              // A user selected exactly this preview; do not delete a newer
+              // edit, a restored record, or data now owned by another account.
+              if (Object.hasOwn(state, deletionKey)) return { ok: false, conflict: true };
+              const current = parseTocAliasRecord(state[key]);
+              if (!current || !sameRecord(current, request.expected)) {
+                return { ok: false, conflict: true };
+              }
+            }
+            // Fence before removal so previously open tabs cannot resurrect
+            // the explicitly deleted record. Backup restore clears this fence.
             if (!Object.hasOwn(state, deletionKey)) await storage.set({ [deletionKey]: true });
             await storage.remove(key);
             return { ok: true, deleted: true };
