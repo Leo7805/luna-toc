@@ -56,10 +56,9 @@ export function OptionsApp(): React.JSX.Element {
 
   /** Applies changes locally and publishes them to every ChatGPT tab. */
   const updatePreferences = (patch: Partial<SidebarPreferences>): void => {
-    const next = { ...preferences, ...patch };
-    setPreferences(next);
+    setPreferences((previous) => ({ ...previous, ...patch }));
     setSaveError('');
-    void writeSidebarPreferences(next).catch(() => {
+    void writeSidebarPreferences(patch).catch(() => {
       setSaveError('设置保存失败，请重试。');
       void readSidebarPreferences().then(setPreferences).catch(() => {});
     });
