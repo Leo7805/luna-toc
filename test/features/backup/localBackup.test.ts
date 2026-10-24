@@ -227,7 +227,7 @@ describe('versioned local backup', () => {
     alias.data.aliases['conversation-123'].aliases['message-1'] = 'x'.repeat(241);
     expect(() => parseLocalBackup(JSON.stringify(alias))).toThrow('长度');
     const missing = sample();
-    delete (missing.data as unknown as Record<string, unknown>).theme;
+    delete (missing.data as unknown as Record<string, unknown>).settings;
     expect(() => parseLocalBackup(JSON.stringify(missing))).toThrow('缺少');
   });
 

@@ -115,6 +115,12 @@ describe('sidebar preferences', () => {
   });
 
 
+  it('does not leak a sidebar change into another account', async () => {
+    const before = clone((saved[ACCOUNT_SETTINGS_KEY] as Record<string, unknown>)['account-2']);
+    await writeSidebarPreferences({ backgroundColor: 'pink' }, 'account-1');
+    expect((saved[ACCOUNT_SETTINGS_KEY] as Record<string, unknown>)['account-2']).toEqual(before);
+  });
+
   it('persists successive changes to the same field', async () => {
     await writeSidebarPreferences({ backgroundColor: 'blue' }, 'account-1');
     await writeSidebarPreferences({ backgroundColor: 'green' }, 'account-1');

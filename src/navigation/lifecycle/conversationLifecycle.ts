@@ -153,6 +153,20 @@ export function initializeConversationLifecycle(): void {
     });
   }
 
+  // A replace-mode restore can remove the currently active account from the map.
+  // Re-register it through the same trusted content-script path instead of leaving writes permanently disabled.
+  if (typeof chrome !== 'undefined' && chrome.storage?.onChanged?.addListener) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes['chatToc:accountSettings:v1']) return;
+      const ownerId = getActiveConversationOwner();
+      const map = changes['chatToc:accountSettings:v1'].newValue;
+      if (ownerId && (!map || typeof map !== 'object' || Array.isArray(map) ||
+          !Object.hasOwn(map, ownerId))) {
+        void registerVerifiedAccount(ownerId);
+      }
+    });
+  }
+
   const check = (force = false): void => {
     const now = Date.now();
     if (!force && now - lastCheckAt < MIN_RECHECK_INTERVAL_MS) return;
