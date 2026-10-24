@@ -196,7 +196,7 @@ describe('background TOC alias coordinator', () => {
       routeKey: route, expected: { ownerId: 'account-1', aliases: { msg: 'Old' } },
     };
     expect(await writer.commit(request)).toEqual({ ok: false, conflict: true });
-    expect(await writer.commit({ ...request, expected: { ownerId: 'account-1', aliases: { '__proto__': 'x' } } }))
+    expect(await writer.commit({ ...request, expected: { ownerId: 'account-1', aliases: Object.fromEntries([['__proto__', 'x']]) } }))
       .toEqual({ ok: false, error: 'Invalid TOC alias request' });
     expect((await writer.commit(update('msg', null, 'Old'))).ok).toBe(true);
     expect(await writer.commit(remove())).toEqual({ ok: true, deleted: true });
