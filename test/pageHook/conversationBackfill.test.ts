@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   installConversationBackfill,
   startBackfillIfNeeded,
+  isBackfilling,
+  cancelBackfillsExcept,
+  BACKFILL_PAGE_TIMEOUT_MS,
 } from '@/pageHook/conversationBackfill';
 import { getActivePlatform } from '@/platforms';
 
@@ -22,6 +25,8 @@ describe('conversationBackfill signal exhaustiveness', () => {
 
   afterEach(() => {
     window.removeEventListener('message', messageHandler);
+    cancelBackfillsExcept('');
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -308,4 +313,91 @@ describe('conversationBackfill signal exhaustiveness', () => {
     );
     expect(endedMsg.complete).toBe(false);
   });
+  it('releases a hung network request after timeout and permits a fresh retry', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    const pendingFetch = vi.fn(() => new Promise<Response>(() => {}));
+    installConversationBackfill({ originalFetch: pendingFetch as typeof fetch, platform });
+    vi.useFakeTimers();
+    expect(startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'timeout-network', null
+    )).toBe(true);
+    expect(isBackfilling('timeout-network')).toBe(true);
+    await vi.advanceTimersByTimeAsync(BACKFILL_PAGE_TIMEOUT_MS + 1);
+    expect(isBackfilling('timeout-network')).toBe(false);
+    vi.useRealTimers();
+    await vi.waitFor(() => expect(postedMessages.some((m) =>
+      m.type === platform.pageHook.messages.conversationEnded &&
+      m.routeKey === 'timeout-network' && m.complete === false
+    )).toBe(true));
+
+    expect(startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'timeout-network', null
+    )).toBe(true);
+    cancelBackfillsExcept('');
+    await vi.waitFor(() => expect(isBackfilling('timeout-network')).toBe(false));
+    expect(pendingFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('also times out stalled response.json parsing', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    const response = { ok: true, json: () => new Promise<unknown>(() => {}) };
+    installConversationBackfill({ originalFetch: vi.fn().mockResolvedValue(response) as typeof fetch, platform });
+    vi.useFakeTimers();
+    startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'timeout-json', null
+    );
+    await vi.advanceTimersByTimeAsync(BACKFILL_PAGE_TIMEOUT_MS + 1);
+    expect(isBackfilling('timeout-json')).toBe(false);
+  });
+
+  it('cancels outdated routes and ignores late responses after navigation', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    let finish!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => { finish = resolve; });
+    const mockFetch = vi.fn().mockReturnValue(pending);
+    installConversationBackfill({ originalFetch: mockFetch as typeof fetch, platform });
+    startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'route-old', null
+    );
+    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    cancelBackfillsExcept('route-new');
+    expect(isBackfilling('route-old')).toBe(false);
+    finish({ ok: true, json: async () => ({
+      messages: [{ id: 'stale-message' }],
+      page_info: { has_previous_page: false, start_cursor: null },
+    }) } as Response);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(postedMessages.some((message) =>
+      message.routeKey === 'route-old' &&
+      (message.type === platform.pageHook.messages.conversationData ||
+       message.type === platform.pageHook.messages.conversationEnded)
+    )).toBe(false);
+  });
+
+  it('terminates repeated pagination cursors instead of fetching the same page repeatedly', async () => {
+    const platform = getActivePlatform('chatgpt.com');
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({
+        messages: [{ id: 'older' }],
+        page_info: { has_previous_page: true, start_cursor: 'cursor-1' },
+      }),
+    });
+    installConversationBackfill({ originalFetch: mockFetch as typeof fetch, platform });
+    startBackfillIfNeeded(
+      { page_info: { has_previous_page: true, start_cursor: 'cursor-1' } },
+      'repeat-cursor', null
+    );
+    await vi.waitFor(() => expect(isBackfilling('repeat-cursor')).toBe(false));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(postedMessages.some((m) =>
+      m.type === platform.pageHook.messages.conversationEnded &&
+      m.routeKey === 'repeat-cursor' && m.complete === false
+    )).toBe(true);
+  });
+
 });
