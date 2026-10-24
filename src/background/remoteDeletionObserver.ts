@@ -153,25 +153,38 @@ export function installRemoteDeletionObserver(): void {
       // The tab may have closed between request completion and message delivery.
     }
   });
-  const filter: chrome.webRequest.RequestFilter = {
-    urls: REQUEST_URLS,
-    types: ['xmlhttprequest'],
+  // Keep the browser API's overloaded event callback types at this boundary;
+  // the pure observer consumes only the explicitly declared subset of each event.
+  const api = chrome.webRequest as unknown as {
+    onBeforeRequest: {
+      addListener(
+        listener: (details: DeletionRequestDetails) => void,
+        filter: { urls: string[]; types: string[] },
+        extraInfoSpec?: string[]
+      ): void;
+    };
+    onCompleted: {
+      addListener(
+        listener: (details: DeletionCompletionDetails) => void,
+        filter: { urls: string[]; types: string[] }
+      ): void;
+    };
+    onErrorOccurred: {
+      addListener(
+        listener: (details: DeletionFailureDetails) => void,
+        filter: { urls: string[]; types: string[] }
+      ): void;
+    };
+    onBeforeRedirect: {
+      addListener(
+        listener: (details: DeletionFailureDetails) => void,
+        filter: { urls: string[]; types: string[] }
+      ): void;
+    };
   };
-  chrome.webRequest.onBeforeRequest.addListener(
-    observer.onBeforeRequest as unknown as (details: chrome.webRequest.WebRequestBodyDetails) => void,
-    filter,
-    ['requestBody']
-  );
-  chrome.webRequest.onCompleted.addListener(
-    observer.onCompleted as unknown as (details: chrome.webRequest.WebResponseCacheDetails) => void,
-    filter
-  );
-  chrome.webRequest.onErrorOccurred.addListener(
-    observer.onFailed as unknown as (details: chrome.webRequest.WebRequestDetails) => void,
-    filter
-  );
-  chrome.webRequest.onBeforeRedirect.addListener(
-    observer.onFailed as unknown as (details: chrome.webRequest.WebRedirectionResponseDetails) => void,
-    filter
-  );
+  const filter = { urls: REQUEST_URLS, types: ['xmlhttprequest'] };
+  api.onBeforeRequest.addListener(observer.onBeforeRequest, filter, ['requestBody']);
+  api.onCompleted.addListener(observer.onCompleted, filter);
+  api.onErrorOccurred.addListener(observer.onFailed, filter);
+  api.onBeforeRedirect.addListener(observer.onFailed, filter);
 }
