@@ -1,5 +1,6 @@
 /** Per-tab TOC alias cache; every mutation is committed by the MV3 worker. */
 import { isPermanentConversationId } from '@/navigation/lifecycle/protocol';
+import { getActiveConversationOwner, subscribeActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 import {
   TOC_ALIAS_PREFIX, TOC_ALIAS_DELETED_PREFIX, TOC_ALIAS_COMMIT_TYPE,
   parseTocAliasRecord,
@@ -76,7 +77,12 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
   }
 
   function get(routeKey: string, messageId: string): string | null {
-    return deleted.has(routeKey) ? null : loaded.get(routeKey)?.aliases[messageId] ?? null;
+    if (deleted.has(routeKey)) return null;
+    const record = loaded.get(routeKey);
+    const trustedOwner = getActiveConversationOwner();
+    // Legacy unowned records remain stored for backup, but are not exposed across accounts.
+    if (!trustedOwner || !record?.ownerId || record.ownerId !== trustedOwner) return null;
+    return record.aliases[messageId] ?? null;
   }
 
   /** expectedAlias is captured when the inline editor opens, not at save time. */
@@ -90,10 +96,19 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
     const label = text?.trim() || null;
     if (label && label.length > 240) return Promise.reject(new Error('Title exceeds 240 characters'));
     if (deleted.has(routeKey)) return Promise.reject(new Error('Conversation has been deleted'));
+    if (!ownerId || ownerId !== getActiveConversationOwner()) {
+      return Promise.reject(new Error('ChatGPT account not verified; title not saved'));
+    }
     const job = writeQueue.catch(() => undefined).then(async () => {
       if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
+      if (ownerId !== getActiveConversationOwner()) throw new Error('ChatGPT account changed; title not saved');
       await load(routeKey);
       if (deleted.has(routeKey)) throw new Error('Conversation has been deleted');
+      if (ownerId !== getActiveConversationOwner()) throw new Error('ChatGPT account changed; title not saved');
+      const existingOwner = loaded.get(routeKey)?.ownerId;
+      if (existingOwner !== null && existingOwner !== undefined && existingOwner !== ownerId) {
+        throw new Error('Conversation alias belongs to another account');
+      }
       const expected = expectedAlias === undefined ? get(routeKey, messageId) : expectedAlias;
       const beforeEvents = changesSeen.get(routeKey) ?? 0;
       const response = await sendCommit({
@@ -197,6 +212,11 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
       }
     });
   }
+
+  // Auth changes must immediately invalidate what the sidebar is allowed to show.
+  subscribeActiveConversationOwner(() => {
+    for (const routeKey of loaded.keys()) notify(routeKey);
+  });
 
   return {
     load, get, update, removeConversation, references, owner,
