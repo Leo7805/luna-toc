@@ -24,19 +24,19 @@ Date: 2026-10-24
 
 ## Automatic evidence
 - Added regressions for same-field stale writes (including backup restore), multi-field all-or-nothing rejection, legacy full-state rejection, settings UI conflicts and rapid clicks, invalid changes, hung fetch/JSON, route change, cursor loop, stale alias preview and deletion-fence failures.
-- Earlier Stage 12 CI run on code commit `3fb34601d9bb706179d05e52422eb5f0f0be6c85`: https://github.com/PyRookie1/luna-toc-sc/actions/runs/40071014235 — **all jobs passed before the B030 follow-up**. Current-head CI after the follow-up is required; earlier success cannot certify new changes.
-- Before B030 follow-up: **82/82 files, 552/552 Vitest tests passed**; typecheck, extension build, ZIP integrity, license audit, high/critical dependency advisory gate and Chromium MV3 E2E **passed**. The follow-up introduces new tests; exact latest counts must be read from final CI.
+- Stage 12 completed-code CI on commit `b755fc235f3d020a434cb27a27242a2cb9070e15`: https://github.com/PyRookie1/luna-toc-sc/actions/runs/40072275696 — **both required jobs passed**. A subsequent documentation-only readiness update requires a fresh latest-head CI check before merge.
+- Final code: **84/84 Vitest files, 562/562 tests passed** (including both TSX options-page UI suites); TypeScript checks, extension build, ZIP integrity, license inventory, dependency advisory gate and **10/10 Chromium MV3** simulated-page tests passed. Test discovery explicitly includes `.test.tsx` files.
 - Synthetic Chromium benchmarks used mock ChatGPT pages, not live authenticated sessions.
 - Earlier initial Stage 12 run failed one legacy repeated-cursor test; corrected the fixture to use distinct cursors for the page-cap case. The latest run above passed.
 - Local checkout unavailable in this environment (github.com DNS lookup failed); no claim of local test execution.
 - Live authenticated ChatGPT validation: **not performed**.
 
 ## Merge gate
-1. Requirements and code: implemented on feature branch; review pending.
-2. Regression tests: authored; execution pending.
-3. Full test suite and no P0/P1: pending latest CI + code review.
-4. Typecheck, build and package: pending CI.
-5. Security/data compatibility/rollback: review pending; backup restore documented.
-6. Commit, diff and rollback: individual commits recorded; revert Stage 12 branch commits if needed, but do not delete local storage or tombstones without restoring a verified backup.
+1. Requirements and code: checklist 04–06 (B030–B032) implemented and source reviewed.
+2. Regression tests: original conflict reproduced by stale-baseline cases; same-field and multi-field write rejection, backfill failure/cancel, alias preview conflict, options UI failure/recovery tests executed and passed.
+3. Full test suite and blocking defects: 562/562 Vitest tests passed on final code; no known open P0 or blocking P1 from Stage 12 review. No claim of zero defects.
+4. Typecheck, build and package: passed on final code commit (CI linked above); verify current PR head again before merge.
+5. Security, data compatibility and rollback: existing storage schema and extension permissions unchanged; user-confirmed alias cleanup is the sole destructive new path, guarded by backend preview comparison and tombstone. Backup restore is required for reversing a confirmed cleanup; reverting extension code alone cannot restore deleted data.
+6. Commit, diff and rollback: 18 changed files plus this readiness record, baseline `bb36da1`; no merge conflict in latest reviewed PR. Restore backed-up data for any destructive cleanup already performed. Historic Release and tags must remain intact.
 
-**Status: 待验收 — 不可合并 until final-head CI completes.** The previous source review found a remaining B030 concurrency hole now addressed by the follow-up; latest tests and security/rollback review must confirm. Live authenticated ChatGPT remains unverified.
+**Stage verdict: 允许合并 after documentation-only latest-head CI succeeds and the PR is marked Ready for Review.** Six technical/acceptance conditions are met on tested code; live authenticated ChatGPT remains **unverified** and is explicitly deferred to the next browser-validation stage, not counted as tested. User authorization is still required for merging; a PR merge does not authorize a release.
