@@ -1,6 +1,7 @@
 /** Renders LunaTOC preferences using ChatGPT-like settings groups. */
 import { useEffect, useState } from 'react';
 import { LocalBackupSettings } from './LocalBackupSettings';
+import { LocalAliasCleanupSettings } from './LocalAliasCleanupSettings';
 import {
   loadPlatformRuntimeConfig,
   savePlatformRuntimeConfig,
@@ -160,6 +161,7 @@ export function OptionsApp(): React.JSX.Element {
         </div>
       </section>
       <LocalBackupSettings />
+      <LocalAliasCleanupSettings />
       {saveError && <p className="settings-error" role="alert">{saveError}</p>}
       <p className="settings-footnote">设置保存在浏览器本地，不会上传到维护者服务器。</p>
     </main>
