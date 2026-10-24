@@ -7,7 +7,7 @@ import { TOC_CONVERSATION_DELETED, isPermanentConversationId } from './protocol'
 import { getActiveConversationOwner, setActiveConversationOwner } from './conversationOwner';
 import { SETTINGS_COMMIT_TYPE } from '@/features/storage/settingsWriteCoordinator';
 import {
-  GET_ACTIVE_ACCOUNT_OWNER_MESSAGE, isValidAccountOwnerId,
+  ACCOUNT_SETTINGS_KEY, GET_ACTIVE_ACCOUNT_OWNER_MESSAGE, isValidAccountOwnerId,
 } from '@/features/storage/accountSettings';
 import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import { navigatorController } from '@/navigation/navigatorController';
@@ -157,9 +157,9 @@ export function initializeConversationLifecycle(): void {
   // Re-register it through the same trusted content-script path instead of leaving writes permanently disabled.
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged?.addListener) {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'local' || !changes['chatToc:accountSettings:v1']) return;
+      if (areaName !== 'local' || !changes[ACCOUNT_SETTINGS_KEY]) return;
       const ownerId = getActiveConversationOwner();
-      const map = changes['chatToc:accountSettings:v1'].newValue;
+      const map = changes[ACCOUNT_SETTINGS_KEY].newValue;
       if (ownerId && (!map || typeof map !== 'object' || Array.isArray(map) ||
           !Object.hasOwn(map, ownerId))) {
         void registerVerifiedAccount(ownerId);

@@ -272,8 +272,12 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         await worker.evaluate(async()=>chrome.storage.local.set({
           'lumaToc:myPromptsV1':[{id:'e2e-prompt',ownerId:'fixture-account-a',title:'恢复测试',content:'private test prompt',createdAt:1,updatedAt:2}],
           'lunaToc:promptUsageV1':{'e2e-prompt':{usageCount:2,lastUsedAt:3}},
-          'chatToc:themeSettings':{followChatGPT:false,manualTheme:'light'},
-          'chatToc:sidebarPreferences':{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
+          'chatToc:accountSettings:v1':{
+            'fixture-account-a':{
+              theme:{followChatGPT:false,manualTheme:'light'},
+              sidebar:{layoutMode:'overlay',backgroundColor:'default',revealTint:false}
+            }
+          }
         }));
         const downloadPromise=settings.waitForEvent('download');
         await settings.getByRole('button',{name:'导出本地数据'}).click();
@@ -296,12 +300,12 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         }
         const statusText=await status.innerText();
         assert.match(statusText,/恢复成功/, 'backup restore reported an error: '+statusText);
-        const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:themeSettings','chatToc:sidebarPreferences']));
+        const restored=await worker.evaluate(async()=>chrome.storage.local.get(['lumaToc:myPromptsV1','lunaToc:promptUsageV1','chatToc:accountSettings:v1']));
         assert.deepEqual(restored['lumaToc:myPromptsV1'].map(prompt=>prompt.id).sort(),['e2e-prompt','temporary']);
         assert.equal(restored['lunaToc:promptUsageV1'].temporary.usageCount,1);
         assert.equal(restored['lunaToc:promptUsageV1']['e2e-prompt'].usageCount,2);
-        assert.deepEqual(restored['chatToc:themeSettings'],backup.data.theme);
-        assert.deepEqual(restored['chatToc:sidebarPreferences'],backup.data.sidebar);
+        assert.deepEqual(restored['chatToc:accountSettings:v1']['fixture-account-a'].theme,backup.data.settings['fixture-account-a'].theme);
+        assert.deepEqual(restored['chatToc:accountSettings:v1']['fixture-account-a'].sidebar,backup.data.settings['fixture-account-a'].sidebar);
       }finally{await settings.close();}
     });
   }catch(error){
