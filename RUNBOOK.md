@@ -32,6 +32,10 @@ The browser test installs a pinned Playwright runner in a temporary directory an
 - If restore reports quota failure, no restore writes were started. Keep the JSON file, remove unnecessary local data or reduce the backup, then retry.
 - If restore reports rollback failure, stop further restore attempts and retain the backup. Do not delete the only copy of user data.
 
+## Page-originated deletion notices (B026)
+
+The MAIN-world page event `TOC_CONVERSATION_DELETED` is **not an authorized local-storage deletion**. It is ignored by the ISOLATED-world lifecycle listener to prevent forged same-origin events from erasing aliases. Actual ChatGPT deletion does not automatically remove stored aliases; they may remain in JSON backups. Use an explicit trusted cleanup design for any future removal. Regression coverage: `test/navigation/lifecycle/conversationLifecycle.test.ts` and the B026 Chromium browser subtest.
+
 ## Pull request and merge
 
 - Each stage starts from the latest verified `main` commit on its own short-lived branch.

@@ -118,10 +118,12 @@ Stage 10 introduces one rejection-safe queue in the Manifest V3 background worke
 
 CI uses supported GitHub Actions major versions and checks that the deprecated v4 action family is not reintroduced. CI remains read-only and does not publish. Repository branch protection is not active as of 2026-10-24; the available GitHub connector has no branch-protection write operation, so an administrator must configure the rule through GitHub settings. Until verified active, this remains a merge-governance blocker rather than a completed change.
 
-## D29 — 页面到扩展的删除通知可信边界（待决定）
+## D29 — 不可信网页删除通知不得清除扩展本地数据（已决定）
 
-PR #16 合并前复核发现：MAIN world 可在确认同源会话删除响应后发送 `TOC_CONVERSATION_DELETED`，但 ISOLATED world 收到的 `window.postMessage` 没有可信的调用者身份。检查 `event.source === window`、同源 origin 和合法 routeKey 只能过滤跨窗口或格式异常，不能阻止同一网页上下文中运行的其他脚本伪造该通知。接收方目前会持久移除目录别名并设置删除标记；此路径无法由已通过的浏览器模拟测试证明安全。
+阶段十发现 MAIN world 向 ISOLATED world 发布的 `TOC_CONVERSATION_DELETED` 事件可以被同源网页脚本伪造。仅凭 `event.source`、`origin`、会话 ID 和网页可访问的令牌，都不足以证明该事件来自成功的真实删除操作。
 
-**安全与体验取舍尚未获准，不能标记已修复。** 可行的后续方向：(1) 从可信的扩展侧独立确认删除再执行持久清理；新增浏览器权限或访问 ChatGPT API 的方案必须单独审核，不能把含糊的 404 作为成功删除证明。(2) 在无法可靠认证时，将网页消息仅用于刷新非持久 UI 状态，改由用户明确确认本地数据清理；代价是删除后可能保留陈旧别名。向 MAIN world 发送随机令牌不能提供可靠的同页脚本隔离；仅增加此类令牌不能作为修复证据。
+本阶段采用**保守、不破坏数据的方案**：`src/navigation/lifecycle/conversationLifecycle.ts` 显式忽略来自 `window.postMessage` 的删除通知，不再执行 `tocAliasStore.removeConversation` 或 `navigatorController.handleConversationDeleted`。页面钩子仍可能发出观察到的事件，但它不能越过持久数据的权限边界。验证新增单元测试与模拟 Chromium 端到端测试，分别检查页面伪造删除、页面模拟成功 DELETE 不会清空持久别名或安装删除屏障。不会新增扩展权限、网络请求或迁移存储键。
 
-此风险当前按 P1 处理，优先于 PR #16 合并。保留原功能不变直到实现经审查的替代方案并完成回归测试，不自动删除用户其他数据。
+**已知功能取舍**：真正从 ChatGPT 删除的会话，其旧本地目录别名及相关缓存不会因为页面通知被清理，可能保存在浏览器本地及用户导出的备份中。这些本地记录既不会自动上传，也不代表会话仍存在于 ChatGPT 服务器。用户仍能对可见会话撤销单条目录别名；针对已删除会话的可信独立确认或显式清理界面须作为单独后续需求设计与验收。在此之前，宁可保留陈旧本地文字，也不相信无法认证的页面通知。
+
+回退：若需恢复自动清理，必须先实现可靠的扩展侧验证或用户明确授权的持久清理，并补充安全回归测试；不可仅通过重新接通 `postMessage` 的删除路径回退。

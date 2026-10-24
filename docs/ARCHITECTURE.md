@@ -28,8 +28,8 @@
 - `src/navigation/state/conversationStore.ts` 管理缓存和会话状态。主动刷新已核验的快照为权威结果；新的非权威分页也不能恢复旧编辑分支，但独立观察到的用户新消息可加入当前目录。
 - `src/navigation/navigatorController.ts` 协调会话数据、路由变化、目录渲染及主动刷新；权威刷新失败或 15 秒超时会将缓存标为未验证，迟到的分页数据不得重置验证状态；成功删除则清空当前视图。
 - `src/navigation/jump/navigationSnapshotStore.ts` 限制标签页内快照数量，提供逐会话删除和全量重置；会话切换不保留无界的原始分页消息集合。
-- `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话接口识别登录账号，并识别成功的 DELETE 或 `is_visible=false` 删除操作；归档不作为删除。单一接口 GET 返回 404/410 可能是 API 不兼容或权限问题，不作为本地删除证据。
-- `src/navigation/lifecycle/conversationLifecycle.ts` 处理账号识别与明确成功的删除通知；`src/navigation/lifecycle/conversationOwner.ts` 保存已验证登录账号身份。不会依赖不确定的服务端存在性查询破坏本地别名，不启用后台轮询。
+- `src/pageHook/conversationLifecycle.ts` 在页面初始化时通过 ChatGPT 同源会话接口识别登录账号，并观察成功的 DELETE 或 `is_visible=false` 页面操作；但 MAIN world 发出的删除通知属于不可信的页面通道，不能授权扩展删除本地数据。归档不作为删除。单一接口 GET 返回 404/410 可能是 API 不兼容或权限问题，也不作为本地删除证据。
+- `src/navigation/lifecycle/conversationLifecycle.ts` 处理账号识别，但忽略不可信 `TOC_CONVERSATION_DELETED` 页面消息，避免伪造的成功删除通知清理持久目录别名或导航缓存；`src/navigation/lifecycle/conversationOwner.ts` 保存页面识别到的账号身份。此取舍意味着删除 ChatGPT 会话后本地别名可能残留。不启用后台轮询。
 
 ## 目录与导航
 
