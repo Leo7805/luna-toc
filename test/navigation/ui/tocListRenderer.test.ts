@@ -546,6 +546,531 @@ describe('tocListRenderer', () => {
       // Target-lock must NOT be overridden by forced scroll to active bottom
       expect(scrollToMock).not.toHaveBeenCalled();
     });
+
+    it('captures fallback anchor to the last item and restores exact scrollTop when scrolled deep into bottom padding', () => {
+      const ROW_HEIGHT = 40;
+      const CONTAINER_HEIGHT = 500;
+      const BOTTOM_PADDING = 600;
+      const INITIAL_COUNT = 20;
+
+      const initialMessages: NavigatorMessage[] = Array.from({ length: INITIAL_COUNT }, (_, i) => ({
+        id: `msg-${i}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      let currentMessages = initialMessages;
+      let activeIndex: number | null = INITIAL_COUNT - 1;
+
+      let currentScrollTop = 0;
+      Object.defineProperty(listElement, 'scrollTop', {
+        get: () => currentScrollTop,
+        set: (val: number) => {
+          currentScrollTop = val;
+        },
+        configurable: true,
+      });
+
+      const prevGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+      try {
+        window.HTMLElement.prototype.getBoundingClientRect = function () {
+          if (this === listElement) {
+            return {
+              top: 0,
+              bottom: CONTAINER_HEIGHT,
+              height: CONTAINER_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: 0,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          if ((this as HTMLElement).classList?.contains('navigator-item')) {
+            const index = Number((this as HTMLElement).dataset?.messageIndex ?? 0);
+            const top = index * ROW_HEIGHT - currentScrollTop;
+            return {
+              top,
+              bottom: top + ROW_HEIGHT,
+              height: ROW_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: top,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          return { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+        };
+
+        const renderer = createTocListRenderer({
+          getMessages: () => currentMessages,
+          getActiveIndex: () => activeIndex,
+          onItemClick: vi.fn(),
+          isFollowingMode: () => false,
+        });
+
+        renderer.render({ completed: true });
+        scrollToMock.mockClear();
+
+        // User is scrolled deep into bottom padding
+        currentScrollTop = 850;
+
+        const originalInnerHTMLSetter = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')!.set!;
+        Object.defineProperty(listElement, 'innerHTML', {
+          set(val: string) {
+            originalInnerHTMLSetter.call(this, val);
+            if (val === '') {
+              currentScrollTop = Math.min(currentScrollTop, BOTTOM_PADDING - CONTAINER_HEIGHT);
+            }
+          },
+          configurable: true,
+        });
+
+        currentMessages = [
+          ...initialMessages,
+          {
+            id: 'msg-20',
+            text: 'Prompt 21',
+            canMatchByText: true,
+            createTime: 20 * 1000,
+          },
+        ];
+        activeIndex = 20;
+
+        renderer.render();
+
+        expect(listElement.scrollTop).toBe(850);
+      } finally {
+        window.HTMLElement.prototype.getBoundingClientRect = prevGetBCR;
+        delete (listElement as any).scrollTop;
+        delete (listElement as any).innerHTML;
+      }
+    });
+
+    it('executes onRefreshObservers callback after scroll anchor restoration', () => {
+      const ROW_HEIGHT = 40;
+      const CONTAINER_HEIGHT = 500;
+
+      const initialMessages: NavigatorMessage[] = Array.from({ length: 20 }, (_, i) => ({
+        id: `msg-${i}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      let currentScrollTop = 0;
+      Object.defineProperty(listElement, 'scrollTop', {
+        get: () => currentScrollTop,
+        set: (val: number) => {
+          currentScrollTop = val;
+        },
+        configurable: true,
+      });
+
+      const prevGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+      try {
+        window.HTMLElement.prototype.getBoundingClientRect = function () {
+          if (this === listElement) {
+            return {
+              top: 0,
+              bottom: CONTAINER_HEIGHT,
+              height: CONTAINER_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: 0,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          if ((this as HTMLElement).classList?.contains('navigator-item')) {
+            const index = Number((this as HTMLElement).dataset?.messageIndex ?? 0);
+            const top = index * ROW_HEIGHT - currentScrollTop;
+            return {
+              top,
+              bottom: top + ROW_HEIGHT,
+              height: ROW_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: top,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          return { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+        };
+
+        let observedScrollTopDuringRefresh: number | null = null;
+        const onRefreshObserversMock = vi.fn(() => {
+          observedScrollTopDuringRefresh = listElement.scrollTop;
+        });
+
+        const renderer = createTocListRenderer({
+          getMessages: () => initialMessages,
+          getActiveIndex: () => 19,
+          onItemClick: vi.fn(),
+          isFollowingMode: () => false,
+          onRefreshObservers: onRefreshObserversMock,
+        });
+
+        renderer.render({ completed: true });
+        onRefreshObserversMock.mockClear();
+
+        currentScrollTop = 200;
+
+        const originalInnerHTMLSetter = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')!.set!;
+        Object.defineProperty(listElement, 'innerHTML', {
+          set(val: string) {
+            originalInnerHTMLSetter.call(this, val);
+            if (val === '') {
+              currentScrollTop = 0;
+            }
+          },
+          configurable: true,
+        });
+
+        renderer.render({ refreshObservers: true });
+
+        expect(onRefreshObserversMock).toHaveBeenCalledTimes(1);
+        expect(observedScrollTopDuringRefresh).toBe(200);
+        expect(listElement.scrollTop).toBe(200);
+      } finally {
+        window.HTMLElement.prototype.getBoundingClientRect = prevGetBCR;
+        delete (listElement as any).scrollTop;
+        delete (listElement as any).innerHTML;
+      }
+    });
+
+    it('respects active Follow: bypasses scrollTo when item is in bounds, invokes smooth scrollTo when out of bounds', () => {
+      const messages: NavigatorMessage[] = Array.from({ length: 10 }, (_, i) => ({
+        id: `msg-${i}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      const renderer = createTocListRenderer({
+        getMessages: () => messages,
+        getActiveIndex: () => 9,
+        onItemClick: vi.fn(),
+        isFollowingMode: () => true,
+      });
+
+      renderer.render({ completed: true });
+      scrollToMock.mockClear();
+
+      const scrollContainer = document.getElementById('navigator-list')!;
+      scrollContainer.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 500,
+        height: 500,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const items = renderer.getNavigatorItems();
+      const lastItem = items[items.length - 1];
+
+      // Case A: Last item is within safe bounds [56, 420]
+      lastItem.getBoundingClientRect = () => ({
+        top: 200,
+        bottom: 240,
+        height: 40,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 200,
+        toJSON: () => {},
+      });
+
+      const handledInBounds = renderer.scrollNavigatorItemIntoView(lastItem);
+      expect(handledInBounds).toBe(true);
+      expect(scrollToMock).not.toHaveBeenCalled();
+
+      // Case B: Last item is out of bounds (below 420px)
+      lastItem.getBoundingClientRect = () => ({
+        top: 450,
+        bottom: 490,
+        height: 40,
+        left: 0,
+        right: 200,
+        width: 200,
+        x: 0,
+        y: 450,
+        toJSON: () => {},
+      });
+
+      const handledOutOfBounds = renderer.scrollNavigatorItemIntoView(lastItem);
+      expect(handledOutOfBounds).toBe(true);
+      expect(scrollToMock).toHaveBeenCalledTimes(1);
+      expect(scrollToMock).toHaveBeenCalledWith({
+        top: 70,
+        behavior: 'smooth',
+      });
+    });
+
+    it('preserves mid-list scroll anchor without shifting position when new message is appended', () => {
+      const ROW_HEIGHT = 40;
+      const CONTAINER_HEIGHT = 500;
+
+      const initialMessages: NavigatorMessage[] = Array.from({ length: 30 }, (_, i) => ({
+        id: `msg-${i}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      let currentMessages = initialMessages;
+      let currentScrollTop = 0;
+      Object.defineProperty(listElement, 'scrollTop', {
+        get: () => currentScrollTop,
+        set: (val: number) => {
+          currentScrollTop = val;
+        },
+        configurable: true,
+      });
+
+      const prevGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+      try {
+        window.HTMLElement.prototype.getBoundingClientRect = function () {
+          if (this === listElement) {
+            return {
+              top: 0,
+              bottom: CONTAINER_HEIGHT,
+              height: CONTAINER_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: 0,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          if ((this as HTMLElement).classList?.contains('navigator-item')) {
+            const index = Number((this as HTMLElement).dataset?.messageIndex ?? 0);
+            const top = index * ROW_HEIGHT - currentScrollTop;
+            return {
+              top,
+              bottom: top + ROW_HEIGHT,
+              height: ROW_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: top,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          return { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+        };
+
+        const renderer = createTocListRenderer({
+          getMessages: () => currentMessages,
+          getActiveIndex: () => 10,
+          onItemClick: vi.fn(),
+          isFollowingMode: () => false,
+        });
+
+        renderer.render({ completed: true });
+        scrollToMock.mockClear();
+
+        currentScrollTop = 400;
+
+        currentMessages = [
+          ...initialMessages,
+          {
+            id: 'msg-30',
+            text: 'Prompt 31',
+            canMatchByText: true,
+            createTime: 30 * 1000,
+          },
+        ];
+
+        renderer.render();
+
+        expect(listElement.scrollTop).toBe(400);
+        expect(scrollToMock).not.toHaveBeenCalled();
+      } finally {
+        window.HTMLElement.prototype.getBoundingClientRect = prevGetBCR;
+        delete (listElement as any).scrollTop;
+      }
+    });
+
+    it('gracefully handles missing anchor when the anchored message is deleted, retaining layout without erratic scroll jump', () => {
+      const ROW_HEIGHT = 40;
+      const CONTAINER_HEIGHT = 500;
+
+      const initialMessages: NavigatorMessage[] = [
+        { id: 'msg-0', text: 'Prompt 1', canMatchByText: true, createTime: 1000 },
+        { id: 'msg-1', text: 'Prompt 2', canMatchByText: true, createTime: 2000 },
+        { id: 'msg-2', text: 'Prompt 3', canMatchByText: true, createTime: 3000 },
+      ];
+
+      let currentMessages = initialMessages;
+      let currentScrollTop = 40;
+      Object.defineProperty(listElement, 'scrollTop', {
+        get: () => currentScrollTop,
+        set: (val: number) => {
+          currentScrollTop = val;
+        },
+        configurable: true,
+      });
+
+      const prevGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+      try {
+        window.HTMLElement.prototype.getBoundingClientRect = function () {
+          if (this === listElement) {
+            return {
+              top: 0,
+              bottom: CONTAINER_HEIGHT,
+              height: CONTAINER_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: 0,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          if ((this as HTMLElement).classList?.contains('navigator-item')) {
+            const index = Number((this as HTMLElement).dataset?.messageIndex ?? 0);
+            const top = index * ROW_HEIGHT - currentScrollTop;
+            return {
+              top,
+              bottom: top + ROW_HEIGHT,
+              height: ROW_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: top,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          return { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+        };
+
+        const renderer = createTocListRenderer({
+          getMessages: () => currentMessages,
+          getActiveIndex: () => 1,
+          onItemClick: vi.fn(),
+          isFollowingMode: () => false,
+        });
+
+        renderer.render({ completed: true });
+        scrollToMock.mockClear();
+
+        currentMessages = [
+          { id: 'msg-0', text: 'Prompt 1', canMatchByText: true, createTime: 1000 },
+          { id: 'msg-2', text: 'Prompt 3', canMatchByText: true, createTime: 3000 },
+        ];
+
+        expect(() => renderer.render()).not.toThrow();
+        expect(renderer.getNavigatorItems().length).toBe(2);
+      } finally {
+        window.HTMLElement.prototype.getBoundingClientRect = prevGetBCR;
+        delete (listElement as any).scrollTop;
+      }
+    });
+
+    it('preserves visual position without unnecessary long smooth scroll when latest item was already visible before message append', () => {
+      const ROW_HEIGHT = 40;
+      const CONTAINER_HEIGHT = 500;
+      const INITIAL_COUNT = 20;
+
+      const initialMessages: NavigatorMessage[] = Array.from({ length: INITIAL_COUNT }, (_, i) => ({
+        id: `msg-${i}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i * 1000,
+      }));
+
+      let currentMessages = initialMessages;
+      let activeIndex: number | null = INITIAL_COUNT - 1;
+      let currentScrollTop = 350;
+
+      Object.defineProperty(listElement, 'scrollTop', {
+        get: () => currentScrollTop,
+        set: (val: number) => {
+          currentScrollTop = val;
+        },
+        configurable: true,
+      });
+
+      const prevGetBCR = window.HTMLElement.prototype.getBoundingClientRect;
+      try {
+        window.HTMLElement.prototype.getBoundingClientRect = function () {
+          if (this === listElement) {
+            return {
+              top: 0,
+              bottom: CONTAINER_HEIGHT,
+              height: CONTAINER_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: 0,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          if ((this as HTMLElement).classList?.contains('navigator-item')) {
+            const index = Number((this as HTMLElement).dataset?.messageIndex ?? 0);
+            const top = index * ROW_HEIGHT - currentScrollTop;
+            return {
+              top,
+              bottom: top + ROW_HEIGHT,
+              height: ROW_HEIGHT,
+              left: 0,
+              right: 200,
+              width: 200,
+              x: 0,
+              y: top,
+              toJSON: () => {},
+            } as DOMRect;
+          }
+          return { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+        };
+
+        const renderer = createTocListRenderer({
+          getMessages: () => currentMessages,
+          getActiveIndex: () => activeIndex,
+          onItemClick: vi.fn(),
+          isFollowingMode: () => false,
+        });
+
+        renderer.render({ completed: true });
+        scrollToMock.mockClear();
+
+        currentMessages = [
+          ...initialMessages,
+          {
+            id: 'msg-20',
+            text: 'Prompt 21',
+            canMatchByText: true,
+            createTime: 20 * 1000,
+          },
+        ];
+        activeIndex = 20;
+
+        renderer.render();
+
+        expect(listElement.scrollTop).toBe(350);
+        expect(scrollToMock).not.toHaveBeenCalled();
+      } finally {
+        window.HTMLElement.prototype.getBoundingClientRect = prevGetBCR;
+        delete (listElement as any).scrollTop;
+      }
+    });
   });
 
   describe('scrollLastItemIntoView', () => {

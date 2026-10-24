@@ -172,6 +172,8 @@ export const sidebarController = (() => {
    * Switches the sidebar view and synchronizes its controls with the rendered panel.
    */
   function setViewMode(nextViewMode: ViewMode): void {
+    const viewChanged = viewMode !== nextViewMode;
+
     previewTooltip.hide();
     viewMode = nextViewMode;
     const isMyPrompts = viewMode === 'myPrompts';
@@ -183,7 +185,10 @@ export const sidebarController = (() => {
     closeSearch(false);
     setNavigatorTitle();
     updateViewSnapshot();
-    renderCurrentView();
+
+    if (viewChanged) {
+      renderCurrentView();
+    }
   }
 
   function toggleViewMode(): void {

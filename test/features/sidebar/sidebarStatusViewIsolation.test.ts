@@ -17,6 +17,8 @@ import {
 } from '@/navigation/ui/sidebarStatus';
 import { navigatorController } from '@/navigation/navigatorController';
 import { myPrompts } from '@/features/myPrompts/myPrompts';
+import { previewTooltip } from '@/features/tooltip';
+import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 
 (
@@ -329,5 +331,102 @@ describe('Sidebar Status View Isolation', () => {
     expect(toolbarContainer.style.display).toBe('');
     expect(myPromptsList.style.display).toBe('');
     expect(tocList.style.display).toBe('none');
+  });
+
+  describe('setViewMode same-mode idempotency and scroll preservation (Phase 5C)', () => {
+    it('A. preserves live tocList.scrollTop when setViewMode("toc") is called while already in TOC mode', () => {
+      expect(sidebarController.getViewMode()).toBe('toc');
+
+      tocList.scrollTop = 850;
+
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+
+      expect(tocList.scrollTop).toBe(850);
+    });
+
+    it('B. restores cached scroll position during genuine view switching', () => {
+      tocList.scrollTop = 500;
+
+      act(() => {
+        sidebarController.setViewMode('myPrompts');
+      });
+      expect(tocList.style.display).toBe('none');
+      expect(myPromptsList.style.display).toBe('');
+
+      myPromptsList.scrollTop = 250;
+
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+      expect(tocList.style.display).toBe('');
+      expect(myPromptsList.style.display).toBe('none');
+      expect(tocList.scrollTop).toBe(500);
+
+      act(() => {
+        sidebarController.setViewMode('myPrompts');
+      });
+      expect(myPromptsList.scrollTop).toBe(250);
+    });
+
+    it('C. does not revert to stale cached scroll position when setViewMode("toc") is called after manual scrolling', () => {
+      tocList.scrollTop = 500;
+
+      act(() => {
+        sidebarController.setViewMode('myPrompts');
+      });
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+      expect(tocList.scrollTop).toBe(500);
+
+      tocList.scrollTop = 920;
+
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+
+      expect(tocList.scrollTop).toBe(920);
+    });
+
+    it('D. preserves search closing and query reset when setViewMode is invoked', () => {
+      act(() => {
+        sidebarController.openSearch();
+        sidebarController.setSearchQuery('react hooks');
+      });
+      expect(sidebarController.isSearchOpen()).toBe(true);
+      expect(sidebarController.getSearchQuery()).toBe('react hooks');
+
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+      expect(sidebarController.isSearchOpen()).toBe(false);
+      expect(sidebarController.getSearchQuery()).toBe('');
+    });
+
+    it('E. preserves preview tooltip hiding, context menu closing, and title synchronization', () => {
+      const tooltipHideSpy = vi.spyOn(previewTooltip, 'hide');
+      const contextMenuCloseSpy = vi.spyOn(promptContextMenuController, 'close');
+
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+
+      expect(tooltipHideSpy).toHaveBeenCalled();
+      expect(contextMenuCloseSpy).toHaveBeenCalled();
+      expect(sidebarController.getHeaderSnapshot().viewMode).toBe('toc');
+      expect(sidebarController.getViewSnapshot().viewMode).toBe('toc');
+    });
+
+    it('F. onPromptAdded integration preserves live TOC scroll position', () => {
+      tocList.scrollTop = 780;
+
+      act(() => {
+        sidebarController.setViewMode('toc');
+      });
+
+      expect(tocList.scrollTop).toBe(780);
+    });
   });
 });

@@ -132,6 +132,19 @@ export function createTocListRenderer(
         }
       }
     }
+
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      const item = items[i] as HTMLElement;
+      const messageId = item.dataset.messageId;
+      if (messageId) {
+        const rect = item.getBoundingClientRect();
+        return {
+          messageId,
+          offsetTop: rect.top - containerRect.top,
+        };
+      }
+    }
+
     return null;
   }
 
@@ -460,10 +473,6 @@ export function createTocListRenderer(
       list.appendChild(item);
     });
 
-    if (refreshObservers || completed === true) {
-      options.onRefreshObservers?.();
-    }
-
     if (userScrolledSidebar) {
       if (previousAnchor) {
         restoreScrollAnchor(list, previousAnchor);
@@ -472,6 +481,10 @@ export function createTocListRenderer(
       ensureActiveItemVisible();
     } else if (previousAnchor) {
       restoreScrollAnchor(list, previousAnchor);
+    }
+
+    if (refreshObservers || completed === true) {
+      options.onRefreshObservers?.();
     }
 
     const navState = getNavigationState();
