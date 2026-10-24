@@ -95,6 +95,11 @@ export function createTocAliasWriteCoordinator(
             return { ok: false, error: 'Conversation has been deleted' };
           }
           const previous = parseTocAliasRecord(state[key]);
+          if (previous?.ownerId === null && Object.keys(previous.aliases).length > 0) {
+            // A legacy unowned record cannot be silently attributed to whichever
+            // account edits a different message first.
+            return { ok: false, error: 'Legacy aliases require explicit owner migration' };
+          }
           if (previous?.ownerId && request.ownerId && previous.ownerId !== request.ownerId) {
             return { ok: false, error: 'Conversation belongs to another account' };
           }
