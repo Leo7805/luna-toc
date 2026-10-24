@@ -226,6 +226,24 @@ export async function createLocalBackup(
   return backup;
 }
 
+/** Compare JSON-like storage values without relying on Chrome's object-key order. */
+function storageValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (left === null || right === null ||
+      typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+      return false;
+    }
+    return left.every((value, index) => storageValuesEqual(value, right[index]));
+  }
+  const expected = left as Record<string, unknown>;
+  const actual = right as Record<string, unknown>;
+  const keys = Object.keys(expected);
+  return keys.length === Object.keys(actual).length &&
+    keys.every((key) => Object.hasOwn(actual, key) && storageValuesEqual(expected[key], actual[key]));
+}
+
 /** Previews validated content; no storage writes. */
 export function summarizeLocalBackup(backup: LocalBackup): {
   prompts: number; conversations: number; aliases: number; usage: number;
@@ -306,9 +324,11 @@ export async function restoreLocalBackup(
     await storage.set(values);
     if (removals.length) await storage.remove(removals);
     const actual = await storage.get([...Object.keys(values), ...revived]);
-    if (Object.keys(values).some((key) => JSON.stringify(actual[key]) !== JSON.stringify(values[key])) ||
-        revived.some((key) => Object.hasOwn(actual, key))) {
-      throw new Error('写入后核对失败。');
+    const mismatchedCount = Object.keys(values)
+      .filter((key) => !storageValuesEqual(values[key], actual[key])).length;
+    const revivalFailed = revived.some((key) => Object.hasOwn(actual, key));
+    if (mismatchedCount || revivalFailed) {
+      throw new Error(`写入后核对失败（${mismatchedCount} 项数据不一致${revivalFailed ? '，删除标记未清理' : ''}）。`);
     }
   } catch (error) {
     try {

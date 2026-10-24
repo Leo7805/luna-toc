@@ -229,6 +229,25 @@ describe('versioned local backup', () => {
     expect(box.remove).not.toHaveBeenCalled();
   });
 
+  it('verifies Chrome storage writes structurally regardless of object-key ordering', async () => {
+    const backup = sample();
+    backup.data.prompts.push(prompt('extra'));
+    backup.data.promptUsage.extra = { usageCount: 4, lastUsedAt: 5 };
+    const box = storageHarness({ [PROMPTS]: [prompt('current')] });
+    const originalGet = box.storage.get.bind(box.storage);
+    box.storage.get = (async (keys?: string | string[] | null) => {
+      const result = await originalGet(keys);
+      if (Array.isArray(keys) && Object.hasOwn(result, USAGE)) {
+        const usage = result[USAGE] as Record<string, unknown>;
+        result[USAGE] = Object.fromEntries(Object.entries(usage).reverse());
+      }
+      return result;
+    }) as typeof box.storage.get;
+    await restoreLocalBackup(backup, 'replace', box.storage);
+    expect(box.state[USAGE]).toEqual(backup.data.promptUsage);
+    expect(box.state[PROMPTS]).toEqual(backup.data.prompts);
+  });
+
   it('replaces only owned records and removes outdated alias entries', async () => {
     const box = storageHarness({
       [PROMPTS]: [prompt('old')], [EXTRA_ALIAS]: { ownerId: null, aliases: { x: 'old' } },
