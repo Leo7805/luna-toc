@@ -24,7 +24,10 @@ Date: 2026-10-24
 
 ## Automatic evidence
 - Added regressions for concurrent sidebar patches, invalid changes, hung fetch/JSON, route change, cursor loop, stale alias preview and deletion-fence failures.
-- Typecheck, complete Vitest suite, Chromium extension E2E, build, package audit and dependency advisory: **pending current PR CI**.
+- CI run on code commit `3fb34601d9bb706179d05e52422eb5f0f0be6c85`: https://github.com/PyRookie1/luna-toc-sc/actions/runs/40071014235 — **all jobs passed**.
+- Vitest: **82/82 files, 552/552 tests passed**; typecheck, extension build, ZIP integrity, license audit, high/critical dependency advisory gate and Chromium MV3 E2E: **passed**. Chromium Node test reports **10 tests, 0 failures**.
+- Synthetic Chromium benchmarks used mock ChatGPT pages, not live authenticated sessions.
+- Earlier initial Stage 12 run failed one legacy repeated-cursor test; corrected the fixture to use distinct cursors for the page-cap case. The latest run above passed.
 - Local checkout unavailable in this environment (github.com DNS lookup failed); no claim of local test execution.
 - Live authenticated ChatGPT validation: **not performed**.
 
@@ -36,4 +39,4 @@ Date: 2026-10-24
 5. Security/data compatibility/rollback: review pending; backup restore documented.
 6. Commit, diff and rollback: individual commits recorded; revert Stage 12 branch commits if needed, but do not delete local storage or tombstones without restoring a verified backup.
 
-**Status: 待验收 — 不可合并 (until latest CI and review pass).**
+**Status: 待验收 — 不可合并.** Latest code checks are green; review of the actual authenticated ChatGPT environment and final merge gate remains unverified. No P0/P1 was identified in the stage-specific source review; that is not a proof of absence.
