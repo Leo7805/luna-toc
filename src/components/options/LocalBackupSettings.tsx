@@ -116,7 +116,10 @@ export function LocalBackupSettings(): React.JSX.Element {
               <p><strong>文件：</strong>{fileName}</p>
               <p><strong>导出时间：</strong>{preview.exportedAt}</p>
               <p>提示词 {summary.prompts} 条，使用统计 {summary.usage} 条，目录别名 {summary.aliases} 条（{summary.conversations} 个会话）。</p>
-              <p>主题：{preview.data.theme.followChatGPT ? '跟随 ChatGPT' : preview.data.theme.manualTheme === 'dark' ? '深色' : '浅色'}；布局：{preview.data.sidebar.layoutMode === 'overlay' ? '浮层' : '并排'}。</p>
+              <p>包含 {summary.settingsAccounts} 个账号的主题与侧边栏偏好。</p>
+              {Object.values(preview.data.settings)[0] && (
+                <p>示例偏好：主题 {Object.values(preview.data.settings)[0].theme.followChatGPT ? '跟随 ChatGPT' : Object.values(preview.data.settings)[0].theme.manualTheme === 'dark' ? '深色' : '浅色'}；布局 {Object.values(preview.data.settings)[0].sidebar.layoutMode === 'overlay' ? '浮层' : '并排'}。</p>
+              )}
               {preview.data.prompts.length > 0 && <p>提示词预览：{preview.data.prompts.slice(0, 5).map((item) => item.title).join('、')}{preview.data.prompts.length > 5 ? '……' : ''}</p>}
               <fieldset className="settings-backup-modes">
                 <legend>恢复方式</legend>
