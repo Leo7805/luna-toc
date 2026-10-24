@@ -16,6 +16,7 @@ let installed = false;
 let generation = 0;
 let lastCheckAt = 0;
 const MIN_RECHECK_INTERVAL_MS = 2_000;
+const deletionChecksInFlight = new Set<string>();
 
 /** Returns null on an unverified response; never invent an account ID. */
 export async function readTrustedConversationOwner(
@@ -77,34 +78,40 @@ export async function handleTrustedConversationDeletion(
   const ownerId = getActiveConversationOwner();
   if (!ownerId || !isPermanentConversationId(routeKey) ||
       typeof trustedFetch !== 'function') return false;
+  const key = ownerId + '\u0000' + routeKey;
+  if (deletionChecksInFlight.has(key)) return false;
+  deletionChecksInFlight.add(key);
 
-  const verifiedOwner = await readTrustedConversationOwner(trustedFetch);
-  if (verifiedOwner !== ownerId || getActiveConversationOwner() !== ownerId) return false;
-
-  let savedOwner: string | null;
   try {
-    savedOwner = await tocAliasStore.owner(routeKey);
-  } catch {
-    // A storage read failure is not proof that the route has no saved owner.
-    return false;
-  }
-  if (savedOwner && savedOwner !== ownerId) return false;
-  if (getActiveConversationOwner() !== ownerId) return false;
+    const verifiedOwner = await readTrustedConversationOwner(trustedFetch);
+    if (verifiedOwner !== ownerId || getActiveConversationOwner() !== ownerId) return false;
 
-  let localCleanupSucceeded = false;
-  try {
-    await tocAliasStore.removeConversation(routeKey);
-    localCleanupSucceeded = true;
-  } catch (error) {
-    // The remote mutation was confirmed by Chrome. Clear stale navigation even
-    // if local storage is temporarily unavailable, but report cleanup failure.
-    console.warn('[LunaTOC] Confirmed conversation deletion; local alias cleanup failed', error);
+    let savedOwner: string | null;
+    try {
+      savedOwner = await tocAliasStore.owner(routeKey);
+    } catch {
+      // A storage read failure is not proof that the route has no saved owner.
+      return false;
+    }
+    if (savedOwner && savedOwner !== ownerId) return false;
+    if (getActiveConversationOwner() !== ownerId) return false;
+
+    let localCleanupSucceeded = false;
+    try {
+      await tocAliasStore.removeConversation(routeKey);
+      localCleanupSucceeded = true;
+    } catch (error) {
+      // The remote mutation was confirmed by Chrome. Clear stale navigation even
+      // if local storage is temporarily unavailable, but report cleanup failure.
+      console.warn('[LunaTOC] Confirmed conversation deletion; local alias cleanup failed', error);
+    }
+    if (getActiveConversationOwner() !== ownerId) return false;
+    navigatorController.handleConversationDeleted(routeKey);
+    return localCleanupSucceeded;
+  } finally {
+    deletionChecksInFlight.delete(key);
   }
-  if (getActiveConversationOwner() !== ownerId) return false;
-  navigatorController.handleConversationDeleted(routeKey);
-  return localCleanupSucceeded;
 }
-
 /** Recheck after navigation/focus; page-originated identity values are never accepted. */
 export function initializeConversationLifecycle(): void {
   if (installed) return;
