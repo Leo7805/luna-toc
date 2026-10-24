@@ -7,7 +7,7 @@ A Chrome Manifest V3 extension that adds a table of contents/navigation experien
 
 ## Runtime and technology
 - Target hosts: `https://chatgpt.com/*` and `https://chat.openai.com/*`.
-- Extension platform: Chrome Manifest V3; background service worker and MAIN/ISOLATED content scripts.
+- Extension platform: Chrome Manifest V3; background service worker and MAIN/ISOLATED content scripts. The extension requests `storage`, `webRequest`, and host access limited to the two ChatGPT origins for confirmed deletion detection.
 - Application stack: TypeScript, React, Vite, Tailwind CSS.
 - Validation: Vitest unit tests, extension build/package checks, manifest/license/security checks, and headless Chromium tests using mocked ChatGPT HTML/API fixtures.
 - CI uses Node.js 22 for project scripts and npm with the committed `package-lock.json`.
@@ -39,5 +39,5 @@ CI does not publish. The manual release workflow requires choosing `main` and ex
 ## 账号数据边界（2026-10-24）
 
 - 我的提示词按可信 ChatGPT 账号 ID 隔离，同一账号的提示词跨对话共享。未知账号不展示提示词且不能写入；无账号归属的旧提示词不迁移，直接清理。
-- 目录别名必须带有账号归属并关联持久会话 ID；无归属的旧别名直接清理，不自动认领。当前仍不信任网页 `postMessage` 删除通知作为清理本地别名的授权，自动跟随远端会话删除的能力待可信确认机制解决。
-- 本地 JSON 备份 v2 包含账号绑定的提示词、目录别名、使用统计，以及当前全局主题和侧边栏偏好。设置偏好目前仍是浏览器级全局设置，而不是每个 ChatGPT 账号各自独立的设置。
+- 目录别名必须带有账号归属并关联持久会话 ID；无归属的旧别名直接清理，不自动认领。真实删除通过后台 `webRequest` 观察器确认成功的 DELETE/非归档可见性移除请求，再经扩展 runtime 通知隔离世界；页面 `postMessage` 不具备删除权限。
+- 主题和侧边栏偏好按已验证的 ChatGPT 账号分别保存；设置页支持选择账号。JSON 备份 v3 包含账号绑定的提示词、目录别名、使用统计和各账号偏好，旧 v2 全局设置仅在可识别账号时迁移。
