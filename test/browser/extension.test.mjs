@@ -188,7 +188,7 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.waitForFunction(()=>document.querySelector('#navigator-list')?.textContent?.includes('账号 A 私有标题'));
     });
 
-    await t.test('B026: forged and page-confirmed deletions never erase local aliases',{timeout:20000},async()=>{
+    await t.test('B026: forged page messages are ignored but Chrome-observed successful deletion cleans aliases',{timeout:20000},async()=>{
       const routeKey='luna-stage-9-e2e';
       const aliasKey='chatToc:aliases:v1:'+routeKey;
       const fenceKey='chatToc:aliases:deleted:v1:'+routeKey;
@@ -197,27 +197,29 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
         await chrome.storage.local.remove(fenceKey);
         await chrome.storage.local.set({[aliasKey]:record});
       },{aliasKey,fenceKey,record});
-      // Run in the actual page world, not through an extension content script.
+      // A same-origin page can forge postMessage but cannot invoke chrome.runtime.
       await page.evaluate(async routeKey=>{
-        window.postMessage({type:'LUNA_TOC_CONVERSATION_DELETED',routeKey},location.origin);
+        window.postMessage({type:'LUNA_TOC_TRUSTED_CONVERSATION_DELETED_V1',routeKey},location.origin);
         await new Promise(resolve=>setTimeout(resolve,250));
       },routeKey);
       let state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
-      assert.deepEqual(state[aliasKey],record,'a same-origin page script cannot erase an alias');
-      assert.equal(Object.hasOwn(state,fenceKey),false,'a forged page event must not create a deletion fence');
+      assert.deepEqual(state[aliasKey],record,'a forged page event cannot erase an alias');
+      assert.equal(Object.hasOwn(state,fenceKey),false,'a forged page event cannot create a deletion fence');
 
-      // Even an observed HTTP DELETE from MAIN world uses the same untrusted
-      // postMessage boundary. It remains informational until a trusted verifier exists.
+      // The service worker independently observes the real browser network request
+      // and forwards only a successful top-level DELETE to that tab's isolated world.
       const result=await page.evaluate(async routeKey=>{
         const response=await fetch('/backend-api/conversations/'+routeKey,{method:'DELETE'});
-        await new Promise(resolve=>setTimeout(resolve,250));
         return {ok:response.ok,status:response.status};
       },routeKey);
       assert.equal(result.ok,true,'fixture must simulate a successful host deletion request');
-      state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
-      assert.deepEqual(state[aliasKey],record,'page-reported deletion must not erase local aliases');
-      assert.equal(Object.hasOwn(state,fenceKey),false,'a page-reported deletion must not persist a fence');
-      // The fixture is disposable; do not need to clean real user data.
+      let cleaned=false;
+      for(let attempt=0;attempt<30;attempt++){
+        state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
+        if(!Object.hasOwn(state,aliasKey)&&state[fenceKey]===true){cleaned=true;break;}
+        await page.waitForTimeout(100);
+      }
+      assert.equal(cleaned,true,'a successful browser-observed delete must persist a fence and remove the alias');
     });
 
     await t.test('500-message fully mounted fixture builds a TOC and supports a far jump',{timeout:60000},async()=>{
