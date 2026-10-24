@@ -12,7 +12,8 @@ export type SettingsCommitRequest =
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'theme'; settings: ThemeSettings; removeLegacy?: boolean }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'migrate-theme'; settings: ThemeSettings }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'cleanup-legacy-theme' }
-  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar'; settings: SidebarPreferences };
+  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar'; settings: SidebarPreferences }
+  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar-patch'; patch: Partial<SidebarPreferences> };
 export type SettingsCommitResponse = { ok: true } | { ok: false; error: string };
 type Storage = Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
 
@@ -29,6 +30,19 @@ function isSidebar(value: unknown): value is SidebarPreferences {
     typeof item.backgroundColor === 'string' && SIDEBAR_COLOR_IDS.has(item.backgroundColor) &&
     typeof item.revealTint === 'boolean';
 }
+function isSidebarPatch(value: unknown): value is Partial<SidebarPreferences> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const patch = value as Record<string, unknown>;
+  const keys = Object.keys(patch);
+  if (!keys.length || keys.some((key) =>
+    key !== 'layoutMode' && key !== 'backgroundColor' && key !== 'revealTint')) return false;
+  return (!Object.hasOwn(patch, 'layoutMode') ||
+      patch.layoutMode === 'overlay' || patch.layoutMode === 'side-by-side') &&
+    (!Object.hasOwn(patch, 'backgroundColor') ||
+      (typeof patch.backgroundColor === 'string' && SIDEBAR_COLOR_IDS.has(patch.backgroundColor))) &&
+    (!Object.hasOwn(patch, 'revealTint') || typeof patch.revealTint === 'boolean');
+}
+
 function isRequest(value: unknown): value is SettingsCommitRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
@@ -37,7 +51,8 @@ function isRequest(value: unknown): value is SettingsCommitRequest {
     (item.removeLegacy === undefined || typeof item.removeLegacy === 'boolean');
   if (item.action === 'migrate-theme') return isTheme(item.settings);
   if (item.action === 'cleanup-legacy-theme') return true;
-  return item.action === 'sidebar' && isSidebar(item.settings);
+  if (item.action === 'sidebar') return isSidebar(item.settings);
+  return item.action === 'sidebar-patch' && isSidebarPatch(item.patch);
 }
 export function createSettingsWriteCoordinator(
   storage: Storage = chrome.storage.local,
@@ -58,7 +73,17 @@ export function createSettingsWriteCoordinator(
           await storage.remove(LEGACY_THEME_KEY).catch(() => undefined);
         } else if (request.action === 'cleanup-legacy-theme') {
           await storage.remove(LEGACY_THEME_KEY).catch(() => undefined);
+        } else if (request.action === 'sidebar-patch') {
+          // A field patch must merge with the latest persisted state inside the
+          // shared worker queue; never write a stale options-page snapshot.
+          const values = await storage.get(SIDEBAR_KEY);
+          const baseline: SidebarPreferences = isSidebar(values[SIDEBAR_KEY])
+            ? values[SIDEBAR_KEY]
+            : { layoutMode: 'overlay', backgroundColor: 'default', revealTint: false };
+          const merged = { ...baseline, ...request.patch };
+          await storage.set({ [SIDEBAR_KEY]: merged });
         } else {
+          // Legacy complete-record writers retain their original contract.
           await storage.set({ [SIDEBAR_KEY]: request.settings });
         }
         return { ok: true };
