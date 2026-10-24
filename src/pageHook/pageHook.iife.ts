@@ -156,7 +156,7 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
           platform.pageHook.messages.newUserMessage
         );
         if (outgoingMessageMeta?.parentMessageId) {
-          void streamInspection.then(() => {
+          const notifyStreamFinished = () => {
             window.postMessage({
               type: TOC_EDIT_SUBMISSION,
               stage: 'finished',
@@ -164,7 +164,8 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
               messageId: outgoingMessageMeta!.messageId,
               parentMessageId: outgoingMessageMeta!.parentMessageId,
             }, location.origin);
-          }).catch(() => {});
+          };
+          void streamInspection.then(notifyStreamFinished, notifyStreamFinished).catch(() => {});
         } else {
           streamInspection.catch(() => {});
         }
