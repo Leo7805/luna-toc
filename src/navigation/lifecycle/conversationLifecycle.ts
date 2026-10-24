@@ -1,6 +1,6 @@
 /**
- * Resolves account ownership in the isolated world and verifies deletion hints
- * before removing local conversation aliases. MAIN-world messages are hints only.
+ * Resolves account ownership in the isolated world and handles deletion notices
+ * sent by the extension background after Chrome observes a successful mutation.
  */
 import { CHATGPT_MESSAGE_TYPES } from '@/platforms/chatgpt/messages';
 import { TOC_TRUSTED_CONVERSATION_DELETED, isPermanentConversationId } from './protocol';
@@ -16,7 +16,6 @@ let installed = false;
 let generation = 0;
 let lastCheckAt = 0;
 const MIN_RECHECK_INTERVAL_MS = 2_000;
-const deletionChecksInFlight = new Set<string>();
 
 /** Returns null on an unverified response; never invent an account ID. */
 export async function readTrustedConversationOwner(
