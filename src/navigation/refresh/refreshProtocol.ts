@@ -2,6 +2,9 @@
 export const TOC_REFRESH_REQUEST = 'LUNA_TOC_REFRESH_REQUEST';
 export const TOC_REFRESH_RESULT = 'LUNA_TOC_REFRESH_RESULT';
 
+/** Successful edited-prompt submission and stream completion signals. */
+export const TOC_EDIT_SUBMISSION = 'LUNA_TOC_EDIT_SUBMISSION';
+
 /** Cancels a particular waiting refresh without affecting other consumers. */
 export const TOC_REFRESH_CANCEL = 'LUNA_TOC_REFRESH_CANCEL';
 

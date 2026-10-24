@@ -1,8 +1,48 @@
 /** Tests that overlapping ChatGPT SSE responses never share partial-line buffers. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { inspectStream } from '@/pageHook/conversationStream';
+import { extractOutgoingMessage, inspectStream } from '@/pageHook/conversationStream';
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('outgoing user-message capture', () => {
+  it('returns the parent message ID so history edits can be distinguished from new prompts', () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal('window', { postMessage });
+    const args = [
+      '/backend-api/f/conversation',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          parent_message_id: 'previous-answer',
+          messages: [{
+            id: 'edited-prompt',
+            author: { role: 'user' },
+            content: { parts: ['Edited question'] },
+            create_time: 123,
+          }],
+        }),
+      },
+    ] as unknown as Parameters<typeof fetch>;
+
+    const result = extractOutgoingMessage(args, 'conversation-1');
+
+    expect(result).toEqual({
+      messageId: 'edited-prompt',
+      parentMessageId: 'previous-answer',
+    });
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'CHATGPT_NEW_USER_MESSAGE',
+        routeKey: 'conversation-1',
+        payload: expect.objectContaining({
+          id: 'edited-prompt',
+          parentMessageId: 'previous-answer',
+        }),
+      }),
+      '*'
+    );
+  });
+});
 
 describe('concurrent SSE readers', () => {
   it('keeps interleaved partial messages separated by route', async () => {
