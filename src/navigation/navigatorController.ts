@@ -50,6 +50,7 @@ import {
   TOC_REFRESH_REQUEST,
   TOC_REFRESH_RESULT,
   TOC_REFRESH_TIMEOUT_MS,
+  TOC_EDIT_SUBMISSION,
 } from './refresh/refreshProtocol';
 import type { ConversationSnapshot } from './state/activeBranch';
 
@@ -68,6 +69,21 @@ interface ResetRouteOptions {
   nextMessages?: NavigatorMessage[];
 }
 
+interface PendingSubmissionInfo {
+  routeKey: string;
+  parentMessageId: string;
+  existedBefore: boolean;
+}
+
+interface PendingEditRefresh {
+  routeKey: string;
+  messageId: string;
+  generationFinished: boolean;
+  retryUsed: boolean;
+  snapshotChecked: boolean;
+  snapshotContainsMessage: boolean;
+}
+
 export const navigatorController = (() => {
   let isInitialized = false;
   let isAttached = false;
@@ -77,6 +93,8 @@ export const navigatorController = (() => {
   let refreshTimeoutId: number | null = null;
   let refreshFailed = false;
   let lastRefreshRequestedAt = 0;
+  let pendingEditRefresh: PendingEditRefresh | null = null;
+  const pendingSubmissionInfo = new Map<string, PendingSubmissionInfo>();
   let reportedPromptCount = -1;
   let onPromptCountChanged = (_count: number) => {};
   let onPromptAdded = () => {};
@@ -172,19 +190,63 @@ export const navigatorController = (() => {
     refreshTimeoutId = null;
   }
 
+  function recordPendingEditSnapshot(snapshotComplete: boolean): void {
+    const pending = pendingEditRefresh;
+    if (!pending || pending.routeKey !== getCurrentConversationKey()) return;
+    pending.snapshotChecked = true;
+    pending.snapshotContainsMessage = snapshotComplete &&
+      conversationStore.getMessages().some((message) => message.id === pending.messageId);
+    if (pending.snapshotContainsMessage) {
+      pendingEditRefresh = null;
+      return;
+    }
+    maybeRetryPendingEditRefresh();
+  }
+
+  function maybeRetryPendingEditRefresh(): void {
+    const pending = pendingEditRefresh;
+    if (!pending || !pending.generationFinished || refreshPending || !pending.snapshotChecked) return;
+    if (pending.snapshotContainsMessage || pending.retryUsed) {
+      pendingEditRefresh = null;
+      return;
+    }
+
+    // A snapshot can race the server's branch switch. Retry once after the
+    // generation stream ends, but never poll or loop on an unavailable API.
+    pending.retryUsed = true;
+    pending.snapshotChecked = false;
+    pending.snapshotContainsMessage = false;
+    queueMicrotask(() => {
+      if (pendingEditRefresh !== pending ||
+          pending.routeKey !== getCurrentConversationKey()) return;
+      refreshCurrentConversation({ force: true });
+    });
+  }
+
+  function clearPendingEditRefresh(): void {
+    pendingEditRefresh = null;
+    pendingSubmissionInfo.clear();
+  }
+
   /**
    * Initializes data and route listeners before the page hook starts emitting.
    * @param {Object} [options]
    */
   /** Refreshes the current active branch when the user opens the sidebar. */
-  function refreshCurrentConversation(): void {
+  function refreshCurrentConversation(options: { force?: boolean } = {}): void {
     if (!isInitialized || !isAttached || getActivePlatform().id !== 'chatgpt') return;
     syncRouteState();
     const routeKey = getCurrentConversationKey();
     if (conversationStore.isNewChatRouteKey(routeKey)) return;
+    const force = options.force === true;
+    if (force && refreshPending) {
+      cancelPendingRefresh();
+      // Invalidate the cancelled request before issuing the edit-triggered one.
+      refreshSequence += 1;
+    }
     const now = Date.now();
-    // Coalesce repeated pointer transitions and existing requests.
-    if (refreshPending || now - lastRefreshRequestedAt < 500) return;
+    // Coalesce ordinary triggers; explicit edit refreshes supersede stale work.
+    if (refreshPending || (!force && now - lastRefreshRequestedAt < 500)) return;
     refreshPending = true;
     refreshRouteKey = routeKey;
     lastRefreshRequestedAt = now;
@@ -198,6 +260,7 @@ export const navigatorController = (() => {
         conversationStore.markConversationIncomplete(routeKey);
         refreshFailed = true;
         render();
+        recordPendingEditSnapshot(false);
         console.warn('[LunaTOC] Conversation TOC refresh timed out');
       }
     }, TOC_REFRESH_TIMEOUT_MS);
@@ -458,6 +521,7 @@ export const navigatorController = (() => {
     cancelPendingRefresh();
     refreshSequence += 1;
     refreshFailed = false;
+    clearPendingEditRefresh();
 
     const isEnteringNewChat =
       conversationStore.isNewChatRouteKey(nextConversationKey) &&
@@ -496,6 +560,8 @@ export const navigatorController = (() => {
     cancelPendingRefresh();
     refreshSequence += 1;
     refreshFailed = false;
+    if (pendingEditRefresh?.routeKey === routeKey) pendingEditRefresh = null;
+    pendingSubmissionInfo.delete(routeKey);
     setLoading(false);
     clearSettleTimer();
     resetStateForCurrentRoute();
@@ -552,6 +618,7 @@ export const navigatorController = (() => {
           conversationStore.markConversationIncomplete(routeKey);
           refreshFailed = true;
           setSidebarStatus({ state: 'stale' });
+          recordPendingEditSnapshot(false);
           console.warn('[LunaTOC] Conversation TOC refresh returned no complete snapshot');
           return;
         }
@@ -559,9 +626,11 @@ export const navigatorController = (() => {
         if (!conversationStore.isConversationComplete(routeKey)) {
           refreshFailed = true;
           setSidebarStatus({ state: 'stale' });
+          recordPendingEditSnapshot(false);
           return;
         }
         refreshFailed = false;
+        recordPendingEditSnapshot(true);
         if (changed) {
           cancelPromptNavigation();
           resetOutline();
@@ -571,6 +640,53 @@ export const navigatorController = (() => {
             state: 'complete',
             promptCount: conversationStore.getMessages().length,
           });
+        }
+        return;
+      }
+
+      if (event.data?.type === TOC_EDIT_SUBMISSION) {
+        if (event.origin !== location.origin) return;
+        const { stage, routeKey, messageId, parentMessageId } = event.data;
+        if (typeof routeKey !== 'string' ||
+            routeKey !== getCurrentConversationKey() ||
+            typeof messageId !== 'string' || !messageId) return;
+
+        if (stage === 'accepted') {
+          const submission = pendingSubmissionInfo.get(messageId);
+          pendingSubmissionInfo.delete(messageId);
+          if (submission && submission.routeKey !== routeKey) return;
+          const parentId = submission?.parentMessageId ??
+            (typeof parentMessageId === 'string' ? parentMessageId : '');
+          if (!parentId) return;
+
+          const currentPrompts = conversationStore.getMessages();
+          const promptsBeforeSubmission = submission?.existedBefore
+            ? currentPrompts
+            : currentPrompts.filter((message) => message.id !== messageId);
+          const lastPrompt = promptsBeforeSubmission[promptsBeforeSubmission.length - 1];
+
+          // A normal new prompt points at the latest prompt/answer. A different
+          // parent means the user submitted from an earlier branch in history.
+          if (!lastPrompt || parentId === lastPrompt.id || parentId === lastPrompt.answerId) return;
+
+          pendingEditRefresh = {
+            routeKey,
+            messageId,
+            generationFinished: false,
+            retryUsed: false,
+            snapshotChecked: false,
+            snapshotContainsMessage: false,
+          };
+          refreshCurrentConversation({ force: true });
+          return;
+        }
+
+        if (stage === 'finished') {
+          const pending = pendingEditRefresh;
+          if (pending && pending.routeKey === routeKey && pending.messageId === messageId) {
+            pending.generationFinished = true;
+            maybeRetryPendingEditRefresh();
+          }
         }
         return;
       }
@@ -601,16 +717,34 @@ export const navigatorController = (() => {
         event.data?.type ===
         getActivePlatform().pageHook.messages.newUserMessage
       ) {
-        const newMessage = event.data.payload as ChatMessage;
+        const newMessage = event.data.payload as ChatMessage & { parentMessageId?: unknown };
         if (!newMessage?.id) return;
 
         const routeKey = event.data.routeKey;
+        const existedBefore = conversationStore.getMessages().some((message) => message.id === newMessage.id);
         const result = conversationStore.handleNewUserMessage(
           newMessage,
           routeKey
         );
 
         if (!result.accepted) return;
+
+        if (typeof newMessage.parentMessageId === 'string' && newMessage.parentMessageId) {
+          const submissionRouteKey = typeof routeKey === 'string'
+            ? routeKey
+            : getCurrentConversationKey();
+          pendingSubmissionInfo.delete(newMessage.id);
+          pendingSubmissionInfo.set(newMessage.id, {
+            routeKey: submissionRouteKey,
+            parentMessageId: newMessage.parentMessageId,
+            existedBefore,
+          });
+          while (pendingSubmissionInfo.size > 8) {
+            const oldest = pendingSubmissionInfo.keys().next().value;
+            if (!oldest) break;
+            pendingSubmissionInfo.delete(oldest);
+          }
+        }
 
         if (result.didAppend) {
           onPromptAdded();

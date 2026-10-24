@@ -21,6 +21,13 @@ interface OutgoingMessage {
 
 interface OutgoingRequestBody {
   messages?: OutgoingMessage[];
+  parent_message_id?: string | null;
+  parentMessageId?: string | null;
+}
+
+export interface OutgoingMessageMeta {
+  messageId: string;
+  parentMessageId: string | null;
 }
 
 /**
@@ -31,7 +38,7 @@ export function extractOutgoingMessage(
   args: FetchArgs,
   routeKey: string,
   messageType: string = NEW_USER_MESSAGE_TYPE
-): void {
+): OutgoingMessageMeta | null {
   try {
     const init = args[1] || {};
     if (typeof init.body === 'string') {
@@ -39,7 +46,12 @@ export function extractOutgoingMessage(
       const messages = data.messages || [];
       const userMessage = messages.find((m) => m.author?.role === 'user');
 
-      if (userMessage) {
+      if (userMessage?.id) {
+        const parentMessageId =
+          (typeof data.parent_message_id === 'string' && data.parent_message_id) ||
+          (typeof data.parentMessageId === 'string' && data.parentMessageId) ||
+          null;
+
         window.postMessage(
           {
             type: messageType,
@@ -49,13 +61,18 @@ export function extractOutgoingMessage(
               content: userMessage.content,
               metadata: userMessage.metadata,
               createTime: userMessage.create_time || Date.now(),
+              parentMessageId,
             },
           },
           '*'
         );
+
+        return { messageId: userMessage.id, parentMessageId };
       }
     }
   } catch {}
+
+  return null;
 }
 
 /**

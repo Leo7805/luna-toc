@@ -32,6 +32,7 @@ import {
 } from './conversationCapture';
 import { cancelBackfillsExcept, installConversationBackfill } from './conversationBackfill';
 import { installConversationRefresh } from './conversationRefresh';
+import { TOC_EDIT_SUBMISSION } from '@/navigation/refresh/refreshProtocol';
 import { installConversationLifecycle } from './conversationLifecycle';
 import { installHistoryHook } from './historyHook';
 import { installTitleObserver } from './titleObserver';
@@ -103,9 +104,10 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
       }
     } catch {}
 
+    let outgoingMessageMeta: ReturnType<typeof extractOutgoingMessage> = null;
     try {
       if (requestMeta?.isSendMessage) {
-        extractOutgoingMessage(
+        outgoingMessageMeta = extractOutgoingMessage(
           args,
           requestMeta.routeKey,
           platform.pageHook.messages.newUserMessage
@@ -138,11 +140,34 @@ import { PAGE_HOOK_HEALTH_PING, PAGE_HOOK_HEALTH_PONG } from '@/features/contrac
       }
 
       if (requestMeta?.isSendMessage) {
-        inspectStream(
+        if (response.ok && outgoingMessageMeta?.parentMessageId) {
+          window.postMessage({
+            type: TOC_EDIT_SUBMISSION,
+            stage: 'accepted',
+            routeKey: requestMeta.routeKey,
+            messageId: outgoingMessageMeta.messageId,
+            parentMessageId: outgoingMessageMeta.parentMessageId,
+          }, location.origin);
+        }
+
+        const streamInspection = inspectStream(
           response,
           requestMeta.routeKey,
           platform.pageHook.messages.newUserMessage
-        ).catch(() => {});
+        );
+        if (outgoingMessageMeta?.parentMessageId) {
+          void streamInspection.then(() => {
+            window.postMessage({
+              type: TOC_EDIT_SUBMISSION,
+              stage: 'finished',
+              routeKey: requestMeta.routeKey,
+              messageId: outgoingMessageMeta!.messageId,
+              parentMessageId: outgoingMessageMeta!.parentMessageId,
+            }, location.origin);
+          }).catch(() => {});
+        } else {
+          streamInspection.catch(() => {});
+        }
       }
     } catch {}
 
