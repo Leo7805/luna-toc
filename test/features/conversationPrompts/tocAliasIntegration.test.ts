@@ -63,13 +63,13 @@ describe('renamed TOC entries', () => {
     input.value = 'Custom display title';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Custom display title', prompt.text));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Custom display title'));
     await vi.waitFor(() => expect(document.querySelector('.navigator-item-inline-input')).toBeNull());
     expect(prompt.text).toBe('Original ChatGPT question');
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     promptContextMenuController.select('restore-toc');
-    expect(restore).toHaveBeenCalledWith(prompt, prompt.text);
+    expect(restore).toHaveBeenCalledWith(prompt);
   });
 
   it('cancels with Escape, saves on blur, and preserves the original message', async () => {
@@ -99,7 +99,7 @@ describe('renamed TOC entries', () => {
     input.value = 'Saved when blurred';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new FocusEvent('blur'));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Saved when blurred', null));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'Saved when blurred'));
     await vi.waitFor(() => expect(document.querySelector('.navigator-item-text')?.textContent)
       .toBe('Saved when blurred'));
   });
@@ -188,7 +188,7 @@ describe('renamed TOC entries', () => {
     editor.value = 'First line\nSecond line';
     editor.dispatchEvent(new Event('input', { bubbles: true }));
     editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'First line\nSecond line', null));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith(prompt, 'First line\nSecond line'));
   });
 
   it('closes the editor when the conversation is reset without saving', () => {

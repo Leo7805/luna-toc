@@ -351,7 +351,7 @@ describe('versioned local backup', () => {
     expect(box.state).toEqual(original);
   });
 
-  it('serializes backup restore before a stale prompt commit and rejects the stale write', async () => {
+  it('preserves write order when a prompt commit follows a restore', async () => {
     const original = prompt('old');
     const backup = sample();
     backup.data.prompts = [prompt('restored')];
@@ -360,14 +360,16 @@ describe('versioned local backup', () => {
     const queue = createSerialWriteQueue();
     const promptWriter = createPromptWriteCoordinator(box.storage, queue);
 
-    const restore = queue.run(() => restoreLocalBackup(backup, 'replace', box.storage));
-    const staleCommit = promptWriter.commit({
-      type: PROMPT_COMMIT_TYPE, expected: [original], next: [prompt('stale')],
-    });
-
-    await restore;
-    await expect(staleCommit).resolves.toEqual({ ok: false, conflict: true });
+    await queue.run(() => restoreLocalBackup(backup, 'replace', box.storage));
     expect(box.state[PROMPTS]).toEqual([prompt('restored')]);
+
+    // The single-tab editor must read the restored collection before making
+    // a subsequent change. Cross-tab stale-write rejection is unsupported.
+    const subsequent = await promptWriter.commit({
+      type: PROMPT_COMMIT_TYPE, next: [prompt('restored'), prompt('added')],
+    });
+    expect(subsequent).toEqual({ ok: true });
+    expect(box.state[PROMPTS]).toEqual([prompt('restored'), prompt('added')]);
   });
 
 });
