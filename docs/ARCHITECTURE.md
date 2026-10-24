@@ -55,6 +55,8 @@
 
 ## UI 与构建
 
+- `src/platforms/chatgpt/markdownBoldRepair.ts` 仅在助手回答自身的 `.markdown` 容器内，将完整且未转义的 `**文本**` 普通文本标记安全转换为 `strong` DOM 节点；跳过代码、数学公式、用户消息和不完整标记，并观察流式文本与新挂载回答。此功能不发送或存储对话内容，不改变 ChatGPT 原始响应。
+
 `src/app/applicationShell.ts` 管理侧边栏生命周期、宽度及主题；`src/reactHost/` 提供隔离 React UI 的 Shadow DOM。`src/features/SidebarToggleButton.ts` 创建视口右缘宽 6px、贯穿视口高度的完全透明鼠标触发区，不含背景、悬停色或可见描边。`src/features/sidebarVisibility.ts` 协调侧边栏与触发条互斥显示，自动收起采用 60ms 缓冲、100ms 动画并保留固定与扩展弹层悬停保护。 `src/features/sidebar/sidebarPreferences.ts` 在账号偏好映射中维护布局、背景配色及触发区颜色开关；设置页按所选账号读写，内容脚本按已验证账号读写。默认背景沿用原有浅蓝/深蓝半透明主题底色与 12px 背景模糊，不再设置透明覆盖；非默认色仍按深浅主题混色。`src/features/sidebar/chatGptSideBySide.ts` 在并排模式下识别 ChatGPT 的实际聊天主列并预留侧边栏宽度，监听宽度、窗口及 SPA 结构变化；空间不足或无法安全识别时回退浮层模式，不修改 `window.matchMedia` 或页面 body。三个导航按钮由 `src/features/sidebar/jumpToEdgeControls.ts` 创建，由 `src/features/sidebar/jumpControlsPosition.ts` 计算鼠标高度对应的工具组位置并在顶部和底部边界内裁切；`src/features/sidebarVisibility.ts` 第一次指针进入视口最右缘仅展开侧边栏；需先离开右缘再重新进入且持续停留 50ms 后，按钮才在指针高度出现。离开边缘、关闭侧边栏或切换状态会取消待触发计时；鼠标进入按钮组后保持位置稳定供点击，离开右缘或按钮组后等待 400ms 才隐藏，指针返回取消计时；只有按钮已出现且鼠标离开整个侧边栏时，侧边栏自动收起也采用相同 400ms 宽限，普通场景仍维持 60ms。旧版拖动位置的会话存储在初始化时删除。隐藏时按钮不可点击或通过 Tab 到达；键盘用户在打开的侧边栏内可按 `Alt+Shift+J` 显示按钮并聚焦首个按钮。目录列表仍保留 `overflow-y: auto` 滚动，但通过 `scrollbar-width: none` 和 `::-webkit-scrollbar` 隐藏可见轨道；工具条仍贴齐浏览器右边缘。不再渲染独立的三点菜单按钮或展开三角形。侧边栏展开不会伪装网页宽度，并排和浮层模式的固定/隐藏默认值不同；用户手动固定状态在相同模式的当前标签页中保留。
 
 使用 `npm ci`、`npm run typecheck`、`npm test`、`npm run build` 验证；Chrome 加载 `dist/`。GitHub Actions 对 PR 与 main 推送只执行 CI（类型检查、测试、构建、资源和 ZIP 校验），不会自动发布；只有在 main 上手动确认后才执行独立发布工作流。CI 权限只读，发布写权限限制在单个发布作业；旧 Releases、Git 标签和分支不自动删除。参见 [发布与恢复说明](RELEASE_PROCESS.md)。

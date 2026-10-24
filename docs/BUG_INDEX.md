@@ -15,6 +15,7 @@ This document is the master registry for tracking bugs and regressions in LunaTO
 
 | ID | Date | Bug | Area | Root Cause | Fix | Commit | Showcase |
 |---|---|---|---|---|---|---|---|
+| B034 | 2026-10-24 | [ChatGPT 回答中的 Markdown 粗体标记未渲染](bugs/B034-markdown-bold-rendering.md) | ChatGPT / Rendering (P2) | 用户报告完整的 `**文本**` 标记原样显示；真实 ChatGPT DOM 根因尚未现场核实，暂按标记落入普通文本节点处理。 | 只在助手 `.markdown` 中将安全的完整标记转换为 `strong`，跳过代码、数学、转义和不完整标记；增加 DOM 更新观察、单测和 Chromium 回归。 | 00e55d4 | Yes |
 | B033 | 2026-10-24 | [目录标题跳转与边缘跳转冲突](bugs/B033-outline-edge-navigation-conflict.md) | Navigation / Scroll (P2) | 标题跳转使用独立的 `outlineJumpVersion` 管理延迟重试和下一帧校正；边缘跳转只取消虚拟滚动导航，没有使旧标题跳转失效。 | 顶部/底部跳转前调用 `cancelOutlineNavigation()`，清除旧标题高亮并阻断过期校正；新增控制器顺序回归测试。 | c5f3aa2 | Yes |
 | B032 | 2026-10-24 | 已删除 ChatGPT 会话可能留下本地目录别名，自动清理又存在网页伪造删除风险 | Options / Alias / Lifecycle | B026 阻断不可信页面删除事件后，缺少用户主动逐条清理本地孤立数据的入口。 | 继续保留先备份、用户确认、预览记录条件匹配和持久删除保护；新版本额外自动清理未绑定账号的旧别名。**远端会话删除后自动清理仍未解决**，不得信任网页 `postMessage`。 | 42ff388, 433b98b, 0ee1c0d, 54c1761, df04d34, 9173953, a602ced, c476f4, a344ce8 | Yes |
 | B031 | 2026-10-24 | 历史补全 fetch/JSON 长时间挂起，导致会话标记无法释放且迟到响应可能混入旧路由 | Page Hook / Backfill | 后台分页只有页面数上限，无请求超时、取消信号及重复游标保护。 | 每页超时、AbortController 与不响应 abort 的请求竞态释放；路由变化终止旧任务、阻断迟到数据；重复游标立即停止；新增回归用例。 | 8d2c2d5, a676f83, 6fabfba | Yes |

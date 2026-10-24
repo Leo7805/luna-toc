@@ -118,6 +118,39 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       assert.equal(await page.locator('#native-nav').count(),1);
     });
 
+    await t.test('repairs raw Markdown bold in dynamically mounted assistant answers only',async()=>{
+      await page.evaluate(()=>{
+        const answer=document.createElement('article');
+        answer.setAttribute('data-chatgpt-search-unit-key','dynamic-answer:assistant');
+        answer.setAttribute('data-message-author-role','assistant');
+        const markdown=document.createElement('div');
+        markdown.className='markdown';
+        const paragraph=document.createElement('p');
+        const tick=String.fromCharCode(96);
+        paragraph.textContent='动态 **粗体内容**，代码 '+tick+'**行内代码**'+tick;
+        const code=document.createElement('code');
+        code.textContent='**代码元素**';
+        const pre=document.createElement('pre');
+        pre.textContent='**代码块**';
+        const math=document.createElement('span');
+        math.className='katex';
+        math.textContent='**公式**';
+        markdown.append(paragraph,code,pre,math);
+        answer.append(markdown);
+        document.querySelector('#thread')?.append(answer);
+      });
+      const answer=page.locator('[data-chatgpt-search-unit-key="dynamic-answer:assistant"]');
+      await page.waitForFunction(()=>document.querySelector('[data-chatgpt-search-unit-key="dynamic-answer:assistant"] strong[data-luna-toc-markdown-bold="true"]')?.textContent==='粗体内容');
+      assert.equal(await answer.locator('strong[data-luna-toc-markdown-bold="true"]').count(),1);
+      assert.equal(await answer.locator('p').textContent(),'动态 粗体内容，代码 '+String.fromCharCode(96)+'**行内代码**'+String.fromCharCode(96));
+      assert.equal(await answer.locator('code').textContent(),'**代码元素**');
+      assert.equal(await answer.locator('pre').textContent(),'**代码块**');
+      assert.equal(await answer.locator('.katex strong').count(),0);
+      assert.equal(await answer.locator('.katex').textContent(),'**公式**');
+      await page.waitForTimeout(50);
+      assert.equal(await answer.locator('strong[data-luna-toc-markdown-bold="true"]').count(),1);
+    });
+
     await t.test('reveal, search, view toggle and keyboard controls',async()=>{
       await page.locator('#luna-toc-toggle-btn').click({force:true});
       await page.locator('#luna-toc-sidebar[aria-hidden="false"]').waitFor();
