@@ -133,6 +133,16 @@ describe('background TOC alias coordinator', () => {
     expect(box.data[key]).toEqual({ ownerId: 'account-A', aliases: { msg: 'original' } });
   });
 
+  it('does not silently adopt all unowned legacy labels by editing a different message', async () => {
+    const legacy = { ownerId: null, aliases: { 'private-old': 'Previous account title' } };
+    const box = backing({ [key]: legacy });
+    const writer = createTocAliasWriteCoordinator(box.storage);
+    expect(await writer.commit(update('new-message', null, 'new label', 'account-B')))
+      .toEqual({ ok: false, error: 'Legacy aliases require explicit owner migration' });
+    expect(box.data[key]).toEqual(legacy);
+    expect(box.set).not.toHaveBeenCalled();
+  });
+
   it('reports storage errors and keeps the queue usable', async () => {
     const box = backing();
     const writer = createTocAliasWriteCoordinator(box.storage);
