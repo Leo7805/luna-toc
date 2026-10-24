@@ -165,7 +165,7 @@ CI uses supported GitHub Actions major versions and checks that the deprecated v
 **删除会话的限制**：页面 `postMessage` 不能单独授权删除本地数据。当前使用 D36 的后台 `webRequest` 观察器确认成功的真实删除类网络请求；若请求未被观察、发生重定向、返回非 2xx 或账号无法重新验证，自动清理将保守地跳过，用户仍可通过设置页的本地清理流程处理残留记录。
 
 
-## D30 — 通过浏览器网络层确认真实会话删除（2026-10-24）
+## D36 — 通过浏览器网络层确认真实会话删除（2026-10-24）
 
 同源网页可以伪造 MAIN-world `postMessage`，而 GET 404/410 也可能来自不支持的接口或访问限制，因此这两种信号都不能授权清理本地别名。为满足自动清理真实删除会话的需求，扩展在 MV3 service worker 中注册非阻塞 `chrome.webRequest` 观察器，过滤范围仅限 `chatgpt.com` 与 `chat.openai.com` 的会话 API 路径；只识别顶层 `DELETE` 或明确的非归档 `PATCH is_visible=false`，并仅在同一 requestId 完成且状态码为 2xx 时通知发起请求的标签页。隔离世界通过 `chrome.runtime` 接收通知，重新验证会话账号与已有别名归属，再调用原有带持久删除围栏的串行写入流程。
 
