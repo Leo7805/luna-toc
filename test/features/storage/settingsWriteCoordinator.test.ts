@@ -30,4 +30,61 @@ describe('background settings coordinator', () => {
     expect(await writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar', settings: { layoutMode: 'invalid' } }))
       .toEqual({ ok: false, error: 'Invalid settings update request' });
   });
+  it('merges edits from stale tabs by field instead of overwriting unrelated preferences', async () => {
+    const values: Record<string, unknown> = {};
+    const storage = {
+      get: vi.fn(async (key: string) => ({ [key]: values[key] })),
+      set: vi.fn(async (patch: Record<string, unknown>) => { Object.assign(values, patch); }),
+      remove: vi.fn(async () => {}),
+    } as unknown as chrome.storage.StorageArea;
+    const writer = createSettingsWriteCoordinator(storage);
+    const commit = (patch: Record<string, unknown>) =>
+      writer.commit({ type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch });
+
+    const first = await Promise.all([
+      commit({ layoutMode: 'side-by-side' }),
+      commit({ backgroundColor: 'green' }),
+      commit({ revealTint: true }),
+    ]);
+    expect(first).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
+    expect(values['chatToc:sidebarPreferences']).toEqual({
+      layoutMode: 'side-by-side', backgroundColor: 'green', revealTint: true,
+    });
+
+    expect(await commit({ backgroundColor: 'blue' })).toEqual({ ok: true });
+    expect(values['chatToc:sidebarPreferences']).toEqual({
+      layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true,
+    });
+
+    expect((await commit({ revealTint: 'invalid' })).ok).toBe(false);
+    expect((await commit({ backgroundColor: 'unknown' })).ok).toBe(false);
+    expect((await commit({ layoutMode: 'overlay', extra: true })).ok).toBe(false);
+    expect((await commit({})).ok).toBe(false);
+    expect(values['chatToc:sidebarPreferences']).toEqual({
+      layoutMode: 'side-by-side', backgroundColor: 'blue', revealTint: true,
+    });
+  });
+
+  it('preserves the latest restored sidebar fields when a delayed patch reaches the worker', async () => {
+    const values: Record<string, unknown> = {
+      'chatToc:sidebarPreferences': {
+        layoutMode: 'overlay', backgroundColor: 'yellow', revealTint: true,
+      },
+    };
+    const storage = {
+      get: vi.fn(async (key: string) => ({ [key]: values[key] })),
+      set: vi.fn(async (patch: Record<string, unknown>) => { Object.assign(values, patch); }),
+      remove: vi.fn(async () => {}),
+    } as unknown as chrome.storage.StorageArea;
+    const queue = createSerialWriteQueue();
+    const writer = createSettingsWriteCoordinator(storage, queue);
+    const response = await writer.commit({
+      type: SETTINGS_COMMIT_TYPE, action: 'sidebar-patch', patch: { layoutMode: 'side-by-side' },
+    });
+    expect(response).toEqual({ ok: true });
+    expect(values['chatToc:sidebarPreferences']).toEqual({
+      layoutMode: 'side-by-side', backgroundColor: 'yellow', revealTint: true,
+    });
+  });
+
 });
