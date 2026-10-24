@@ -160,6 +160,39 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.locator('#luna-toc-sidebar.luna-toc-navigator-ready').waitFor({state:'attached'});
     });
 
+
+    await t.test('B026: forged and page-confirmed deletions never erase local aliases',{timeout:20000},async()=>{
+      const routeKey='luna-stage-9-e2e';
+      const aliasKey='chatToc:aliases:v1:'+routeKey;
+      const fenceKey='chatToc:aliases:deleted:v1:'+routeKey;
+      const record={ownerId:null,aliases:{'user-1':'请保留此目录别名'}};
+      await worker.evaluate(async({aliasKey,fenceKey,record})=>{
+        await chrome.storage.local.remove(fenceKey);
+        await chrome.storage.local.set({[aliasKey]:record});
+      },{aliasKey,fenceKey,record});
+      // Run in the actual page world, not through an extension content script.
+      await page.evaluate(async routeKey=>{
+        window.postMessage({type:'LUNA_TOC_CONVERSATION_DELETED',routeKey},location.origin);
+        await new Promise(resolve=>setTimeout(resolve,250));
+      },routeKey);
+      let state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
+      assert.deepEqual(state[aliasKey],record,'a same-origin page script cannot erase an alias');
+      assert.equal(Object.hasOwn(state,fenceKey),false,'a forged page event must not create a deletion fence');
+
+      // Even an observed HTTP DELETE from MAIN world uses the same untrusted
+      // postMessage boundary. It remains informational until a trusted verifier exists.
+      const result=await page.evaluate(async routeKey=>{
+        const response=await fetch('/backend-api/conversations/'+routeKey,{method:'DELETE'});
+        await new Promise(resolve=>setTimeout(resolve,250));
+        return {ok:response.ok,status:response.status};
+      },routeKey);
+      assert.equal(result.ok,true,'fixture must simulate a successful host deletion request');
+      state=await worker.evaluate(async(keys)=>chrome.storage.local.get(keys),[aliasKey,fenceKey]);
+      assert.deepEqual(state[aliasKey],record,'page-reported deletion must not erase local aliases');
+      assert.equal(Object.hasOwn(state,fenceKey),false,'a page-reported deletion must not persist a fence');
+      // The fixture is disposable; do not need to clean real user data.
+    });
+
     await t.test('500-message fully mounted fixture builds a TOC and supports a far jump',{timeout:60000},async()=>{
       const started=Date.now();
       await page.goto('https://chatgpt.com/c/luna-stage-10-large-e2e',{waitUntil:'domcontentloaded'});
