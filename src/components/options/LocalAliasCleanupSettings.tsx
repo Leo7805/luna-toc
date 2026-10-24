@@ -36,10 +36,10 @@ export function LocalAliasCleanupSettings(): React.JSX.Element {
   const clean = async (item: AliasCleanupCandidate): Promise<void> => {
     if (busy || !hasBackup) return;
     if (!window.confirm(
-      '仅清理浏览器本地目录别名，不会删除 ChatGPT 会话。\\n' +
-      '会话 ID：' + item.routeKey + '\\n' +
-      '关联账号：' + (item.record.ownerId ?? '旧记录：未绑定账号') + '\\n' +
-      '别名数量：' + item.aliasCount + '\\n\\n' +
+      '仅清理浏览器本地目录别名，不会删除 ChatGPT 会话。\n' +
+      '会话 ID：' + item.routeKey + '\n' +
+      '关联账号：' + (item.record.ownerId ?? '旧记录：未绑定账号') + '\n' +
+      '别名数量：' + item.aliasCount + '\n\n' +
       '确认已保存可恢复的本地备份，并确定这是不再需要的会话？'
     )) return;
     setBusy(true);
