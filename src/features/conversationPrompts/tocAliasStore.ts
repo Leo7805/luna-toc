@@ -157,6 +157,9 @@ export function createTocAliasStore(onChanged: (routeKey: string) => void = () =
     notify(routeKey);
     const job = writeQueue.catch(() => undefined).then(async () => {
       try {
+        if (ownerId !== getActiveConversationOwner()) {
+          throw new Error('ChatGPT account changed; conversation aliases were not deleted');
+        }
         const response = await sendCommit({
           type: TOC_ALIAS_COMMIT_TYPE, action: 'delete-conversation', routeKey, ownerId,
         });

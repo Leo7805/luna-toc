@@ -191,6 +191,9 @@ export function createPromptStore(): PromptStore {
         }
         await ensureUnownedCleaned();
         const latest = await readFresh();
+        if (ownerId !== getActiveConversationOwner()) {
+          throw new Error('ChatGPT account changed; prompts were not cleared');
+        }
         await backgroundCommit({
           type: PROMPT_COMMIT_TYPE, action: 'clear-account', ownerId,
         });
@@ -213,6 +216,9 @@ export function createPromptStore(): PromptStore {
         }
         const nextAll = [...latest.filter((prompt) => prompt.ownerId !== ownerId), ...nextOwned];
         if (!isPromptList(nextAll)) throw new Error('Invalid prompt update');
+        if (ownerId !== getActiveConversationOwner()) {
+          throw new Error('ChatGPT account changed; prompts were not saved');
+        }
         await backgroundCommit({
           type: PROMPT_COMMIT_TYPE, action: 'replace-account', ownerId, next: nextOwned,
         });
