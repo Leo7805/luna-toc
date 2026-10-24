@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-/** A two-key clear must remain consistent under concurrent and partial writes. */
+/** Two-key clearing must retain rollback on partial storage failures. */
 import { describe, expect, it, vi } from 'vitest';
 import { createPromptWriteCoordinator, PROMPT_COMMIT_TYPE, PROMPT_STORAGE_KEY } from '@/features/myPrompts/promptWriteCoordinator';
 import { createPromptUsageWriteCoordinator, PROMPT_USAGE_COMMIT_TYPE } from '@/features/myPrompts/promptUsageWriteCoordinator';
@@ -9,7 +9,7 @@ import type { SavedPrompt } from '@/features/myPrompts/promptStore';
 const USAGE = 'lunaToc:promptUsageV1';
 const prompt: SavedPrompt = { id: 'saved', title: 'Saved', content: 'Text', createdAt: 1, updatedAt: 1 };
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
-const clear = () => ({ type: PROMPT_COMMIT_TYPE, action: 'clear-all' as const, expected: [prompt] });
+const clear = () => ({ type: PROMPT_COMMIT_TYPE, action: 'clear-all' as const });
 
 function harness() {
   const state: Record<string, unknown> = {
@@ -40,13 +40,13 @@ function harness() {
 }
 
 describe('coordinated clear-all', () => {
-  it('clears prompts and usage together and rejects stale repeat clears', async () => {
+  it('clears prompts and usage together and permits an idempotent repeat', async () => {
     const box = harness();
     const writer = createPromptWriteCoordinator(box.storage);
     expect(await writer.commit(clear())).toEqual({ ok: true });
     expect(box.state[PROMPT_STORAGE_KEY]).toEqual([]);
     expect(box.state[USAGE]).toEqual({});
-    expect(await writer.commit(clear())).toEqual({ ok: false, conflict: true });
+    expect(await writer.commit(clear())).toEqual({ ok: true });
   });
 
   it('rolls back both keys after partial write failure', async () => {

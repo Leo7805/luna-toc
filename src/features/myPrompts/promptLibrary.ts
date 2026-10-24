@@ -483,12 +483,7 @@ async function savePromptEditorValues(
         });
       } else {
         const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
-        if (!existingPrompt) throw new Error('提示词已在其他标签页删除，请重新打开编辑器。');
-        if ((item.updatedAt !== undefined && existingPrompt.updatedAt !== item.updatedAt) ||
-            (item.title !== undefined && existingPrompt.title !== item.title) ||
-            (item.content !== undefined && existingPrompt.content !== item.content)) {
-          throw new Error('提示词已在其他标签页修改，请重新打开编辑器。');
-        }
+        if (!existingPrompt) throw new Error('提示词已不存在，请重新打开编辑器。');
         existingPrompt.title = title;
         existingPrompt.content = content;
         existingPrompt.updatedAt = Date.now();
@@ -498,8 +493,7 @@ async function savePromptEditorValues(
   } catch (error) {
     await showPromptModal({
       title: '保存提示词',
-      message: error instanceof Error && error.message.includes('其他标签页')
-        ? error.message : '无法保存此提示词，请检查扩展状态后重试。',
+      message: error instanceof Error ? error.message : '无法保存此提示词，请检查扩展状态后重试。',
     });
     throw error;
   }
@@ -642,11 +636,6 @@ export async function renderMyPrompts(
       if (shouldDelete) {
         try {
           await requirePromptStore().update((prompts) => {
-            const current = prompts.find((p) => p.id === item.id);
-            if (!current || current.updatedAt !== item.updatedAt ||
-                current.title !== item.title || current.content !== item.content) {
-              throw new Error('提示词已在其他标签页修改，请刷新列表后再删除。');
-            }
             return prompts.filter((p) => p.id !== item.id);
           });
           void requirePromptUsageStore().remove(item.id).catch(() => {
