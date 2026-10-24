@@ -1,7 +1,4 @@
-/**
- * Verifies saved conversation references once on page startup and announces
- * successful ChatGPT deletion mutations. Failed/unauthorized reads never delete.
- */
+/** Verifies the authenticated account for lifecycle diagnostics; it does not authorize local deletion. */
 import {
   TOC_LIFECYCLE_CHECK_REQUEST,
   TOC_LIFECYCLE_CHECK_RESULT,
