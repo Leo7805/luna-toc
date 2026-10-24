@@ -118,7 +118,7 @@ describe('TOC alias storage', () => {
     await tabA.update(route, 'msg', 'Saved', 'account-1');
     await tabB.load(route);
     await tabA.removeConversation(route);
-    await expect(tabB.update(route, 'msg', 'Resurrect', 'account-1', 'Saved'))
+    await expect(tabB.update(route, 'msg', 'Resurrect', 'account-1'))
       .rejects.toThrow('deleted');
     worker = createTocAliasWriteCoordinator(chrome.storage.local);
     const reload = createTocAliasStore();
