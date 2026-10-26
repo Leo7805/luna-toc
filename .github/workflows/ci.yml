@@ -1,0 +1,123 @@
+name: LunaTOC-SC CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, tests, build, browser E2E and dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build Chrome extension
+        run: npm run build
+
+      - name: Verify built extension files
+        run: |
+          node --input-type=module <<'NODE'
+          import { existsSync, readFileSync, statSync } from 'node:fs';
+          import { resolve, relative, isAbsolute } from 'node:path';
+
+          const dist = resolve('dist');
+          const manifestPath = resolve(dist, 'manifest.json');
+          if (!existsSync(manifestPath)) {
+            throw new Error('dist/manifest.json is missing');
+          }
+
+          const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+          if (manifest.manifest_version !== 3) {
+            throw new Error('Expected a Manifest V3 extension');
+          }
+
+          const files = [
+            ...Object.values(manifest.icons ?? {}),
+            ...Object.values(manifest.action?.default_icon ?? {}),
+            manifest.action?.default_popup,
+            manifest.options_ui?.page,
+            manifest.background?.service_worker,
+            manifest.side_panel?.default_path,
+            ...(manifest.content_scripts ?? []).flatMap((script) => [
+              ...(script.js ?? []),
+              ...(script.css ?? []),
+            ]),
+          ].filter(Boolean);
+
+          if (files.length === 0) {
+            throw new Error('No extension assets were declared');
+          }
+
+          for (const file of files) {
+            const target = resolve(dist, file);
+            const pathFromDist = relative(dist, target);
+            if (
+              pathFromDist.startsWith('..') ||
+              isAbsolute(pathFromDist) ||
+              !existsSync(target) ||
+              !statSync(target).isFile()
+            ) {
+              throw new Error(`Missing or invalid extension asset: ${file}`);
+            }
+          }
+
+          console.log(`Manifest V3 validated with ${files.length} referenced assets`);
+          NODE
+
+      - name: Package and verify extension ZIP
+        run: |
+          (cd dist && zip -q -r ../luna-toc-sc-chrome.zip .)
+          unzip -tq luna-toc-sc-chrome.zip
+          unzip -Z1 luna-toc-sc-chrome.zip | grep -Fxq manifest.json
+          sha256sum luna-toc-sc-chrome.zip > luna-toc-sc-chrome.zip.sha256
+          sha256sum -c luna-toc-sc-chrome.zip.sha256
+
+      - name: Install isolated Chromium test runner
+        run: npm run test:browser:setup
+
+      - name: Run Chromium browser tests
+        run: npm run test:browser
+
+      - name: Check dependency advisories
+        run: npm audit --audit-level=high
+
+      - name: Upload verified extension package
+        uses: actions/upload-artifact@v7
+        with:
+          name: luna-toc-sc-chrome
+          path: |
+            luna-toc-sc-chrome.zip
+            luna-toc-sc-chrome.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
