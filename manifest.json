@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "LunaTOC-SC - ChatGPT 对话目录",
     "short_name": "LunaTOC-SC",
-    "version": "1.13.34",
+    "version": "1.13.35",
     "description": "LunaTOC-SC：为 ChatGPT 长对话添加中文目录、回答标题导航和本地提示词库。",
     "icons": {
         "16": "src/icons/icon16.png",
