@@ -12,9 +12,10 @@ Before making any code changes:
 
 ## Repository Delivery Policy
 
-1. Implement requested changes directly on `main`; do not create a branch or pull request.
-2. Group each requested change into one commit so the main-branch workflow runs once.
-3. Keep exactly one published GitHub Release, using the existing workflow to replace older releases.
+1. Prefer implementing requested changes directly on `main` only when GitHub allows direct updates. Never bypass branch protection, rulesets, or required status checks.
+2. If `main` is protected and GitHub rejects a direct update, create a topic branch from the latest `main` and open a pull request targeting `main`. Treat this as the required fallback to the direct-main workflow, not as an optional exception; do not force-push protected refs or bypass required reviews/checks.
+3. Keep each requested change in one logical commit where practical. If CI reveals a defect, add corrective commits and rerun the required checks before merging.
+4. Keep exactly one published GitHub Release, using the existing workflow to replace older releases.
 
 ## Communication
 

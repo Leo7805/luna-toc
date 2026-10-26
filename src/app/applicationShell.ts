@@ -21,6 +21,7 @@ import {
   type ResolvedTheme,
   type ThemeSettings,
 } from '@/features/theme/themeSettings';
+import { getLunaTocTheme, setLunaTocTheme } from '@/features/theme/lunaTocTheme';
 import { APP_CONFIG } from '@/config/config';
 import { navigatorController } from '@/navigation/navigatorController';
 import { sidebarController } from '@/features/sidebar/sidebarController';
@@ -30,7 +31,7 @@ let currentSidebarPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
 
 /** Reapplies local sidebar colors whenever a theme or preference changes. */
 function applySidebarAppearance(): void {
-  const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  const theme = getLunaTocTheme();
   const colors = sidebarAppearance(currentSidebarPreferences, theme);
   const sidebar = document.getElementById('luna-toc-sidebar');
   if (colors.background) sidebar?.style.setProperty('--ct-bg-sidebar', colors.background);
@@ -139,7 +140,7 @@ async function createSidebar(): Promise<HTMLElement> {
         role="status"
       ></div>
       <div class="navigator-jump-controls">
-        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="切换到我的提示词" title="切换到我的提示词">
+        <button class="navigator-icon-btn" id="toggle-view-mode-btn" type="button" aria-label="切换到 Tips" title="切换到 Tips">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="15 2 6 13 11 13 9 22 18 11 13 11 15 2"></polygon>
           </svg>
@@ -186,7 +187,7 @@ function initTheme(): void {
   let settings: ThemeSettings | null = null;
 
   const applyTheme = (theme: ResolvedTheme): void => {
-    document.documentElement.dataset.theme = theme;
+    setLunaTocTheme(theme);
     applySidebarAppearance();
   };
   const handleChatGPTTheme = (theme: ResolvedTheme): void => {

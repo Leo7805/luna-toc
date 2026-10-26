@@ -116,6 +116,13 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       assert.match(await page.locator('#navigator-list').innerText(),/第一条测试问题/);
       assert.match(await page.locator('#navigator-list').innerText(),/第二条测试问题/);
       assert.equal(await page.locator('#native-nav').count(),1);
+      await page.waitForFunction(() => document.documentElement.hasAttribute('data-luna-toc-theme'));
+      assert.equal(await page.evaluate(() => document.documentElement.hasAttribute('data-theme')), false);
+      await page.evaluate(() => document.documentElement.classList.add('dark'));
+      await page.waitForFunction(() => document.documentElement.dataset.lunaTocTheme === 'dark');
+      assert.equal(await page.evaluate(() => document.documentElement.hasAttribute('data-theme')), false);
+      await page.evaluate(() => document.documentElement.classList.remove('dark'));
+      await page.waitForFunction(() => document.documentElement.dataset.lunaTocTheme === 'light');
     });
 
     await t.test('repairs raw Markdown bold in dynamically mounted assistant answers only',async()=>{
@@ -162,11 +169,33 @@ test('Chromium MV3: TOC, search, layout, SPA and failure paths',{timeout:150000}
       await page.keyboard.press('Alt+Shift+J');
       await page.locator('.navigator-jump-controls-visible').waitFor({state:'attached'});
       await page.locator('#toggle-view-mode-btn').click();
-      assert.match(await page.locator('#navigator-title').innerText(),/我的提示词/);
+      assert.match(await page.locator('#navigator-title').innerText(),/Tips/);
       await page.locator('#toggle-view-mode-btn').click();
       await page.locator('#luna-toc-sidebar-pin-btn').focus();
       await page.keyboard.press('Alt+Shift+J');
       assert.equal(await page.locator('.navigator-jump-controls button:focus').count(),1);
+    });
+
+    await t.test('right-clicking a saved Tips item offers clear-all',async()=>{
+      const promptKey='lumaToc:myPromptsV1';
+      await worker.evaluate(async key=>{
+        const current=(await chrome.storage.local.get(key))[key]??[];
+        await chrome.storage.local.set({[key]:[...current,{
+          id:'e2e-clear-prompt',ownerId:'fixture-account-a',title:'E2E Clear Prompt',
+          content:'Prompt body',createdAt:1,updatedAt:1,
+        }]});
+      },promptKey);
+      await page.locator('#toggle-view-mode-btn').click();
+      const promptRow=page.locator('.my-prompts-item-row').filter({hasText:'E2E Clear Prompt'});
+      await promptRow.waitFor({state:'attached'});
+      await promptRow.click({button:'right'});
+      await page.getByRole('menuitem',{name:'复制提示词'}).waitFor();
+      await page.getByRole('menuitem',{name:'清空Tips'}).click();
+      await page.getByRole('button',{name:'全部清空'}).click();
+      await promptRow.waitFor({state:'detached'});
+      const persisted=await worker.evaluate(async key=>(await chrome.storage.local.get(key))[key]??[],promptKey);
+      assert.equal(persisted.some(prompt=>prompt.id==='e2e-clear-prompt'),false);
+      assert.match(await page.locator('#navigator-title').innerText(),/Tips/);
     });
 
     await t.test('options propagate side-by-side, resize fallback and overlay',async()=>{

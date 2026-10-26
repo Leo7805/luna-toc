@@ -53,7 +53,7 @@ describe('renamed TOC entries', () => {
     document.querySelector<HTMLElement>('.navigator-item')!
       .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map((item) => item.label))
-      .toEqual(['复制文字', '添加tips', '编辑文字', '恢复原文']);
+      .toEqual(['复制文字', '添加Tips', '编辑文字', '恢复原文']);
     promptContextMenuController.select('rename-toc');
     const input = document.querySelector<HTMLTextAreaElement>('.navigator-item-inline-input')!;
     expect(input).not.toBeNull();

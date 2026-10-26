@@ -368,7 +368,7 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
   if (!prompts.length) return;
 
   const shouldClear = await showPromptModal({
-    title: '清空我的提示词',
+    title: '清空Tips',
     message: `确定永久删除当前账号的全部 ${prompts.length} 条提示词吗？`,
     confirm: true,
     confirmText: '全部清空',
@@ -380,7 +380,7 @@ async function clearAllMyPrompts(onRefresh: VoidCallback): Promise<void> {
     onRefresh();
   } catch (error) {
     await showPromptModal({
-      title: '清空我的提示词',
+      title: '清空Tips',
       message: error instanceof Error ? error.message : '无法清空提示词。',
     });
   }
@@ -545,7 +545,7 @@ export async function renderMyPrompts(
       [
         {
           id: 'clear-all',
-          label: '清空我的提示词',
+          label: '清空Tips',
           icon: 'trash',
           variant: 'destructive',
         },
@@ -668,9 +668,19 @@ export async function renderMyPrompts(
       row.classList.add('my-prompts-item-context-active');
       promptContextMenuController.show(
         { left: event.clientX, top: event.clientY },
-        [{ id: 'copy-prompt', label: '复制提示词', icon: 'copy' }],
+        [
+          { id: 'copy-prompt', label: '复制提示词', icon: 'copy' },
+          {
+            id: 'clear-all',
+            label: '清空Tips',
+            icon: 'trash',
+            variant: 'destructive',
+          },
+        ],
         (itemId) => {
-          if (itemId === 'copy-prompt') {
+          if (itemId === 'clear-all') {
+            void clearAllMyPrompts(onRefresh);
+          } else if (itemId === 'copy-prompt') {
             void copyPromptText(item.content, '复制提示词');
           }
         },

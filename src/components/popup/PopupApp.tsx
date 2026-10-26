@@ -142,7 +142,7 @@ export function PopupApp(): React.JSX.Element {
           id="tips-heading"
           className="m-0 text-[13px] leading-[1.3] font-semibold text-[var(--p-text-h2)]"
         >
-          使用提示
+          Tips
         </h2>
         <ul className="mt-1 mb-0 pl-[18px] text-xs leading-[1.5] text-[var(--p-text-base)]">
           <li>
@@ -152,7 +152,7 @@ export function PopupApp(): React.JSX.Element {
             <strong className="font-semibold text-[var(--p-text-strong)]">
               右键点击
             </strong>{' '}
-            提示词即可将其保存到「我的提示词」。
+            提示词即可将其保存到 Tips。
           </li>
         </ul>
 

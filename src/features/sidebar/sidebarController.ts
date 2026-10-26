@@ -45,11 +45,11 @@ export const sidebarController = (() => {
     button.classList.toggle('mode-myprompts-active', isMyPrompts);
     button.setAttribute(
       'aria-label',
-      isMyPrompts ? '切换到目录' : '切换到我的提示词'
+      isMyPrompts ? '切换到目录' : '切换到 Tips'
     );
     button.title = isMyPrompts
       ? '切换到目录'
-      : '切换到我的提示词';
+      : '切换到 Tips';
 
     if (!isMyPrompts) {
       const toolbar = document.getElementById('myprompts-toolbar-container');
@@ -123,7 +123,7 @@ export const sidebarController = (() => {
     const title = document.getElementById('navigator-title');
     if (!title) return;
     const titleText =
-      viewMode === 'myPrompts' ? '我的提示词' : getConversationTitle();
+      viewMode === 'myPrompts' ? 'Tips' : getConversationTitle();
 
     title.textContent = titleText;
     title.dataset.tooltip = titleText;

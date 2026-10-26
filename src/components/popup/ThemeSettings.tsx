@@ -41,9 +41,6 @@ export function ThemeSettings({
         >
           主题
         </h2>
-        <span className="text-[10px] font-medium text-(--p-toggle-text)">
-          跟随 ChatGPT
-        </span>
         <button
           type="button"
           role="switch"

@@ -479,7 +479,7 @@ export function createTocListRenderer(
         { left, top },
         [
           { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
-          { id: 'save-prompt', label: '添加tips', icon: 'bookmark-plus' },
+          { id: 'save-prompt', label: '添加Tips', icon: 'bookmark-plus' },
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
             ? [{ id: 'rename-toc', label: '编辑文字', icon: 'pencil-line' as const }]
             : []),

@@ -82,18 +82,18 @@ function waitForBody(): Promise<HTMLElement> {
 }
 
 /**
- * Mirrors the document theme onto the host because selectors cannot cross the
- * Shadow DOM boundary from the component stylesheet.
+ * Mirrors LunaTOC's isolated theme marker onto the host because selectors cannot
+ * cross the Shadow DOM boundary from the component stylesheet.
  */
 function synchronizeTheme(host: HTMLElement): void {
   const updateTheme = (): void => {
     host.dataset.theme =
-      document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.lunaTocTheme === 'light' ? 'light' : 'dark';
   };
 
   updateTheme();
   new MutationObserver(updateTheme).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme'],
+    attributeFilter: ['data-luna-toc-theme'],
   });
 }

@@ -341,7 +341,7 @@ describe('tocListRenderer', () => {
     expect(onSavePrompt).toHaveBeenCalledWith(mockMessages[1]);
     item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(({ label }) => label))
-      .toEqual(['复制文字', '添加tips']);
+      .toEqual(['复制文字', '添加Tips']);
   });
 
   it('includes edit third but hides outline jumps until headings are expanded', () => {
@@ -687,7 +687,7 @@ describe('tocListRenderer', () => {
 
     text.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(item => item.label))
-      .toEqual(['复制文字', '添加tips']);
+      .toEqual(['复制文字', '添加Tips']);
     promptContextMenuController.close();
   });
 
