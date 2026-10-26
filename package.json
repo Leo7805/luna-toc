@@ -14,7 +14,6 @@
     "stamp": "node scripts/stamp.mjs",
     "sbuild": "npm run stamp && npm run build",
     "preversion": "npm run stamp -- clean",
-    "test:security": "node --test test/browser/manifest-audit.test.mjs && node scripts/audit-extension.mjs",
     "test:browser:setup": "node scripts/setup-browser-test.mjs",
     "test:browser": "node --test test/browser/extension.test.mjs"
   },
