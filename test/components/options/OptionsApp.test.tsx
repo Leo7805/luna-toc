@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OptionsApp } from '@/components/options/OptionsApp';
-import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
+import { ACCOUNT_EMAILS_KEY, ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
 } from '@/features/sidebar/sidebarPreferences';
@@ -41,14 +41,20 @@ beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('chrome', {
     storage: {
-      local: { get: vi.fn(async (key: string) => ({
-        [key]: key === ACCOUNT_SETTINGS_KEY ? {
-          'account-1': {
-            theme: { followChatGPT: true, manualTheme: 'dark' },
-            sidebar: { ...DEFAULT_SIDEBAR_PREFERENCES },
+      local: { get: vi.fn(async (key: string | string[]) => {
+        const data: Record<string, unknown> = {
+          [ACCOUNT_SETTINGS_KEY]: {
+            'account-1': {
+              theme: { followChatGPT: true, manualTheme: 'dark' },
+              sidebar: { ...DEFAULT_SIDEBAR_PREFERENCES },
+            },
           },
-        } : undefined,
-      })) },
+          [ACCOUNT_EMAILS_KEY]: { 'account-1': 'user@example.com' },
+        };
+        const keys = Array.isArray(key) ? key : [key];
+        return Object.fromEntries(keys.filter((item) => Object.hasOwn(data, item))
+          .map((item) => [item, data[item]]));
+      }) },
       onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
     },
   });
@@ -78,6 +84,12 @@ function colorInput(value: string): HTMLInputElement {
 }
 
 describe('Options sidebar save handling', () => {
+  it('displays the verified account email as the account label', async () => {
+    await render();
+    const selector = host.querySelector<HTMLSelectElement>('.settings-account-select');
+    expect(selector?.selectedOptions[0]?.textContent?.trim()).toBe('user@example.com');
+  });
+
   it('shows a save failure, refreshes and allows retry', async () => {
     const newer = { ...DEFAULT_SIDEBAR_PREFERENCES, backgroundColor: 'green' as const };
     mocks.read.mockResolvedValueOnce({ ...DEFAULT_SIDEBAR_PREFERENCES })

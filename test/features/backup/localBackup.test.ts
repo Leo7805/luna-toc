@@ -8,6 +8,7 @@ import {
 } from '@/features/backup/localBackup';
 import { createPromptWriteCoordinator, PROMPT_COMMIT_TYPE } from '@/features/myPrompts/promptWriteCoordinator';
 import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
+import { ACCOUNT_EMAILS_KEY } from '@/features/storage/accountSettings';
 
 const PROMPTS = 'lumaToc:myPromptsV1';
 const USAGE = 'lunaToc:promptUsageV1';
@@ -92,6 +93,7 @@ describe('versioned local backup', () => {
       [USAGE]: source.data.promptUsage,
       [ALIAS]: source.data.aliases['conversation-123'],
       [SETTINGS]: source.data.settings,
+      [ACCOUNT_EMAILS_KEY]: { 'account-1': 'person@example.com' },
       'chatGpt:conversationBody': 'private conversation text',
       'secret:authorization': 'private token',
     });
@@ -100,6 +102,7 @@ describe('versioned local backup', () => {
     expect(backup.data).toEqual(source.data);
     expect(serialized).not.toContain('private conversation');
     expect(serialized).not.toContain('private token');
+    expect(serialized).not.toContain('person@example.com');
     expect(parseLocalBackup(serialized)).toEqual(backup);
     expect(summarizeLocalBackup(backup)).toEqual({
       prompts: 1, usage: 1, conversations: 1, aliases: 1, settingsAccounts: 1,

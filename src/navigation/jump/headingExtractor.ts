@@ -5,6 +5,7 @@
  */
 import { getActivePlatform } from '@/platforms';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
+import { parseUnrenderedBoldMarkdown } from '@/platforms/chatgpt/markdownBoldRepair';
 
 export interface OutlineEntry {
   level: number;
@@ -245,7 +246,9 @@ function extractHeadingOutline(answerContainer: HTMLElement): OutlineEntry[] {
     .map((heading) => {
       const headingLevel = getHeadingLevel(heading);
       const level = normalizedLevels.get(headingLevel)!;
-      const text = heading.textContent.trim();
+      const rawText = heading.textContent.trim();
+      const text = parseUnrenderedBoldMarkdown(rawText)
+        ?.map((segment) => segment.text).join('') ?? rawText;
       const descriptorKey = `${headingLevel}\u0000${text}`;
       const occurrence = occurrenceByDescriptor.get(descriptorKey) || 0;
       occurrenceByDescriptor.set(descriptorKey, occurrence + 1);

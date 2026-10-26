@@ -6,6 +6,7 @@ import { getActivePlatform } from '@/platforms';
 import { cancelPromptNavigation, jumpToPromptIndex } from './promptNavigation';
 import { keepFollowing } from '../follow/follow';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
+import { NAVIGATION_HIGHLIGHT_DURATION_MS } from './highlightTiming';
 
 export interface OutlineNavigationEntry {
   element?: HTMLElement;
@@ -22,6 +23,7 @@ const HEADING_TOP_OFFSET_PX = 72;
 const POSITION_TOLERANCE_PX = 10;
 
 let highlightedHeadingElement: HTMLElement | null = null;
+let headingHighlightTimeoutId: number | null = null;
 let outlineJumpVersion = 0;
 
 export function jumpToOutlineEntry(
@@ -173,9 +175,20 @@ function highlightHeading(heading: HTMLElement): void {
   clearHighlightedHeading();
   heading.classList.add(HEADING_HIGHLIGHT_CLASS);
   highlightedHeadingElement = heading;
+  headingHighlightTimeoutId = window.setTimeout(() => {
+    if (highlightedHeadingElement === heading) {
+      heading.classList.remove(HEADING_HIGHLIGHT_CLASS);
+      highlightedHeadingElement = null;
+    }
+    headingHighlightTimeoutId = null;
+  }, NAVIGATION_HIGHLIGHT_DURATION_MS);
 }
 
 function clearHighlightedHeading(): void {
+  if (headingHighlightTimeoutId !== null) {
+    window.clearTimeout(headingHighlightTimeoutId);
+    headingHighlightTimeoutId = null;
+  }
   highlightedHeadingElement?.classList.remove(HEADING_HIGHLIGHT_CLASS);
   highlightedHeadingElement = null;
 }

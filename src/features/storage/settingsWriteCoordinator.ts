@@ -3,8 +3,10 @@ import type { SidebarPreferences } from '@/features/sidebar/sidebarPreferences';
 import type { ThemeSettings } from '@/features/theme/themeSettings';
 import { createSerialWriteQueue, type SerialWriteQueue } from './serialWriteQueue';
 import {
+  ACCOUNT_EMAILS_KEY,
   ACCOUNT_SETTINGS_KEY,
   isValidAccountOwnerId,
+  isValidAccountEmail,
   type AccountSettingsMap,
   type AccountSettingsRecord,
 } from './accountSettings';
@@ -26,7 +28,7 @@ const SIDEBAR_COLOR_IDS = new Set([
 ]);
 
 export type SettingsCommitRequest =
-  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'register-account'; ownerId: string }
+  | { type: typeof SETTINGS_COMMIT_TYPE; action: 'register-account'; ownerId: string; email?: string }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'theme'; ownerId: string; settings: ThemeSettings }
   | { type: typeof SETTINGS_COMMIT_TYPE; action: 'sidebar-patch'; ownerId: string; patch: Partial<SidebarPreferences> };
 export type SettingsCommitResponse = { ok: true } | { ok: false; error: string };
@@ -78,11 +80,28 @@ function readSettingsMap(value: unknown): AccountSettingsMap {
   }
   return result;
 }
+
+function readAccountEmails(value: unknown): Record<string, string> {
+  if (value === undefined) return Object.create(null) as Record<string, string>;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('账号邮箱存储格式无效，已拒绝覆盖。');
+  }
+  const result = Object.create(null) as Record<string, string>;
+  for (const [ownerId, email] of Object.entries(value as Record<string, unknown>)) {
+    if (!isValidAccountOwnerId(ownerId) || !isValidAccountEmail(email)) {
+      throw new Error('账号邮箱包含无效记录，已拒绝覆盖。');
+    }
+    result[ownerId] = email;
+  }
+  return result;
+}
 function isRequest(value: unknown): value is SettingsCommitRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
   if (item.type !== SETTINGS_COMMIT_TYPE || !isValidAccountOwnerId(item.ownerId)) return false;
-  if (item.action === 'register-account') return true;
+  if (item.action === 'register-account') {
+    return !Object.hasOwn(item, 'email') || isValidAccountEmail(item.email);
+  }
   if (item.action === 'theme') return isTheme(item.settings);
   return item.action === 'sidebar-patch' && isSidebarPatch(item.patch);
 }
@@ -177,12 +196,20 @@ export function createSettingsWriteCoordinator(
           if (request.action === 'register-account') {
             const all = await storage.get(null) as Record<string, unknown>;
             const settings = readSettingsMap(all[ACCOUNT_SETTINGS_KEY]);
+            const emails = readAccountEmails(all[ACCOUNT_EMAILS_KEY]);
+            const emailChanged = !!request.email && emails[request.ownerId] !== request.email;
+            if (request.email) emails[request.ownerId] = request.email;
+            const emailValues = emailChanged ? { [ACCOUNT_EMAILS_KEY]: emails } : {};
+
             if (all[MIGRATION_KEY] === true && Object.hasOwn(settings, request.ownerId)) {
-              return { ok: true };
+              if (!emailChanged) return { ok: true };
+              return persistVerified(storage, all, emailValues, '保存账号邮箱');
             }
             if (all[MIGRATION_KEY] === true) {
               settings[request.ownerId] = { theme: { ...DEFAULT_THEME }, sidebar: { ...DEFAULT_SIDEBAR } };
-              return persistVerified(storage, all, { [ACCOUNT_SETTINGS_KEY]: settings }, '初始化账号设置');
+              return persistVerified(storage, all, {
+                [ACCOUNT_SETTINGS_KEY]: settings, ...emailValues,
+              }, '初始化账号设置');
             }
             const theme = legacyTheme(all);
             const sidebar = legacySidebar(all);
@@ -190,7 +217,7 @@ export function createSettingsWriteCoordinator(
               if (!Object.hasOwn(settings, ownerId)) settings[ownerId] = { theme: { ...theme }, sidebar: { ...sidebar } };
             }
             const result = await persistVerified(storage, all, {
-              [ACCOUNT_SETTINGS_KEY]: settings, [MIGRATION_KEY]: true,
+              [ACCOUNT_SETTINGS_KEY]: settings, [MIGRATION_KEY]: true, ...emailValues,
             }, '迁移账号设置');
             if (result.ok) {
               await storage.remove([

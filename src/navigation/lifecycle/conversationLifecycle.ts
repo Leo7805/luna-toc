@@ -8,6 +8,7 @@ import { getActiveConversationOwner, setActiveConversationOwner } from './conver
 import { SETTINGS_COMMIT_TYPE } from '@/features/storage/settingsWriteCoordinator';
 import {
   ACCOUNT_SETTINGS_KEY, GET_ACTIVE_ACCOUNT_OWNER_MESSAGE, isValidAccountOwnerId,
+  isValidAccountEmail,
 } from '@/features/storage/accountSettings';
 import { tocAliasStore } from '@/features/conversationPrompts/tocAliasStore';
 import { navigatorController } from '@/navigation/navigatorController';
@@ -18,10 +19,15 @@ let lastCheckAt = 0;
 const MIN_RECHECK_INTERVAL_MS = 2_000;
 const deletionChecksInFlight = new Set<string>();
 
-/** Returns null on an unverified response; never invent an account ID. */
-export async function readTrustedConversationOwner(
+export interface TrustedConversationIdentity {
+  ownerId: string;
+  email?: string;
+}
+
+/** Returns only identity fields verified by ChatGPT's authenticated session endpoint. */
+export async function readTrustedConversationIdentity(
   trustedFetch: typeof fetch
-): Promise<string | null> {
+): Promise<TrustedConversationIdentity | null> {
   try {
     const response = await trustedFetch(
       new URL('/api/auth/session', location.origin).toString(),
@@ -32,18 +38,30 @@ export async function readTrustedConversationOwner(
     if (!payload || typeof payload !== 'object') return null;
     const user = (payload as { user?: unknown }).user;
     if (!user || typeof user !== 'object') return null;
-    const id = (user as { id?: unknown }).id;
-    return isValidAccountOwnerId(id) ? id : null;
+    const account = user as { id?: unknown; email?: unknown };
+    if (!isValidAccountOwnerId(account.id)) return null;
+    return {
+      ownerId: account.id,
+      ...(isValidAccountEmail(account.email) ? { email: account.email } : {}),
+    };
   } catch {
     return null;
   }
 }
 
-async function registerVerifiedAccount(ownerId: string): Promise<void> {
+/** Compatibility wrapper for callers that need only the verified account ID. */
+export async function readTrustedConversationOwner(
+  trustedFetch: typeof fetch
+): Promise<string | null> {
+  return (await readTrustedConversationIdentity(trustedFetch))?.ownerId ?? null;
+}
+
+async function registerVerifiedAccount(ownerId: string, email?: string): Promise<void> {
   if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
   await new Promise<void>((resolve) => {
     chrome.runtime.sendMessage({
       type: SETTINGS_COMMIT_TYPE, action: 'register-account', ownerId,
+      ...(email ? { email } : {}),
     }, (response: { ok?: boolean; error?: string } | undefined) => {
       if (chrome.runtime.lastError || response?.ok !== true) {
         console.warn('[LunaTOC] Account preferences could not be initialized');
@@ -59,11 +77,12 @@ export async function refreshTrustedConversationOwner(
 ): Promise<void> {
   const current = ++generation;
   setActiveConversationOwner(null);
-  const ownerId = typeof trustedFetch === 'function'
-    ? await readTrustedConversationOwner(trustedFetch)
+  const identity = typeof trustedFetch === 'function'
+    ? await readTrustedConversationIdentity(trustedFetch)
     : null;
+  const ownerId = identity?.ownerId ?? null;
   if (generation !== current) return;
-  if (ownerId) await registerVerifiedAccount(ownerId);
+  if (identity) await registerVerifiedAccount(identity.ownerId, identity.email);
   if (generation === current) setActiveConversationOwner(ownerId);
 }
 

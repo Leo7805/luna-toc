@@ -4,6 +4,7 @@
  */
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 import { copyPromptText } from '@/features/conversationPrompts/copyPrompt';
+import { parseUnrenderedBoldMarkdown } from '@/platforms/chatgpt/markdownBoldRepair';
 import { isElementTextTruncated, previewTooltip } from '@/features/tooltip';
 import { promptContextMenuController } from '@/features/myPrompts/promptContextMenu';
 import {
@@ -432,7 +433,9 @@ export function createTocListRenderer(
     itemIndex.className = 'navigator-item-index';
     itemIndex.textContent = `${index + 1}.`;
     itemText.className = 'navigator-item-text';
-    const displayText = options.getDisplayText?.(message) ?? message.text;
+    const rawDisplayText = options.getDisplayText?.(message) ?? message.text;
+    const displayText = parseUnrenderedBoldMarkdown(rawDisplayText)
+      ?.map((segment) => segment.text).join('') ?? rawDisplayText;
     itemText.textContent = displayText.replace(/\s+/g, ' ');
 
     const outlineControls = createPromptItem({
@@ -478,6 +481,9 @@ export function createTocListRenderer(
       promptContextMenuController.show(
         { left, top },
         [
+          ...(isExpanded
+            ? [{ id: 'collapse-outline', label: '收起目录', icon: 'list-collapse' as const }]
+            : []),
           { id: 'copy-prompt', label: '复制文字', icon: 'copy' },
           { id: 'save-prompt', label: '添加Tips', icon: 'bookmark-plus' },
           ...(options.onRenamePrompt && (options.canRename?.() ?? true)
@@ -485,9 +491,6 @@ export function createTocListRenderer(
             : []),
           ...(expandedOutline
             ? [{ id: 'return-to-top', label: '回到顶部', icon: 'arrow-up' as const }]
-            : []),
-          ...(isExpanded
-            ? [{ id: 'collapse-outline', label: '收起目录', icon: 'list-collapse' as const }]
             : []),
           ...(expandedOutline
             ? [{ id: 'return-to-bottom', label: '回到底部', icon: 'arrow-down' as const }]

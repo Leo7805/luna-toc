@@ -16,6 +16,7 @@ This document is the master registry for tracking bugs and regressions in LunaTO
 | ID | Date | Bug | Area | Root Cause | Fix | Commit | Showcase |
 |---|---|---|---|---|---|---|---|
 | B035 | 2026-10-26 | 扩展主题标记覆盖 ChatGPT 页面主题属性，导致页面样式冲突 | Theme / Content Script | 内容脚本将扩展主题写入 `document.documentElement.dataset.theme`，全局 CSS 又根据 `html[data-theme]` 切换配色，污染宿主页面的主题状态。 | 使用独立 `data-luna-toc-theme` 标记，并让全局样式与 Shadow DOM 主题同步只读取扩展标记；增加单测和 Chromium 回归。 | — | No |
+| B036 | 2026-10-26 | 点击回答标题后黄色高亮持续存在 | Navigation / Outline (P2) | 标题跳转后添加 `chat-toc-outline-heading-highlight`，但没有对应的自动清除计时器。 | 使用与问题蓝色轮廓相同的 600ms 高亮时长，并在新跳转或导航取消时清理旧计时器；增加计时器回归测试。 | — | No |
 | B034 | 2026-10-24 | [ChatGPT 回答中的 Markdown 粗体标记未渲染](bugs/B034-markdown-bold-rendering.md) | ChatGPT / Rendering (P2) | 用户报告完整的 `**文本**` 标记原样显示；真实 ChatGPT DOM 根因尚未现场核实，暂按标记落入普通文本节点处理。 | 只在助手 `.markdown` 中将安全的完整标记转换为 `strong`，跳过代码、数学、转义和不完整标记；增加 DOM 更新观察、单测和 Chromium 回归。 | 00e55d4 | Yes |
 | B033 | 2026-10-24 | [目录标题跳转与边缘跳转冲突](bugs/B033-outline-edge-navigation-conflict.md) | Navigation / Scroll (P2) | 标题跳转使用独立的 `outlineJumpVersion` 管理延迟重试和下一帧校正；边缘跳转只取消虚拟滚动导航，没有使旧标题跳转失效。 | 顶部/底部跳转前调用 `cancelOutlineNavigation()`，清除旧标题高亮并阻断过期校正；新增控制器顺序回归测试。 | c5f3aa2 | Yes |
 | B032 | 2026-10-24 | 已删除 ChatGPT 会话可能留下本地目录别名，自动清理又存在网页伪造删除风险 | Options / Alias / Lifecycle | B026 阻断不可信页面删除事件后，缺少用户主动逐条清理本地孤立数据的入口。 | 继续保留先备份、用户确认、预览记录条件匹配和持久删除保护；新版本额外自动清理未绑定账号的旧别名。**远端会话删除后自动清理仍未解决**，不得信任网页 `postMessage`。 | 42ff388, 433b98b, 0ee1c0d, 54c1761, df04d34, 9173953, a602ced, c476f4, a344ce8 | Yes |

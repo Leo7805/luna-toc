@@ -7,6 +7,7 @@ import { getActivePlatform } from '@/platforms';
 import { loadUntilMountedViaViewport } from './viewportWalker';
 import { executeAbsoluteEdgeJump } from './edgeNavigation';
 import { findNextAssistantMessage } from './headingExtractor';
+import { NAVIGATION_HIGHLIGHT_DURATION_MS } from './highlightTiming';
 
 function platform() {
   return getActivePlatform();
@@ -142,14 +143,31 @@ export function jumpToConversationEdge(edge: 'top' | 'bottom'): void {
 /**
  * Applies a temporary highlight effect to a rendered prompt element.
  */
+let highlightedPromptElement: HTMLElement | null = null;
+let promptHighlightTimeoutId: number | null = null;
+
 function highlightMatchedElement(element: HTMLElement): void {
+  if (promptHighlightTimeoutId !== null) {
+    window.clearTimeout(promptHighlightTimeoutId);
+    promptHighlightTimeoutId = null;
+  }
+  if (highlightedPromptElement && highlightedPromptElement !== element) {
+    highlightedPromptElement.style.outline = '';
+    highlightedPromptElement.style.borderRadius = '';
+  }
+
   element.style.outline = '2px solid #60a5fa';
   element.style.borderRadius = '8px';
+  highlightedPromptElement = element;
 
-  setTimeout(() => {
-    element.style.outline = '';
-    element.style.borderRadius = '';
-  }, 1200);
+  promptHighlightTimeoutId = window.setTimeout(() => {
+    if (highlightedPromptElement === element) {
+      element.style.outline = '';
+      element.style.borderRadius = '';
+      highlightedPromptElement = null;
+    }
+    promptHighlightTimeoutId = null;
+  }, NAVIGATION_HIGHLIGHT_DURATION_MS);
 }
 
 /**

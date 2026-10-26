@@ -4,6 +4,7 @@ import type { SidebarPreferences } from '@/features/sidebar/sidebarPreferences';
 import { getActiveConversationOwner } from '@/navigation/lifecycle/conversationOwner';
 
 export const ACCOUNT_SETTINGS_KEY = 'chatToc:accountSettings:v1';
+export const ACCOUNT_EMAILS_KEY = 'chatToc:accountEmails:v1';
 export const GET_ACTIVE_ACCOUNT_OWNER_MESSAGE = 'LUNA_TOC_GET_ACTIVE_ACCOUNT_OWNER_V1';
 
 export interface AccountSettingsRecord {
@@ -15,6 +16,21 @@ export type AccountSettingsMap = Record<string, AccountSettingsRecord>;
 export function isValidAccountOwnerId(value: unknown): value is string {
   return typeof value === 'string' && !!value.trim() && value.length <= 256 &&
     value !== '__proto__' && value !== 'constructor' && value !== 'prototype';
+}
+
+export function isValidAccountEmail(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 254 &&
+    value.trim() === value && /^[^\s@]+@[^\s@]+$/.test(value);
+}
+
+/** Returns only validated local email labels keyed by verified account ID. */
+export function accountSettingsEmails(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const emails: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const [ownerId, email] of Object.entries(value as Record<string, unknown>)) {
+    if (isValidAccountOwnerId(ownerId) && isValidAccountEmail(email)) emails[ownerId] = email;
+  }
+  return emails;
 }
 
 /** Lists only structurally usable account entries; detailed values are normalized by their readers. */

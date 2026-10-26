@@ -72,6 +72,17 @@ describe('outline navigation', () => {
     expect(heading.classList.contains('chat-toc-outline-heading-highlight')).toBe(true);
   });
 
+  it('clears the yellow heading highlight after the same 600ms as prompt highlights', () => {
+    const heading = headingAt(400);
+    jumpToOutlineEntry({ element: heading, text: 'Section' }, 3, () => heading);
+
+    expect(heading.classList.contains('chat-toc-outline-heading-highlight')).toBe(true);
+    vi.advanceTimersByTime(599);
+    expect(heading.classList.contains('chat-toc-outline-heading-highlight')).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(heading.classList.contains('chat-toc-outline-heading-highlight')).toBe(false);
+  });
+
   it('never follows a connected stale cached heading if the live resolver selects another', () => {
     const oldHeading = headingAt(200);
     const actualHeading = headingAt(600);

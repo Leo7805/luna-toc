@@ -19,6 +19,18 @@ describe('conversation ownership and trusted deletion handling', () => {
     expect(getActiveConversationOwner()).toBeNull();
   });
 
+  it('reads the account email from the verified ChatGPT session', async () => {
+    const { readTrustedConversationIdentity } = await import('@/navigation/lifecycle/conversationLifecycle');
+    const trustedFetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ user: { id: 'account-1', email: 'person@example.com' } }),
+    })) as unknown as typeof fetch;
+
+    await expect(readTrustedConversationIdentity(trustedFetch)).resolves.toEqual({
+      ownerId: 'account-1', email: 'person@example.com',
+    });
+  });
+
   it('ignores page-posted deletion events even when they reuse the extension message type', async () => {
     const { initializeConversationLifecycle } = await import('@/navigation/lifecycle/conversationLifecycle');
     const { tocAliasStore } = await import('@/features/conversationPrompts/tocAliasStore');

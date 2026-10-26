@@ -7,7 +7,9 @@ import {
   savePlatformRuntimeConfig,
   type ChatGptRuntimeConfig,
 } from '@/config/config';
-import { ACCOUNT_SETTINGS_KEY, accountSettingsOwners } from '@/features/storage/accountSettings';
+import {
+  ACCOUNT_EMAILS_KEY, ACCOUNT_SETTINGS_KEY, accountSettingsEmails, accountSettingsOwners,
+} from '@/features/storage/accountSettings';
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_COLORS,
@@ -22,6 +24,7 @@ import {
 export function OptionsApp(): React.JSX.Element {
   const [runtimeConfig, setRuntimeConfig] = useState<ChatGptRuntimeConfig | null>(null);
   const [accountIds, setAccountIds] = useState<string[]>([]);
+  const [accountEmails, setAccountEmails] = useState<Record<string, string>>({});
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [preferences, setPreferences] = useState<SidebarPreferences>(
     DEFAULT_SIDEBAR_PREFERENCES
@@ -39,9 +42,10 @@ export function OptionsApp(): React.JSX.Element {
       });
     };
     const refreshAccounts = async (): Promise<void> => {
-      const values = await chrome.storage.local.get(ACCOUNT_SETTINGS_KEY);
+      const values = await chrome.storage.local.get([ACCOUNT_SETTINGS_KEY, ACCOUNT_EMAILS_KEY]);
       if (cancelled) return;
       const next = accountSettingsOwners(values[ACCOUNT_SETTINGS_KEY]);
+      setAccountEmails(accountSettingsEmails(values[ACCOUNT_EMAILS_KEY]));
       setAccountIds(next);
       setSelectedAccountId((current) => next.includes(current) ? current : next[0] ?? '');
     };
@@ -55,7 +59,7 @@ export function OptionsApp(): React.JSX.Element {
     ): void => {
       if (areaName !== 'local') return;
       if ('luna:chatgpt:runtimeConfig' in changes) refreshRuntimeConfig();
-      if (ACCOUNT_SETTINGS_KEY in changes) {
+      if (ACCOUNT_SETTINGS_KEY in changes || ACCOUNT_EMAILS_KEY in changes) {
         void refreshAccounts().catch(() => {
           if (!cancelled) setSaveError('无法刷新账号设置列表。');
         });
@@ -152,7 +156,9 @@ export function OptionsApp(): React.JSX.Element {
               disabled={accountIds.length === 0 || savingSettings}
               onChange={(event) => setSelectedAccountId(event.currentTarget.value)}>
               {accountIds.map((id) => (
-                <option key={id} value={id}>账号 {id.slice(0, 6)}…{id.slice(-4)}</option>
+                <option key={id} value={id}>
+                  {accountEmails[id] ?? `账号 ${id.slice(0, 6)}…${id.slice(-4)}`}
+                </option>
               ))}
             </select>
           </label>

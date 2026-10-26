@@ -39,6 +39,15 @@ describe('headingExtractor', () => {
     ]);
   });
 
+  it('removes literal Markdown bold delimiters from directory heading labels', () => {
+    renderConversation('prompt-bold-heading', [
+      ['h2', '**Bold heading** and **another phrase**'],
+    ]);
+
+    expect(getPromptOutline(0, 'prompt-bold-heading').map(({ text }) => text))
+      .toEqual(['Bold heading and another phrase']);
+  });
+
   it('skips absent heading ranks but includes the next three present levels', () => {
     renderConversation('prompt-gaps', [
       ['h4', 'Middle'],

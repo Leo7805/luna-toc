@@ -179,8 +179,11 @@ describe('prompt navigation strategy', () => {
     expect(mocks.clearJumpProgress).toHaveBeenCalled();
     expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(599);
+    expect(target.style.outline).toBe('2px solid #60a5fa');
+    await vi.advanceTimersByTimeAsync(1);
     expect(target.style.outline).toBe('');
+    expect(target.style.borderRadius).toBe('');
   });
 
   it('scrolls to the bottom of the selected answer, not the whole conversation', () => {

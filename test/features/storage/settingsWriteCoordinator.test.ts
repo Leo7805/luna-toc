@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSettingsWriteCoordinator, SETTINGS_COMMIT_TYPE } from '@/features/storage/settingsWriteCoordinator';
-import { ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
+import { ACCOUNT_EMAILS_KEY, ACCOUNT_SETTINGS_KEY } from '@/features/storage/accountSettings';
 import { createSerialWriteQueue } from '@/features/storage/serialWriteQueue';
 
 const MIGRATION_KEY = 'chatToc:accountSettings:migrated:v1';
@@ -46,6 +46,35 @@ describe('account-scoped background settings writer', () => {
     expect(box.data[MIGRATION_KEY]).toBe(true);
     expect(box.data['chatToc:themeSettings']).toBeUndefined();
     expect(box.data['chatToc:sidebarPreferences']).toBeUndefined();
+  });
+
+  it('stores a verified account email separately without resetting preferences', async () => {
+    const box = backing({ [MIGRATION_KEY]: true, [ACCOUNT_SETTINGS_KEY]: {
+      'account-1': {
+        theme: { followChatGPT: false, manualTheme: 'light' },
+        sidebar: { ...DEFAULT_SIDEBAR },
+      },
+    } });
+    const writer = createSettingsWriteCoordinator(box.storage, createSerialWriteQueue());
+
+    expect(await writer.commit({
+      type: SETTINGS_COMMIT_TYPE, action: 'register-account',
+      ownerId: 'account-1', email: 'user@example.com',
+    })).toEqual({ ok: true });
+    expect(box.data[ACCOUNT_EMAILS_KEY]).toEqual({ 'account-1': 'user@example.com' });
+    expect(box.data[ACCOUNT_SETTINGS_KEY]).toEqual({
+      'account-1': {
+        theme: { followChatGPT: false, manualTheme: 'light' },
+        sidebar: { ...DEFAULT_SIDEBAR },
+      },
+    });
+
+    box.set.mockClear();
+    expect(await writer.commit({
+      type: SETTINGS_COMMIT_TYPE, action: 'register-account',
+      ownerId: 'account-1', email: 'not-an-email',
+    })).toMatchObject({ ok: false });
+    expect(box.set).not.toHaveBeenCalled();
   });
 
   it('updates one account theme without changing another account', async () => {

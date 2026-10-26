@@ -322,6 +322,19 @@ describe('tocListRenderer', () => {
     expect(item.classList.contains('navigator-item-custom-title')).toBe(false);
   });
 
+  it('hides raw Markdown bold delimiters in question labels', () => {
+    const message = { ...mockMessages[0]!, text: 'Question **bold** title' };
+    const renderer = createTocListRenderer({
+      getMessages: () => [message],
+      getActiveIndex: () => null,
+      onItemClick: vi.fn(),
+    });
+    renderer.render();
+
+    expect(listElement.querySelector('.navigator-item-text')?.textContent)
+      .toBe('Question bold title');
+  });
+
   it('shows no outline-boundary commands while the sidebar answer outline is collapsed', () => {
     const onSavePrompt = vi.fn();
     const renderer = createTocListRenderer({
@@ -363,8 +376,8 @@ describe('tocListRenderer', () => {
     showOutline(row);
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
-      .toEqual(['copy-prompt', 'save-prompt', 'rename-toc', 'return-to-top', 'collapse-outline', 'return-to-bottom']);
-    expect(promptContextMenuController.getSnapshot()?.items[4].label).toBe('收起目录');
+      .toEqual(['collapse-outline', 'copy-prompt', 'save-prompt', 'rename-toc', 'return-to-top', 'return-to-bottom']);
+    expect(promptContextMenuController.getSnapshot()?.items[0].label).toBe('收起目录');
     promptContextMenuController.close();
     row.querySelector<HTMLElement>('.navigator-outline-list')!.hidden = true;
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
@@ -416,23 +429,23 @@ describe('tocListRenderer', () => {
       row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
       return promptContextMenuController.getSnapshot()?.items.map(({ id }) => id) ?? [];
     };
-    expect(open()).toEqual(['copy-prompt', 'save-prompt', 'collapse-outline']);
+    expect(open()).toEqual(['collapse-outline', 'copy-prompt', 'save-prompt']);
     promptContextMenuController.close();
 
     // Partly under the frosted top bar.
     questionRect.mockReturnValue({ top: 170, bottom: 200 } as DOMRect);
-    expect(open()).toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'collapse-outline', 'return-to-bottom']);
+    expect(open()).toEqual(['collapse-outline', 'copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
     promptContextMenuController.close();
 
     // The question is visible, but the last heading is clipped below the list.
     questionRect.mockReturnValue({ top: 200, bottom: 228 } as DOMRect);
     outlineRect.mockReturnValue({ top: 228, bottom: 510 } as DOMRect);
-    expect(open()).toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'collapse-outline', 'return-to-bottom']);
+    expect(open()).toEqual(['collapse-outline', 'copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
     promptContextMenuController.close();
 
     // Both return to view as the user scrolls the list.
     outlineRect.mockReturnValue({ top: 228, bottom: 500 } as DOMRect);
-    expect(open()).toEqual(['copy-prompt', 'save-prompt', 'collapse-outline']);
+    expect(open()).toEqual(['collapse-outline', 'copy-prompt', 'save-prompt']);
   });
 
   it('ignores a stale boundary action once scrolling exposes the complete outline', () => {
@@ -502,7 +515,7 @@ describe('tocListRenderer', () => {
     } as DOMRect);
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(promptContextMenuController.getSnapshot()?.items.map(({ id }) => id))
-      .toEqual(['copy-prompt', 'save-prompt', 'return-to-top', 'collapse-outline', 'return-to-bottom']);
+      .toEqual(['collapse-outline', 'copy-prompt', 'save-prompt', 'return-to-top', 'return-to-bottom']);
     promptContextMenuController.select('return-to-top');
     // The entire question row, not just its first heading, sits below the overlay.
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 432, behavior: 'auto' });
