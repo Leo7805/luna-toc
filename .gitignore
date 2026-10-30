@@ -6,6 +6,8 @@ release/
 icons/v*/
 node_modules/
 dist/
+coverage/
+*.tsbuildinfo
 .dev-stamp.json
 
 docs/context.md

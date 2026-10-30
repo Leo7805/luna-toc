@@ -40,6 +40,8 @@ LunaTOC helps you navigate long conversations by automatically turning your prom
 
 ### Option 1: Load Unpacked (Developer Mode)
 
+Prerequisites: Node.js and npm.
+
 1. Download or clone this repository.
 2. Install dependencies and build the extension:
 
@@ -57,6 +59,14 @@ LunaTOC helps you navigate long conversations by automatically turning your prom
 4. Enable **Developer Mode**.
 5. Click **Load unpacked**.
 6. Select the generated `luna-toc/dist` directory.
+
+After changing source files, run `npm run build` again and reload the
+extension from `chrome://extensions`.
+
+### Option 2: Chrome Web Store
+
+Install the published extension from the
+[Chrome Web Store](https://chromewebstore.google.com/detail/chattoc/ibfdglfgljonajofiiaonlimoiolkcpa).
 
 ---
 
@@ -106,22 +116,37 @@ LunaTOC provides a lightweight navigation layer that lets you:
 
 ## Development
 
+Install dependencies:
+
+```bash
+npm install
+```
+
 Start the Vite development process:
 
 ```bash
 npm run dev
 ```
 
+Run the automated checks:
+
+```bash
+npm test
+npm run typecheck
+```
+
 Create a production extension in `dist/`:
 
 ```bash
-npm run typecheck
 npm run build
 ```
 
 The root `manifest.json` is the source Manifest. Chrome loads the generated
 `dist/` directory. Browser source, Vite configuration, and release tooling are
 all written in TypeScript and checked by `npm run typecheck`.
+
+The generated `dist/`, `coverage/`, and release output are local artifacts and
+are excluded from version control.
 
 ---
 
@@ -137,6 +162,17 @@ npm version patch
 npm version minor
 npm version major
 ```
+
+Before creating a release, run the checks and build:
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+The generated `dist/` directory is the folder to load in Chrome or package for
+distribution.
 
 ---
 
