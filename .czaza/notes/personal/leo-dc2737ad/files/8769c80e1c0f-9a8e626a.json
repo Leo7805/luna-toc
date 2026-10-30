@@ -1,0 +1,20 @@
+{
+  "source": {
+    "sourceHash": "sha256:9e5d67c0cbefa3c3ccc1f29505b7abafcc481b8d1ecca9bb4c9da88538a24464"
+  },
+  "defaults": {
+    "createdAt": "2026-10-30T04:55:53.376Z",
+    "updatedAt": "2026-10-30T04:55:53.376Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "管理侧栏固定、自动隐藏和标签页状态恢复。",
+      "detail": "- initializeSidebarVisibility：优先恢复标签页 Pin 状态，没有记录才读取默认设置，并在显示前保存初始状态。\n- toggleSidebarPinned：切换并保存当前标签页的 Pin 状态。\n- setSidebarHidden：同步可见性、焦点和辅助访问属性。",
+      "aiNotes": [
+        "刷新和切换聊天保留标签页状态；默认设置不覆盖已有记录。"
+      ]
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

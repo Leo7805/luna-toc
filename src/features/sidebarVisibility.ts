@@ -2,6 +2,7 @@
  * Owns ChatTOC sidebar visibility, pinning, and auto-hide behavior.
  */
 import { getActivePlatform } from '@/platforms';
+import { readSidebarPinnedOnStartup } from '@/features/sidebar/sidebarSettings';
 
 const PINNED_STORAGE_KEY = 'chatTocSidebarPinned';
 const LEGACY_PINNED_STORAGE_PREFIX = 'chatTocSidebarPinned:';
@@ -72,13 +73,16 @@ export function subscribeSidebarPinned(listener: () => void): () => void {
 }
 
 /**
+ * Restores the tab pin state, using the startup preference only for a fresh session.
  * @param {HTMLElement} sidebarElement
  * @param {HTMLButtonElement} [toggleButton]
  */
-export function initializeSidebarVisibility(
+export async function initializeSidebarVisibility(
   sidebarElement: HTMLElement,
   toggleButton?: HTMLButtonElement | null
-): void {
+): Promise<void> {
+  const savedPinned = getSavedPinnedState();
+  const initialPinned = savedPinned ?? await readSidebarPinnedOnStartup();
   sidebar = sidebarElement;
   toggleBtn = toggleButton ?? null;
   pinBtn = document.getElementById('luna-toc-sidebar-pin-btn');
@@ -87,7 +91,11 @@ export function initializeSidebarVisibility(
     bindToggleButton();
   }
   bindAutoHide();
-  loadPinnedState();
+  isPinned = initialPinned;
+  storageSet(PINNED_STORAGE_KEY, isPinned);
+  clearHideTimer();
+  updatePinButtonState();
+  setSidebarHidden(!isPinned);
   finishInitializing();
 }
 
@@ -175,16 +183,6 @@ export function setSidebarPinned(
   if (options.persist) {
     storageSet(PINNED_STORAGE_KEY, isPinned);
   }
-}
-
-function loadPinnedState(): void {
-  const savedPinned = getSavedPinnedState();
-  const nextPinned = typeof savedPinned === 'boolean' ? savedPinned : true;
-
-  isPinned = nextPinned;
-  clearHideTimer();
-  updatePinButtonState();
-  setSidebarHidden(!isPinned);
 }
 
 /**

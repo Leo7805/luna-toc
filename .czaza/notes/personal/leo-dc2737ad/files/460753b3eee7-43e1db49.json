@@ -1,0 +1,20 @@
+{
+  "source": {
+    "sourceHash": "sha256:bf385641f810874d8b12e76fd85a6a5e5d52f33a7acac9fe7e04f8c96a48013b"
+  },
+  "defaults": {
+    "createdAt": "2026-10-30T04:55:53.381Z",
+    "updatedAt": "2026-10-30T04:55:53.381Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "在 Settings 页面提供默认 Pin 状态开关。",
+      "detail": "- SidebarSettings：加载和同步已保存的默认值，并说明新标签页与刷新行为。\n- updatePinned：保存选择，失败时保留已保存值并显示提示。",
+      "aiNotes": [
+        "加载或保存期间禁用开关，较晚完成的初始读取不会覆盖已收到的新设置。"
+      ]
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

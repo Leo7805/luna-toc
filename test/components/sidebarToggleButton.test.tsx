@@ -28,6 +28,10 @@ import {
 import { setReactPortalContainer } from '@/reactHost/portalContainer';
 import { resetStatusForTesting } from '@/navigation/ui/sidebarStatus';
 
+vi.mock('@/features/sidebar/sidebarSettings', () => ({
+  readSidebarPinnedOnStartup: vi.fn().mockResolvedValue(true),
+}));
+
 (
   globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -110,7 +114,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('1. Initial Moon Button rendering with SVG and label', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -145,7 +149,7 @@ describe('SidebarToggleButton React Component', () => {
 
     // Now complete application visibility setup
     await act(async () => {
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
     });
 
     button = document.getElementById('luna-toc-toggle-btn');
@@ -154,7 +158,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('3. Application-first initialization (setup runs before React mounts)', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
     sidebarController.init();
 
     root = createRoot(rootContainer);
@@ -168,7 +172,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('4. Button click opens and closes the Sidebar', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -198,7 +202,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('5. Pinned and unpinned states', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -221,7 +225,7 @@ describe('SidebarToggleButton React Component', () => {
 
   it('6. Auto-hide on pointer enter and leave when unpinned', async () => {
     vi.useFakeTimers();
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
     setSidebarPinned(false);
 
     root = createRoot(rootContainer);
@@ -256,7 +260,7 @@ describe('SidebarToggleButton React Component', () => {
       JSON.stringify({ left: 150, top: 220 })
     );
 
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -269,7 +273,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('8. Dragging across the viewport updates position and persists to sessionStorage', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -315,7 +319,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('9. Drag boundary clamping restricts movement inside viewport margins', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -360,7 +364,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('10. Pointer cancellation stops dragging and cleans up', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -381,7 +385,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('11. Click suppression after dragging', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -410,7 +414,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('12. Browser resize re-clamps button within visible viewport', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -443,7 +447,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('13. React re-render during and after drag does not reset coordinates', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -487,7 +491,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('14. External overlay class matches toggle button selector', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -500,7 +504,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('15. Light and Dark theme compatibility', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -521,7 +525,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('16. Clean unmount removes portal children and listeners', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -540,7 +544,7 @@ describe('SidebarToggleButton React Component', () => {
   });
 
   it('17. Enforces strict single DOM ownership with no duplicate buttons', async () => {
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -560,7 +564,7 @@ describe('SidebarToggleButton React Component', () => {
 
   it('18. Existing Header, Search, Status and Jump Controls remain unaffected', async () => {
     sidebarController.init();
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
 
     root = createRoot(rootContainer);
     await act(async () => {
@@ -587,7 +591,7 @@ describe('SidebarToggleButton React Component', () => {
     it('19. Moves focus from Pin button to Moon button before setting aria-hidden during auto-hide', async () => {
       vi.useFakeTimers();
       sidebarController.init();
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
       setSidebarPinned(false);
 
       root = createRoot(rootContainer);
@@ -631,7 +635,7 @@ describe('SidebarToggleButton React Component', () => {
     it('20. Moves focus from Search button to Moon button during manual hide', async () => {
       sidebarController.init();
       sidebarController.setPromptCount(5);
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
 
       root = createRoot(rootContainer);
       await act(async () => {
@@ -661,7 +665,7 @@ describe('SidebarToggleButton React Component', () => {
 
     it('21. Does not move focus if activeElement is already outside the sidebar', async () => {
       sidebarController.init();
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
 
       const externalInput = document.createElement('textarea');
       externalInput.id = 'chatgpt-prompt-textarea';
@@ -686,7 +690,7 @@ describe('SidebarToggleButton React Component', () => {
 
     it('22. Safely blurs focused descendant if Moon button is unavailable or unfocusable', async () => {
       sidebarController.init();
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
 
       const innerButton = document.createElement('button');
       innerButton.id = 'inner-sidebar-btn';
@@ -709,7 +713,7 @@ describe('SidebarToggleButton React Component', () => {
 
     it('23. Does not move focus when showing the sidebar or while sidebar remains visible', async () => {
       sidebarController.init();
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
 
       root = createRoot(rootContainer);
       await act(async () => {
@@ -734,7 +738,7 @@ describe('SidebarToggleButton React Component', () => {
 
     it('24. Supports keyboard reopening via Moon button after focus eviction', async () => {
       sidebarController.init();
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
 
       root = createRoot(rootContainer);
       await act(async () => {
@@ -769,7 +773,7 @@ describe('SidebarToggleButton React Component', () => {
 
     it('25. Invokes auto-hide enter and leave handlers once per event without duplicate bindings', async () => {
       sidebarController.init();
-      initializeSidebarVisibility(sidebar);
+      await initializeSidebarVisibility(sidebar);
       setSidebarPinned(false);
 
       const enterSpy = vi.spyOn(sidebarVis, 'handleAutoHideEnter');

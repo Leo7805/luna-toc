@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-10-13T07:25:18.838Z",
+  "updatedAt": "2026-10-30T04:55:53.384Z",
   "workspaceRoot": "/Users/leo/Projects/chrome-plugins/luna-toc",
   "files": {
     "": {
@@ -219,9 +219,9 @@
     },
     "src/app/applicationShell.ts": {
       "noteFile": "files/678c8485ed6c-69709b70.json",
-      "sourceHash": "sha256:029f434c446a40a883c479963c91be368e66b9c885f97d7c4f60a1904a3196a7",
+      "sourceHash": "sha256:ecb6094c8a7e6953ef96a5d46fce3ce79b84020ab24f7ebd012307b5e74eb918",
       "programmingLanguage": "typescript",
-      "updatedAt": "2026-10-13T07:25:18.830Z"
+      "updatedAt": "2026-10-30T04:55:53.384Z"
     },
     "src/app/navigatorController.ts": {
       "noteFile": "files/77fd2d9f139a-7873eb25.json",
@@ -295,6 +295,26 @@
       "sourceHash": "sha256:6fc6c283a34bb4d4d0a8a87abb5b493f1c6eab7d19584346c26cdf4b08145e33",
       "programmingLanguage": "typescriptreact",
       "updatedAt": "2026-10-13T03:40:29.316Z"
+    },
+    "src/features/sidebarVisibility.ts": {
+      "noteFile": "files/8769c80e1c0f-9a8e626a.json",
+      "sourceHash": "sha256:9e5d67c0cbefa3c3ccc1f29505b7abafcc481b8d1ecca9bb4c9da88538a24464",
+      "updatedAt": "2026-10-30T04:55:53.376Z"
+    },
+    "src/features/sidebar/sidebarSettings.ts": {
+      "noteFile": "files/11661be36948-59cd2331.json",
+      "sourceHash": "sha256:ae64e2dfe07d2a4f7efdb8d1db70f1c6cda8d8a8c785b17ec942f7f11dd1b02f",
+      "updatedAt": "2026-10-30T04:55:53.379Z"
+    },
+    "src/components/options/SidebarSettings.tsx": {
+      "noteFile": "files/460753b3eee7-43e1db49.json",
+      "sourceHash": "sha256:bf385641f810874d8b12e76fd85a6a5e5d52f33a7acac9fe7e04f8c96a48013b",
+      "updatedAt": "2026-10-30T04:55:53.381Z"
+    },
+    "src/components/options/OptionsApp.tsx": {
+      "noteFile": "files/f97c721fab3c-49eaff43.json",
+      "sourceHash": "sha256:7e95ed37a35babd5f032c4f805da95d476ff9f39f5d1d0b808a3d1ebcea443a6",
+      "updatedAt": "2026-10-30T04:55:53.382Z"
     }
   }
 }

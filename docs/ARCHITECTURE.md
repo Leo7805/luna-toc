@@ -213,6 +213,12 @@ Performance-critical DOM operations, low-level browser integrations, and static 
   - Vertical Jump Controls repositioning (`src/features/sidebar/FloatingPanel.ts`): Manages pointer capture, vertical clamping, and `sessionStorage` persistence for `.navigator-jump-controls`.
 - **Sidebar Visibility & Accessibility** (`src/features/sidebarVisibility.ts`):
   Coordinates auto-hide timers, pin state, media query spoofing, and focus eviction (`evictFocusFromSidebar()`) before applying `aria-hidden="true"` and `inert`.
+  Initialization restores the tab-wide session pin state, falling back to the persistent startup preference from
+  `src/features/sidebar/sidebarSettings.ts` before revealing the shell, and
+  `applicationShell.ts` awaits completion. The full-page Settings component
+  `src/components/options/SidebarSettings.tsx` edits this preference; page pin
+  controls persist the tab state independently of the default. Refreshes and SPA
+  conversation changes retain the current pin state (ADR 13).
 
 #### 3. Integration Model & Lifecycle
 

@@ -53,7 +53,7 @@ describe('applicationShell initialization idempotency', () => {
       initFloatingPanel: vi.fn(),
     }));
     vi.doMock('@/features/sidebarVisibility', () => ({
-      initializeSidebarVisibility: vi.fn(),
+      initializeSidebarVisibility: vi.fn().mockResolvedValue(undefined),
     }));
     vi.doMock('@/features/tooltip', () => ({
       buttonTooltip: { init: vi.fn() },
@@ -103,6 +103,20 @@ describe('applicationShell initialization idempotency', () => {
     expect(document.querySelectorAll('#luna-toc-sidebar')).toHaveLength(1);
     expect(navInitSpy).toHaveBeenCalledTimes(1);
     expect(sidebarInitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for startup visibility before attaching the navigator', async () => {
+    const { initializeSidebarVisibility } = await import('@/features/sidebarVisibility');
+    let finishVisibility!: () => void;
+    vi.mocked(initializeSidebarVisibility).mockImplementationOnce(() => new Promise<void>((resolve) => { finishVisibility = resolve; }));
+    const { navigatorController } = await import('@/navigation/navigatorController');
+    const { initializeApplication } = await import('@/app/applicationShell');
+    const initialized = initializeApplication();
+    await vi.waitFor(() => expect(initializeSidebarVisibility).toHaveBeenCalled());
+    expect(navigatorController.attach).not.toHaveBeenCalled();
+    finishVisibility();
+    await initialized;
+    expect(navigatorController.attach).toHaveBeenCalledTimes(1);
   });
 
   it('fails deterministically without adopting or removing pre-existing sidebar', async () => {

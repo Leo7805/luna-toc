@@ -1,0 +1,18 @@
+{
+  "source": {
+    "sourceHash": "sha256:7e95ed37a35babd5f032c4f805da95d476ff9f39f5d1d0b808a3d1ebcea443a6"
+  },
+  "defaults": {
+    "createdAt": "2026-10-30T04:55:53.382Z",
+    "updatedAt": "2026-10-30T04:55:53.382Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "呈现侧栏默认设置和提示词颜色设置。",
+      "detail": "- OptionsApp：在颜色选项前加入 SidebarSettings，并维持颜色和主题同步。",
+      "aiNotes": []
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

@@ -1,0 +1,20 @@
+{
+  "source": {
+    "sourceHash": "sha256:ae64e2dfe07d2a4f7efdb8d1db70f1c6cda8d8a8c785b17ec942f7f11dd1b02f"
+  },
+  "defaults": {
+    "createdAt": "2026-10-30T04:55:53.379Z",
+    "updatedAt": "2026-10-30T04:55:53.379Z"
+  },
+  "fileNote": {
+    "aiExplanation": {
+      "summary": "保存新标签页使用的默认 Pin 设置。",
+      "detail": "- readSidebarPinnedOnStartup：读取布尔设置，缺失、无效或读取失败时默认开启。\n- writeSidebarPinnedOnStartup：保存默认值并向调用方报告写入失败。\n- subscribeSidebarPinnedOnStartup：监听设置变化并提供取消订阅。",
+      "aiNotes": [
+        "设置保存在 chrome.storage.local，与 sessionStorage 中的标签页状态分开。"
+      ]
+    }
+  },
+  "sectionNotes": {},
+  "lineNotes": {}
+}

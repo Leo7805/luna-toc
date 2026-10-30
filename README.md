@@ -28,6 +28,7 @@ LunaTOC helps you navigate long conversations by automatically turning your prom
 - Automatically updates when new prompts are sent
 - Resizable sidebar
 - Pinnable sidebar with optional hover-based auto-hide
+- Choose whether the sidebar starts pinned open or collapsed in Settings
 - Draggable floating toggle button with per-tab position memory
 - SVG refresh button to rebuild the TOC
 - Detects text, image, and file prompts
@@ -62,7 +63,7 @@ LunaTOC helps you navigate long conversations by automatically turning your prom
 ## Usage
 
 1. Open any ChatGPT conversation.
-2. The LunaTOC sidebar will appear on the right side.
+2. The LunaTOC sidebar appears on the right side, pinned open by default.
 3. Click a TOC item to jump to that prompt.
 4. Use the search box to filter prompts.
 5. Switch to My Prompts to manage saved prompt templates.
@@ -73,6 +74,7 @@ LunaTOC helps you navigate long conversations by automatically turning your prom
 10. Drag the left edge of the sidebar to resize it.
 11. Use the sidebar pin button to keep the sidebar open or enable auto-hide.
 12. Hover the floating button to reveal an auto-hidden sidebar, or drag it to reposition it for the current tab.
+13. Open the extension popup → **Settings** → **Sidebar** and turn **Pin sidebar on startup** on or off. The choice is saved across tabs and browser restarts and applies to new ChatGPT tab sessions. Refreshing or switching chats preserves the current tab’s pin state.
 
 ---
 

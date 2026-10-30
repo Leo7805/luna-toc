@@ -19,9 +19,9 @@ These states are intentionally designed to be session-bound and scoped to the ac
 ### Consequences
 * The unused `"storage"` permission was removed from `manifest.json` to prevent Chrome Web Store review warnings/rejections.
 * Marked prompts and positions will continue to reset when the tab is closed.
-* Sidebar pin status is shared by every conversation in the same tab session;
-  switching conversations or creating a conversation from a new chat does not
-  change it.
+* Sidebar pin status is shared by conversations in the same tab session and
+  survives refreshes through sessionStorage. ADR 13 adds a persistent default
+  for sessions without a saved pin state.
 
 ---
 
@@ -590,3 +590,28 @@ Adopt an approved **Hybrid React 19 + Vanilla TypeScript Architecture**:
 - All temporary compatibility guards (`data-react-managed`) and legacy Vanilla event fallbacks (`bindSidebarControls`) are removed.
 - Focus and accessibility management are strictly isolated inside React `useEffect` hooks.
 - The decision to keep the TOC List and outer Sidebar Shell in Vanilla TypeScript is the approved, finalized architectural boundary.
+
+---
+
+## ADR 13: Persistent Sidebar Startup Pin Preference
+* **Date**: 2026-10-30
+
+### Decision
+Expose **Settings → Sidebar → Pin sidebar on startup**, enabled by default.
+Persist the boolean under `chatToc:sidebarPinnedOnStartup` in `chrome.storage.local`.
+Use it only when no saved tab pin state exists, before revealing the sidebar shell; disabled means unpinned and hidden,
+with the existing hover-to-reveal behavior intact. Missing, invalid, or unreadable
+storage falls back to the existing pinned default.
+
+Keep the sidebar pin button independent: it changes only the current page's
+tab-wide sessionStorage state. Refreshes and SPA conversation changes preserve
+that state. Existing legacy conversation-scoped values retain their migration path.
+Store the initial choice in sessionStorage so later preference changes cannot
+override it on refresh. Settings changes apply to sessions without a saved state.
+
+### Consequences
+The application shell awaits visibility initialization to avoid a visible pinned
+flash before an unpinned preference loads. Settings views subscribe to storage
+changes, while content scripts deliberately do not apply preference changes live.
+No new permissions or dependencies are needed; other session-scoped UI state stays
+unchanged. This extends ADR 01 without replacing tab pin persistence.

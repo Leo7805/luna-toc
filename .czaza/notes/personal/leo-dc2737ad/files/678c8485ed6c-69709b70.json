@@ -1,15 +1,22 @@
 {
   "source": {
-    "sourceHash": "sha256:029f434c446a40a883c479963c91be368e66b9c885f97d7c4f60a1904a3196a7",
+    "sourceHash": "sha256:ecb6094c8a7e6953ef96a5d46fce3ce79b84020ab24f7ebd012307b5e74eb918",
     "sourceHashKind": "text",
     "programmingLanguage": "typescript"
   },
   "defaults": {
     "createdAt": "2026-08-27T03:53:42.669Z",
-    "updatedAt": "2026-08-27T03:53:42.669Z"
+    "updatedAt": "2026-10-30T04:55:53.384Z"
   },
   "fileNote": {
     "userNote": "Builds the sidebar DOM, wires up the pin/title/search/jump/view-toggle controls, and initializes the theme and feature subsystems.",
+    "aiExplanation": {
+      "summary": "创建侧栏并协调主题、导航和功能初始化。",
+      "detail": "- initializeApplication：等待侧栏恢复标签页状态或读取默认 Pin 设置后，再连接导航。",
+      "aiNotes": [
+        "保留已有用户笔记；异步初始化避免侧栏先展开再收起。"
+      ]
+    },
     "createdBy": "user"
   },
   "sectionNotes": {},

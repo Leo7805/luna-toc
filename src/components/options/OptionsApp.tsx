@@ -1,5 +1,6 @@
 /** Renders LunaTOC's full-page extension settings. */
 import { useEffect, useState } from 'react';
+import { SidebarSettings } from './SidebarSettings';
 import {
   FAVOURITE_COLOR_PRESETS,
   RENAMED_COLOR_PRESETS,
@@ -13,7 +14,7 @@ import {
   type RenamedColorPreset,
 } from '@/features/theme/promptColorSettings';
 
-/** Displays prompt colour options for LunaTOC. */
+/** Displays sidebar startup and prompt colour options for LunaTOC. */
 export function OptionsApp(): React.JSX.Element {
   const [favouriteColor, setFavouriteColor] =
     useState<FavouriteColorPreset>('original');
@@ -83,6 +84,8 @@ export function OptionsApp(): React.JSX.Element {
           Settings
         </h1>
       </header>
+
+      <SidebarSettings />
 
       <section aria-labelledby="prompt-colours-heading">
         <h2

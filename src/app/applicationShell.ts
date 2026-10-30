@@ -276,7 +276,7 @@ export function initializeApplication(): Promise<void> {
     initSidebarResize(sidebar);
     initFloatingPanel();
 
-    initializeSidebarVisibility(sidebar);
+    await initializeSidebarVisibility(sidebar);
     previewTooltip.init({
       anchorSelector: '#navigator-list, #myprompts-list',
     });
