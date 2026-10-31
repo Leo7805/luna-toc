@@ -112,6 +112,8 @@ html[data-lunatoc-theme='dark'] {
   --ct-text-header-title: #dce6f5;
   --ct-icon-header: #8fa2bc;
   --ct-icon-header-hover-bg: rgba(255, 255, 255, 0.08);
+  --ct-bg-status: rgba(16, 24, 39, 0.28);
+  --ct-bg-status-fallback: rgba(16, 24, 39, 0.78);
 }
 
 html[data-lunatoc-theme='light'] {
@@ -222,6 +224,8 @@ html[data-lunatoc-theme='light'] {
   --ct-text-header-title: #23456f;
   --ct-icon-header: #6c82a0;
   --ct-icon-header-hover-bg: rgba(0, 0, 0, 0.05);
+  --ct-bg-status: rgba(238, 245, 255, 0.34);
+  --ct-bg-status-fallback: rgba(238, 245, 255, 0.82);
 }
 
 #navigator-resizer {
@@ -263,11 +267,21 @@ html[data-lunatoc-theme='light'] {
 }
 
 .navigator-topbar {
+  position: relative;
+  z-index: 3;
   flex: 0 0 auto;
   margin: 0 -6px;
   padding: 7px 14px 8px;
   background: var(--ct-bg-header);
   border-bottom: 1px solid var(--ct-border-divider);
+}
+
+.navigator-content {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 #navigator-list,
@@ -363,7 +377,7 @@ html[data-lunatoc-theme='light'] {
   position: absolute;
   right: 8px;
   top: clamp(120px, 30vh, 280px);
-  z-index: 2;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1050,7 +1064,11 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
 }
 
 .navigator-status {
-  flex: 0 0 auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
   box-sizing: border-box;
   width: 100%;
   max-height: 0;
@@ -1065,6 +1083,9 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
   line-height: 26px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  background: var(--ct-bg-status);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   pointer-events: none;
   transition:
     max-height 0.2s ease,
@@ -1072,11 +1093,16 @@ html.luna-toc-external-overlay-open #luna-toc-react-host {
     margin 0.2s ease;
 }
 
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .navigator-status {
+    background: var(--ct-bg-status-fallback);
+  }
+}
+
 .navigator-status.navigator-status-active {
   max-height: 28px;
   opacity: 1;
   margin: 2px 0 0;
-  pointer-events: auto;
 }
 
 #luna-toc-sidebar[data-view-mode='myPrompts'] #luna-toc-status {

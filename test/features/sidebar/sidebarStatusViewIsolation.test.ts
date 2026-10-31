@@ -35,6 +35,7 @@ describe('Sidebar Status View Isolation', () => {
   let tocList: HTMLDivElement;
   let myPromptsList: HTMLDivElement;
   let toolbarContainer: HTMLDivElement;
+  let contentContainer: HTMLDivElement;
   let styleElement: HTMLStyleElement;
   let rootContainer: HTMLDivElement;
   let root: Root;
@@ -97,18 +98,20 @@ describe('Sidebar Status View Isolation', () => {
     myPromptsList.id = 'myprompts-list';
     myPromptsList.style.display = 'none';
 
+    contentContainer = document.createElement('div');
+    contentContainer.className = 'navigator-content';
+    contentContainer.append(statusElement, tocList, myPromptsList);
+
     rootContainer = document.createElement('div');
     rootContainer.id = 'luna-toc-react-root';
 
     sidebar.append(
-      statusElement,
       toggleButton,
       titleButton,
       searchInput,
       searchToggleBtn,
       toolbarContainer,
-      tocList,
-      myPromptsList
+      contentContainer
     );
     document.body.append(sidebar, rootContainer);
 
@@ -331,6 +334,42 @@ describe('Sidebar Status View Isolation', () => {
     expect(toolbarContainer.style.display).toBe('');
     expect(myPromptsList.style.display).toBe('');
     expect(tocList.style.display).toBe('none');
+  });
+
+  it('9. applies floating overlay positioning, preserved transitions, and pointer-events: none in both states', () => {
+    act(() => {
+      setSidebarStatus({ state: 'idle' });
+    });
+
+    const contentStyle = window.getComputedStyle(contentContainer);
+    expect(contentStyle.position).toBe('relative');
+
+    expect(statusElement.classList.contains('navigator-status-active')).toBe(
+      false
+    );
+    const inactiveStyle = window.getComputedStyle(statusElement);
+    expect(inactiveStyle.position).toBe('absolute');
+    expect(inactiveStyle.top).toBe('0px');
+    expect(inactiveStyle.left).toBe('0px');
+    expect(inactiveStyle.right).toBe('0px');
+    expect(inactiveStyle.zIndex).toBe('2');
+    expect(inactiveStyle.maxHeight).toBe('0px');
+    expect(inactiveStyle.opacity).toBe('0');
+    expect(inactiveStyle.pointerEvents).toBe('none');
+
+    act(() => {
+      setSidebarStatus({ state: 'loading', promptCount: 10 });
+    });
+
+    expect(statusElement.classList.contains('navigator-status-active')).toBe(
+      true
+    );
+    const activeStyle = window.getComputedStyle(statusElement);
+    expect(activeStyle.position).toBe('absolute');
+    expect(activeStyle.maxHeight).toBe('28px');
+    expect(activeStyle.opacity).toBe('1');
+    expect(activeStyle.marginTop).toBe('2px');
+    expect(activeStyle.pointerEvents).toBe('none');
   });
 
   describe('setViewMode same-mode idempotency and scroll preservation (Phase 5C)', () => {

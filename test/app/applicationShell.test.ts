@@ -176,4 +176,30 @@ describe('applicationShell initialization idempotency', () => {
     expect(surviving?.getAttribute('data-race-injected')).toBe('true');
     expect(sidebarInitSpy).not.toHaveBeenCalled();
   });
+
+  it('creates .navigator-jump-controls before .navigator-content wrapping status and lists', async () => {
+    const { initializeApplication } = await import('@/app/applicationShell');
+
+    await initializeApplication();
+
+    const sidebar = document.getElementById('luna-toc-sidebar');
+    expect(sidebar).not.toBeNull();
+
+    const topbar = sidebar?.querySelector('.navigator-topbar');
+    const jumpControls = sidebar?.querySelector('.navigator-jump-controls');
+    const content = sidebar?.querySelector('.navigator-content');
+    const status = sidebar?.querySelector('#luna-toc-status');
+    const tocList = sidebar?.querySelector('#navigator-list');
+    const myPromptsList = sidebar?.querySelector('#myprompts-list');
+
+    expect(topbar).not.toBeNull();
+    expect(jumpControls).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(topbar?.nextElementSibling).toBe(jumpControls);
+    expect(jumpControls?.nextElementSibling).toBe(content);
+    expect(content?.children).toHaveLength(3);
+    expect(content?.children[0]).toBe(status);
+    expect(content?.children[1]).toBe(tocList);
+    expect(content?.children[2]).toBe(myPromptsList);
+  });
 });

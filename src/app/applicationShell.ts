@@ -93,15 +93,17 @@ async function createSidebar(): Promise<HTMLElement> {
         <div id="navigator-search-container"></div>
         <div id="myprompts-toolbar-container" style="display: none;"></div>
       </div>
-      <div
-        id="luna-toc-status"
-        class="navigator-status"
-        aria-live="polite"
-        role="status"
-      ></div>
       <div class="navigator-jump-controls"></div>
-      <div id="navigator-list"></div>
-      <div id="myprompts-list" class="navigator-list" style="display: none;"></div>
+      <div class="navigator-content">
+        <div
+          id="luna-toc-status"
+          class="navigator-status"
+          aria-live="polite"
+          role="status"
+        ></div>
+        <div id="navigator-list"></div>
+        <div id="myprompts-list" class="navigator-list" style="display: none;"></div>
+      </div>
     `;
 
   document.body.appendChild(sidebar);
