@@ -466,9 +466,17 @@ export function createTocListRenderer(
       .filter(({ message }) => {
         if (!matchesTocFilter(message.id, filterMode)) return false;
         if (!normalizedQuery) return true;
-        return normalizeText(message.text)
+        const matchesOriginalPrompt = normalizeText(message.text)
           .toLowerCase()
           .includes(normalizedQuery);
+        const customTitle = getCustomTitle(message.id);
+        const matchesRenamedTitle = Boolean(
+          customTitle &&
+            normalizeText(customTitle)
+              .toLowerCase()
+              .includes(normalizedQuery)
+        );
+        return matchesOriginalPrompt || matchesRenamedTitle;
       });
 
     if (hint) {

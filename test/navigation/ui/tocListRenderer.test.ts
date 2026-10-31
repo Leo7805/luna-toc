@@ -225,12 +225,22 @@ describe('tocListRenderer', () => {
     let initPromptMarkFn: typeof import('@/features/conversationPrompts/promptMark').initializePromptMark;
 
     beforeEach(async () => {
+      vi.stubGlobal('chrome', {
+        storage: {
+          local: {
+            get: vi.fn(async () => ({})),
+            set: vi.fn(async () => {}),
+          },
+        },
+      });
+
       const filterStore = await import('@/features/tocFilter/tocFilterStore');
       resetFilterMode = filterStore.resetTocFilterMode;
       setFilterMode = filterStore.setTocFilterMode;
       resetFilterMode();
 
       const titleStore = await import('@/features/customTocTitles/customTocTitleStore');
+      await titleStore.initializeCustomTocTitles();
       setCustomTitleFn = titleStore.setCustomTitle;
       removeCustomTitleFn = titleStore.removeCustomTitle;
 
@@ -333,6 +343,132 @@ describe('tocListRenderer', () => {
 
       expect(listElement.children.length).toBe(1);
       expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-3');
+
+      renderer.destroy?.();
+    });
+
+    it('matches prompts by original prompt content OR renamed title (case-insensitive, normalized) and renders renamed title', async () => {
+      const messages: NavigatorMessage[] = [
+        {
+          id: 'msg-1',
+          text: 'Explain the difference between REST and GraphQL',
+          canMatchByText: true,
+          createTime: 100,
+        },
+        {
+          id: 'msg-2',
+          text: 'Write a PostgreSQL migration script',
+          canMatchByText: true,
+          createTime: 200,
+        },
+      ];
+      await setCustomTitleFn('msg-1', 'API   Architecture');
+
+      const renderer = createTocListRenderer({
+        getMessages: () => messages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+
+      // Match by original prompt content while renamed title exists
+      renderer.setSearchQuery('graphql');
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-1');
+      expect(
+        listElement.children[0].querySelector('.navigator-item-text')?.textContent
+      ).toBe('API Architecture');
+
+      // Match by renamed title (case-insensitive and whitespace-normalized)
+      renderer.setSearchQuery('api architecture');
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-1');
+      expect(
+        listElement.children[0].querySelector('.navigator-item-text')?.textContent
+      ).toBe('API Architecture');
+
+      // Prompt without a renamed title still matches by original text
+      renderer.setSearchQuery('postgresql');
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-2');
+
+      // Non-matching query shows empty-result hint
+      renderer.setSearchQuery('kubernetes');
+      expect(listElement.children.length).toBe(0);
+      expect(hintElement.hidden).toBe(false);
+      expect(hintElement.textContent).toBe('No matching prompts.');
+
+      renderer.destroy?.();
+    });
+
+    it('returns each prompt only once and preserves original ordering when query matches both original text and renamed title', async () => {
+      await setCustomTitleFn('msg-1', 'First custom prompt');
+      await setCustomTitleFn('msg-3', 'Coding architecture');
+
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+
+      // "prompt" appears in both original text and custom title of msg-1, and original text of msg-2 & msg-3
+      renderer.setSearchQuery('prompt');
+      expect(listElement.children.length).toBe(3);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-1');
+      expect((listElement.children[1] as HTMLElement).dataset.messageId).toBe('msg-2');
+      expect((listElement.children[2] as HTMLElement).dataset.messageId).toBe('msg-3');
+
+      renderer.destroy?.();
+    });
+
+    it('combines Renamed and Bookmarked filters with search across original prompt and renamed title', async () => {
+      await setCustomTitleFn('msg-1', 'API Architecture');
+      await setCustomTitleFn('msg-2', 'Database Schema');
+      sessionStorage.setItem('chatToc:marks:test-convo', JSON.stringify(['msg-1', 'msg-3']));
+      initPromptMarkFn({ conversationKey: 'test-convo' });
+
+      let currentFilter: 'renamed' | 'bookmarked' = 'renamed';
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+        getFilterMode: () => currentFilter,
+      });
+
+      // Renamed filter + search by original prompt text of msg-1 ("First user prompt")
+      renderer.setSearchQuery('first user');
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-1');
+
+      // Bookmarked filter + search by renamed title of msg-1 ("API Architecture")
+      currentFilter = 'bookmarked';
+      renderer.setSearchQuery('architecture');
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-1');
+
+      renderer.destroy?.();
+    });
+
+    it('updates active search results when a prompt title is renamed or removed and render is triggered', async () => {
+      const renderer = createTocListRenderer({
+        getMessages: () => mockMessages,
+        getActiveIndex: () => null,
+        onItemClick: vi.fn(),
+      });
+
+      renderer.setSearchQuery('architecture');
+      expect(listElement.children.length).toBe(0);
+
+      // Rename msg-2 and trigger render (matching CustomTocTitleDialog onUpdated: render)
+      await setCustomTitleFn('msg-2', 'System Architecture');
+      renderer.render();
+      expect(listElement.children.length).toBe(1);
+      expect((listElement.children[0] as HTMLElement).dataset.messageId).toBe('msg-2');
+
+      // Remove custom title and trigger render
+      await removeCustomTitleFn('msg-2');
+      renderer.render();
+      expect(listElement.children.length).toBe(0);
+      expect(hintElement.textContent).toBe('No matching prompts.');
 
       renderer.destroy?.();
     });
