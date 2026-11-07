@@ -23,8 +23,6 @@ interface OutgoingRequestBody {
   messages?: OutgoingMessage[];
 }
 
-let streamBuffer = '';
-
 /**
  * Attempts to parse the outgoing POST request body to immediately capture
  * the user's prompt before the server responds.
@@ -64,8 +62,7 @@ export function extractOutgoingMessage(
 /**
  * Reads a cloned send-message SSE stream so newly submitted user prompts can
  * appear in the navigator before the next full conversation fetch completes.
- * Resets the internal line buffer on entry so the previous stream's leftover
- * partial line cannot leak into this stream.
+ * Keeps partial lines local to this invocation, including overlapping streams.
  */
 export async function inspectStream(
   response: Response,
@@ -76,13 +73,14 @@ export async function inspectStream(
 
   if (!reader) return;
 
-  streamBuffer = '';
+  let streamBuffer = '';
   const decoder = new TextDecoder();
 
   while (true) {
     const { done, value } = await reader.read();
 
     if (done) {
+      streamBuffer += decoder.decode();
       if (streamBuffer.trim()) {
         processStreamLine(streamBuffer, routeKey, messageType);
         streamBuffer = '';
@@ -95,22 +93,11 @@ export async function inspectStream(
       stream: true,
     });
 
-    processBufferedStream(routeKey, messageType);
-  }
-}
-
-/**
- * Splits the accumulated SSE buffer into complete lines while keeping the
- * trailing partial line for the next stream chunk.
- */
-function processBufferedStream(routeKey: string, messageType: string): void {
-  const lines = streamBuffer.split('\n');
-
-  // The last line may be incomplete.
-  streamBuffer = lines.pop() || '';
-
-  for (const line of lines) {
-    processStreamLine(line, routeKey, messageType);
+    const lines = streamBuffer.split('\n');
+    streamBuffer = lines.pop() || '';
+    for (const line of lines) {
+      processStreamLine(line, routeKey, messageType);
+    }
   }
 }
 

@@ -83,8 +83,7 @@ export const navigatorController = (() => {
    * @returns {string}
    */
   function getCurrentConversationKey(): string {
-    const match = location.pathname.match(/\/c\/([^/]+)/);
-    return match?.[1] || `new-chat:${location.pathname}`;
+    return getActivePlatform().routing.getCurrentRouteKey();
   }
 
   const conversationStore = createConversationStore({
@@ -677,7 +676,7 @@ export const navigatorController = (() => {
           routeKey
         );
 
-        if (!result.accepted) return;
+        if (!result.accepted || result.isBackground) return;
 
         if (result.didAppend) {
           onPromptAdded();

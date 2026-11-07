@@ -729,3 +729,75 @@ describe('conversationStore', () => {
     });
   });
 });
+
+/** Builds timestamped messages without inventing missing assistant turns. */
+function prompt(id: string, time: number, role = 'user'): ChatMessage {
+  return { id, author: { role }, content: { parts: [id] }, create_time: time };
+}
+
+describe('issue 5 live snapshot reconciliation', () => {
+  it('preserves three known prompts on a background duplicate, late inserts, and an old GET', () => {
+    let route = 'A';
+    const store = createConversationStore({ getCurrentRouteKey: () => route });
+    const switchTo = (key: string) => {
+      route = key;
+      const transition = store.syncRouteState();
+      store.resetForCurrentRoute({ nextMessages: transition.cachedMessages, preserveMessages: transition.shouldPreserveMessages });
+    };
+    store.syncRouteState();
+    const initial = { messages: [prompt('1', 100), prompt('reply1', 150, 'assistant')] };
+    store.handleConversationData(initial);
+    store.handleNewUserMessage(prompt('2', 200), 'A');
+    store.handleNewUserMessage(prompt('3', 300), 'A');
+    expect(store.getMessages().map((m) => m.id)).toEqual(['1', '2', '3']);
+    switchTo('B');
+    store.handleConversationData({ messages: [prompt('B1', 100)] });
+    const b = structuredClone(store.getMessages());
+    expect(store.handleNewUserMessage(prompt('3', 300), 'A')).toMatchObject({ accepted: true, didAppend: false, isBackground: true });
+    expect(store.getCachedConversationMessages('A').map((m) => m.id)).toEqual(['1', '2', '3']);
+    store.handleNewUserMessage(prompt('5', 500), 'A');
+    store.handleNewUserMessage(prompt('4', 400), 'A');
+    store.handleNewUserMessage(prompt('4', 400), 'A');
+    expect(store.getMessages()).toEqual(b);
+    switchTo('A');
+    expect(store.getMessages().map((m) => m.id)).toEqual(['1', '2', '3', '4', '5']);
+    store.handleConversationData(initial);
+    expect(store.getMessages().map((m) => m.id)).toEqual(['1', '2', '3', '4', '5']);
+    // Full server confirmation still applies the original consecutive-user rule.
+    store.handleConversationData({ messages: [prompt('2', 200), prompt('reply2', 250, 'assistant'), prompt('3', 300), prompt('reply3', 350, 'assistant'), prompt('4', 400), prompt('5', 500)] });
+    expect(store.getMessages().map((m) => m.id)).toEqual(['1', '2', '3', '5']);
+    expect(store.getCollapsedMessageMap().get('4')).toBe('5');
+  });
+
+  it.each(['new-chat:/old', 'WEB:old', 'local-old'])('rejects unrelated temporary key %s', (key) => {
+    const store = createConversationStore({ getCurrentRouteKey: () => 'B' });
+    expect(store.handleNewUserMessage(prompt('late', 100), key).accepted).toBe(false);
+    expect(store.getCachedConversationMessages(key)).toEqual([]);
+    expect(store.getMessages()).toEqual([]);
+  });
+
+  it('retains multiple live prompts across temporary migration and old GET', () => {
+    let route = 'new-chat:/';
+    const store = createConversationStore({ getCurrentRouteKey: () => route });
+    store.syncRouteState();
+    store.handleNewUserMessage(prompt('1', 100), route);
+    store.handleNewUserMessage(prompt('2', 200), route);
+    for (const key of ['local-new', 'permanent']) {
+      route = key;
+      const transition = store.syncRouteState();
+      store.resetForCurrentRoute({ preserveMessages: transition.shouldPreserveMessages, nextMessages: transition.cachedMessages });
+    }
+    store.handleConversationData({ messages: [] });
+    expect(store.getMessages().map((m) => m.id)).toEqual(['1', '2']);
+  });
+});
+
+it('preserves separate live turns on a foreground old GET without assistant placeholders', () => {
+  const store = createConversationStore({ getCurrentRouteKey: () => 'A' });
+  const initial = { messages: [prompt('1', 100), prompt('reply1', 150, 'assistant')] };
+  store.handleConversationData(initial);
+  store.handleNewUserMessage(prompt('2', 200), 'A');
+  store.handleNewUserMessage(prompt('3', 300), 'A');
+  store.handleConversationData(initial);
+  expect(store.getMessages().map((m) => m.id)).toEqual(['1', '2', '3']);
+});
