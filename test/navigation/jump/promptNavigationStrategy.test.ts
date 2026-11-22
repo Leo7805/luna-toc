@@ -1811,7 +1811,7 @@ describe('prompt navigation strategy', () => {
       expect(target.style.position).toBe('');
     });
 
-    it('removes overlay and cleans up listeners and animation frame after 1200ms', () => {
+    it('removes overlay and cleans up listeners and animation frame after 2500ms', () => {
       const rafCallbacks = new Map<number, FrameRequestCallback>();
       let nextRafId = 1;
       const cancelRaf = vi.fn((id: number) => {
@@ -1856,7 +1856,7 @@ describe('prompt navigation strategy', () => {
         { passive: true }
       );
 
-      vi.advanceTimersByTime(1199);
+      vi.advanceTimersByTime(2499);
       expect(document.querySelectorAll(OVERLAY_SELECTOR)).toHaveLength(1);
 
       vi.advanceTimersByTime(1);
@@ -1869,7 +1869,7 @@ describe('prompt navigation strategy', () => {
       expect(() => clearPromptHighlightOverlay()).not.toThrow();
     });
 
-    it('restarts 1200ms duration on repeated clicks to the same target with only one overlay', () => {
+    it('restarts 2500ms duration on repeated clicks to the same target with only one overlay', () => {
       const container = createRectContainer();
       const target = document.createElement('div');
       target.scrollIntoView = vi.fn();
@@ -1882,7 +1882,7 @@ describe('prompt navigation strategy', () => {
         0
       );
 
-      vi.advanceTimersByTime(600);
+      vi.advanceTimersByTime(1200);
       jumpToMessage(
         { id: 'prompt-1', text: 'Prompt 1', canMatchByText: true, createTime: 0 },
         0
@@ -1890,12 +1890,12 @@ describe('prompt navigation strategy', () => {
 
       expect(document.querySelectorAll(OVERLAY_SELECTOR)).toHaveLength(1);
 
-      // At t = 1200ms (first timer would have expired), overlay must still be present
-      vi.advanceTimersByTime(600);
+      // At t = 2400ms (first timer would have expired at 2500ms), overlay must still be present
+      vi.advanceTimersByTime(1300);
       expect(document.querySelectorAll(OVERLAY_SELECTOR)).toHaveLength(1);
 
-      // At t = 1800ms (1200ms after second click), overlay is removed
-      vi.advanceTimersByTime(600);
+      // At t = 3700ms (2500ms after second click), overlay is removed
+      vi.advanceTimersByTime(1200);
       expect(document.querySelectorAll(OVERLAY_SELECTOR)).toHaveLength(0);
     });
 
@@ -2163,8 +2163,8 @@ describe('prompt navigation strategy', () => {
       }
       expect(overlay.style.top).toBe('275px');
 
-      // Once 1200ms elapses, session tears down and cancels the pending RAF
-      vi.advanceTimersByTime(1200);
+      // Once 2500ms elapses, session tears down and cancels the pending RAF
+      vi.advanceTimersByTime(2500);
       expect(document.querySelectorAll(OVERLAY_SELECTOR)).toHaveLength(0);
       expect(cancelRaf).toHaveBeenCalled();
       expect(rafQueue).toHaveLength(0);
@@ -3105,6 +3105,42 @@ describe('prompt navigation strategy', () => {
       expect(mocks.onJumpComplete).toHaveBeenCalledTimes(1);
       expect(mocks.onJumpComplete).toHaveBeenCalledWith(5);
       expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it('refreshes the blue highlight overlay on final settled alignment for 2500ms even if overlay was torn down mid-stabilization', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container } = createDynamicContainer(963, 5000, 1000);
+
+      const target = document.createElement('div');
+      target.getBoundingClientRect = () =>
+        ({ top: 190, bottom: 270, left: 0, right: 800, width: 800, height: 80 } as DOMRect);
+      container.scrollTo = vi.fn();
+      container.appendChild(target);
+      mocks.findPrompt.mockReturnValue(target);
+
+      jumpToMessage(
+        { id: 'prompt-5', text: 'Prompt 5', canMatchByText: true, createTime: 0 },
+        4
+      );
+
+      // Simulate overlay being cleared mid-stabilization (e.g. transient disconnect/offscreen)
+      await stepFrame(16);
+      clearPromptHighlightOverlay();
+      expect(document.querySelector('[data-luna-toc-highlight-overlay="true"]')).toBeNull();
+
+      // Finish stabilization -> overlay is refreshed on the final connected target
+      for (let i = 0; i < 12; i++) {
+        await stepFrame(16);
+      }
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(4);
+      expect(document.querySelectorAll('[data-luna-toc-highlight-overlay="true"]')).toHaveLength(1);
+
+      // Remains visible for nearly the full 2500ms AFTER settled, then cleans up
+      vi.advanceTimersByTime(2499);
+      expect(document.querySelectorAll('[data-luna-toc-highlight-overlay="true"]')).toHaveLength(1);
+      vi.advanceTimersByTime(1);
+      expect(document.querySelectorAll('[data-luna-toc-highlight-overlay="true"]')).toHaveLength(0);
     });
   });
 });

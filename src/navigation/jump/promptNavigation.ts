@@ -8,7 +8,10 @@ import { executeViewportWalkerStrategy } from './strategies/viewportWalkerStrate
 import { tryVirtualLayoutStrategy } from './strategies/virtualLayoutStrategy';
 import type { JumpStrategyContext } from './strategies/types';
 import { executeAbsoluteEdgeJump, isPageAtBottom } from './edgeNavigation';
-import { highlightPromptElement } from './promptHighlightOverlay';
+import {
+  clearPromptHighlightOverlay,
+  highlightPromptElement,
+} from './promptHighlightOverlay';
 
 function platform() {
   return getActivePlatform();
@@ -401,6 +404,7 @@ export function jumpToMessage(
   index: number,
   options: JumpMessageOptions = {}
 ): void {
+  clearPromptHighlightOverlay();
   cancelActiveNavigationSearch();
   jumpWithIndependentVirtualNavigation(message, index, options);
 }
@@ -1384,6 +1388,10 @@ function finishIndependentVirtualJump(
         performFinalTopScroll();
         const finalErrorPx = measureAlignmentErrorPx(liveTarget, container);
         if (liveTarget) {
+          // Refresh highlight on the final connected target once alignment has
+          // settled so the full visibility window begins after navigation completes
+          // and recovers from any mid-stabilization unmount/offscreen teardown.
+          highlightMatchedElement(liveTarget);
           const containerTop = container ? container.getBoundingClientRect().top : 0;
           const { expectedContainerOffsetPx } = resolvePromptLandingOffset(container);
           emitAlignmentMeasurement(

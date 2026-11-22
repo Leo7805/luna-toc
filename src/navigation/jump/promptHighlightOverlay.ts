@@ -4,7 +4,7 @@
  */
 import { APP_CONFIG } from '@/config/config';
 
-const HIGHLIGHT_DURATION_MS = 1200;
+export const DEFAULT_HIGHLIGHT_DURATION_MS = 2500;
 const OVERLAY_ATTRIBUTE = 'data-luna-toc-highlight-overlay';
 
 interface VisibleBounds {
@@ -158,20 +158,23 @@ export function clearPromptHighlightOverlay(): void {
 }
 
 /**
- * Displays a temporary 1200ms blue highlight rectangle over `target` using an
+ * Displays a temporary blue highlight rectangle over `target` using an
  * independent `position: fixed` overlay appended to `document.body`.
+ * Defaults to 2500ms so the highlight stays clearly visible after alignment.
  *
  * Starting a new highlight immediately tears down any prior highlight session.
  *
  * @param target The rendered prompt element to highlight.
  * @param getScrollContainer Resolves the active chat scroll container for clipping and scroll sync.
+ * @param durationMs Optional visibility duration in milliseconds (default 2500ms).
  *
  * @example
  * highlightPromptElement(promptElement, () => getChatGptScrollContainer());
  */
 export function highlightPromptElement(
   target: HTMLElement,
-  getScrollContainer: () => HTMLElement | null
+  getScrollContainer: () => HTMLElement | null,
+  durationMs: number = DEFAULT_HIGHLIGHT_DURATION_MS
 ): void {
   clearPromptHighlightOverlay();
 
@@ -207,7 +210,7 @@ export function highlightPromptElement(
     getScrollContainer,
     timerId: setTimeout(() => {
       teardownSession(session);
-    }, HIGHLIGHT_DURATION_MS),
+    }, durationMs),
     rafId: null,
     onSync: () => {
       updateHighlightPosition(session);

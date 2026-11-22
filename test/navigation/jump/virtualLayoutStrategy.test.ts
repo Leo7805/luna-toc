@@ -1303,4 +1303,177 @@ describe('Sticky Older-History Virtual Pagination', () => {
     const outcome = await attempt.promise;
     expect(outcome.status).toBe('exhausted');
   });
+
+  it('refines cold-start direct virtual jump by re-querying updated topOffsetPx when initial estimate misses target', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+    Object.defineProperty(container, 'scrollHeight', { value: 53648, configurable: true });
+    document.body.appendChild(container);
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+      if (typeof opts === 'object' && typeof opts?.top === 'number') {
+        container.scrollTop = opts.top;
+      }
+    });
+
+    const targetElement = document.createElement('div');
+    // Initial query returns stale cold-start estimate (9975); after scrolling there,
+    // ChatGPT measures turns and re-query returns refined offset (2527).
+    mocks.queryVirtualJumpTarget
+      .mockReturnValueOnce({
+        status: 'ok',
+        targetIndex: 2,
+        topOffsetPx: 9975,
+        turnCount: 108,
+      })
+      .mockReturnValue({
+        status: 'ok',
+        targetIndex: 2,
+        topOffsetPx: 2527,
+        turnCount: 108,
+      });
+
+    mocks.findRenderedPrompt.mockImplementation(() =>
+      container.scrollTop === 2527 ? targetElement : null
+    );
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-3', text: '', canMatchByText: true, createTime: 0 },
+      targetIndex: 2,
+      prompts: [
+        { id: 'msg-1', text: '', canMatchByText: true, createTime: 0 },
+        { id: 'msg-2', text: '', canMatchByText: true, createTime: 0 },
+        { id: 'msg-3', text: '', canMatchByText: true, createTime: 0 },
+      ],
+      container,
+      jumpId: 'test-cold-refine',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+    expect(container.scrollTo).toHaveBeenNthCalledWith(1, { top: 9975, behavior: 'auto' });
+
+    // Advance past first 350ms refinement wait -> re-queries and scrolls to refined 2527 -> mounts!
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(container.scrollTo).toHaveBeenNthCalledWith(2, { top: 2527, behavior: 'auto' });
+    const outcome = await attempt.promise;
+    expect(outcome.status).toBe('mounted');
+    if (outcome.status === 'mounted') {
+      expect(outcome.element).toBe(targetElement);
+    }
+
+    container.remove();
+  });
+
+  it('nudges toward mounted-window direction when direct jump lands nearby and topOffsetPx has not shifted yet', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+    Object.defineProperty(container, 'scrollHeight', { value: 70000, configurable: true });
+    document.body.appendChild(container);
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+      if (typeof opts === 'object' && typeof opts?.top === 'number') {
+        container.scrollTop = opts.top;
+      }
+    });
+
+    const targetElement = document.createElement('div');
+    // Stays at 29419 even after first scroll; mounted prompts show #32 (> target #30 => direction -1)
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'ok',
+      targetIndex: 29,
+      topOffsetPx: 29419,
+      turnCount: 108,
+    });
+    mocks.readMountedWithSidebarIdx.mockReturnValue([
+      { element: document.createElement('div'), sidebarIdx: 31, unitKey: 'k-31' },
+    ]);
+    mocks.findRenderedPrompt.mockImplementation(() =>
+      container.scrollTop < 29000 ? targetElement : null
+    );
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-30', text: '', canMatchByText: true, createTime: 0 },
+      targetIndex: 29,
+      prompts: Array.from({ length: 35 }, (_, i) => ({
+        id: `msg-${i + 1}`,
+        text: '',
+        canMatchByText: true,
+        createTime: 0,
+      })),
+      container,
+      jumpId: 'test-nudge',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(container.scrollTop).toBeLessThan(29000);
+    const outcome = await attempt.promise;
+    expect(outcome.status).toBe('mounted');
+    container.remove();
+  });
+
+  it('refines estimated topOffsetPx after older-history pagination discovers target (cold-start Item #3 regression)', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+    Object.defineProperty(container, 'scrollHeight', { value: 53648, configurable: true });
+    container.scrollTop = 17487;
+    document.body.appendChild(container);
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+      if (typeof opts === 'object' && typeof opts?.top === 'number') {
+        container.scrollTop = opts.top;
+      }
+    });
+
+    const targetElement = document.createElement('div');
+    mocks.readMountedWithSidebarIdx.mockReturnValue([
+      { element: document.createElement('div'), sidebarIdx: 58, unitKey: 'k-58' },
+    ]);
+
+    // Query 1: target-not-in-layout -> triggers pagination scroll to top: 0
+    // Query 2 (after pagination settle): ok with stale cold-start estimate 9975
+    // Query 3 (after scrolling to 9975 & refining): ok with measured offset 2527 -> mounts!
+    mocks.queryVirtualJumpTarget
+      .mockReturnValueOnce({ status: 'target-not-in-layout', turnCount: 50 })
+      .mockReturnValueOnce({ status: 'ok', targetIndex: 2, topOffsetPx: 9975, turnCount: 108 })
+      .mockReturnValue({ status: 'ok', targetIndex: 2, topOffsetPx: 2527, turnCount: 108 });
+
+    mocks.findRenderedPrompt.mockImplementation(() =>
+      container.scrollTop === 2527 ? targetElement : null
+    );
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-3', text: '', canMatchByText: true, createTime: 0 },
+      targetIndex: 2,
+      prompts: Array.from({ length: 60 }, (_, i) => ({
+        id: `msg-${i + 1}`,
+        text: '',
+        canMatchByText: true,
+        createTime: 0,
+      })),
+      container,
+      jumpId: 'test-paginated-refine',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+    document.body.appendChild(document.createElement('div'));
+    await vi.advanceTimersByTimeAsync(10);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(container.scrollTo).toHaveBeenCalledWith({ top: 9975, behavior: 'auto' });
+    expect(container.scrollTo).toHaveBeenCalledWith({ top: 2527, behavior: 'auto' });
+
+    const outcome = await attempt.promise;
+    expect(outcome.status).toBe('mounted');
+    if (outcome.status === 'mounted') {
+      expect(outcome.element).toBe(targetElement);
+    }
+
+    container.remove();
+  });
 });

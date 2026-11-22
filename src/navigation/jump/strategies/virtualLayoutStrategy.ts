@@ -551,35 +551,11 @@ async function paginateOlderVirtualLayout(
         return { status: 'exhausted', reason: 'target-offset-invalid' };
       }
 
-      if (isCancelled()) {
-        return { status: 'cancelled' };
+      const directResult = await executeDirectVirtualJump(context, outcome.result);
+      if (directResult.status === 'capability-failure') {
+        return { status: 'exhausted', reason: 'target-offset-invalid' };
       }
-
-      try {
-        container.scrollTo({
-          top: topOffsetPx,
-          behavior: 'auto',
-        });
-      } catch {
-        return { status: 'exhausted', reason: 'target-scroll-threw' };
-      }
-
-      const mountedElement = await waitForTargetMount(
-        targetMessageId,
-        container,
-        isCancelled,
-        mountTimeoutMs
-      );
-
-      if (isCancelled()) {
-        return { status: 'cancelled' };
-      }
-
-      if (mountedElement) {
-        return { status: 'mounted', element: mountedElement };
-      }
-
-      return { status: 'exhausted', reason: 'target-mount-timeout' };
+      return directResult;
     }
 
     if (outcome.status === 'progress') {
@@ -686,8 +662,19 @@ export function waitForTargetMount(
   });
 }
 
+const MAX_DIRECT_JUMP_REFINEMENTS = 4;
+const DIRECT_JUMP_REFINEMENT_WAIT_MS = 350;
+const DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX = 4;
+
 /**
  * Executes a direct virtual layout jump to a prompt already present in the host layout dataset.
+ *
+ * On cold-start long conversations, ChatGPT's initial `topOffsetPx` can be an unmeasured
+ * estimate that lands a few turns away from the target. Rather than giving up after a single
+ * scroll, this function performs bounded iterative refinement: after waiting briefly for
+ * ChatGPT to mount and measure the landed region, it re-queries the updated `topOffsetPx`
+ * (or nudges one viewport step in the mounted-window direction if the estimate hasn't shifted)
+ * up to `MAX_DIRECT_JUMP_REFINEMENTS` times.
  *
  * @param context Strategy execution parameters.
  * @param result Layout query result with status: 'ok'.
@@ -697,41 +684,122 @@ async function executeDirectVirtualJump(
   context: JumpStrategyContext,
   result: Extract<VirtualJumpTargetResult, { status: 'ok' }>
 ): Promise<VirtualStrategyExecutionResult> {
-  const topOffsetPx = result.topOffsetPx;
+  let currentTopOffsetPx = result.topOffsetPx;
   if (
-    typeof topOffsetPx !== 'number' ||
-    !Number.isFinite(topOffsetPx) ||
-    topOffsetPx < 0
+    typeof currentTopOffsetPx !== 'number' ||
+    !Number.isFinite(currentTopOffsetPx) ||
+    currentTopOffsetPx < 0
   ) {
     return { status: 'capability-failure', reason: 'invalid-top-offset' };
   }
 
-  if (context.isCancelled()) {
-    return { status: 'cancelled' };
-  }
+  const fullMountTimeoutMs = JUMP_STRATEGY_CONFIG.virtualLayout.mountTimeoutMs;
+  const firstWaitMs = Math.min(DIRECT_JUMP_REFINEMENT_WAIT_MS, fullMountTimeoutMs);
 
-  try {
-    context.container.scrollTo({
-      top: topOffsetPx,
-      behavior: 'auto',
-    });
-  } catch {
-    return { status: 'exhausted', reason: 'container-scroll-threw' };
-  }
+  for (let attempt = 0; attempt <= MAX_DIRECT_JUMP_REFINEMENTS; attempt++) {
+    if (context.isCancelled()) {
+      return { status: 'cancelled' };
+    }
 
-  const mountedElement = await waitForTargetMount(
-    context.targetMessage.id,
-    context.container,
-    context.isCancelled,
-    JUMP_STRATEGY_CONFIG.virtualLayout.mountTimeoutMs
-  );
+    try {
+      context.container.scrollTo({
+        top: currentTopOffsetPx,
+        behavior: 'auto',
+      });
+    } catch {
+      return { status: 'exhausted', reason: 'container-scroll-threw' };
+    }
 
-  if (context.isCancelled()) {
-    return { status: 'cancelled' };
-  }
+    const isLastAttempt = attempt === MAX_DIRECT_JUMP_REFINEMENTS;
+    const waitMs = isLastAttempt ? fullMountTimeoutMs : firstWaitMs;
+    const mountedElement = await waitForTargetMount(
+      context.targetMessage.id,
+      context.container,
+      context.isCancelled,
+      waitMs
+    );
 
-  if (mountedElement) {
-    return { status: 'mounted', element: mountedElement };
+    if (context.isCancelled()) {
+      return { status: 'cancelled' };
+    }
+
+    if (mountedElement) {
+      return { status: 'mounted', element: mountedElement };
+    }
+
+    if (isLastAttempt) {
+      break;
+    }
+
+    // Re-query the virtual layout: scrolling to the initial estimate often
+    // triggers ChatGPT to measure unmeasured turns and refine `topOffsetPx`.
+    const nextResult = queryJumpTarget(
+      context.container,
+      context.targetMessage.id
+    );
+    if (
+      nextResult.status === 'ok' &&
+      Number.isFinite(nextResult.topOffsetPx) &&
+      nextResult.topOffsetPx >= 0 &&
+      Math.abs(nextResult.topOffsetPx - currentTopOffsetPx) >
+        DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX
+    ) {
+      currentTopOffsetPx = nextResult.topOffsetPx;
+      continue;
+    }
+
+    // If the layout estimate did not shift yet, check whether the currently
+    // mounted prompts tell us which direction the target lies and nudge by
+    // one viewport step to bring adjacent turns into the mount/measure window.
+    let direction: -1 | 1 | null = null;
+    try {
+      const queue = seedMountQueue(context.prompts);
+      const sidebarIndices = queueSidebarIndices(queue);
+      direction = computeDirectionTowardTarget(
+        context.targetIndex,
+        sidebarIndices
+      );
+    } catch {
+      direction = null;
+    }
+
+    if (direction !== null) {
+      const maxScrollTop = Math.max(
+        0,
+        context.container.scrollHeight - context.container.clientHeight
+      );
+      const stepPx = Math.max(
+        Math.round((context.container.clientHeight || 800) * 0.85),
+        400
+      );
+      const nudged = Math.max(
+        0,
+        Math.min(maxScrollTop || Infinity, currentTopOffsetPx + direction * stepPx)
+      );
+      if (Math.abs(nudged - currentTopOffsetPx) > DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX) {
+        currentTopOffsetPx = nudged;
+        continue;
+      }
+    }
+
+    // No refined offset and no directional signal: finish the remaining
+    // original mountTimeoutMs window once before reporting exhaustion.
+    const remainingWaitMs = Math.max(0, fullMountTimeoutMs - firstWaitMs);
+    if (remainingWaitMs > 0) {
+      const lateElement = await waitForTargetMount(
+        context.targetMessage.id,
+        context.container,
+        context.isCancelled,
+        remainingWaitMs
+      );
+      if (context.isCancelled()) {
+        return { status: 'cancelled' };
+      }
+      if (lateElement) {
+        return { status: 'mounted', element: lateElement };
+      }
+    }
+    break;
   }
 
   return { status: 'exhausted', reason: 'target-mount-timeout' };
