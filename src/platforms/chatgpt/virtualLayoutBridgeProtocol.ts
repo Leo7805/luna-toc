@@ -9,8 +9,32 @@ export const CHATGPT_BRIDGE_PROTOCOL = {
   EVENTS: {
     QUERY_REQUEST: '__LUNATOC_CHATGPT_VIRTUAL_LAYOUT_REQ__',
     QUERY_RESPONSE: '__LUNATOC_CHATGPT_VIRTUAL_LAYOUT_RES__',
+    HOLD_VIEWPORT_REQUEST: '__LUNATOC_CHATGPT_HOLD_VIEWPORT_REQ__',
+    HOLD_VIEWPORT_RESPONSE: '__LUNATOC_CHATGPT_HOLD_VIEWPORT_RES__',
   },
 } as const;
+
+/**
+ * Production request DTO sent from ISOLATED world to MAIN world to hold the viewport
+ * (disarm ChatGPT's bottom-follow controller before intentional navigation).
+ */
+export interface HoldViewportBridgeRequest {
+  readonly requestId: string;
+}
+
+/**
+ * Production response DTO returned from MAIN world for a hold-viewport request.
+ */
+export type HoldViewportBridgeResponse =
+  | {
+      readonly requestId: string;
+      readonly status: 'ok';
+    }
+  | {
+      readonly requestId: string;
+      readonly status: 'unavailable';
+      readonly reason?: string;
+    };
 
 /**
  * Production request DTO sent from ISOLATED world to MAIN world.

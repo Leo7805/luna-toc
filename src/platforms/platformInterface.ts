@@ -154,6 +154,14 @@ export type VirtualJumpTargetResult =
     };
 
 /**
+ * Result of requesting the host's native scroll controller to hold the viewport
+ * (disarm automatic bottom-follow) before intentional TOC navigation.
+ */
+export type HoldViewportResult =
+  | { readonly status: 'ok' }
+  | { readonly status: 'unavailable'; readonly reason?: string };
+
+/**
  * Per-platform scroll container / mounted-DOM adapter used by the
  * navigation controller.
  */
@@ -173,6 +181,11 @@ export interface PlatformNavigationAdapter {
     container: HTMLElement,
     messageId: string
   ): VirtualJumpTargetResult;
+  /**
+   * Requests the host's native scroll controller to disarm auto-follow before
+   * an intentional prompt navigation scroll write. Fails closed when unsupported.
+   */
+  holdViewport?(container: HTMLElement): HoldViewportResult;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
   /**
    * Finds a currently mounted user message by normalized text prefix.
@@ -209,6 +222,12 @@ export interface PlatformNavigationAdapter {
   /** Per-platform numeric tuning values. */
   settleAttempts: number;
   promptTopOffsetPx: number;
+  /**
+   * Optional preferred viewport-relative top offset (in px from viewport y=0)
+   * for prompt landing after TOC navigation. Falls back to `promptTopOffsetPx`
+   * when omitted.
+   */
+  promptLandingViewportTopPx?: number;
 }
 
 /**

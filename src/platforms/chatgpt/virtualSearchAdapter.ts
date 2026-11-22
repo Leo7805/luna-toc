@@ -129,7 +129,62 @@ export function getChatGptThreadScrollContainer(
 }
 
 /**
- * Finds a currently mounted ChatGPT user message by its stable message ID.
+ * Resolves the search root for prompt lookups. When querying from the document
+ * (or a root containing `.thread-scroll-container`), scopes the search to the
+ * active thread scroll container so hidden or stale SPA containers are ignored.
+ */
+function resolvePromptSearchRoot(root: ParentNode): ParentNode {
+  if (root instanceof HTMLElement && root.classList.contains('thread-scroll-container')) {
+    return root;
+  }
+  const activeThreadContainer = findDirectThreadScrollContainer(root);
+  if (activeThreadContainer) {
+    return activeThreadContainer;
+  }
+  return root;
+}
+
+/**
+ * Checks whether a candidate prompt element is connected and not inside a
+ * hidden, aria-hidden, inert, or display:none/visibility:hidden subtree.
+ */
+function isUsablePromptElement(element: HTMLElement): boolean {
+  if (!element.isConnected) return false;
+  if (
+    element.hidden ||
+    element.getAttribute('aria-hidden') === 'true' ||
+    element.closest('[hidden], [aria-hidden="true"], [inert]') !== null
+  ) {
+    return false;
+  }
+  if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+    try {
+      const style = window.getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false;
+      }
+    } catch {
+      // Ignore computed-style errors in non-standard environments.
+    }
+  }
+  return true;
+}
+
+function matchesChatGptMessageId(element: HTMLElement, promptId: string): boolean {
+  const raw = getChatGptMessageId(element);
+  if (!raw) return false;
+  if (raw === promptId) return true;
+  if (raw.includes(',') || raw.includes(' ')) {
+    return raw
+      .split(/[,\s]+/)
+      .some((token) => token.length > 0 && token === promptId);
+  }
+  return false;
+}
+
+/**
+ * Finds a currently mounted ChatGPT user message by its stable message ID,
+ * scoped to the active `.thread-scroll-container` when present.
  *
  * @example
  * const prompt = findRenderedChatGptPrompt('prompt-message-id');
@@ -138,19 +193,22 @@ export function findRenderedChatGptPrompt(
   promptId: string,
   root: ParentNode = document
 ): HTMLElement | null {
+  if (!promptId) return null;
+  const searchRoot = resolvePromptSearchRoot(root);
   return (
-    Array.from(root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)).find(
-      (element) => getChatGptMessageId(element) === promptId
+    Array.from(searchRoot.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)).find(
+      (element) =>
+        isUsablePromptElement(element) && matchesChatGptMessageId(element, promptId)
     ) || null
   );
 }
 
 /**
- * Text-match fallback for finding a currently mounted user message. Used
- * when the id-based `findRenderedChatGptPrompt` returns null but the
- * target prompt text is distinctive enough to identify it. Returns the
- * first mounted bubble whose textContent starts with `promptText` (after
- * whitespace normalization).
+ * Unambiguous text-match fallback for finding a currently mounted user message,
+ * scoped to the active `.thread-scroll-container` when present. Returns the
+ * matching mounted bubble only when exactly one usable bubble starts with
+ * `promptText` (after whitespace normalization); returns null on ambiguous
+ * multiple matches so the caller falls back to virtual navigation.
  */
 export function findRenderedChatGptPromptByText(
   promptText: string,
@@ -159,17 +217,23 @@ export function findRenderedChatGptPromptByText(
   if (!promptText) return null;
   const needle = normalizeForTextMatch(promptText);
   if (!needle) return null;
+  const searchRoot = resolvePromptSearchRoot(root);
   const candidates = Array.from(
-    root.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)
+    searchRoot.querySelectorAll<HTMLElement>(USER_MESSAGE_SELECTOR)
   );
+  let matched: HTMLElement | null = null;
   for (const element of candidates) {
-    if (
-      normalizeForTextMatch(element.textContent || '').startsWith(needle)
-    ) {
-      return element;
+    if (!isUsablePromptElement(element)) continue;
+    if (normalizeForTextMatch(element.textContent || '').startsWith(needle)) {
+      if (matched !== null) {
+        // Ambiguous prefix match across multiple prompts — reject rather than
+        // risking navigation to the wrong prompt.
+        return null;
+      }
+      matched = element;
     }
   }
-  return null;
+  return matched;
 }
 
 function normalizeForTextMatch(text: string): string {

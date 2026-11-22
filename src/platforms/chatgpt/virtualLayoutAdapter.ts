@@ -6,7 +6,10 @@ import {
   CHATGPT_BRIDGE_PROTOCOL,
   createBridgeRequestId,
 } from './virtualLayoutBridgeProtocol';
-import type { VirtualJumpTargetResult } from '../platformInterface';
+import type {
+  HoldViewportResult,
+  VirtualJumpTargetResult,
+} from '../platformInterface';
 
 /**
  * Queries ChatGPT's MAIN-world virtual layout bridge for the position of an unmounted prompt.
@@ -155,6 +158,96 @@ export function queryChatGptVirtualJumpTarget(
       new CustomEvent(CHATGPT_BRIDGE_PROTOCOL.EVENTS.QUERY_REQUEST, {
         bubbles: true,
         detail: JSON.stringify({ requestId, messageId }),
+      })
+    );
+  } catch {
+    return { status: 'unavailable', reason: 'dispatch-failed' };
+  } finally {
+    removeResponseListener();
+  }
+
+  return bridgeResult ?? { status: 'unavailable', reason: 'no-response' };
+}
+
+/**
+ * Requests ChatGPT's MAIN-world scroll controller to hold the viewport
+ * (disarming automatic bottom-follow) synchronously before intentional navigation.
+ * Fails closed when the container or native controller is unavailable.
+ *
+ * @param container The active chat scroll container (`.thread-scroll-container`).
+ * @returns Synchronous HoldViewportResult.
+ *
+ * @example
+ * const result = holdChatGptViewport(container);
+ */
+export function holdChatGptViewport(
+  container: HTMLElement
+): HoldViewportResult {
+  if (!container || !(container instanceof HTMLElement) || !container.isConnected) {
+    return { status: 'unavailable', reason: 'invalid-context' };
+  }
+
+  const requestId = createBridgeRequestId();
+  let bridgeResult: HoldViewportResult | null = null;
+  let settled = false;
+
+  const removeResponseListener = () => {
+    container.removeEventListener(
+      CHATGPT_BRIDGE_PROTOCOL.EVENTS.HOLD_VIEWPORT_RESPONSE,
+      onResponse
+    );
+  };
+
+  const settle = (result: HoldViewportResult) => {
+    if (settled) return;
+    settled = true;
+    bridgeResult = result;
+    removeResponseListener();
+  };
+
+  function onResponse(event: Event): void {
+    if (settled) return;
+    const customEvent = event as CustomEvent;
+    if (typeof customEvent.detail !== 'string') return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(customEvent.detail);
+    } catch {
+      return;
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return;
+    }
+
+    const data = parsed as Record<string, unknown>;
+    if (typeof data.requestId !== 'string' || data.requestId !== requestId) {
+      return;
+    }
+
+    if (data.status === 'ok') {
+      settle({ status: 'ok' });
+    } else if (data.status === 'unavailable') {
+      settle({
+        status: 'unavailable',
+        reason:
+          typeof data.reason === 'string' ? data.reason : 'host-unavailable',
+      });
+    } else {
+      settle({ status: 'unavailable', reason: 'invalid-payload' });
+    }
+  }
+
+  try {
+    container.addEventListener(
+      CHATGPT_BRIDGE_PROTOCOL.EVENTS.HOLD_VIEWPORT_RESPONSE,
+      onResponse
+    );
+    container.dispatchEvent(
+      new CustomEvent(CHATGPT_BRIDGE_PROTOCOL.EVENTS.HOLD_VIEWPORT_REQUEST, {
+        bubbles: true,
+        detail: JSON.stringify({ requestId }),
       })
     );
   } catch {

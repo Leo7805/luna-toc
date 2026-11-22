@@ -263,4 +263,124 @@ describe('ChatGPT virtual search adapter', () => {
     expect(getChatGptPromptUnitKey(unitEl)).toBe('msg-1:user');
     expect(getChatGptPromptUnitKey(noUnitEl)).toBeNull();
   });
+
+  describe('scoped and unambiguous prompt lookup', () => {
+    it('scopes ID and text lookups to the active thread-scroll-container when multiple exist', () => {
+      document.body.innerHTML = `
+        <div id="stale-thread" class="thread-scroll-container" style="overflow-y: auto">
+          <div data-chatgpt-search-unit-key="p-stale:user" data-chatgpt-search-message-ids="shared-id">
+            Unique stale text
+          </div>
+        </div>
+        <div id="active-thread" class="thread-scroll-container" style="overflow-y: auto">
+          <div data-chatgpt-search-unit-key="p-active:user" data-chatgpt-search-message-ids="active-id">
+            Active conversation prompt
+          </div>
+        </div>
+      `;
+      const stale = document.getElementById('stale-thread')!;
+      const active = document.getElementById('active-thread')!;
+      setScrollDimensions(stale, 500, 0);
+      setScrollDimensions(active, 1000, 600);
+
+      // Must ignore element inside stale/hidden conversation container
+      expect(findRenderedChatGptPrompt('shared-id')).toBeNull();
+      expect(findRenderedChatGptPromptByText('Unique stale text')).toBeNull();
+
+      // Must find element inside active container
+      expect(findRenderedChatGptPrompt('active-id')?.textContent).toContain(
+        'Active conversation prompt'
+      );
+      expect(
+        findRenderedChatGptPromptByText('Active conversation')?.getAttribute(
+          'data-chatgpt-search-message-ids'
+        )
+      ).toBe('active-id');
+    });
+
+    it('rejects hidden, aria-hidden, display:none, and disconnected prompt elements', () => {
+      document.body.innerHTML = `
+        <div class="thread-scroll-container" style="overflow-y: auto">
+          <div hidden data-chatgpt-search-unit-key="h1:user" data-chatgpt-search-message-ids="id-hidden">
+            Hidden prompt
+          </div>
+          <div aria-hidden="true" data-chatgpt-search-unit-key="h2:user" data-chatgpt-search-message-ids="id-aria-hidden">
+            Aria hidden prompt
+          </div>
+          <div style="display: none" data-chatgpt-search-unit-key="h3:user" data-chatgpt-search-message-ids="id-display-none">
+            Display none prompt
+          </div>
+          <div data-chatgpt-search-unit-key="v1:user" data-chatgpt-search-message-ids="id-visible">
+            Visible prompt
+          </div>
+        </div>
+      `;
+      const container = document.querySelector<HTMLElement>('.thread-scroll-container')!;
+      setScrollDimensions(container, 1000, 600);
+
+      expect(findRenderedChatGptPrompt('id-hidden')).toBeNull();
+      expect(findRenderedChatGptPrompt('id-aria-hidden')).toBeNull();
+      expect(findRenderedChatGptPrompt('id-display-none')).toBeNull();
+      expect(findRenderedChatGptPromptByText('Hidden prompt')).toBeNull();
+      expect(findRenderedChatGptPromptByText('Aria hidden prompt')).toBeNull();
+      expect(findRenderedChatGptPromptByText('Display none prompt')).toBeNull();
+      expect(findRenderedChatGptPrompt('id-visible')?.textContent).toContain('Visible prompt');
+
+      const disconnected = document.createElement('div');
+      disconnected.setAttribute('data-chatgpt-search-unit-key', 'd1:user');
+      disconnected.setAttribute('data-chatgpt-search-message-ids', 'id-disconnected');
+      expect(findRenderedChatGptPrompt('id-disconnected', disconnected)).toBeNull();
+    });
+
+    it('matches exact ID including comma-separated multi-ID attributes', () => {
+      document.body.innerHTML = `
+        <div class="thread-scroll-container" style="overflow-y: auto">
+          <div data-chatgpt-search-unit-key="u1:user" data-chatgpt-search-message-ids="id-a,id-b">
+            Combined prompt
+          </div>
+        </div>
+      `;
+      const container = document.querySelector<HTMLElement>('.thread-scroll-container')!;
+      setScrollDimensions(container, 1000, 600);
+
+      expect(findRenderedChatGptPrompt('id-a')?.textContent).toContain('Combined prompt');
+      expect(findRenderedChatGptPrompt('id-b')?.textContent).toContain('Combined prompt');
+      expect(findRenderedChatGptPrompt('id-c')).toBeNull();
+    });
+
+    it('returns null for ambiguous duplicate text-prefix prompts and succeeds only on unique match', () => {
+      document.body.innerHTML = `
+        <div class="thread-scroll-container" style="overflow-y: auto">
+          <div data-chatgpt-search-unit-key="u1:user" data-chatgpt-search-message-ids="p-1">
+            Explain how React fibers work
+          </div>
+          <div data-chatgpt-search-unit-key="u2:user" data-chatgpt-search-message-ids="p-2">
+            Explain how browser compositing works
+          </div>
+          <div data-chatgpt-search-unit-key="u3:user" data-chatgpt-search-message-ids="p-3">
+            Summarize the TypeScript config
+          </div>
+        </div>
+      `;
+      const container = document.querySelector<HTMLElement>('.thread-scroll-container')!;
+      setScrollDimensions(container, 1000, 600);
+
+      // Ambiguous prefix matching both p-1 and p-2 -> must return null
+      expect(findRenderedChatGptPromptByText('Explain how')).toBeNull();
+
+      // Unambiguous prefix matching only p-2 -> returns p-2
+      expect(
+        findRenderedChatGptPromptByText('Explain how browser')?.getAttribute(
+          'data-chatgpt-search-message-ids'
+        )
+      ).toBe('p-2');
+
+      // Unique match -> returns p-3
+      expect(
+        findRenderedChatGptPromptByText('Summarize the')?.getAttribute(
+          'data-chatgpt-search-message-ids'
+        )
+      ).toBe('p-3');
+    });
+  });
 });

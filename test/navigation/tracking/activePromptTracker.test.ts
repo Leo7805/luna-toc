@@ -715,4 +715,31 @@ describe('activePromptTracker', () => {
       expect(tracker.getActiveIndex()).toBeNull();
     });
   });
+
+  describe('independence from promptLandingViewportTopPx', () => {
+    it('continues using promptTopOffsetPx (16px) for manual-scroll tracking when promptLandingViewportTopPx is 190', () => {
+      const platformWithLandingOffset: Platform = {
+        ...mockPlatform,
+        navigation: {
+          ...mockPlatform.navigation,
+          promptTopOffsetPx: 16,
+          promptLandingViewportTopPx: 190,
+        },
+      };
+
+      // Prompt 0 is still visible near the top (top=20, bottom=100; well below 16px,
+      // but completely above 190px). Rule A must keep Prompt 0 active rather than
+      // skipping to Prompt 1 because of the 190px landing offset.
+      createPromptElement('msg-0', 20, 100);
+      createPromptElement('msg-1', 250, 330);
+
+      const tracker = createActivePromptTracker({
+        getMessages: () => sampleMessages,
+        getPlatform: () => platformWithLandingOffset,
+      });
+
+      tracker.checkActivePrompt();
+      expect(tracker.getActiveIndex()).toBe(0);
+    });
+  });
 });

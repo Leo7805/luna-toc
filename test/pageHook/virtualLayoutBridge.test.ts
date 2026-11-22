@@ -5,13 +5,16 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  findMainWorldScrollController,
   findMainWorldVirtualLayout,
+  handleHoldViewportRequest,
   handleVirtualLayoutRequest,
   installVirtualLayoutBridge,
   isValidVirtualLayout,
   maybeInstallVirtualLayoutBridge,
   resolveVirtualJumpTarget,
 } from '@/pageHook/virtualLayoutBridge';
+import { holdChatGptViewport } from '@/platforms/chatgpt/virtualLayoutAdapter';
 import { CHATGPT_BRIDGE_PROTOCOL } from '@/platforms/chatgpt/virtualLayoutBridgeProtocol';
 
 function createValidLayout() {
@@ -733,5 +736,108 @@ describe('maybeInstallVirtualLayoutBridge (platform gating)', () => {
 
     expect(responseSpy).not.toHaveBeenCalled();
     container.remove();
+  });
+});
+
+describe('MAIN-world holdViewport bridge', () => {
+  it('locates scroll controller structurally via getScrollElement() === container and invokes holdViewport()', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+
+    const holdViewport = vi.fn();
+    const controller = {
+      getScrollElement: () => container,
+      holdViewport,
+    };
+
+    (container as any).__reactFiber$test = {
+      memoizedProps: { value: controller },
+      memoizedState: null,
+      return: null,
+    };
+
+    expect(findMainWorldScrollController(container)).toBe(controller);
+    const result = holdChatGptViewport(container);
+    expect(result).toEqual({ status: 'ok' });
+    expect(holdViewport).toHaveBeenCalledOnce();
+
+    cleanup();
+    container.remove();
+  });
+
+  it('rejects incompatible controller whose getScrollElement() does not match container and fails closed', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    const otherEl = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.append(container, otherEl);
+
+    const holdViewport = vi.fn();
+    (container as any).__reactFiber$test = {
+      memoizedProps: {
+        value: {
+          getScrollElement: () => otherEl,
+          holdViewport,
+        },
+      },
+      memoizedState: null,
+      return: null,
+    };
+
+    expect(findMainWorldScrollController(container)).toBeNull();
+    const result = holdChatGptViewport(container);
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'controller-unavailable',
+    });
+    expect(holdViewport).not.toHaveBeenCalled();
+
+    cleanup();
+    container.remove();
+    otherEl.remove();
+  });
+
+  it('fails closed when holdViewport() throws an exception', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+
+    (container as any).__reactFiber$test = {
+      memoizedProps: {
+        value: {
+          getScrollElement: () => container,
+          holdViewport: () => {
+            throw new Error('boom');
+          },
+        },
+      },
+      memoizedState: null,
+      return: null,
+    };
+
+    const result = holdChatGptViewport(container);
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'hold-viewport-failed',
+    });
+
+    cleanup();
+    container.remove();
+  });
+
+  it('ignores malformed or non-thread-container holdViewport events safely', () => {
+    const div = document.createElement('div');
+    document.body.appendChild(div);
+    expect(() =>
+      handleHoldViewportRequest(
+        new CustomEvent(CHATGPT_BRIDGE_PROTOCOL.EVENTS.HOLD_VIEWPORT_REQUEST, {
+          detail: JSON.stringify({ requestId: 'req-bad' }),
+        })
+      )
+    ).not.toThrow();
+    div.remove();
   });
 });

@@ -67,6 +67,7 @@ export const APP_CONFIG = {
   platforms: {
     chatgpt: {
       promptTopOffsetPx: 16,
+      promptLandingViewportTopPx: 190,
       settleAttempts: 3,
       // Rewrites ChatGPT's own older-page pagination requests so its
       // renderer fills the message store in a single fetch (speeds up

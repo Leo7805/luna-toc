@@ -35,7 +35,10 @@ import {
   getChatGptThreadScrollContainer,
   readMountedWithSidebarIdx,
 } from './virtualSearchAdapter';
-import { queryChatGptVirtualJumpTarget } from './virtualLayoutAdapter';
+import {
+  holdChatGptViewport,
+  queryChatGptVirtualJumpTarget,
+} from './virtualLayoutAdapter';
 import {
   createChatGptNavigationJumpId,
   getChatGptNavigationTestConfig,
@@ -122,6 +125,7 @@ export const chatGptPlatform: Platform = {
     getScrollContainer: getChatGptScrollContainer,
     getThreadScrollContainer: getChatGptThreadScrollContainer,
     queryVirtualJumpTarget: queryChatGptVirtualJumpTarget,
+    holdViewport: holdChatGptViewport,
     findRenderedPrompt: findRenderedChatGptPrompt,
     findRenderedPromptByText: findRenderedChatGptPromptByText,
     readMountedWithSidebarIdx,
@@ -133,6 +137,8 @@ export const chatGptPlatform: Platform = {
     getJumpTargetElement: getChatGptJumpTargetElement,
     settleAttempts: APP_CONFIG.platforms.chatgpt.settleAttempts,
     promptTopOffsetPx: APP_CONFIG.platforms.chatgpt.promptTopOffsetPx,
+    promptLandingViewportTopPx:
+      APP_CONFIG.platforms.chatgpt.promptLandingViewportTopPx,
   },
   routing: {
     getCurrentRouteKey,
