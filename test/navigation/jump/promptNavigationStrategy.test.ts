@@ -11,6 +11,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   findPrompt: vi.fn(),
+  findPromptByText: vi.fn(() => null as HTMLElement | null),
   getContainer: vi.fn(),
   createJumpId: vi.fn(() => 'jump-id-stub'),
   getTestConfig: vi.fn(() => null),
@@ -31,7 +32,7 @@ vi.mock('@/platforms', () => ({
     navigation: {
       getScrollContainer: mocks.getContainer,
       findRenderedPrompt: mocks.findPrompt,
-      findRenderedPromptByText: vi.fn(() => null),
+      findRenderedPromptByText: mocks.findPromptByText,
       readMountedWithSidebarIdx: mocks.readMountedWithSidebarIdx,
       queryVirtualJumpTarget: mocks.queryVirtualJumpTarget,
       holdViewport: mocks.holdViewport,
@@ -593,8 +594,8 @@ describe('prompt navigation strategy', () => {
       return false;
     };
 
-    const flushStableWindow = async (deltaMs = 16): Promise<void> => {
-      const frames = Math.ceil(120 / deltaMs) + 2;
+    const flushStableWindow = async (durationMs = 350, deltaMs = 16): Promise<void> => {
+      const frames = Math.ceil(durationMs / deltaMs) + 2;
       for (let i = 0; i < frames; i++) {
         if (!(await stepFrame(deltaMs))) break;
       }
@@ -852,7 +853,7 @@ describe('prompt navigation strategy', () => {
       }
 
       // Prompt remains clipped at -60px while scrollTop = 0: must NOT classify as 'bounded'
-      await flushStableWindow();
+      await flushStableWindow(120);
       expect(mocks.onJumpComplete).not.toHaveBeenCalled();
 
       // Once layout settles and target moves into aligned position (16px), it completes cleanly
@@ -1582,8 +1583,8 @@ describe('prompt navigation strategy', () => {
       );
       expect(promptTop).toBe(190);
 
-      // Flush stable window (>= 120ms) at 190px
-      for (let i = 0; i < 10; i++) {
+      // Flush stable window (>= 350ms for unmounted virtual-layout jumps) at 190px
+      for (let i = 0; i < 26; i++) {
         await stepFrame();
       }
       expect(mocks.onJumpComplete).toHaveBeenCalledWith(5);
@@ -1656,7 +1657,7 @@ describe('prompt navigation strategy', () => {
         await Promise.resolve();
       }
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 26; i++) {
         await stepFrame();
       }
       // Only coarse scrollTo(0) ran; direct alignment recognized clamp at scrollTop=0
@@ -1690,7 +1691,7 @@ describe('prompt navigation strategy', () => {
         await Promise.resolve();
       }
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 26; i++) {
         await stepFrame();
       }
       // Only coarse scrollTo(2100) ran; direct alignment recognized clamp at maxScrollTop
@@ -2309,8 +2310,8 @@ describe('prompt navigation strategy', () => {
       expect(origScrollTo).toHaveBeenCalled();
       expect(recoveredTop).toBe(190);
 
-      // Stabilize for >= 120ms
-      for (let i = 0; i < 10; i++) {
+      // Stabilize for >= 350ms (far virtual jump layout-quiescence window)
+      for (let i = 0; i < 26; i++) {
         await stepFrame(16);
       }
 
@@ -2372,7 +2373,7 @@ describe('prompt navigation strategy', () => {
       for (let i = 0; i < 5; i++) await Promise.resolve();
       node2.remove();
       mocks.findPrompt.mockReturnValue(null);
-      for (let i = 0; i < 5; i++) await stepFrame(16);
+      for (let i = 0; i < 8; i++) await stepFrame(16);
 
       // No 3rd recovery attempted; fails cleanly with target-disconnected
       expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(3);
@@ -2485,8 +2486,8 @@ describe('prompt navigation strategy', () => {
       await stepFrame(deltaMs);
       expect(mocks.onJumpComplete).not.toHaveBeenCalled();
 
-      // Advance remaining frames to pass 120ms stability window (more than 8 frames on 120Hz/144Hz!)
-      const remainingFrames = Math.ceil(120 / deltaMs) + 2;
+      // Advance remaining frames to pass 350ms far-jump stability window (more than 8 frames on 120Hz/144Hz!)
+      const remainingFrames = Math.ceil(350 / deltaMs) + 2;
       for (let i = 0; i < remainingFrames; i++) {
         await stepFrame(deltaMs);
       }
@@ -3141,6 +3142,117 @@ describe('prompt navigation strategy', () => {
       expect(document.querySelectorAll('[data-luna-toc-highlight-overlay="true"]')).toHaveLength(1);
       vi.advanceTimersByTime(1);
       expect(document.querySelectorAll('[data-luna-toc-highlight-overlay="true"]')).toHaveLength(0);
+    });
+
+    it('never uses text fallback to jump to a different message when multiple prompts share identical text ("next")', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container } = createDynamicContainer(907, 15000, 1000);
+
+      const duplicatePrompts = [
+        { id: 'id-13', text: 'next', canMatchByText: true, createTime: 1 },
+        { id: 'id-14', text: 'next', canMatchByText: true, createTime: 2 },
+        { id: 'id-15', text: 'next', canMatchByText: true, createTime: 3 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({
+          conversationKey: 'dup-conv',
+          prompts: duplicatePrompts,
+        }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      // Only #13 is currently mounted in the DOM at top=190px
+      const mounted13 = document.createElement('div');
+      mounted13.setAttribute('data-chatgpt-search-message-ids', 'id-13');
+      mounted13.textContent = 'next';
+      mounted13.getBoundingClientRect = () =>
+        ({ top: 190, bottom: 230, left: 0, right: 800, width: 800, height: 40 } as DOMRect);
+      container.appendChild(mounted13);
+
+      // Target #14 is NOT mounted yet; text fallback would have returned mounted13!
+      const target14 = document.createElement('div');
+      target14.setAttribute('data-chatgpt-search-message-ids', 'id-14');
+      target14.textContent = 'next';
+      let target14DocTop = 5190;
+      target14.getBoundingClientRect = () => {
+        const top = target14DocTop - container.scrollTop;
+        return { top, bottom: top + 40, left: 0, right: 800, width: 800, height: 40 } as DOMRect;
+      };
+
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (opts.top >= 4500 && !target14.isConnected) {
+            container.appendChild(target14);
+          }
+        }
+      });
+
+      mocks.findPrompt.mockImplementation((id: string) => {
+        if (id === 'id-13' && mounted13.isConnected) return mounted13;
+        if (id === 'id-14' && target14.isConnected) return target14;
+        return null;
+      });
+      mocks.findPromptByText.mockReturnValue(mounted13);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 1,
+        topOffsetPx: 5000,
+        turnCount: 3,
+      });
+
+      // Click #14 ("next"): must NOT fast-path to #13; must use Virtual Layout for id-14!
+      jumpToMessage(duplicatePrompts[1], 1);
+
+      expect(mocks.findPromptByText).not.toHaveBeenCalled();
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledWith(container, 'id-14');
+
+      for (let i = 0; i < 30; i++) {
+        await stepFrame(16);
+        await vi.advanceTimersByTimeAsync(0);
+      }
+
+      expect(target14.isConnected).toBe(true);
+      expect(target14.getBoundingClientRect().top).toBeCloseTo(190, 1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(1);
+    });
+
+    it('rejects text fallback candidate if its DOM message ID conflicts with expected message ID', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { container } = createDynamicContainer(907, 5000, 1000);
+      const uniquePrompt = { id: 'expected-id', text: 'Unique prompt text', canMatchByText: true, createTime: 1 };
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({
+          conversationKey: 'unique-conv',
+          prompts: [uniquePrompt],
+        }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const wrongNode = document.createElement('div');
+      wrongNode.setAttribute('data-chatgpt-search-message-ids', 'different-id');
+      container.appendChild(wrongNode);
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.findPromptByText.mockReturnValue(wrongNode);
+      mocks.queryVirtualJumpTarget.mockReturnValue({ status: 'unavailable', reason: 'test' });
+
+      jumpToMessage(uniquePrompt, 0);
+
+      // Must NOT fast-path onto wrongNode whose message ID conflicts with expected-id
+      expect(mocks.logEvent).not.toHaveBeenCalledWith(
+        expect.anything(),
+        'JUMP_FAST_PATH_RESULT',
+        expect.anything(),
+        undefined
+      );
     });
   });
 });

@@ -548,6 +548,54 @@ async function mountTargetViaStrategy(
   return { status: 'failed', reason: 'virtual-exhausted', strategy: 'virtual-layout' };
 }
 
+function normalizePromptTextForMatch(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Returns true only when `message.text` is non-empty and does not collide
+ * (exact or prefix match) with any other prompt in the conversation.
+ * Prevents text fallback from jumping to a different prompt with identical text.
+ */
+function isUniquePromptTextInConversation(
+  prompts: ReadonlyArray<NavigatorMessage>,
+  message: NavigatorMessage
+): boolean {
+  const needle = normalizePromptTextForMatch(message.text || '');
+  if (!needle) return false;
+
+  for (const other of prompts) {
+    if (other.id === message.id) continue;
+    const otherNorm = normalizePromptTextForMatch(other.text || '');
+    if (!otherNorm) continue;
+    if (otherNorm === needle || otherNorm.startsWith(needle) || needle.startsWith(otherNorm)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Returns true when `element` exposes a stable message ID that conflicts with
+ * `expectedId`, ensuring text fallback never selects a DOM node belonging to
+ * a different message.
+ */
+function hasConflictingElementMessageId(
+  element: HTMLElement,
+  expectedId: string
+): boolean {
+  if (!expectedId) return false;
+  const raw =
+    platform().navigation.getMessageIdFromElement?.(element) ||
+    element.getAttribute('data-chatgpt-search-message-ids') ||
+    element.getAttribute('data-message-id') ||
+    null;
+  if (!raw) return false;
+  const tokens = raw.split(/[,\s]+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+  return !tokens.includes(expectedId);
+}
+
 /**
  * Uses only LunaTOC anchors, response fingerprints, and virtual search.
  */
@@ -561,6 +609,7 @@ function jumpWithIndependentVirtualNavigation(
   const context = getVirtualSearchContext();
   const container = getChatGptScrollContainer();
 
+  const initialScrollTopPx = container ? container.scrollTop : null;
   const holdResult = container
     ? platform().navigation.holdViewport?.(container)
     : undefined;
@@ -626,9 +675,17 @@ function jumpWithIndependentVirtualNavigation(
   });
 
   const idHit = findRenderedChatGptPrompt(message.id);
-  const textHit =
-    idHit ??
-    (message.text ? findRenderedChatGptPromptByText(message.text) : null);
+  let textHit: HTMLElement | null = null;
+  if (
+    !idHit &&
+    message.text &&
+    isUniquePromptTextInConversation(context.prompts, message)
+  ) {
+    const candidate = findRenderedChatGptPromptByText(message.text);
+    if (candidate && !hasConflictingElementMessageId(candidate, message.id)) {
+      textHit = candidate;
+    }
+  }
   const renderedTarget = idHit ?? textHit;
 
   if (renderedTarget) {
@@ -648,7 +705,8 @@ function jumpWithIndependentVirtualNavigation(
         recoverTarget: () => mountTargetViaStrategy(createStrategyContext()),
         remainingRecoveries: MAX_DISCONNECT_RECOVERIES,
         initialStrategy: 'fast-path',
-      }
+      },
+      initialScrollTopPx
     );
     return;
   }
@@ -672,7 +730,8 @@ function jumpWithIndependentVirtualNavigation(
           recoverTarget: () => mountTargetViaStrategy(createStrategyContext()),
           remainingRecoveries: MAX_DISCONNECT_RECOVERIES,
           initialStrategy: mountOutcome.strategy,
-        }
+        },
+        initialScrollTopPx
       );
       return;
     }
@@ -716,7 +775,8 @@ function finishIndependentVirtualJump(
   jumpId: string,
   options: JumpMessageOptions = {},
   jumpVersion = navigationJumpVersion,
-  recovery?: DisconnectRecoveryContext
+  recovery?: DisconnectRecoveryContext,
+  initialScrollTopPx: number | null = null
 ): void {
   const mode = options.mode ?? 'target-driven';
   let activeStrategy: NavigationStrategyName =
@@ -727,7 +787,7 @@ function finishIndependentVirtualJump(
   let lastAppliedScrollTop: number | null = null;
   let lastAppliedDistanceFromBottom: number | null = null;
   let lastObservedScrollHeight: number | null = null;
-  let didScrollFar = false;
+  let didScrollFar = activeStrategy !== 'fast-path';
   let layoutMutatedDuringPass = false;
   let userInterrupted = false;
   let cancelScheduledFrame: (() => void) | null = null;
@@ -902,12 +962,13 @@ function finishIndependentVirtualJump(
         0,
         container.scrollHeight - container.scrollTop - container.clientHeight
       );
+      const baselineScrollTop =
+        initialScrollTopPx !== null ? initialScrollTopPx : scrollTopBefore;
       if (
         stage === 'after-align' &&
-        alignResult.scrolled &&
-        scrollTopBefore !== null &&
+        baselineScrollTop !== null &&
         container.clientHeight > 0 &&
-        Math.abs(container.scrollTop - scrollTopBefore) > container.clientHeight
+        Math.abs(container.scrollTop - baselineScrollTop) > container.clientHeight
       ) {
         didScrollFar = true;
       }
