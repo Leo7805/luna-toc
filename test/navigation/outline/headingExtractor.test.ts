@@ -2,7 +2,7 @@
 /** Tests heading extraction, hierarchy levels, and duplicate disambiguation. */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { getPromptOutline } from '@/navigation/jump/headingExtractor';
+import { getPromptOutline } from '@/navigation/outline/headingExtractor';
 
 describe('headingExtractor', () => {
   beforeEach(() => {

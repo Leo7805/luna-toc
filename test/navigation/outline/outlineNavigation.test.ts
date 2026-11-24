@@ -16,7 +16,7 @@ vi.mock('@/navigation/follow/follow', () => followMocks);
 import {
   cancelOutlineNavigation,
   jumpToOutlineEntry,
-} from '@/navigation/jump/outlineNavigation';
+} from '@/navigation/outline/outlineNavigation';
 
 beforeEach(() => {
   vi.useFakeTimers();

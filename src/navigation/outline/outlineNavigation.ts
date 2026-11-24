@@ -1,8 +1,8 @@
 /**
  * Navigates from a visible LunaTOC child-outline item to its ChatGPT heading.
  */
-import { jumpToPromptIndex } from './promptNavigation';
-import { keepFollowing } from '../follow/follow';
+import { jumpToPromptIndex } from '@/navigation/jump/promptNavigation';
+import { keepFollowing } from '@/navigation/follow/follow';
 import { logOutlineDiagnostic } from './outlineDiagnostics';
 
 export interface OutlineNavigationEntry {

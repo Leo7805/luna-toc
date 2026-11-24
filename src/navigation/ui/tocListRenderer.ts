@@ -14,7 +14,7 @@ import {
   resetPromptItems,
   setPromptMessages,
   syncActivePrompt,
-} from '@/navigation/jump/outline';
+} from '@/navigation/outline/outline';
 import {
   setSidebarStatus,
   type SidebarStatusState,

@@ -9,8 +9,8 @@ import {
   getPromptMessageId,
   getReusablePromptOutline,
   setPromptMessages,
-} from '@/navigation/jump/outlineCache';
-import type { OutlineEntry } from '@/navigation/jump/headingExtractor';
+} from '@/navigation/outline/outlineCache';
+import type { OutlineEntry } from '@/navigation/outline/headingExtractor';
 import type { NavigatorMessage } from '@/features/conversationPrompts/message';
 
 function createHeadingEntry(text: string, isConnected = true): OutlineEntry {

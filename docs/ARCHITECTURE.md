@@ -121,8 +121,8 @@ graph TD
 - **Purpose**: `src/content.ts` is declared in `manifest.json` and runs in a sandboxed context where it can access the DOM and Chrome APIs but not ChatGPT's global JavaScript scope.
 - **Loading**: `src/content.ts` starts the application shell, and each module imports its explicit dependencies. Vite bundles that graph into one generated Content Script; only the entry remains in the source Manifest.
 - **Source modules**:
-  - [outline.ts](../src/features/navigation/outline.ts): Extracts, renders, and caches answer-heading child outlines by Prompt message ID, with stable heading descriptors for resolving rebuilt DOM.
-  - [outlineNavigation.ts](../src/features/navigation/outlineNavigation.ts): Navigates from a displayed child-outline item to its current ChatGPT heading, restoring the parent prompt and re-resolving disconnected cached nodes when needed.
+  - [outline.ts](../src/navigation/outline/outline.ts): Extracts, renders, and caches answer-heading child outlines by Prompt message ID, with stable heading descriptors for resolving rebuilt DOM.
+  - [outlineNavigation.ts](../src/navigation/outline/outlineNavigation.ts): Navigates from a displayed child-outline item to its current ChatGPT heading, restoring the parent prompt and re-resolving disconnected cached nodes when needed.
   - [follow.ts](../src/features/navigation/follow.ts): Provides typed chat-scroll tracking and sidebar auto-follow control through named exports.
   - [message.ts](../src/features/conversationPrompts/message.ts): Defines typed ChatGPT conversation models and normalizes user inputs, files, and images into TOC messages.
   - [promptMark.ts](../src/features/conversationPrompts/promptMark.ts): Provides typed session-scoped prompt marking and mark-button behavior through named exports.
@@ -200,7 +200,7 @@ Performance-critical DOM operations, low-level browser integrations, and static 
 
 - **Outer Sidebar Shell** (`src/app/applicationShell.ts`):
   Creates and owns `#luna-toc-sidebar`, `.navigator-topbar`, and static portal mount containers. Manages flex layout and CSS width variables (`--navigator-width`).
-- **TOC List and Outline Engine** (`src/navigation/ui/tocListRenderer.ts`, `src/features/navigation/outline.ts`):
+- **TOC List and Outline Engine** (`src/navigation/ui/tocListRenderer.ts`, `src/navigation/outline/outline.ts`):
   Exclusive owner of `#navigator-list`. Imperatively renders and updates prompt entries, numbers, custom titles, badges, and heading outline items directly in the DOM. LunaTOC's TOC list is non-virtualized, retaining all parsed conversation items in the DOM for native browser scrolling, instant text filtering, and zero-latency scroll follow (distinguished from ChatGPT's chat feed, which virtualizes unmounted turns and requires LunaTOC's virtual search navigation).
 - **Active Prompt Tracking** (`src/features/navigation/activePromptTracker.ts`, `src/features/navigation/navigationState.ts`):
   Evaluates viewport tracking rules (Rules A/B/C) and transitions between `idle`, `jumping`, `landed`, and `failed` navigation states.

@@ -48,7 +48,7 @@ import {
   resetOutline,
   scheduleBuild,
   syncMarkState,
-} from './jump/outline';
+} from './outline/outline';
 import { setSidebarStatus } from './ui/sidebarStatus';
 import { previewTooltip } from '@/features/tooltip';
 
