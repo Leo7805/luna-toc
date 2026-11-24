@@ -43,14 +43,14 @@ import { promptStore } from './promptStore';
 
 ### File Size Limits
 
-1. Aim to keep source files within 300 lines whenever practical.
-2. Source files should not exceed 500 lines unless there is a clear technical justification approved by the user.
-3. When a file approaches 300 lines, review whether it contains multiple responsibilities that can be separated.
-4. When a file exceeds 500 lines, propose a responsibility-based split instead of continuing to expand it.
-5. Do not split files solely to satisfy line-count limits. Extract cohesive features, components, services, or utilities with clear responsibilities.
-6. Apply these limits to new code and files being actively modified. Do not refactor unrelated legacy files merely because they exceed the limit.
-7. Existing oversized files should be identified as refactoring candidates and improved incrementally when relevant.
-8. Keep test files reasonably sized and organized by behavior, but prioritize test clarity over strict line-count limits.
+1. Aim to keep production source files within 300 lines whenever practical.
+2. New production source files must not exceed 500 lines.
+3. Existing files over 500 lines are temporary architectural debt and should be reduced incrementally; do not unnecessarily expand them.
+4. Files exceeding 1,000 lines require high-priority refactoring review.
+5. When a file approaches 300 lines or exceeds 500 lines, propose a responsibility-based split instead of continuing to expand it.
+6. Split by cohesive responsibilities, not arbitrary line counts.
+7. A focused bug fix may modify an oversized existing file without forcing an unrelated refactor, but any further growth must be explained and justified.
+8. Keep tests, stylesheets, configuration, and generated files under more flexible rules that prioritize clarity and maintainability over strict line-count limits.
 
 ### Directory Structure
 
@@ -78,15 +78,24 @@ import { promptStore } from './promptStore';
 3. Preserve existing functionality unless the task requires changing it.
 4. If a change may have side effects, explain the risks before implementation.
 
+## Change Scope
+
+1. One implementation phase should solve one well-defined problem.
+2. Normally limit each implementation phase to no more than 3 production source files (counting newly created, modified, moved, and deleted production source files).
+3. Directly related tests and documentation do not count toward this 3-file limit.
+4. Any broader implementation requires explicit user approval before starting.
+5. Keep each phase independently reviewable, testable, and committable.
+
 ## Development Workflow
 
-1. Analyze the problem.
-2. Propose a solution.
-3. Wait for approval.
-4. Implement the change.
-5. Explain the implementation.
-6. Suggest a commit message.
-7. Update documentation when architecture or behavior changes.
+Follow the phase lifecycle: **Plan → Review → Explicit Approval → Implementation → Verification → Commit**.
+
+1. Analyze the problem and propose a scoped plan.
+2. Wait for review and explicit user approval before modifying code.
+3. Implement the approved change without combining structural refactoring and behavioral bug fixes unless explicitly approved.
+4. Verify with automated tests, typecheck, build, and manual checks as appropriate.
+5. Explain what changed and why, update relevant documentation, and suggest a Conventional Commits message.
+6. Do not commit automatically during a task; Git commits must be explicitly authorized by the current user request.
 
 ## Documentation
 
@@ -162,14 +171,14 @@ After every implementation:
 10. List any manual tests the user should perform, one test per line, with the expected result.
 11. End with one suggested commit message using Conventional Commits format.
 
-## Maintainability
+## Architecture & Maintainability
 
-1. Prefer fixing root causes over applying temporary patches.
-2. Keep the codebase clean and consistent.
-3. When modifying existing code, improve the surrounding code if the improvement is small and directly related to the task.
-4. Avoid excessive refactoring during feature development or bug fixes.
-5. If a larger refactor is beneficial, propose it separately instead of mixing it with the current task.
-6. Do not introduce workarounds when a cleaner solution is reasonably achievable.
+1. Prefer fixing root causes and simplifying existing logic over adding new abstractions or temporary patches.
+2. Avoid excessive fallback layers, retry mechanisms, or duplicated state.
+3. Every recovery operation must be bounded, cancellable, and progress-aware; a controlled failure is preferable to infinite retries or excessive complexity.
+4. Do not introduce new modules unless they have a clear, cohesive responsibility.
+5. Preserve public APIs, existing behavior, and test coverage during structural refactoring.
+6. Keep the codebase clean and consistent; small, directly related surrounding improvements are acceptable, while larger refactors must be proposed separately.
 
 ## Generated Code Requirements
 
