@@ -1476,4 +1476,113 @@ describe('Sticky Older-History Virtual Pagination', () => {
 
     container.remove();
   });
+
+  it('detects cold-start host viewport drift (scrollTop 0 -> 4961 while topOffsetPx remains 0) and re-scrolls to mount Prompt #1', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+    Object.defineProperty(container, 'scrollHeight', { value: 31798, configurable: true });
+    container.scrollTop = 16331;
+    document.body.appendChild(container);
+
+    let scrollCount = 0;
+    const prompt1 = document.createElement('div');
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+      if (typeof opts === 'object' && typeof opts?.top === 'number') {
+        scrollCount += 1;
+        container.scrollTop = opts.top;
+        if (scrollCount === 1) {
+          // Simulate ChatGPT native viewport compensation pushing scrollTop to 4961px at ~246ms
+          setTimeout(() => {
+            container.scrollTop = 4961;
+          }, 200);
+        } else if (scrollCount === 2 && opts.top === 0) {
+          // Second scrollTo(0) lands cleanly and mounts Prompt #1
+          container.appendChild(prompt1);
+          mocks.findRenderedPrompt.mockReturnValue(prompt1);
+        }
+      }
+    });
+
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'ok',
+      targetIndex: 0,
+      topOffsetPx: 0,
+      turnCount: 33,
+    });
+    mocks.findRenderedPrompt.mockReturnValue(null);
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-1', text: 'good to see you', canMatchByText: true, createTime: 0 },
+      targetIndex: 0,
+      prompts: [
+        { id: 'msg-1', text: 'good to see you', canMatchByText: true, createTime: 0 },
+        { id: 'msg-2', text: 'What is react?', canMatchByText: true, createTime: 1 },
+        { id: 'msg-3', text: 'Counter', canMatchByText: true, createTime: 2 },
+      ],
+      container,
+      jumpId: 'test-cold-start-top-drift',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+    await vi.advanceTimersByTimeAsync(450);
+
+    const outcome = await attempt.promise;
+    expect(outcome.status).toBe('mounted');
+    if (outcome.status === 'mounted') {
+      expect(outcome.element).toBe(prompt1);
+    }
+    expect(container.scrollTo).toHaveBeenCalledTimes(2);
+    expect(container.scrollTo).toHaveBeenNthCalledWith(1, { top: 0, behavior: 'auto' });
+    expect(container.scrollTo).toHaveBeenNthCalledWith(2, { top: 0, behavior: 'auto' });
+    expect(container.scrollTop).toBe(0);
+
+    container.remove();
+  });
+
+  it('bounds repeated viewport drift retries without looping indefinitely', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+    Object.defineProperty(container, 'scrollHeight', { value: 31798, configurable: true });
+    container.scrollTop = 10000;
+    document.body.appendChild(container);
+
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+      if (typeof opts === 'object' && typeof opts?.top === 'number') {
+        container.scrollTop = opts.top;
+        setTimeout(() => {
+          container.scrollTop = 4961;
+        }, 100);
+      }
+    });
+
+    mocks.queryVirtualJumpTarget.mockReturnValue({
+      status: 'ok',
+      targetIndex: 0,
+      topOffsetPx: 0,
+      turnCount: 33,
+    });
+    mocks.findRenderedPrompt.mockReturnValue(null);
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-1', text: '', canMatchByText: true, createTime: 0 },
+      targetIndex: 0,
+      prompts: [{ id: 'msg-1', text: '', canMatchByText: true, createTime: 0 }],
+      container,
+      jumpId: 'test-bounded-drift',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+    await vi.advanceTimersByTimeAsync(5000);
+
+    const outcome = await attempt.promise;
+    expect(outcome).toEqual({ status: 'exhausted', reason: 'target-mount-timeout' });
+    // Bounded by 1 initial + 4 refinements = 5 scroll writes max
+    expect(container.scrollTo).toHaveBeenCalledTimes(5);
+
+    container.remove();
+  });
 });

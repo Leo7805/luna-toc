@@ -248,6 +248,63 @@ describe('edgeNavigation', () => {
       await vi.advanceTimersByTimeAsync(500);
       expect(container.scrollTop).toBe(1000);
     });
+
+    it('cancels top-edge navigation immediately on user wheel without mistaking programmatic scroll for user input', async () => {
+      container.style.flexDirection = 'column';
+      executeAbsoluteEdgeJump('top', { container });
+      expect(container.scrollTop).toBe(0);
+
+      // User scrolls down away from top
+      container.dispatchEvent(new Event('wheel'));
+      container.scrollTop = 450;
+
+      await vi.advanceTimersByTimeAsync(600);
+      // Must NOT fight the user by snapping back to 0
+      expect(container.scrollTop).toBe(450);
+    });
+
+    it('re-asserts true top after delayed virtual-list expansion pushes scrollTop away and notifies promptly', async () => {
+      container.style.flexDirection = 'column';
+      let currentHeight = 17238;
+      Object.defineProperty(container, 'scrollHeight', {
+        get: () => currentHeight,
+        configurable: true,
+      });
+
+      const promptEl = document.createElement('div');
+      promptEl.setAttribute('data-chatgpt-search-unit-key', 'first-msg:user');
+      promptEl.setAttribute('data-chatgpt-search-message-ids', 'first-msg');
+      container.getBoundingClientRect = vi.fn(
+        () => ({ top: 0, bottom: 907 } as DOMRect)
+      );
+      promptEl.getBoundingClientRect = vi.fn(
+        () => ({ top: 136, bottom: 180 } as DOMRect)
+      );
+
+      const onFirstPromptVisible = vi.fn();
+      executeAbsoluteEdgeJump('top', {
+        container,
+        firstPromptId: 'first-msg',
+        onFirstPromptVisible,
+      });
+      expect(container.scrollTop).toBe(0);
+
+      // Simulate ChatGPT virtual-list expansion + scroll compensation pushing scrollTop to 4961
+      currentHeight = 31798;
+      container.scrollTop = 4961;
+      await vi.advanceTimersByTimeAsync(200);
+
+      // Next bounded step immediately re-asserts scrollTop = 0 (without waiting 1500ms!)
+      expect(container.scrollTop).toBe(0);
+      expect(onFirstPromptVisible).not.toHaveBeenCalled();
+
+      // Prompt #1 mounts at 136px and scrollHeight stabilizes
+      document.body.appendChild(promptEl);
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(container.scrollTop).toBe(0);
+      expect(onFirstPromptVisible).toHaveBeenCalledWith(promptEl);
+    });
   });
 
   describe('isPageAtBottom', () => {

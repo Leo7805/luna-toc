@@ -12,10 +12,11 @@ function platform() {
  * previous loop instead of stacking on top of it.
  */
 let activeEdgeJumpVersion = 0;
-const EDGE_JUMP_HARD_CAP = 30;
-const EDGE_JUMP_SETTLE_MS = 1500;
 const EDGE_JUMP_HEIGHT_GROWTH_EPSILON = 50;
 const EDGE_JUMP_BOTTOM_TOLERANCE_PX = 2;
+const TOP_EDGE_MAX_ATTEMPTS = 15;
+const TOP_EDGE_STEP_MS = 200;
+const TOP_EDGE_REQUIRED_QUIET_CHECKS = 2;
 const BOTTOM_FALLBACK_MAX_ATTEMPTS = 12;
 const BOTTOM_FALLBACK_STEP_MS = 200;
 const BOTTOM_FALLBACK_REQUIRED_QUIET_CHECKS = 2;
@@ -70,9 +71,11 @@ function findFirstPromptInTopBand(
 }
 
 /**
- * Iteratively re-asserts the top edge scroll position while ChatGPT's mount
- * window keeps growing. Exits when the first prompt reaches the visible
- * top band, when cancelled, or once `EDGE_JUMP_HARD_CAP` retries have been exhausted.
+ * Iteratively re-asserts the true top scroll position using bounded,
+ * layout-aware checks while ChatGPT's virtual list mounts and measures older
+ * turns. Cancels promptly on genuine user scroll input or a superseding
+ * navigation, and only signals completion once `scrollTop` stays at the top
+ * edge with stable `scrollHeight` (and the first prompt visible when known).
  */
 async function retryTopEdgeUntilSettled(
   container: HTMLElement,
@@ -82,44 +85,87 @@ async function retryTopEdgeUntilSettled(
   isCancelled?: () => boolean,
   onFirstPromptVisible?: (element: HTMLElement) => void
 ): Promise<void> {
-  for (let attempt = 0; attempt < EDGE_JUMP_HARD_CAP; attempt++) {
-    if (
-      jumpVersion !== activeEdgeJumpVersion ||
-      isCancelled?.()
-    ) {
-      return;
+  let userInterrupted = false;
+  const markInterrupted = (): void => {
+    userInterrupted = true;
+  };
+  const passiveOpts: AddEventListenerOptions = { passive: true, capture: true };
+  container.addEventListener('wheel', markInterrupted, passiveOpts);
+  container.addEventListener('touchstart', markInterrupted, passiveOpts);
+  container.addEventListener('pointerdown', markInterrupted, passiveOpts);
+
+  let quietTopChecks = 0;
+  try {
+    for (let attempt = 0; attempt < TOP_EDGE_MAX_ATTEMPTS; attempt++) {
+      if (
+        userInterrupted ||
+        jumpVersion !== activeEdgeJumpVersion ||
+        isCancelled?.() ||
+        !container.isConnected
+      ) {
+        return;
+      }
+
+      const beforeHeight = container.scrollHeight;
+      const maxScrollTop = Math.max(0, beforeHeight - container.clientHeight);
+      const expectedTop = isReverse ? -maxScrollTop : 0;
+
+      try {
+        platform().navigation.holdViewport?.(container);
+      } catch {
+        // Fail closed if holdViewport is unavailable
+      }
+      container.scrollTop = expectedTop;
+
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, TOP_EDGE_STEP_MS);
+      });
+
+      if (
+        userInterrupted ||
+        jumpVersion !== activeEdgeJumpVersion ||
+        isCancelled?.() ||
+        !container.isConnected
+      ) {
+        return;
+      }
+
+      const afterHeight = container.scrollHeight;
+      const afterMaxScrollTop = Math.max(0, afterHeight - container.clientHeight);
+      const afterExpectedTop = isReverse ? -afterMaxScrollTop : 0;
+      const atTrueTop =
+        Math.abs(container.scrollTop - afterExpectedTop) <=
+        EDGE_JUMP_BOTTOM_TOLERANCE_PX;
+      const heightStable =
+        Math.abs(afterHeight - beforeHeight) <= EDGE_JUMP_HEIGHT_GROWTH_EPSILON;
+
+      if (!atTrueTop || !heightStable) {
+        quietTopChecks = 0;
+        continue;
+      }
+
+      // When firstPromptId is known, require the actual first prompt to be
+      // mounted and visible in the top band before declaring completion.
+      if (firstPromptId) {
+        const firstPromptInView = findFirstPromptInTopBand(
+          container,
+          firstPromptId
+        );
+        if (firstPromptInView) {
+          onFirstPromptVisible?.(firstPromptInView);
+          return;
+        }
+      }
+
+      quietTopChecks += 1;
+      if (quietTopChecks >= TOP_EDGE_REQUIRED_QUIET_CHECKS) {
+        return;
+      }
     }
-
-    const beforeHeight = container.scrollHeight;
-    const maxScrollTop = beforeHeight - container.clientHeight;
-    container.scrollTop = isReverse ? -maxScrollTop : 0;
-
-    await new Promise<void>(function (resolve) {
-      setTimeout(resolve, EDGE_JUMP_SETTLE_MS);
-    });
-    if (
-      jumpVersion !== activeEdgeJumpVersion ||
-      isCancelled?.()
-    ) {
-      return;
-    }
-
-    // Convergence signal 1: the first prompt is mounted and visible
-    // inside the top band of the scroll container.
-    const firstPromptInView = firstPromptId
-      ? findFirstPromptInTopBand(container, firstPromptId)
-      : null;
-    if (firstPromptInView) {
-      onFirstPromptVisible?.(firstPromptInView);
-      return;
-    }
-
-    const afterHeight = container.scrollHeight;
-    const grown = afterHeight > beforeHeight + EDGE_JUMP_HEIGHT_GROWTH_EPSILON;
-    // Convergence signal 2: scrollHeight stopped growing, meaning
-    // ChatGPT's mount window has stabilised at whatever boundary it
-    // is willing to expose.
-    if (!grown) return;
+  } finally {
+    container.removeEventListener('wheel', markInterrupted, passiveOpts);
+    container.removeEventListener('touchstart', markInterrupted, passiveOpts);
+    container.removeEventListener('pointerdown', markInterrupted, passiveOpts);
   }
 }
 

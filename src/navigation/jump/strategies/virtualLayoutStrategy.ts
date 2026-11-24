@@ -702,6 +702,12 @@ async function executeDirectVirtualJump(
     }
 
     try {
+      getActivePlatform().navigation.holdViewport?.(context.container);
+    } catch {
+      // Fail closed if holdViewport is unavailable or throws
+    }
+
+    try {
       context.container.scrollTo({
         top: currentTopOffsetPx,
         behavior: 'auto',
@@ -709,6 +715,8 @@ async function executeDirectVirtualJump(
     } catch {
       return { status: 'exhausted', reason: 'container-scroll-threw' };
     }
+
+    const scrollTopAfterWrite = context.container.scrollTop;
 
     const isLastAttempt = attempt === MAX_DIRECT_JUMP_REFINEMENTS;
     const waitMs = isLastAttempt ? fullMountTimeoutMs : firstWaitMs;
@@ -731,8 +739,15 @@ async function executeDirectVirtualJump(
       break;
     }
 
+    const currentScrollTop = context.container.scrollTop;
+    const viewportDriftedFromWrite =
+      Math.abs(currentScrollTop - scrollTopAfterWrite) >
+      DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX;
+
     // Re-query the virtual layout: scrolling to the initial estimate often
-    // triggers ChatGPT to measure unmeasured turns and refine `topOffsetPx`.
+    // triggers ChatGPT to measure unmeasured turns and refine `topOffsetPx`,
+    // or causes native viewport compensation to push `container.scrollTop` away
+    // from `topOffsetPx` (e.g. cold-start topOffsetPx=0 pushed to ~4961px).
     const nextResult = queryJumpTarget(
       context.container,
       context.targetMessage.id
@@ -740,17 +755,26 @@ async function executeDirectVirtualJump(
     if (
       nextResult.status === 'ok' &&
       Number.isFinite(nextResult.topOffsetPx) &&
-      nextResult.topOffsetPx >= 0 &&
-      Math.abs(nextResult.topOffsetPx - currentTopOffsetPx) >
-        DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX
+      nextResult.topOffsetPx >= 0
     ) {
-      currentTopOffsetPx = nextResult.topOffsetPx;
-      continue;
+      const offsetChanged =
+        Math.abs(nextResult.topOffsetPx - currentTopOffsetPx) >
+        DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX;
+      const viewportDriftedFromTarget =
+        viewportDriftedFromWrite &&
+        Math.abs(currentScrollTop - nextResult.topOffsetPx) >
+          DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX;
+
+      if (offsetChanged || viewportDriftedFromTarget) {
+        currentTopOffsetPx = nextResult.topOffsetPx;
+        continue;
+      }
     }
 
     // If the layout estimate did not shift yet, check whether the currently
     // mounted prompts tell us which direction the target lies and nudge by
-    // one viewport step to bring adjacent turns into the mount/measure window.
+    // one viewport step from the actual viewport position (when drifted) or
+    // the previous target offset to bring adjacent turns into the mount window.
     let direction: -1 | 1 | null = null;
     try {
       const queue = seedMountQueue(context.prompts);
@@ -772,11 +796,14 @@ async function executeDirectVirtualJump(
         Math.round((context.container.clientHeight || 800) * 0.85),
         400
       );
+      const nudgeBase = viewportDriftedFromWrite
+        ? currentScrollTop
+        : currentTopOffsetPx;
       const nudged = Math.max(
         0,
-        Math.min(maxScrollTop || Infinity, currentTopOffsetPx + direction * stepPx)
+        Math.min(maxScrollTop || Infinity, nudgeBase + direction * stepPx)
       );
-      if (Math.abs(nudged - currentTopOffsetPx) > DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX) {
+      if (Math.abs(nudged - nudgeBase) > DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX) {
         currentTopOffsetPx = nudged;
         continue;
       }

@@ -20,6 +20,7 @@ interface ActiveHighlightSession {
   container: HTMLElement | null;
   scrollTarget: EventTarget;
   getScrollContainer: () => HTMLElement | null;
+  resolveTarget?: () => HTMLElement | null;
   timerId: ReturnType<typeof setTimeout>;
   rafId: number | null;
   onSync: () => void;
@@ -87,9 +88,30 @@ function resolveVisibleBounds(container: HTMLElement | null): VisibleBounds {
 function updateHighlightPosition(session: ActiveHighlightSession): void {
   if (activeSession !== session) return;
 
-  if (!session.target.isConnected || !session.overlay.isConnected) {
+  if (!session.overlay.isConnected) {
     teardownSession(session);
     return;
+  }
+
+  if (!session.target.isConnected) {
+    // Attempt identity-safe reattachment via the caller's message-ID resolver
+    // when React/virtualizer reconciliation replaces the prompt DOM node.
+    // Preserves the existing expiration timer without extending it.
+    let replacement: HTMLElement | null = null;
+    if (session.resolveTarget) {
+      try {
+        replacement = session.resolveTarget();
+      } catch {
+        replacement = null;
+      }
+    }
+    if (replacement && replacement.isConnected) {
+      session.target = replacement;
+      session.lastStyleKey = '';
+    } else {
+      teardownSession(session);
+      return;
+    }
   }
 
   if (!session.container || !session.container.isConnected) {
@@ -174,7 +196,8 @@ export function clearPromptHighlightOverlay(): void {
 export function highlightPromptElement(
   target: HTMLElement,
   getScrollContainer: () => HTMLElement | null,
-  durationMs: number = DEFAULT_HIGHLIGHT_DURATION_MS
+  durationMs: number = DEFAULT_HIGHLIGHT_DURATION_MS,
+  resolveTarget?: () => HTMLElement | null
 ): void {
   clearPromptHighlightOverlay();
 
@@ -208,6 +231,7 @@ export function highlightPromptElement(
     container: container && container.isConnected ? container : null,
     scrollTarget,
     getScrollContainer,
+    resolveTarget,
     timerId: setTimeout(() => {
       teardownSession(session);
     }, durationMs),

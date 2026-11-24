@@ -3376,20 +3376,20 @@ describe('prompt navigation strategy', () => {
         { id: 'prompt-17', text: 'Step 1.2', canMatchByText: true, createTime: 0 },
         16
       );
-      expect(mocks.holdViewport).toHaveBeenCalledTimes(1); // JUMP_START
+      expect(mocks.holdViewport).toHaveBeenCalledTimes(2); // JUMP_START + virtual-layout coarse scroll
 
       container.appendChild(target);
       mocks.findPrompt.mockReturnValue(target);
       for (let i = 0; i < 5; i++) await Promise.resolve();
 
       // Post-mount alignment after virtual-layout re-invokes holdViewport()
-      expect(mocks.holdViewport).toHaveBeenCalledTimes(2);
+      expect(mocks.holdViewport).toHaveBeenCalledTimes(3);
 
       // Layout shift triggers realignment -> re-invokes holdViewport() again before scroll write
       setScrollHeight(16000);
       targetDocTop += 300;
       for (let i = 0; i < 5; i++) await stepFrame(16);
-      expect(mocks.holdViewport.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(mocks.holdViewport.mock.calls.length).toBeGreaterThanOrEqual(4);
       expect(target.getBoundingClientRect().top).toBeCloseTo(190, 1);
     });
 
@@ -3576,6 +3576,67 @@ describe('prompt navigation strategy', () => {
       expect(mocks.queryVirtualJumpTarget).not.toHaveBeenCalled();
       expect(mocks.onJumpComplete).not.toHaveBeenCalled();
       expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it('falls back to viewport-walker when direct virtual-layout exhausts with target-mount-timeout, and skips fallback if cancelled', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container } = createDynamicContainer(907, 20000, 12000);
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-2', text: 'Second', canMatchByText: true, createTime: 2 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'exhaust-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const target1 = document.createElement('div');
+      target1.scrollIntoView = vi.fn();
+      target1.getBoundingClientRect = () =>
+        ({ top: 190, bottom: 270, left: 0, right: 800, width: 800, height: 80 } as DOMRect);
+      container.scrollTo = vi.fn();
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 0,
+        topOffsetPx: 0,
+        turnCount: 2,
+      });
+
+      const walkerSpy = vi
+        .spyOn(viewportWalker, 'loadUntilMountedViaViewport')
+        .mockImplementation(async () => {
+          container.appendChild(target1);
+          mocks.findPrompt.mockReturnValue(target1);
+          return target1;
+        });
+
+      // 1. Direct virtual jump exhausts -> falls back to viewport-walker -> lands cleanly
+      jumpToMessage(prompts[0], 0);
+      await vi.advanceTimersByTimeAsync(1100);
+      for (let i = 0; i < 30; i++) {
+        await stepFrame(16);
+      }
+
+      expect(walkerSpy).toHaveBeenCalledTimes(1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(0);
+
+      // 2. Cancelled before virtual-layout finishes -> must NOT start viewport-walker fallback
+      walkerSpy.mockClear();
+      target1.remove();
+      mocks.findPrompt.mockReturnValue(null);
+      jumpToMessage(prompts[0], 0);
+      await vi.advanceTimersByTimeAsync(200);
+      cancelActiveNavigationSearch();
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(walkerSpy).not.toHaveBeenCalled();
+
+      walkerSpy.mockRestore();
     });
   });
 });

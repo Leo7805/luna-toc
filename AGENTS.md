@@ -39,6 +39,30 @@ import { initializeApplication } from '@/app/applicationShell';
 import { promptStore } from './promptStore';
 ```
 
+## File Size & Directory Structure
+
+### File Size Limits
+
+1. Aim to keep source files within 300 lines whenever practical.
+2. Source files should not exceed 500 lines unless there is a clear technical justification approved by the user.
+3. When a file approaches 300 lines, review whether it contains multiple responsibilities that can be separated.
+4. When a file exceeds 500 lines, propose a responsibility-based split instead of continuing to expand it.
+5. Do not split files solely to satisfy line-count limits. Extract cohesive features, components, services, or utilities with clear responsibilities.
+6. Apply these limits to new code and files being actively modified. Do not refactor unrelated legacy files merely because they exceed the limit.
+7. Existing oversized files should be identified as refactoring candidates and improved incrementally when relevant.
+8. Keep test files reasonably sized and organized by behavior, but prioritize test clarity over strict line-count limits.
+
+### Directory Structure
+
+1. Organize code by feature or responsibility, following the existing project structure.
+2. Keep closely related components, hooks, services, and utilities together.
+3. Extract shared functionality only when it has a clear, reusable responsibility.
+4. Avoid large utility files, miscellaneous modules, and unnecessary directory nesting.
+5. Prefer small, cohesive modules with clear interfaces and minimal dependencies.
+6. Avoid circular dependencies and excessive cross-module coupling.
+7. When splitting a large file, preserve existing behavior, public APIs, and test coverage.
+8. Before significant file restructuring, propose the target directory structure and explain the responsibility of each new module.
+
 ## Project Principles
 
 1. Simplicity over complexity.

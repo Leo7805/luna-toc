@@ -392,8 +392,16 @@ export function jumpToConversationEdge(edge: 'top' | 'bottom'): void {
 /**
  * Displays a temporary independent highlight overlay over a rendered prompt element.
  */
-function highlightMatchedElement(element: HTMLElement): void {
-  highlightPromptElement(element, getChatGptScrollContainer);
+function highlightMatchedElement(
+  element: HTMLElement,
+  messageId?: string
+): void {
+  highlightPromptElement(
+    element,
+    getChatGptScrollContainer,
+    undefined,
+    messageId ? () => findRenderedChatGptPrompt(messageId) : undefined
+  );
 }
 
 /**
@@ -634,7 +642,10 @@ async function mountTargetViaStrategy(
   if (outcome.status === 'mounted') {
     return { status: 'mounted', element: outcome.element, strategy: 'virtual-layout' };
   }
-  if (outcome.status === 'capability-failure') {
+  if (
+    outcome.status === 'capability-failure' ||
+    (outcome.status === 'exhausted' && outcome.reason === 'target-mount-timeout')
+  ) {
     const loaded = await executeViewportWalkerStrategy(strategyContext);
     if (strategyContext.isCancelled()) {
       return { status: 'cancelled' };
@@ -881,14 +892,14 @@ function jumpWithIndependentVirtualNavigation(
       return;
     }
 
+    logJumpFailedDiagnostic({
+      targetIndex: index,
+      targetMessageId: message.id,
+      reason: mountOutcome.reason,
+      strategy: mountOutcome.strategy,
+      recoveryAttempts: 0,
+    });
     if (mode === 'target-driven') {
-      logJumpFailedDiagnostic({
-        targetIndex: index,
-        targetMessageId: message.id,
-        reason: mountOutcome.reason,
-        strategy: mountOutcome.strategy,
-        recoveryAttempts: 0,
-      });
       if (onJumpFailed) {
         onJumpFailed(index);
       } else {
@@ -1003,15 +1014,15 @@ function finishIndependentVirtualJump(
       clamped: lastAlignClamped,
       displacementKind,
     });
+    logJumpFailedDiagnostic({
+      targetIndex: index,
+      targetMessageId: message.id,
+      reason: status,
+      strategy: activeStrategy,
+      recoveryAttempts: recoveryAttemptsUsed,
+      container,
+    });
     if (mode === 'target-driven') {
-      logJumpFailedDiagnostic({
-        targetIndex: index,
-        targetMessageId: message.id,
-        reason: status,
-        strategy: activeStrategy,
-        recoveryAttempts: recoveryAttemptsUsed,
-        container,
-      });
       if (onJumpFailed) {
         onJumpFailed(index);
       } else {
@@ -1159,7 +1170,7 @@ function finishIndependentVirtualJump(
     }
 
     if (stage === 'after-align') {
-      highlightMatchedElement(el);
+      highlightMatchedElement(el, message.id);
     }
     return alignResult;
   };
@@ -1282,7 +1293,7 @@ function finishIndependentVirtualJump(
       if (scrollContainer.scrollTop > 0) {
         scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
       }
-      highlightMatchedElement(verifiedPrompt);
+      highlightMatchedElement(verifiedPrompt, message.id);
     });
   };
 
@@ -1495,7 +1506,7 @@ function finishIndependentVirtualJump(
       if (resolvedById && resolvedById.isConnected) {
         if (resolvedById !== activeTarget) {
           activeTarget = resolvedById;
-          highlightMatchedElement(resolvedById);
+          highlightMatchedElement(resolvedById, message.id);
         }
         liveTarget = resolvedById;
       } else if (activeTarget && activeTarget.isConnected) {
@@ -1616,7 +1627,7 @@ function finishIndependentVirtualJump(
           // Refresh highlight on the final connected target once alignment has
           // settled so the full visibility window begins after navigation completes
           // and recovers from any mid-stabilization unmount/offscreen teardown.
-          highlightMatchedElement(liveTarget);
+          highlightMatchedElement(liveTarget, message.id);
           const containerTop = container ? container.getBoundingClientRect().top : 0;
           const { expectedContainerOffsetPx } = resolvePromptLandingOffset(container);
           emitAlignmentMeasurement(
@@ -1764,6 +1775,7 @@ export function jumpToAbsoluteEdge(
   keepFollowing();
   // A new absolute-edge jump supersedes any in-flight independent virtual
   // jump; otherwise the highlight from a previous TOC click would linger.
+  clearPromptHighlightOverlay();
   cancelActiveNavigationSearch();
   clearJumpProgress?.();
 
@@ -1776,7 +1788,8 @@ export function jumpToAbsoluteEdge(
   executeAbsoluteEdgeJump(edge, {
     firstPromptId,
     isCancelled: () => navVersionAtStart !== navigationJumpVersion,
-    onFirstPromptVisible: highlightMatchedElement,
+    onFirstPromptVisible: (el) =>
+      highlightMatchedElement(el, firstPromptId ?? undefined),
   });
 }
 
