@@ -183,6 +183,17 @@ After every implementation:
 5. Preserve public APIs, existing behavior, and test coverage during structural refactoring.
 6. Keep the codebase clean and consistent; small, directly related surrounding improvements are acceptable, while larger refactors must be proposed separately.
 
+### Function Complexity & State Ownership
+
+These thresholds are **review triggers rather than rigid splitting rules**; architectural clarity and low coupling take priority over line counts.
+
+1. **Function Size:** Prefer short, focused functions around 20–60 lines when practical. Review functions exceeding 100 lines for excessive responsibility, nesting, or unclear control flow; give priority architectural review above 200 lines; above 300 lines, require explicit justification and a concrete decomposition evaluation. Never extract trivial wrappers solely to satisfy line-count targets.
+2. **Single Responsibility:** Give each function one clear primary responsibility, separating orchestration from implementation details when readability improves. Extract coherent operations (such as validation, state transitions, recovery, or cleanup) instead of grouping unrelated logic simply because it shares local variables, but keep tightly coupled operations together when splitting would increase complexity.
+3. **State Ownership:** Assign one clearly defined owner for mutable state in complex workflows and state machines, grouping session-related state coherently when helpful. Extracted functions may operate on an explicitly owned session context, but never duplicate mutable state across modules or introduce excessive getter/setter indirection, unrelated callbacks, or oversized parameter objects. Document key state transitions, invariants, and lifecycle boundaries.
+4. **Lifecycle & Resource Management:** Every async workflow, timer, observer, event listener, and scheduled callback must have clear cancellation and cleanup ownership so stale sessions cannot interfere with newer operations. Keep retries and recovery bounded and preserve observable behavior during structural refactoring.
+5. **Large-Function Refactoring:** Do not treat a large function as unavoidable merely because it captures many closure variables. First evaluate separating its responsibilities while preserving centralized state ownership (via cohesive helpers, session-oriented design, or responsibility-based modules). For functions over 300 lines, document a concrete decomposition assessment before retaining them; if decomposition would increase coupling or behavioral risk, record why and keep the existing structure. Plan large refactors as small, independently verifiable phases.
+6. **Module Boundaries:** Group related modules into cohesive directories only when there is a clear architectural benefit, preserving stable public entry points, one-way dependencies, and clear interfaces. Avoid circular imports, unnecessary compatibility layers, and files or directories created solely to meet size limits.
+
 ## Generated Code Requirements
 
 When generating or modifying code:
