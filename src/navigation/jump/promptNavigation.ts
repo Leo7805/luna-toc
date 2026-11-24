@@ -17,6 +17,14 @@ import {
   highlightPromptElement,
 } from './promptHighlightOverlay';
 import {
+  createNavigationJumpId,
+  emitAlignmentMeasurement as emitJumpAlignmentMeasurement,
+  isNavigationDebugEnabled,
+  logJumpFailedDiagnostic,
+  logNavigationEvent,
+  type AlignmentMeasurementStage,
+} from './jumpDiagnostics';
+import {
   alignElementInContainer,
   computePromptLandingOffset,
   evaluateElementAlignment,
@@ -53,14 +61,6 @@ const findRenderedChatGptPromptByText = (
   platform().navigation.findRenderedPromptByText?.(text, root) ?? null;
 const getChatGptScrollContainer = (root?: ParentNode): HTMLElement | null =>
   platform().navigation.getScrollContainer(root);
-const createChatGptNavigationJumpId = (): string =>
-  platform().diagnostics.createJumpId();
-const logChatGptNavigationEvent = (
-  jumpId: string,
-  eventName: string,
-  details: Record<string, unknown> = {},
-  storage?: Storage
-): void => platform().diagnostics.logEvent(jumpId, eventName, details, storage);
 
 export interface VirtualSearchContext {
   conversationKey: string;
@@ -193,53 +193,6 @@ interface DisconnectRecoveryContext {
   remainingRecoveries: number;
   initialStrategy: NavigationStrategyName;
   initialVirtualTopOffsetPx?: number;
-}
-
-function isNavigationDebugEnabled(): boolean {
-  try {
-    const key = platform().diagnostics.debugStorageKey ?? 'chatTocDebugJump';
-    return (
-      typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1'
-    );
-  } catch {
-    return false;
-  }
-}
-
-function logJumpFailedDiagnostic(details: {
-  targetIndex: number;
-  targetMessageId: string;
-  reason: string;
-  strategy: NavigationStrategyName;
-  recoveryAttempts: number;
-  container?: HTMLElement | null;
-}): void {
-  if (!isNavigationDebugEnabled()) return;
-  const activeContainer = details.container ?? getChatGptScrollContainer();
-  const scrollPosition = activeContainer
-    ? {
-        scrollTop: activeContainer.scrollTop,
-        scrollHeight: activeContainer.scrollHeight,
-        clientHeight: activeContainer.clientHeight,
-        maxScrollTop: Math.max(
-          0,
-          activeContainer.scrollHeight - activeContainer.clientHeight
-        ),
-      }
-    : null;
-
-  const payload = {
-    targetIndex: details.targetIndex,
-    targetMessageId: details.targetMessageId,
-    reason: details.reason,
-    scrollPosition,
-    strategy: details.strategy,
-    recoveryAttempts: details.recoveryAttempts,
-  };
-
-  // Use console.debug with serialized JSON so handled navigation failures remain
-  // readable in DevTools without polluting chrome://extensions error logs.
-  console.debug(`[LUNA JUMP FAILED] ${JSON.stringify(payload)}`, payload);
 }
 
 const MIN_STABLE_DURATION_MS = 120;
@@ -468,7 +421,7 @@ function jumpWithIndependentVirtualNavigation(
   options: JumpMessageOptions = {}
 ): void {
   const mode = options.mode ?? 'target-driven';
-  const jumpId = createChatGptNavigationJumpId();
+  const jumpId = createNavigationJumpId();
   const context = getVirtualSearchContext();
   const container = getChatGptScrollContainer();
 
@@ -477,7 +430,7 @@ function jumpWithIndependentVirtualNavigation(
     ? platform().navigation.holdViewport?.(container)
     : undefined;
 
-  logChatGptNavigationEvent(jumpId, 'JUMP_START', {
+  logNavigationEvent(jumpId, 'JUMP_START', {
     conversationKey: context.conversationKey,
     targetPromptId: message.id,
     targetPromptIndex: index,
@@ -517,7 +470,7 @@ function jumpWithIndependentVirtualNavigation(
         clearJumpProgress?.();
       }
     }
-    logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+    logNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'missing-context',
       hasContainer: Boolean(container),
     });
@@ -552,7 +505,7 @@ function jumpWithIndependentVirtualNavigation(
   const renderedTarget = idHit ?? textHit;
 
   if (renderedTarget) {
-    logChatGptNavigationEvent(jumpId, 'JUMP_FAST_PATH_RESULT', {
+    logNavigationEvent(jumpId, 'JUMP_FAST_PATH_RESULT', {
       idHit: Boolean(idHit),
       textHit: Boolean(textHit),
       finalElement: renderedTarget.tagName,
@@ -661,7 +614,7 @@ function jumpWithIndependentVirtualNavigation(
         clearJumpProgress?.();
       }
     }
-    logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+    logNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'not-found',
       attempts: mountOutcome.reason,
     });
@@ -744,7 +697,7 @@ function finishIndependentVirtualJump(
         displacementKind
       );
     }
-    logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+    logNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status,
       strategy: activeStrategy,
       realignAttempts,
@@ -772,13 +725,7 @@ function finishIndependentVirtualJump(
   };
 
   const emitAlignmentMeasurement = (
-    stage:
-      | 'before-align'
-      | 'after-align'
-      | 'next-frame'
-      | 'realign'
-      | 'settled'
-      | 'failed',
+    stage: AlignmentMeasurementStage,
     el: HTMLElement,
     container: HTMLElement | null,
     expectedViewportTopPx: number,
@@ -786,40 +733,18 @@ function finishIndependentVirtualJump(
     method?: AlignElementResult['method'],
     displacementKind?: DisplacementKind
   ): void => {
-    if (!isNavigationDebugEnabled()) return;
-    const connected = el.isConnected;
-    const actualViewportTopPx = connected
-      ? Math.round(el.getBoundingClientRect().top * 10) / 10
-      : null;
-    const alignmentErrorPx =
-      actualViewportTopPx !== null
-        ? Math.round((actualViewportTopPx - expectedViewportTopPx) * 10) / 10
-        : null;
-    const distanceFromBottom = container
-      ? Math.round(
-          (container.scrollHeight - container.scrollTop - container.clientHeight) * 10
-        ) / 10
-      : null;
-
-    console.info('[LUNA ALIGNMENT]', {
+    emitJumpAlignmentMeasurement({
       jumpId,
       stage,
       targetMessageId: message.id,
       targetIndex: index,
       strategy: activeStrategy,
-      targetTag: el.tagName,
-      targetUnitKey: el.getAttribute('data-chatgpt-search-unit-key'),
-      targetConnected: connected,
-      expectedViewportTopPx: Math.round(expectedViewportTopPx * 10) / 10,
-      actualViewportTopPx,
-      alignmentErrorPx,
-      scrollTop: container ? Math.round(container.scrollTop) : null,
-      scrollHeight: container ? Math.round(container.scrollHeight) : null,
-      clientHeight: container ? Math.round(container.clientHeight) : null,
-      distanceFromBottom,
+      element: el,
+      container,
+      expectedViewportTopPx,
       clamped,
-      ...(method ? { method } : {}),
-      ...(displacementKind ? { displacementKind } : {}),
+      method,
+      displacementKind,
     });
   };
 
@@ -1102,7 +1027,7 @@ function finishIndependentVirtualJump(
       recoveryAttemptsUsed += 1;
 
       const recoveryAttempt = recoveryAttemptsUsed;
-      logChatGptNavigationEvent(jumpId, 'JUMP_DISCONNECT_RECOVERY_START', {
+      logNavigationEvent(jumpId, 'JUMP_DISCONNECT_RECOVERY_START', {
         targetPromptIndex: index,
         recoveryAttempt,
       });
@@ -1171,7 +1096,7 @@ function finishIndependentVirtualJump(
 
       if (userInterrupted) {
         cleanupStabilization();
-        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+        logNavigationEvent(jumpId, 'JUMP_FINISHED', {
           status: 'cancelled-by-user',
           strategy: activeStrategy,
           realignAttempts,
@@ -1357,7 +1282,7 @@ function finishIndependentVirtualJump(
             'none'
           );
         }
-        logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+        logNavigationEvent(jumpId, 'JUMP_FINISHED', {
           status: 'found',
           strategy: activeStrategy,
           realignAttempts,
@@ -1408,7 +1333,7 @@ function finishIndependentVirtualJump(
       keepFollowing(1800);
       const container = platform().navigation.getScrollContainer();
 
-      logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+      logNavigationEvent(jumpId, 'JUMP_FINISHED', {
         status: 'found-after-repoll',
         strategy: activeStrategy,
         realignAttempts,
@@ -1420,7 +1345,7 @@ function finishIndependentVirtualJump(
       onJumpComplete?.(index);
       return;
     }
-    logChatGptNavigationEvent(jumpId, 'JUMP_FINISHED', {
+    logNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'target-disappeared-after-search',
       strategy: activeStrategy,
       realignAttempts,
