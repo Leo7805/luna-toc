@@ -428,7 +428,12 @@ type NavigationStrategyName =
   | 'none';
 
 type MountTargetOutcome =
-  | { status: 'mounted'; element: HTMLElement; strategy: 'virtual-layout' | 'viewport-walker' }
+  | {
+      status: 'mounted';
+      element: HTMLElement;
+      strategy: 'virtual-layout' | 'viewport-walker';
+      virtualTopOffsetPx?: number;
+    }
   | { status: 'cancelled' }
   | {
       status: 'failed';
@@ -444,6 +449,7 @@ interface DisconnectRecoveryContext {
   recoverTarget: (options?: MountTargetOptions) => Promise<MountTargetOutcome>;
   remainingRecoveries: number;
   initialStrategy: NavigationStrategyName;
+  initialVirtualTopOffsetPx?: number;
 }
 
 function isNavigationDebugEnabled(): boolean {
@@ -640,7 +646,12 @@ async function mountTargetViaStrategy(
     return { status: 'cancelled' };
   }
   if (outcome.status === 'mounted') {
-    return { status: 'mounted', element: outcome.element, strategy: 'virtual-layout' };
+    return {
+      status: 'mounted',
+      element: outcome.element,
+      strategy: 'virtual-layout',
+      virtualTopOffsetPx: outcome.topOffsetPx,
+    };
   }
   if (
     outcome.status === 'capability-failure' ||
@@ -886,6 +897,7 @@ function jumpWithIndependentVirtualNavigation(
             mountTargetViaStrategy(createStrategyContext(), recoveryOpts),
           remainingRecoveries: MAX_DISCONNECT_RECOVERIES,
           initialStrategy: mountOutcome.strategy,
+          initialVirtualTopOffsetPx: mountOutcome.virtualTopOffsetPx,
         },
         initialScrollTopPx
       );
@@ -1386,8 +1398,12 @@ function finishIndependentVirtualJump(
     let lastRealignAt: number | null = null;
     let consecutiveAlignedFrames = 0;
     let stableSince: number | null = null;
+    let lastAlignedViewportTopPx: number | null = null;
     let consecutiveDisconnectedFrames = 0;
     let disconnectedSince: number | null = null;
+    let lastRecoveryVirtualOffsetPx: number | null =
+      recovery?.initialVirtualTopOffsetPx ?? null;
+    let lastVirtualOffsetShifted = false;
 
     const resetStabilizationPass = (nextTarget: HTMLElement): void => {
       activeTarget = nextTarget;
@@ -1396,6 +1412,7 @@ function finishIndependentVirtualJump(
       lastRealignAt = null;
       consecutiveAlignedFrames = 0;
       stableSince = null;
+      lastAlignedViewportTopPx = null;
       consecutiveDisconnectedFrames = 0;
       disconnectedSince = null;
       layoutMutatedDuringPass = false;
@@ -1422,13 +1439,16 @@ function finishIndependentVirtualJump(
         recoveryAttempt,
       });
 
-      // When a direct virtual-layout leap already collapsed scrollHeight
-      // (clamping scrollTop) or failed on a prior recovery attempt, switch to
-      // incremental viewport walking so ChatGPT mounts intermediate turns
-      // smoothly instead of repeating the same elastic snap-back loop.
+      // Progress-aware recovery strategy selection:
+      // Switch to Viewport Walker when a direct virtual-layout leap collapsed
+      // scrollHeight (clamped scrollTop), OR on a repeated recovery when the
+      // prior virtual-layout recovery did not shift topOffsetPx meaningfully
+      // (repeating the same static coordinate). When topOffsetPx is still
+      // converging during cold-start measurement, stay on virtual-layout
+      // instead of forcing a viewport walk that fights host scroll compensation.
       const skipVirtualLayout =
         activeStrategy === 'virtual-layout' &&
-        (lastAlignClamped || recoveryAttempt >= 2);
+        (lastAlignClamped || (recoveryAttempt >= 2 && !lastVirtualOffsetShifted));
 
       let outcome: MountTargetOutcome;
       try {
@@ -1451,6 +1471,18 @@ function finishIndependentVirtualJump(
       activeStrategy = outcome.strategy;
 
       if (outcome.status === 'mounted' && outcome.element.isConnected) {
+        if (
+          outcome.strategy === 'virtual-layout' &&
+          typeof outcome.virtualTopOffsetPx === 'number' &&
+          Number.isFinite(outcome.virtualTopOffsetPx)
+        ) {
+          lastVirtualOffsetShifted =
+            lastRecoveryVirtualOffsetPx !== null &&
+            Math.abs(outcome.virtualTopOffsetPx - lastRecoveryVirtualOffsetPx) > 4;
+          lastRecoveryVirtualOffsetPx = outcome.virtualTopOffsetPx;
+        } else {
+          lastVirtualOffsetShifted = false;
+        }
         resetStabilizationPass(outcome.element);
         if (scrollTargetIntoView(outcome.element, 'realign')) {
           if (isCancelled()) {
@@ -1496,8 +1528,6 @@ function finishIndependentVirtualJump(
       if (scrollHeightChanged && container) {
         layoutMutatedDuringPass = true;
         lastObservedScrollHeight = container.scrollHeight;
-        stableSince = null;
-        consecutiveAlignedFrames = 0;
       }
 
       // Re-resolve by stable message ID; never reuse a disconnected node as connected.
@@ -1522,6 +1552,7 @@ function finishIndependentVirtualJump(
       if (evalResult === 'disconnected') {
         stableSince = null;
         consecutiveAlignedFrames = 0;
+        lastAlignedViewportTopPx = null;
         if (disconnectedSince === null) {
           disconnectedSince = now;
         }
@@ -1555,6 +1586,7 @@ function finishIndependentVirtualJump(
       if (evalResult === 'correctable' && liveTarget) {
         stableSince = null;
         consecutiveAlignedFrames = 0;
+        lastAlignedViewportTopPx = null;
 
         const displacementKind = classifyDisplacement(container, scrollHeightChanged);
         if (displacementKind === 'external-scroll-suspected') {
@@ -1603,7 +1635,24 @@ function finishIndependentVirtualJump(
           container.scrollHeight - container.scrollTop - container.clientHeight
         );
       }
-      if (!scrollHeightChanged) {
+
+      const currentTargetViewportTopPx = liveTarget
+        ? liveTarget.getBoundingClientRect().top
+        : null;
+      const targetMovedInViewport =
+        currentTargetViewportTopPx !== null &&
+        lastAlignedViewportTopPx !== null &&
+        Math.abs(currentTargetViewportTopPx - lastAlignedViewportTopPx) >
+          SUBPIXEL_TOLERANCE_PX;
+      lastAlignedViewportTopPx = currentTargetViewportTopPx;
+
+      if (targetMovedInViewport) {
+        stableSince = null;
+        consecutiveAlignedFrames = 0;
+      } else {
+        // Target itself is connected, aligned/bounded, and visually stationary.
+        // Offscreen scrollHeight changes that are compensated by the host do
+        // not reset stability while the target stays locked at its landing offset.
         if (stableSince === null) {
           stableSince = now;
         }

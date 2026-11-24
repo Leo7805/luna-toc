@@ -3638,5 +3638,170 @@ describe('prompt navigation strategy', () => {
 
       walkerSpy.mockRestore();
     });
+
+    it('settles cleanly when offscreen scrollHeight oscillates (+/-1721px) while compensated target stays at 190px', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container, setScrollHeight } = createDynamicContainer(907, 125507, 18653);
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-15', text: 'Fifteenth', canMatchByText: true, createTime: 15 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'hysteresis-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const target15 = document.createElement('div');
+      target15.scrollIntoView = vi.fn();
+      // Target stays locked at 190px visually because ChatGPT compensates scrollTop by exact +/-1721px
+      target15.getBoundingClientRect = () =>
+        ({ top: 190, bottom: 260, left: 0, right: 800, width: 800, height: 70 } as DOMRect);
+      container.appendChild(target15);
+      mocks.findPrompt.mockReturnValue(target15);
+
+      jumpToMessage(prompts[1], 1);
+
+      // Oscillate scrollHeight and scrollTop every frame by +/-1721px (keeping sh - st constant)
+      for (let i = 0; i < 30; i++) {
+        if (i % 2 === 0) {
+          setScrollHeight(123786);
+          container.scrollTop = 16933;
+        } else {
+          setScrollHeight(125507);
+          container.scrollTop = 18653;
+        }
+        await stepFrame(20);
+      }
+
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(1);
+      expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it('realigns when scrollHeight changes AND the target itself actually moves away from 190px', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container, setScrollHeight } = createDynamicContainer(907, 120000, 18000);
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-15', text: 'Fifteenth', canMatchByText: true, createTime: 15 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'displaced-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      let targetDocTop = 18190;
+      const target15 = document.createElement('div');
+      target15.scrollIntoView = vi.fn();
+      target15.getBoundingClientRect = () => {
+        const top = targetDocTop - container.scrollTop;
+        return { top, bottom: top + 70, left: 0, right: 800, width: 800, height: 70 } as DOMRect;
+      };
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+      container.appendChild(target15);
+      mocks.findPrompt.mockReturnValue(target15);
+
+      jumpToMessage(prompts[1], 1);
+      await stepFrame(20);
+
+      // Genuine layout shift moves target away from 190px by +300px
+      setScrollHeight(120300);
+      targetDocTop += 300;
+      for (let i = 0; i < 30; i++) {
+        await stepFrame(20);
+      }
+
+      expect(target15.getBoundingClientRect().top).toBeCloseTo(190, 1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(1);
+      expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it('keeps virtual-layout on recovery 2 when recovery 1 shifted topOffsetPx meaningfully instead of forcing viewport-walker', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container } = createDynamicContainer(907, 120000, 0);
+      const prompts = Array.from({ length: 20 }, (_, i) => ({
+        id: `p-${i + 1}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i + 1,
+      }));
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'progress-recovery-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const makeNode = () => {
+        const el = document.createElement('div');
+        el.scrollIntoView = vi.fn();
+        el.getBoundingClientRect = () =>
+          ({ top: 190, bottom: 260, left: 0, right: 800, width: 800, height: 70 } as DOMRect);
+        return el;
+      };
+      const node0 = makeNode();
+      const node1 = makeNode();
+      const node2 = makeNode();
+
+      mocks.findPrompt.mockReturnValue(null);
+      // Cold-start offsets converge across jumps: 10027.5 -> 15604 -> 18759
+      mocks.queryVirtualJumpTarget
+        .mockReturnValueOnce({ status: 'ok', targetIndex: 14, topOffsetPx: 10027.5, turnCount: 123 })
+        .mockReturnValueOnce({ status: 'ok', targetIndex: 14, topOffsetPx: 15604, turnCount: 123 })
+        .mockReturnValue({ status: 'ok', targetIndex: 14, topOffsetPx: 18759, turnCount: 123 });
+
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+
+      const walkerSpy = vi.spyOn(viewportWalker, 'loadUntilMountedViaViewport');
+
+      jumpToMessage(prompts[14], 14);
+
+      // Initial mount -> disconnects
+      container.appendChild(node0);
+      mocks.findPrompt.mockReturnValue(node0);
+      await stepFrame(16);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      node0.remove();
+      mocks.findPrompt.mockReturnValue(null);
+      for (let i = 0; i < 5; i++) await stepFrame(16);
+
+      // Recovery 1 mounts at shifted offset 15604 -> disconnects again
+      container.appendChild(node1);
+      mocks.findPrompt.mockReturnValue(node1);
+      await stepFrame(16);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      node1.remove();
+      mocks.findPrompt.mockReturnValue(null);
+      for (let i = 0; i < 5; i++) await stepFrame(16);
+
+      // Recovery 2 must stay on virtual-layout (query 3 = 18759), NOT force viewport-walker!
+      container.appendChild(node2);
+      mocks.findPrompt.mockReturnValue(node2);
+      for (let i = 0; i < 30; i++) await stepFrame(20);
+
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(3);
+      expect(walkerSpy).not.toHaveBeenCalled();
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(14);
+      expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+
+      walkerSpy.mockRestore();
+    });
   });
 });

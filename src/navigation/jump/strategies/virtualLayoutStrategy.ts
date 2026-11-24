@@ -7,6 +7,10 @@ import { computeDirectionTowardTarget } from '@/navigation/jump/direction';
 import { DOM_SETTLE_CONFIG } from '@/navigation/jump/domSettle';
 import { queueSidebarIndices, seedMountQueue } from '@/navigation/jump/mountQueue';
 import { JUMP_STRATEGY_CONFIG } from './config';
+import {
+  shouldActivateSuccessorAnchor,
+  trySuccessorAnchorRecovery,
+} from './successorAnchorRecovery';
 import type {
   JumpStrategyContext,
   VirtualStrategyAttempt,
@@ -695,6 +699,7 @@ async function executeDirectVirtualJump(
 
   const fullMountTimeoutMs = JUMP_STRATEGY_CONFIG.virtualLayout.mountTimeoutMs;
   const firstWaitMs = Math.min(DIRECT_JUMP_REFINEMENT_WAIT_MS, fullMountTimeoutMs);
+  let triedSuccessorAnchor = false;
 
   for (let attempt = 0; attempt <= MAX_DIRECT_JUMP_REFINEMENTS; attempt++) {
     if (context.isCancelled()) {
@@ -732,7 +737,37 @@ async function executeDirectVirtualJump(
     }
 
     if (mountedElement) {
-      return { status: 'mounted', element: mountedElement };
+      const scrolledAwayDuringMount =
+        Math.abs(context.container.scrollTop - scrollTopAfterWrite) >
+        DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX;
+
+      // On cold-start jumps where host scroll-anchor compensation immediately
+      // moved scrollTop during mount, verify the exact target UUID survives
+      // one rendered frame before handing off; if it transiently unmounts due
+      // to virtualizer height collapse, fall through to bounded refinement.
+      if (!isLastAttempt && scrolledAwayDuringMount) {
+        const wasConnected = mountedElement.isConnected;
+        await waitForRenderedFrame(context.isCancelled);
+        if (context.isCancelled()) {
+          return { status: 'cancelled' };
+        }
+        const verifiedElement = getActivePlatform().navigation.findRenderedPrompt(
+          context.targetMessage.id
+        );
+        if (verifiedElement && (!wasConnected || verifiedElement.isConnected)) {
+          return {
+            status: 'mounted',
+            element: verifiedElement,
+            topOffsetPx: currentTopOffsetPx,
+          };
+        }
+      } else {
+        return {
+          status: 'mounted',
+          element: mountedElement,
+          topOffsetPx: currentTopOffsetPx,
+        };
+      }
     }
 
     if (isLastAttempt) {
@@ -764,6 +799,42 @@ async function executeDirectVirtualJump(
         viewportDriftedFromWrite &&
         Math.abs(currentScrollTop - nextResult.topOffsetPx) >
           DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX;
+
+      // When a direct jump to a stagnant non-zero offset is ejected downward
+      // by host scroll compensation (signature of a very tall unmounted turn
+      // expanding and reverting), attempt bounded successor-anchor recovery
+      // once instead of repeating the same failing direct jump.
+      if (
+        !triedSuccessorAnchor &&
+        shouldActivateSuccessorAnchor({
+          currentTopOffsetPx,
+          currentScrollTop,
+          nextTopOffsetPx: nextResult.topOffsetPx,
+          targetIndex: context.targetIndex,
+          promptCount: context.prompts.length,
+          offsetThresholdPx: DIRECT_JUMP_OFFSET_CHANGE_THRESHOLD_PX,
+        })
+      ) {
+        triedSuccessorAnchor = true;
+        const anchorOutcome = await trySuccessorAnchorRecovery(
+          context,
+          currentTopOffsetPx,
+          {
+            queryJumpTarget,
+            waitForTargetMount,
+            waitForRenderedFrame,
+          }
+        );
+        if (context.isCancelled() || anchorOutcome?.status === 'cancelled') {
+          return { status: 'cancelled' };
+        }
+        if (anchorOutcome?.status === 'mounted') {
+          return anchorOutcome;
+        }
+        // Anchor recovery could not establish a stable target: exit cleanly
+        // rather than repeating the same ejected static offset.
+        break;
+      }
 
       if (offsetChanged || viewportDriftedFromTarget) {
         currentTopOffsetPx = nextResult.topOffsetPx;
@@ -823,7 +894,11 @@ async function executeDirectVirtualJump(
         return { status: 'cancelled' };
       }
       if (lateElement) {
-        return { status: 'mounted', element: lateElement };
+        return {
+          status: 'mounted',
+          element: lateElement,
+          topOffsetPx: currentTopOffsetPx,
+        };
       }
     }
     break;

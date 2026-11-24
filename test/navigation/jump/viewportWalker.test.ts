@@ -557,4 +557,149 @@ describe('viewportWalker', () => {
     // Zero additional viewport writes performed (scrollTop stays at 200, does not become 400)
     expect(container.scrollTop).toBe(200);
   });
+
+  it('terminates with oscillation-no-progress when mid-feed host compensation repeatedly reverses upward steps', async () => {
+    document.body.innerHTML = `
+      <div data-chatgpt-search-unit-key="msg-30:user" data-chatgpt-search-message-ids="msg-30">Prompt 30</div>
+    `;
+
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 100000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 900,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 900,
+      configurable: true,
+    });
+    // Mid-feed position far from physical boundary (0 or maxScrollTop)
+    container.scrollTop = 21000;
+
+    const prompts = Array.from({ length: 40 }, (_, i) => ({
+      id: `msg-${i + 1}`,
+    }));
+    let failureReason: string | undefined;
+    const promise = loadUntilMountedViaViewport(
+      'msg-15',
+      14,
+      prompts,
+      container,
+      'jump-osc',
+      () => false,
+      (reason) => {
+        failureReason = reason;
+      }
+    );
+
+    // Every step, Walker steps up -900px, then ChatGPT's anchor compensator
+    // pushes scrollTop back down to 22000 (no net progress toward target).
+    for (let i = 0; i < 12; i++) {
+      container.scrollTop = 22000;
+      await vi.advanceTimersByTimeAsync(20);
+    }
+
+    const hit = await promise;
+    expect(hit).toBeNull();
+    expect(failureReason).toBe('oscillation-no-progress');
+    // Must not have entered the 1500ms boundary stall wait mid-feed
+    expect(container.scrollTop).toBeGreaterThan(15000);
+  });
+
+  it('terminates with direction-oscillation when mounted frontier flips repeatedly across target', async () => {
+    const el10 = document.createElement('div');
+    el10.setAttribute('data-chatgpt-search-unit-key', 'msg-10:user');
+    el10.setAttribute('data-chatgpt-search-message-ids', 'msg-10');
+    document.body.appendChild(el10);
+
+    Object.defineProperty(container, 'scrollHeight', {
+      value: 50000,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 900,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 900,
+      configurable: true,
+    });
+    container.scrollTop = 10000;
+
+    const prompts = Array.from({ length: 30 }, (_, i) => ({
+      id: `msg-${i + 1}`,
+    }));
+    let failureReason: string | undefined;
+    const promise = loadUntilMountedViaViewport(
+      'msg-15',
+      14,
+      prompts,
+      container,
+      'jump-dir-osc',
+      () => false,
+      (reason) => {
+        failureReason = reason;
+      }
+    );
+
+    // Alternate mounted frontier above (#10) and below (#20) target #15
+    for (let i = 0; i < 5; i++) {
+      document.body.innerHTML = '';
+      const id = i % 2 === 0 ? 'msg-20' : 'msg-10';
+      const el = document.createElement('div');
+      el.setAttribute('data-chatgpt-search-unit-key', `${id}:user`);
+      el.setAttribute('data-chatgpt-search-message-ids', id);
+      document.body.appendChild(el);
+      await vi.advanceTimersByTimeAsync(20);
+    }
+
+    const hit = await promise;
+    expect(hit).toBeNull();
+    expect(failureReason).toBe('direction-oscillation');
+  });
+
+  it('allows multi-page boundary pagination exceeding 4000ms total when each stall expands scrollHeight', async () => {
+    document.body.innerHTML = `
+      <div data-chatgpt-search-unit-key="msg-1:user" data-chatgpt-search-message-ids="msg-1">Prompt 1</div>
+    `;
+
+    let currentScrollHeight = 800;
+    Object.defineProperty(container, 'scrollHeight', {
+      get: () => currentScrollHeight,
+      configurable: true,
+    });
+    Object.defineProperty(container, 'clientHeight', {
+      value: 800,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      configurable: true,
+    });
+    container.scrollTop = 0;
+
+    const prompts = [{ id: 'msg-1' }, { id: 'msg-2' }, { id: 'msg-3' }];
+    const promise = loadUntilMountedViaViewport('msg-3', 2, prompts, container);
+
+    // Simulate 4 slow pagination batches (~1200ms each = 4800ms > 4000ms no-progress budget)
+    for (let batch = 1; batch <= 4; batch++) {
+      await vi.advanceTimersByTimeAsync(1100);
+      currentScrollHeight += 800;
+      const pageEl = document.createElement('div');
+      pageEl.textContent = `Batch ${batch}`;
+      document.body.appendChild(pageEl);
+      await vi.advanceTimersByTimeAsync(100);
+    }
+
+    const msg3El = document.createElement('div');
+    msg3El.setAttribute('data-chatgpt-search-unit-key', 'msg-3:user');
+    msg3El.setAttribute('data-chatgpt-search-message-ids', 'msg-3');
+    document.body.appendChild(msg3El);
+    await vi.advanceTimersByTimeAsync(40);
+
+    const hit = await promise;
+    expect(hit).toBe(msg3El);
+  });
 });

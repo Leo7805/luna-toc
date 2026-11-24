@@ -36,6 +36,7 @@ export type VirtualStrategyExecutionResult =
   | {
       readonly status: 'mounted';
       readonly element: HTMLElement;
+      readonly topOffsetPx?: number;
     }
   | {
       readonly status: 'capability-failure';

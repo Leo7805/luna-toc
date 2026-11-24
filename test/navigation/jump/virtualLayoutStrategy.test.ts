@@ -1585,4 +1585,459 @@ describe('Sticky Older-History Virtual Pagination', () => {
 
     container.remove();
   });
+
+  it('detects transient mount followed by immediate host-drift disconnection and refines to updated topOffsetPx', async () => {
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+    Object.defineProperty(container, 'scrollHeight', { value: 120000, configurable: true });
+    container.scrollTop = 0;
+    document.body.appendChild(container);
+
+    const transientEl = document.createElement('div');
+    const stableEl = document.createElement('div');
+    let scrollCount = 0;
+
+    container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+      if (typeof opts === 'object' && typeof opts?.top === 'number') {
+        scrollCount += 1;
+        container.scrollTop = opts.top;
+        if (scrollCount === 1) {
+          // Cold-start underestimate: host compensation asynchronously jumps
+          // scrollTop to 17277, mounts #15 transiently, then unmounts it before
+          // the next rendered frame.
+          setTimeout(() => {
+            container.scrollTop = 17277;
+            container.appendChild(transientEl);
+            mocks.findRenderedPrompt.mockReturnValueOnce(transientEl);
+            setTimeout(() => {
+              transientEl.remove();
+              mocks.findRenderedPrompt.mockReturnValue(null);
+            }, 10);
+          }, 5);
+        } else if (scrollCount === 2 && opts.top === 15604) {
+          // Refined jump mounts #15 stably
+          container.appendChild(stableEl);
+          mocks.findRenderedPrompt.mockReturnValue(stableEl);
+        }
+      }
+    });
+
+    mocks.queryVirtualJumpTarget
+      .mockReturnValueOnce({ status: 'ok', targetIndex: 14, topOffsetPx: 10027.5, turnCount: 123 })
+      .mockReturnValue({ status: 'ok', targetIndex: 14, topOffsetPx: 15604, turnCount: 123 });
+    mocks.findRenderedPrompt.mockReturnValue(null);
+
+    const attempt = tryVirtualLayoutStrategy({
+      targetMessage: { id: 'msg-15', text: '', canMatchByText: true, createTime: 14 },
+      targetIndex: 14,
+      prompts: Array.from({ length: 20 }, (_, i) => ({
+        id: `msg-${i + 1}`,
+        text: '',
+        canMatchByText: true,
+        createTime: i,
+      })),
+      container,
+      jumpId: 'test-transient-mount-disconnect',
+      isCancelled: () => false,
+    });
+
+    assertVirtual(attempt);
+    await vi.advanceTimersByTimeAsync(200);
+
+    const outcome = await attempt.promise;
+    expect(outcome.status).toBe('mounted');
+    if (outcome.status === 'mounted') {
+      expect(outcome.element).toBe(stableEl);
+      expect(outcome.topOffsetPx).toBe(15604);
+    }
+    expect(container.scrollTo).toHaveBeenCalledTimes(2);
+    expect(container.scrollTo).toHaveBeenNthCalledWith(1, { top: 10027.5, behavior: 'auto' });
+    expect(container.scrollTo).toHaveBeenNthCalledWith(2, { top: 15604, behavior: 'auto' });
+
+    container.remove();
+  });
+
+  describe('Bounded Successor-Anchor Recovery', () => {
+    const makePrompts = (count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        id: `msg-${i + 1}`,
+        text: `Prompt ${i + 1}`,
+        canMatchByText: true,
+        createTime: i,
+      }));
+
+    const makeContainer = (scrollHeight = 130000) => {
+      const container = document.createElement('div');
+      container.className = 'thread-scroll-container';
+      Object.defineProperty(container, 'clientHeight', { value: 907, configurable: true });
+      Object.defineProperty(container, 'scrollHeight', { value: scrollHeight, configurable: true });
+      container.scrollTop = 0;
+      document.body.appendChild(container);
+      return container;
+    };
+
+    it('recovers via 1-hop successor anchor (#15 via #16) when direct jump is ejected downward at stagnant offset', async () => {
+      const container = makeContainer();
+      const el15 = document.createElement('div');
+      const el16 = document.createElement('div');
+      let mounted15 = false;
+      let mounted16 = false;
+
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (opts.top === 11230.5) {
+            // Direct jump to #15 gets ejected downward to 20555 while #15 unmounts
+            setTimeout(() => {
+              container.scrollTop = 20555;
+            }, 10);
+          } else if (opts.top === 11754) {
+            // Anchor jump to #16 stably mounts #16 AND #15 above it
+            setTimeout(() => {
+              container.scrollTop = 22472;
+              container.appendChild(el15);
+              container.appendChild(el16);
+              mounted15 = true;
+              mounted16 = true;
+            }, 10);
+          }
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockImplementation((_c, id: string) => {
+        if (id === 'msg-15') {
+          return {
+            status: 'ok',
+            targetIndex: 14,
+            topOffsetPx: mounted15 ? 13778 : 11230.5,
+            turnCount: 125,
+          };
+        }
+        if (id === 'msg-16') {
+          return { status: 'ok', targetIndex: 15, topOffsetPx: 11754, turnCount: 125 };
+        }
+        return { status: 'unavailable' };
+      });
+      mocks.findRenderedPrompt.mockImplementation((id: string) => {
+        if (id === 'msg-15' && mounted15) return el15;
+        if (id === 'msg-16' && mounted16) return el16;
+        return null;
+      });
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-15', text: 'Prompt 15', canMatchByText: true, createTime: 14 },
+        targetIndex: 14,
+        prompts: makePrompts(20),
+        container,
+        jumpId: 'test-1hop-anchor',
+        isCancelled: () => false,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      const outcome = await attempt.promise;
+      expect(outcome.status).toBe('mounted');
+      if (outcome.status === 'mounted') {
+        expect(outcome.element).toBe(el15);
+        expect(outcome.topOffsetPx).toBe(13778);
+      }
+      expect(container.scrollTo).toHaveBeenCalledWith({ top: 11230.5, behavior: 'auto' });
+      expect(container.scrollTo).toHaveBeenCalledWith({ top: 11754, behavior: 'auto' });
+      container.remove();
+    });
+
+    it('recovers via 2-hop successor anchor (#14 via #16 -> #15) when immediate successor (#15) is also ejected', async () => {
+      const container = makeContainer();
+      const el14 = document.createElement('div');
+      const el15 = document.createElement('div');
+      const el16 = document.createElement('div');
+      let mounted14 = false;
+      let mounted15 = false;
+      let mounted16 = false;
+
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (opts.top === 23792) {
+            // Direct #14 jump ejected downward
+            setTimeout(() => { container.scrollTop = 36000; }, 10);
+          } else if (opts.top === 24462) {
+            // Hop 1 (#15) is also ejected downward without mounting
+            setTimeout(() => { container.scrollTop = 36469; }, 10);
+          } else if (opts.top === 24848) {
+            // Hop 2 (#16) mounts #16 + #15 above it (but #14 still one turn further up)
+            setTimeout(() => {
+              container.scrollTop = 34716;
+              container.appendChild(el15);
+              container.appendChild(el16);
+              mounted15 = true;
+              mounted16 = true;
+            }, 10);
+          } else if (opts.top === 26022) {
+            // Step-back to measured #15 mounts #14 stably
+            setTimeout(() => {
+              container.scrollTop = 26022;
+              container.appendChild(el14);
+              mounted14 = true;
+            }, 10);
+          }
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockImplementation((_c, id: string) => {
+        if (id === 'msg-14') {
+          return { status: 'ok', targetIndex: 13, topOffsetPx: mounted14 ? 27774.5 : 23792, turnCount: 125 };
+        }
+        if (id === 'msg-15') {
+          return { status: 'ok', targetIndex: 14, topOffsetPx: mounted15 ? 26022 : 24462, turnCount: 125 };
+        }
+        if (id === 'msg-16') {
+          return { status: 'ok', targetIndex: 15, topOffsetPx: 24848, turnCount: 125 };
+        }
+        return { status: 'unavailable' };
+      });
+      mocks.findRenderedPrompt.mockImplementation((id: string) => {
+        if (id === 'msg-14' && mounted14) return el14;
+        if (id === 'msg-15' && mounted15) return el15;
+        if (id === 'msg-16' && mounted16) return el16;
+        return null;
+      });
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-14', text: 'Prompt 14', canMatchByText: true, createTime: 13 },
+        targetIndex: 13,
+        prompts: makePrompts(20),
+        container,
+        jumpId: 'test-2hop-anchor',
+        isCancelled: () => false,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(2000);
+
+      const outcome = await attempt.promise;
+      expect(outcome.status).toBe('mounted');
+      if (outcome.status === 'mounted') {
+        expect(outcome.element).toBe(el14);
+        expect(outcome.topOffsetPx).toBe(27774.5);
+      }
+      container.remove();
+    });
+
+    it('rejects a target that mounts momentarily during anchor recovery and disconnects before stability verification', async () => {
+      const container = makeContainer();
+      const el15 = document.createElement('div');
+      const el16 = document.createElement('div');
+      let mounted15 = false;
+      let mounted16 = false;
+
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (opts.top === 11230.5) {
+            setTimeout(() => { container.scrollTop = 20555; }, 10);
+          } else if (opts.top === 11754) {
+            setTimeout(() => {
+              container.appendChild(el15);
+              container.appendChild(el16);
+              mounted15 = true;
+              mounted16 = true;
+              // Target #15 disconnects during the rendered-frame verification window!
+              setTimeout(() => {
+                el15.remove();
+                mounted15 = false;
+              }, 20);
+            }, 10);
+          }
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockImplementation((_c, id: string) => {
+        if (id === 'msg-15') return { status: 'ok', targetIndex: 14, topOffsetPx: 11230.5, turnCount: 125 };
+        if (id === 'msg-16') return { status: 'ok', targetIndex: 15, topOffsetPx: 11754, turnCount: 125 };
+        return { status: 'unavailable' };
+      });
+      mocks.findRenderedPrompt.mockImplementation((id: string) => {
+        if (id === 'msg-15' && mounted15) return el15;
+        if (id === 'msg-16' && mounted16) return el16;
+        return null;
+      });
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-15', text: 'Prompt 15', canMatchByText: true, createTime: 14 },
+        targetIndex: 14,
+        prompts: makePrompts(16), // Only 1 successor (#16)
+        container,
+        jumpId: 'test-momentary-disconnect',
+        isCancelled: () => false,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(2000);
+
+      const outcome = await attempt.promise;
+      expect(outcome).toEqual({ status: 'exhausted', reason: 'target-mount-timeout' });
+      container.remove();
+    });
+
+    it('never activates successor anchor for the Last Prompt (no valid successor)', async () => {
+      const container = makeContainer();
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          const requestedTop = opts.top;
+          container.scrollTop = requestedTop;
+          setTimeout(() => { container.scrollTop = requestedTop + 3000; }, 10);
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 19,
+        topOffsetPx: 50000,
+        turnCount: 20,
+      });
+      mocks.findRenderedPrompt.mockReturnValue(null);
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-20', text: 'Last', canMatchByText: true, createTime: 19 },
+        targetIndex: 19,
+        prompts: makePrompts(20),
+        container,
+        jumpId: 'test-last-no-successor',
+        isCancelled: () => false,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(3500);
+
+      const outcome = await attempt.promise;
+      expect(outcome).toEqual({ status: 'exhausted', reason: 'target-mount-timeout' });
+      // Every query was only for msg-20 (never queried a successor)
+      for (const call of mocks.queryVirtualJumpTarget.mock.calls) {
+        expect(call[1]).toBe('msg-20');
+      }
+      container.remove();
+    });
+
+    it('bypasses successor anchor for To Top (topOffsetPx === 0) and ordinary converging jumps', async () => {
+      const container = makeContainer();
+      const el60 = document.createElement('div');
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (opts.top === 61798) {
+            container.appendChild(el60);
+            mocks.findRenderedPrompt.mockReturnValue(el60);
+          }
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 59,
+        topOffsetPx: 61798,
+        turnCount: 125,
+      });
+      mocks.findRenderedPrompt.mockReturnValue(null);
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-60', text: 'Prompt 60', canMatchByText: true, createTime: 59 },
+        targetIndex: 59,
+        prompts: makePrompts(65),
+        container,
+        jumpId: 'test-ordinary-bypass',
+        isCancelled: () => false,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const outcome = await attempt.promise;
+      expect(outcome.status).toBe('mounted');
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(1);
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledWith(container, 'msg-60');
+      container.remove();
+    });
+
+    it('cancels immediately during successor-anchor recovery with zero further scroll writes', async () => {
+      const container = makeContainer();
+      let cancelled = false;
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (opts.top === 11230.5) {
+            setTimeout(() => { container.scrollTop = 20555; }, 10);
+          } else if (opts.top === 11754) {
+            // Cancel while awaiting Hop 1 anchor mount
+            setTimeout(() => { cancelled = true; }, 50);
+          }
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockImplementation((_c, id: string) => {
+        if (id === 'msg-15') return { status: 'ok', targetIndex: 14, topOffsetPx: 11230.5, turnCount: 125 };
+        if (id === 'msg-16') return { status: 'ok', targetIndex: 15, topOffsetPx: 11754, turnCount: 125 };
+        if (id === 'msg-17') return { status: 'ok', targetIndex: 16, topOffsetPx: 12046, turnCount: 125 };
+        return { status: 'unavailable' };
+      });
+      mocks.findRenderedPrompt.mockReturnValue(null);
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-15', text: 'Prompt 15', canMatchByText: true, createTime: 14 },
+        targetIndex: 14,
+        prompts: makePrompts(20),
+        container,
+        jumpId: 'test-anchor-cancel',
+        isCancelled: () => cancelled,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(1200);
+
+      const outcome = await attempt.promise;
+      expect(outcome).toEqual({ status: 'cancelled' });
+      // Must NOT proceed to Hop 2 (12046) after cancellation
+      expect(container.scrollTo).not.toHaveBeenCalledWith({ top: 12046, behavior: 'auto' });
+      container.remove();
+    });
+
+    it('exhausts cleanly without looping when both successor anchor hops fail', async () => {
+      const container = makeContainer();
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          const requestedTop = opts.top;
+          container.scrollTop = requestedTop;
+          setTimeout(() => { container.scrollTop = requestedTop + 8000; }, 10);
+        }
+      });
+
+      mocks.queryVirtualJumpTarget.mockImplementation((_c, id: string) => {
+        if (id === 'msg-15') return { status: 'ok', targetIndex: 14, topOffsetPx: 11230.5, turnCount: 125 };
+        if (id === 'msg-16') return { status: 'ok', targetIndex: 15, topOffsetPx: 11754, turnCount: 125 };
+        if (id === 'msg-17') return { status: 'ok', targetIndex: 16, topOffsetPx: 12046, turnCount: 125 };
+        return { status: 'unavailable' };
+      });
+      mocks.findRenderedPrompt.mockReturnValue(null);
+
+      const attempt = tryVirtualLayoutStrategy({
+        targetMessage: { id: 'msg-15', text: 'Prompt 15', canMatchByText: true, createTime: 14 },
+        targetIndex: 14,
+        prompts: makePrompts(20),
+        container,
+        jumpId: 'test-anchor-exhaust',
+        isCancelled: () => false,
+      });
+
+      assertVirtual(attempt);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const outcome = await attempt.promise;
+      expect(outcome).toEqual({ status: 'exhausted', reason: 'target-mount-timeout' });
+      // Exactly 3 scrollTo writes: initial target (11230.5) + Hop 1 (11754) + Hop 2 (12046), no loop!
+      expect(container.scrollTo).toHaveBeenCalledTimes(3);
+      container.remove();
+    });
+  });
 });

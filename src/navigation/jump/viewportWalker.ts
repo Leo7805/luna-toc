@@ -72,6 +72,32 @@ function findExactTarget(
 }
 
 /**
+ * Structured termination reason reported when the viewport walker cannot mount the target.
+ */
+export type ViewportWalkFailureReason =
+  | 'no-mounted-at-seed'
+  | 'unknown-direction'
+  | 'cancelled'
+  | 'boundary-exhausted'
+  | 'oscillation-no-progress'
+  | 'direction-oscillation'
+  | 'no-progress-timeout'
+  | 'max-steps-reached';
+
+const MAX_WALK_STEPS = 200;
+const MAX_UNPRODUCTIVE_STEPS = 8;
+const MAX_DIRECTION_FLIPS = 4;
+const MAX_NO_PROGRESS_MS = 4000;
+const BOUNDARY_TOLERANCE_PX = 1;
+
+function getMonotonicNowMs(): number {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+/**
  * Tests whether `after` moved in the requested direction relative to `before`.
  * Supports both standard flex and column-reverse negative scrollTop.
  */
@@ -81,6 +107,48 @@ function hasMovedTowardTarget(
   direction: 1 | -1
 ): boolean {
   return (after - before) * direction > 0;
+}
+
+/**
+ * Returns true only when the container is already at the physical scroll edge
+ * in `direction`, distinguishing genuine boundary/pagination stalls from
+ * mid-feed host scroll-anchor compensation reversals.
+ */
+function isAtPhysicalBoundary(
+  container: HTMLElement,
+  direction: 1 | -1,
+  isReverse: boolean
+): boolean {
+  const maxScrollTop = Math.max(
+    0,
+    container.scrollHeight - container.clientHeight
+  );
+  const current = container.scrollTop;
+  if (isReverse) {
+    return direction === -1
+      ? current <= -maxScrollTop + BOUNDARY_TOLERANCE_PX
+      : current >= -BOUNDARY_TOLERANCE_PX;
+  }
+  return direction === -1
+    ? current <= BOUNDARY_TOLERANCE_PX
+    : current >= maxScrollTop - BOUNDARY_TOLERANCE_PX;
+}
+
+/**
+ * Returns the minimum sidebar-index distance between `targetIndex` and any
+ * currently mounted prompt, or null if no prompts are mounted.
+ */
+function getFrontierDistanceToTarget(
+  targetIndex: number,
+  indices: ReadonlyArray<number>
+): number | null {
+  if (indices.length === 0) return null;
+  let minDistance = Infinity;
+  for (const idx of indices) {
+    const dist = Math.abs(targetIndex - idx);
+    if (dist < minDistance) minDistance = dist;
+  }
+  return Number.isFinite(minDistance) ? minDistance : null;
 }
 
 /**
@@ -159,7 +227,8 @@ export async function loadUntilMountedViaViewport(
   prompts: ReadonlyArray<{ id: string }>,
   container: HTMLElement,
   jumpId?: string,
-  isCancelled: () => boolean = () => false
+  isCancelled: () => boolean = () => false,
+  onFailureReason?: (reason: ViewportWalkFailureReason) => void
 ): Promise<HTMLElement | null> {
   const LOAD_SETTLE_MS = 1500;
   const root = document;
@@ -170,14 +239,19 @@ export async function loadUntilMountedViaViewport(
     }
   }
 
+  function finishWithFailure(reason: ViewportWalkFailureReason): null {
+    onFailureReason?.(reason);
+    logLoadStep({ result: reason });
+    return null;
+  }
+
   const isReverse =
     window.getComputedStyle(container).flexDirection === 'column-reverse';
 
   // Seed the queue to establish initial direction
   const mountQueue: MountQueue = seedMountQueue(prompts, root);
   if (mountQueue.size === 0) {
-    logLoadStep({ result: 'no-mounted-at-seed' });
-    return null;
+    return finishWithFailure('no-mounted-at-seed');
   }
 
   // Initial check: if already mounted, exit immediately in 0 scroll writes
@@ -193,7 +267,7 @@ export async function loadUntilMountedViaViewport(
     sidebarIndices
   );
   if (initialDirection === null) {
-    return null;
+    return finishWithFailure('unknown-direction');
   }
   let direction = initialDirection;
 
@@ -211,7 +285,26 @@ export async function loadUntilMountedViaViewport(
     targetObserver.observe(root, { childList: true, subtree: true });
 
     let stepIndex = 0;
+    let unproductiveSteps = 0;
+    let directionFlips = 0;
+    let bestScrollTopInDirection: number | null = container.scrollTop;
+    let bestFrontierDistance = getFrontierDistanceToTarget(
+      targetIndex,
+      sidebarIndices
+    );
+    let lastProgressAtMs = getMonotonicNowMs();
+    let failureReason: ViewportWalkFailureReason = 'boundary-exhausted';
+
     while (!isCancelled()) {
+      if (stepIndex >= MAX_WALK_STEPS) {
+        failureReason = 'max-steps-reached';
+        break;
+      }
+      if (getMonotonicNowMs() - lastProgressAtMs >= MAX_NO_PROGRESS_MS) {
+        failureReason = 'no-progress-timeout';
+        break;
+      }
+
       const currentStep = stepIndex++;
 
       // Check if target was detected by passive observer or direct check
@@ -245,7 +338,7 @@ export async function loadUntilMountedViaViewport(
       await nextAnimationFrame();
 
       if (isCancelled()) {
-        return null;
+        return finishWithFailure('cancelled');
       }
 
       // Target check after frame yield
@@ -273,16 +366,71 @@ export async function loadUntilMountedViaViewport(
       // Recompute mounted indices and direction toward target
       const currentIndices = queueSidebarIndices(mountQueue);
       const nextDir = computeDirectionTowardTarget(targetIndex, currentIndices);
-      if (nextDir !== null) {
+      const afterScrollTop = container.scrollTop;
+      const movedTowardTarget = hasMovedTowardTarget(
+        beforeScrollTop,
+        afterScrollTop,
+        stepDirection
+      );
+
+      if (nextDir !== null && nextDir !== direction) {
         direction = nextDir;
+        directionFlips += 1;
+        bestScrollTopInDirection = afterScrollTop;
+        if (directionFlips >= MAX_DIRECTION_FLIPS) {
+          failureReason = 'direction-oscillation';
+          break;
+        }
       }
 
-      const afterScrollTop = container.scrollTop;
-      const movedTowardTarget = hasMovedTowardTarget(beforeScrollTop, afterScrollTop, stepDirection);
+      const frontierDistance = getFrontierDistanceToTarget(
+        targetIndex,
+        currentIndices
+      );
+      const frontierImproved =
+        frontierDistance !== null &&
+        (bestFrontierDistance === null || frontierDistance < bestFrontierDistance);
+      if (frontierImproved && frontierDistance !== null) {
+        bestFrontierDistance = frontierDistance;
+      }
+
+      const netScrollImproved =
+        bestScrollTopInDirection === null ||
+        hasMovedTowardTarget(
+          bestScrollTopInDirection,
+          afterScrollTop,
+          stepDirection
+        );
+      if (netScrollImproved) {
+        bestScrollTopInDirection = afterScrollTop;
+      }
+
+      if ((movedTowardTarget && netScrollImproved) || frontierImproved) {
+        // Meaningful net progress toward target; reset unproductive counters
+        unproductiveSteps = 0;
+        lastProgressAtMs = getMonotonicNowMs();
+        continue;
+      }
 
       if (movedTowardTarget) {
-        // Physical scroll moved freely in the requested direction.
-        // Keep fast-walking without any MutationObserver or settle delay.
+        // Frame moved locally, but host compensation has kept us behind our
+        // previous best position in this direction.
+        unproductiveSteps += 1;
+        if (unproductiveSteps >= MAX_UNPRODUCTIVE_STEPS) {
+          failureReason = 'oscillation-no-progress';
+          break;
+        }
+        continue;
+      }
+
+      // Did not move toward target: only invoke boundary/backfill stall when
+      // actually at a physical scroll boundary (not mid-feed host compensation).
+      if (!isAtPhysicalBoundary(container, stepDirection, isReverse)) {
+        unproductiveSteps += 1;
+        if (unproductiveSteps >= MAX_UNPRODUCTIVE_STEPS) {
+          failureReason = 'oscillation-no-progress';
+          break;
+        }
         continue;
       }
 
@@ -299,10 +447,13 @@ export async function loadUntilMountedViaViewport(
         root
       );
 
-      if (isCancelled()) return null;
+      if (isCancelled()) return finishWithFailure('cancelled');
 
       if (stallOutcome === 'resumed') {
-        // Boundary expanded, resume fast walk
+        // Boundary expanded via pagination/backfill; treat as productive progress
+        unproductiveSteps = 0;
+        lastProgressAtMs = getMonotonicNowMs();
+        bestScrollTopInDirection = container.scrollTop;
         continue;
       }
 
@@ -312,11 +463,11 @@ export async function loadUntilMountedViaViewport(
       }
 
       // Boundary stall could not resolve (exhausted)
+      failureReason = 'boundary-exhausted';
       break;
     }
 
-    logLoadStep({ result: isCancelled() ? 'cancelled' : 'exhausted' });
-    return null;
+    return finishWithFailure(isCancelled() ? 'cancelled' : failureReason);
   } finally {
     targetObserver.disconnect();
   }
