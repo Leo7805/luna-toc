@@ -54,14 +54,17 @@ import { promptStore } from './promptStore';
 
 ### Directory Structure
 
-1. Organize code by feature or responsibility, following the existing project structure.
-2. Keep closely related components, hooks, services, and utilities together.
-3. Extract shared functionality only when it has a clear, reusable responsibility.
-4. Avoid large utility files, miscellaneous modules, and unnecessary directory nesting.
-5. Prefer small, cohesive modules with clear interfaces and minimal dependencies.
-6. Avoid circular dependencies and excessive cross-module coupling.
-7. When splitting a large file, preserve existing behavior, public APIs, and test coverage.
-8. Before significant file restructuring, propose the target directory structure and explain the responsibility of each new module.
+These are organizational guidelines rather than rigid limits; **architectural cohesion takes priority over numerical thresholds**.
+
+1. Organize code by cohesive features and responsibilities following the existing project structure rather than arbitrary file counts.
+2. Keep closely related components, hooks, services, and utilities together, and prefer small, cohesive modules with clear interfaces and minimal dependencies.
+3. Extract shared functionality only when it has a clear, reusable responsibility; avoid large utility files, miscellaneous modules, and unnecessary directory nesting (prefer a shallow, readable hierarchy).
+4. Prefer small, cohesive directories typically containing around 5–10 directly contained production source files; 11–15 files remain acceptable when responsibilities are clear.
+5. When a directory exceeds 15 directly contained production source files, review whether meaningful responsibility-based subdirectories would improve organization; give priority structural review above 20 files, but do not split automatically or solely to satisfy numerical targets.
+6. Count only directly contained production source files (non-recursively, excluding tests, generated files, build outputs, and unrelated assets), and avoid creating subdirectories with only one or two source files unless there is a clear architectural reason.
+7. When extracting functionality from an oversized file, consider the existing directory structure before introducing a new subdirectory, and preserve existing behavior, public APIs, and test coverage.
+8. Avoid circular dependencies and excessive cross-module coupling; before reorganizing directories, evaluate module boundaries, imports, public APIs, and circular-dependency risks.
+9. Plan, review, and approve directory restructuring separately from behavioral bug fixes, proposing the target directory structure and the responsibility of each new module beforehand.
 
 ## Project Principles
 
