@@ -22,6 +22,10 @@ const mocks = vi.hoisted(() => ({
   onJumpComplete: vi.fn(),
   queryVirtualJumpTarget: vi.fn(),
   holdViewport: vi.fn(() => ({ status: 'ok' as const })),
+  scrollToBottom: vi.fn(() => ({
+    status: 'unavailable' as const,
+    reason: 'test-default',
+  })),
   readMountedWithSidebarIdx: vi.fn<() => Array<{ element: HTMLElement; sidebarIdx: number; unitKey?: string }>>(() => []),
   promptLandingViewportTopPx: undefined as number | undefined,
 }));
@@ -36,6 +40,7 @@ vi.mock('@/platforms', () => ({
       readMountedWithSidebarIdx: mocks.readMountedWithSidebarIdx,
       queryVirtualJumpTarget: mocks.queryVirtualJumpTarget,
       holdViewport: mocks.holdViewport,
+      scrollToBottom: mocks.scrollToBottom,
       promptTopOffsetPx: 16,
       get promptLandingViewportTopPx() {
         return mocks.promptLandingViewportTopPx;
@@ -2344,6 +2349,14 @@ describe('prompt navigation strategy', () => {
         turnCount: 100,
       });
 
+      const walkerSpy = vi
+        .spyOn(viewportWalker, 'loadUntilMountedViaViewport')
+        .mockImplementation(async () => {
+          container.appendChild(node2);
+          mocks.findPrompt.mockReturnValue(node2);
+          return node2;
+        });
+
       jumpToMessage(
         { id: 'prompt-5', text: 'Prompt 5', canMatchByText: true, createTime: 0 },
         4
@@ -2357,26 +2370,28 @@ describe('prompt navigation strategy', () => {
       mocks.findPrompt.mockReturnValue(null);
       for (let i = 0; i < 5; i++) await stepFrame(16);
       expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(2); // initial + recovery 1
+      expect(walkerSpy).not.toHaveBeenCalled();
 
-      // Recovery 1 mounts -> disconnects again
+      // Recovery 1 mounts -> disconnects again; Recovery 2 escalates to viewport-walker
       container.appendChild(node1);
       mocks.findPrompt.mockReturnValue(node1);
       for (let i = 0; i < 5; i++) await Promise.resolve();
       node1.remove();
       mocks.findPrompt.mockReturnValue(null);
       for (let i = 0; i < 5; i++) await stepFrame(16);
-      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(3); // initial + recovery 1 + recovery 2
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(2);
+      expect(walkerSpy).toHaveBeenCalledTimes(1);
 
       // Recovery 2 mounts -> disconnects a 3rd time (recovery budget exhausted)
-      container.appendChild(node2);
-      mocks.findPrompt.mockReturnValue(node2);
       for (let i = 0; i < 5; i++) await Promise.resolve();
       node2.remove();
       mocks.findPrompt.mockReturnValue(null);
       for (let i = 0; i < 8; i++) await stepFrame(16);
 
       // No 3rd recovery attempted; fails cleanly with target-disconnected
-      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(3);
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(2);
+      expect(walkerSpy).toHaveBeenCalledTimes(1);
+      walkerSpy.mockRestore();
       expect(mocks.onJumpComplete).not.toHaveBeenCalled();
       expect(mocks.notifyJumpFailed).toHaveBeenCalledOnce();
       expect(mocks.logEvent).toHaveBeenCalledWith(
@@ -3253,6 +3268,314 @@ describe('prompt navigation strategy', () => {
         expect.anything(),
         undefined
       );
+    });
+
+    it('falls back to viewport-walker on recovery 1 when a clamped virtual-layout jump disconnects (elastic snap-back trap)', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container, setScrollHeight } = createDynamicContainer(907, 7271, 6364);
+
+      // Initial virtual-layout mount lands clamped at bottom (top: 619px, scrollTop clamped at 6364)
+      const collapsedTarget = document.createElement('div');
+      collapsedTarget.scrollIntoView = vi.fn();
+      collapsedTarget.getBoundingClientRect = () =>
+        ({ top: 619, bottom: 701, left: 0, right: 800, width: 800, height: 82 } as DOMRect);
+
+      // Viewport-walker recovery mounts target smoothly in the expanded container
+      let recoveredDocTop = 18861;
+      const recoveredTarget = document.createElement('div');
+      recoveredTarget.scrollIntoView = vi.fn();
+      recoveredTarget.getBoundingClientRect = () => {
+        const top = recoveredDocTop - container.scrollTop;
+        return { top, bottom: top + 82, left: 0, right: 800, width: 800, height: 82 } as DOMRect;
+      };
+
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+          container.scrollTop = Math.max(0, Math.min(maxScroll, opts.top));
+        }
+      });
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 16,
+        topOffsetPx: 18861,
+        turnCount: 17,
+      });
+
+      const walkerSpy = vi
+        .spyOn(viewportWalker, 'loadUntilMountedViaViewport')
+        .mockImplementation(async () => {
+          setScrollHeight(22821);
+          container.scrollTop = 18671;
+          container.appendChild(recoveredTarget);
+          mocks.findPrompt.mockReturnValue(recoveredTarget);
+          return recoveredTarget;
+        });
+
+      jumpToMessage(
+        { id: 'prompt-17', text: 'Step 1.2 — Missing Values Analysis', canMatchByText: true, createTime: 0 },
+        16
+      );
+
+      // Initial virtual-layout mounts collapsed target (clamped: true at bottom)
+      container.appendChild(collapsedTarget);
+      mocks.findPrompt.mockReturnValue(collapsedTarget);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+
+      // Virtualizer expands scrollHeight back up and snaps scrollTop away, unmounting target
+      setScrollHeight(22821);
+      container.scrollTop = 13826;
+      collapsedTarget.remove();
+      mocks.findPrompt.mockReturnValue(null);
+
+      for (let i = 0; i < 35; i++) {
+        await stepFrame(16);
+        await vi.advanceTimersByTimeAsync(0);
+      }
+
+      // Must NOT repeat the collapsing virtual-layout leap; must escalate to viewport-walker on recovery 1
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledTimes(1);
+      expect(walkerSpy).toHaveBeenCalledTimes(1);
+      expect(recoveredTarget.getBoundingClientRect().top).toBeCloseTo(190, 1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(16);
+      expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+
+      walkerSpy.mockRestore();
+    });
+
+    it('re-invokes holdViewport() before post-mount alignment and realignment scroll writes', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container, setScrollHeight } = createDynamicContainer(907, 15209, 10000);
+
+      let targetDocTop = 11333;
+      const target = document.createElement('div');
+      target.scrollIntoView = vi.fn();
+      target.getBoundingClientRect = () => {
+        const top = targetDocTop - container.scrollTop;
+        return { top, bottom: top + 82, left: 0, right: 800, width: 800, height: 82 } as DOMRect;
+      };
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 16,
+        topOffsetPx: 11333,
+        turnCount: 17,
+      });
+
+      jumpToMessage(
+        { id: 'prompt-17', text: 'Step 1.2', canMatchByText: true, createTime: 0 },
+        16
+      );
+      expect(mocks.holdViewport).toHaveBeenCalledTimes(1); // JUMP_START
+
+      container.appendChild(target);
+      mocks.findPrompt.mockReturnValue(target);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+
+      // Post-mount alignment after virtual-layout re-invokes holdViewport()
+      expect(mocks.holdViewport).toHaveBeenCalledTimes(2);
+
+      // Layout shift triggers realignment -> re-invokes holdViewport() again before scroll write
+      setScrollHeight(16000);
+      targetDocTop += 300;
+      for (let i = 0; i < 5; i++) await stepFrame(16);
+      expect(mocks.holdViewport.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(target.getBoundingClientRect().top).toBeCloseTo(190, 1);
+    });
+
+    it('uses conditional native bottom-first for unmounted last prompt, calls holdViewport(), and lands at 190px', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container, setScrollHeight } = createDynamicContainer(907, 20000, 5000);
+
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-2', text: 'Middle', canMatchByText: true, createTime: 2 },
+        { id: 'p-last', text: 'Last prompt', canMatchByText: true, createTime: 3 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'last-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const lastDocTop = 19931 + 190;
+      const lastEl = document.createElement('div');
+      lastEl.scrollIntoView = vi.fn();
+      lastEl.getBoundingClientRect = () => {
+        const top = lastDocTop - container.scrollTop;
+        return { top, bottom: top + 80, left: 0, right: 800, width: 800, height: 80 } as DOMRect;
+      };
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+        }
+      });
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.scrollToBottom.mockImplementation(() => {
+        setScrollHeight(26014);
+        container.scrollTop = 25107; // distFromBottom = 0
+        container.appendChild(lastEl);
+        mocks.findPrompt.mockReturnValue(lastEl);
+        return { status: 'ok', method: 'native-controller' } as any;
+      });
+
+      jumpToMessage(prompts[2], 2);
+      expect(mocks.scrollToBottom).toHaveBeenCalledWith(container);
+
+      // Advance past bottom-first quiet window (~160ms) + fast-path stabilization
+      for (let i = 0; i < 6; i++) {
+        await stepFrame(40);
+        await vi.advanceTimersByTimeAsync(40);
+      }
+      for (let i = 0; i < 30; i++) {
+        await stepFrame(16);
+      }
+
+      expect(mocks.holdViewport.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(lastEl.getBoundingClientRect().top).toBeCloseTo(190, 1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(2);
+      expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it('skips bottom-first when the last prompt is already mounted and never uses bottom-first for ordinary non-last prompts', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { container } = createDynamicContainer(907, 26014, 25107);
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-2', text: 'Middle', canMatchByText: true, createTime: 2 },
+        { id: 'p-last', text: 'Last prompt', canMatchByText: true, createTime: 3 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'last-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const lastEl = document.createElement('div');
+      lastEl.getBoundingClientRect = () =>
+        ({ top: 190, bottom: 270, left: 0, right: 800, width: 800, height: 80 } as DOMRect);
+      container.appendChild(lastEl);
+      mocks.findPrompt.mockReturnValue(lastEl);
+      mocks.scrollToBottom.mockReturnValue({ status: 'ok', method: 'native-controller' } as any);
+
+      // Last prompt already mounted -> Fast Path directly, no scrollToBottom
+      jumpToMessage(prompts[2], 2);
+      expect(mocks.scrollToBottom).not.toHaveBeenCalled();
+
+      // Ordinary unmounted non-last prompt -> Virtual Layout directly, no scrollToBottom
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.queryVirtualJumpTarget.mockReturnValue({ status: 'unavailable', reason: 'test' });
+      jumpToMessage(prompts[1], 1);
+      expect(mocks.scrollToBottom).not.toHaveBeenCalled();
+    });
+
+    it('handles long final assistant response when bottom-first settles without mounting the last prompt', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { stepFrame } = createStepDriver();
+      const { container, setScrollHeight } = createDynamicContainer(907, 10000, 2000);
+
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-last', text: 'Last with huge reply', canMatchByText: true, createTime: 2 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'long-reply-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      const lastDocTop = 18000;
+      const lastEl = document.createElement('div');
+      lastEl.scrollIntoView = vi.fn();
+      lastEl.getBoundingClientRect = () => {
+        const top = lastDocTop - container.scrollTop;
+        return { top, bottom: top + 80, left: 0, right: 800, width: 800, height: 80 } as DOMRect;
+      };
+      container.scrollTo = vi.fn((opts?: ScrollToOptions | number) => {
+        if (typeof opts === 'object' && typeof opts?.top === 'number') {
+          container.scrollTop = opts.top;
+          if (Math.abs(opts.top - lastDocTop) < 1000 && !lastEl.isConnected) {
+            container.appendChild(lastEl);
+            mocks.findPrompt.mockReturnValue(lastEl);
+          }
+        }
+      });
+
+      mocks.findPrompt.mockReturnValue(null);
+      // Native bottom reaches bottom of 40,000px reply, so last prompt at 18,000px is still unmounted
+      mocks.scrollToBottom.mockImplementation(() => {
+        setScrollHeight(40000);
+        container.scrollTop = 39093;
+        return { status: 'ok', method: 'native-controller' } as any;
+      });
+      mocks.queryVirtualJumpTarget.mockReturnValue({
+        status: 'ok',
+        targetIndex: 1,
+        topOffsetPx: lastDocTop,
+        turnCount: 2,
+      });
+
+      jumpToMessage(prompts[1], 1);
+      for (let i = 0; i < 6; i++) {
+        await stepFrame(40);
+        await vi.advanceTimersByTimeAsync(40);
+      }
+      for (let i = 0; i < 30; i++) {
+        await stepFrame(16);
+      }
+
+      expect(mocks.scrollToBottom).toHaveBeenCalledOnce();
+      expect(mocks.queryVirtualJumpTarget).toHaveBeenCalledWith(container, 'p-last');
+      expect(lastEl.getBoundingClientRect().top).toBeCloseTo(190, 1);
+      expect(mocks.onJumpComplete).toHaveBeenCalledWith(1);
+    });
+
+    it('cancels bottom-first cleanly when user scrolls or another jump supersedes it', async () => {
+      mocks.promptLandingViewportTopPx = 190;
+      const { container } = createDynamicContainer(907, 20000, 5000);
+      const prompts = [
+        { id: 'p-1', text: 'First', canMatchByText: true, createTime: 1 },
+        { id: 'p-last', text: 'Last', canMatchByText: true, createTime: 2 },
+      ];
+      initializePromptNavigation({
+        getVirtualSearchContext: () => ({ conversationKey: 'cancel-conv', prompts }),
+        setJumpProgress: mocks.setJumpProgress,
+        clearJumpProgress: mocks.clearJumpProgress,
+        notifyJumpFailed: mocks.notifyJumpFailed,
+        onJumpComplete: mocks.onJumpComplete,
+      });
+
+      mocks.findPrompt.mockReturnValue(null);
+      mocks.scrollToBottom.mockReturnValue({ status: 'ok', method: 'native-controller' } as any);
+
+      jumpToMessage(prompts[1], 1);
+      await vi.advanceTimersByTimeAsync(40);
+      // User interrupts during bottom-first wait
+      container.dispatchEvent(new Event('wheel'));
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(mocks.clearJumpProgress).toHaveBeenCalled();
+      expect(mocks.queryVirtualJumpTarget).not.toHaveBeenCalled();
+      expect(mocks.onJumpComplete).not.toHaveBeenCalled();
+      expect(mocks.notifyJumpFailed).not.toHaveBeenCalled();
     });
   });
 });

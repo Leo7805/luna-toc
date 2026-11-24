@@ -38,6 +38,7 @@ import {
 import {
   holdChatGptViewport,
   queryChatGptVirtualJumpTarget,
+  scrollChatGptToBottom,
 } from './virtualLayoutAdapter';
 import {
   createChatGptNavigationJumpId,
@@ -126,6 +127,7 @@ export const chatGptPlatform: Platform = {
     getThreadScrollContainer: getChatGptThreadScrollContainer,
     queryVirtualJumpTarget: queryChatGptVirtualJumpTarget,
     holdViewport: holdChatGptViewport,
+    scrollToBottom: scrollChatGptToBottom,
     findRenderedPrompt: findRenderedChatGptPrompt,
     findRenderedPromptByText: findRenderedChatGptPromptByText,
     readMountedWithSidebarIdx,

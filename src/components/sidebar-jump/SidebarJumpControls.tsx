@@ -21,9 +21,12 @@ export function SidebarJumpControlsBar({
 }: {
   isMyPrompts: boolean;
 }): React.JSX.Element {
-  const handleTopClick = (): void => {
+  const handleTopClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
     if (isMyPrompts) {
       scrollNavigatorListToEdge('top', 'smooth');
+      return;
+    }
+    if (event.detail > 1) {
       return;
     }
     navigatorController.jumpToEdge('top');
@@ -41,9 +44,17 @@ export function SidebarJumpControlsBar({
     sidebarController.toggleViewMode();
   };
 
-  const handleBottomClick = (): void => {
+  const handleBottomClick = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ): void => {
     if (isMyPrompts) {
       scrollNavigatorListToEdge('bottom', 'smooth');
+      return;
+    }
+    // Browser double-click fires click (detail=1), click (detail=2), dblclick.
+    // Ignore the 2nd click so it does not launch a competing bottom navigation
+    // right before handleBottomDoubleClick invokes jumpToLastPrompt().
+    if (event.detail > 1) {
       return;
     }
     navigatorController.jumpToEdge('bottom');

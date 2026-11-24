@@ -162,6 +162,13 @@ export type HoldViewportResult =
   | { readonly status: 'unavailable'; readonly reason?: string };
 
 /**
+ * Result of requesting the host's native scroll-to-bottom action.
+ */
+export type ScrollToBottomResult =
+  | { readonly status: 'ok'; readonly method?: 'native-controller' | 'native-button' }
+  | { readonly status: 'unavailable'; readonly reason?: string };
+
+/**
  * Per-platform scroll container / mounted-DOM adapter used by the
  * navigation controller.
  */
@@ -186,6 +193,11 @@ export interface PlatformNavigationAdapter {
    * an intentional prompt navigation scroll write. Fails closed when unsupported.
    */
   holdViewport?(container: HTMLElement): HoldViewportResult;
+  /**
+   * Invokes the host's native scroll-to-bottom behavior (e.g. ChatGPT's native
+   * scroll controller or unambiguous native bottom button). Fails closed when unsupported.
+   */
+  scrollToBottom?(container: HTMLElement): ScrollToBottomResult;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
   /**
    * Finds a currently mounted user message by normalized text prefix.

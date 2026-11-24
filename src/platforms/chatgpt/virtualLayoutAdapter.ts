@@ -8,6 +8,7 @@ import {
 } from './virtualLayoutBridgeProtocol';
 import type {
   HoldViewportResult,
+  ScrollToBottomResult,
   VirtualJumpTargetResult,
 } from '../platformInterface';
 
@@ -257,4 +258,152 @@ export function holdChatGptViewport(
   }
 
   return bridgeResult ?? { status: 'unavailable', reason: 'no-response' };
+}
+
+/**
+ * Attempts to click ChatGPT's unambiguous, locale-independent main-thread
+ * floating scroll-to-bottom button as a secondary fallback when the native
+ * React Fiber scroll controller is unavailable.
+ *
+ * Requires exactly one interactive button outside LunaTOC and message turns.
+ */
+function tryClickUnambiguousNativeBottomButton(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button.group\\/scroll-to-bottom')
+    ).filter((btn) => {
+      if (!btn.isConnected || btn.disabled) return false;
+      if (
+        btn.closest('#luna-toc-sidebar') ||
+        btn.closest('[data-chatgpt-search-unit-key]') ||
+        btn.closest('article') ||
+        btn.closest('[data-testid^="conversation-turn-"]')
+      ) {
+        return false;
+      }
+      const style = window.getComputedStyle(btn);
+      const opacity = parseFloat(style.opacity || '1');
+      if (
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        style.pointerEvents === 'none' ||
+        opacity <= 0
+      ) {
+        return false;
+      }
+      const rect = btn.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    if (candidates.length !== 1) {
+      return false;
+    }
+
+    candidates[0].click();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Invokes ChatGPT's native scroll-to-bottom behavior synchronously:
+ * 1. Primary: MAIN-world React Fiber `controller.scrollToBottom()` via bridge.
+ * 2. Fallback: unambiguous, visible main-thread native bottom button.
+ * Fails closed (`unavailable`) when neither is available so callers can run
+ * their own bounded fallback.
+ *
+ * @param container The active chat scroll container (`.thread-scroll-container`).
+ * @returns Synchronous ScrollToBottomResult.
+ *
+ * @example
+ * const result = scrollChatGptToBottom(container);
+ */
+export function scrollChatGptToBottom(
+  container: HTMLElement
+): ScrollToBottomResult {
+  if (!container || !(container instanceof HTMLElement) || !container.isConnected) {
+    return { status: 'unavailable', reason: 'invalid-context' };
+  }
+
+  const requestId = createBridgeRequestId();
+  let bridgeResult: ScrollToBottomResult | null = null;
+  let settled = false;
+
+  const removeResponseListener = () => {
+    container.removeEventListener(
+      CHATGPT_BRIDGE_PROTOCOL.EVENTS.SCROLL_TO_BOTTOM_RESPONSE,
+      onResponse
+    );
+  };
+
+  const settle = (result: ScrollToBottomResult) => {
+    if (settled) return;
+    settled = true;
+    bridgeResult = result;
+    removeResponseListener();
+  };
+
+  function onResponse(event: Event): void {
+    if (settled) return;
+    const customEvent = event as CustomEvent;
+    if (typeof customEvent.detail !== 'string') return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(customEvent.detail);
+    } catch {
+      return;
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return;
+    }
+
+    const data = parsed as Record<string, unknown>;
+    if (typeof data.requestId !== 'string' || data.requestId !== requestId) {
+      return;
+    }
+
+    if (data.status === 'ok') {
+      settle({ status: 'ok', method: 'native-controller' });
+    } else if (data.status === 'unavailable') {
+      settle({
+        status: 'unavailable',
+        reason:
+          typeof data.reason === 'string' ? data.reason : 'host-unavailable',
+      });
+    } else {
+      settle({ status: 'unavailable', reason: 'invalid-payload' });
+    }
+  }
+
+  try {
+    container.addEventListener(
+      CHATGPT_BRIDGE_PROTOCOL.EVENTS.SCROLL_TO_BOTTOM_RESPONSE,
+      onResponse
+    );
+    container.dispatchEvent(
+      new CustomEvent(CHATGPT_BRIDGE_PROTOCOL.EVENTS.SCROLL_TO_BOTTOM_REQUEST, {
+        bubbles: true,
+        detail: JSON.stringify({ requestId }),
+      })
+    );
+  } catch {
+    bridgeResult = { status: 'unavailable', reason: 'dispatch-failed' };
+  } finally {
+    removeResponseListener();
+  }
+
+  const resolvedResult = bridgeResult as ScrollToBottomResult | null;
+  if (resolvedResult?.status === 'ok') {
+    return resolvedResult;
+  }
+
+  if (tryClickUnambiguousNativeBottomButton()) {
+    return { status: 'ok', method: 'native-button' };
+  }
+
+  return resolvedResult ?? { status: 'unavailable', reason: 'no-response' };
 }

@@ -14,7 +14,10 @@ import {
   maybeInstallVirtualLayoutBridge,
   resolveVirtualJumpTarget,
 } from '@/pageHook/virtualLayoutBridge';
-import { holdChatGptViewport } from '@/platforms/chatgpt/virtualLayoutAdapter';
+import {
+  holdChatGptViewport,
+  scrollChatGptToBottom,
+} from '@/platforms/chatgpt/virtualLayoutAdapter';
 import { CHATGPT_BRIDGE_PROTOCOL } from '@/platforms/chatgpt/virtualLayoutBridgeProtocol';
 
 function createValidLayout() {
@@ -839,5 +842,117 @@ describe('MAIN-world holdViewport bridge', () => {
       )
     ).not.toThrow();
     div.remove();
+  });
+});
+
+describe('MAIN-world native scrollToBottom bridge & fallback', () => {
+  it('delegates to validated controller.scrollToBottom() when available', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+
+    const scrollToBottom = vi.fn();
+    (container as any).__reactFiber$test = {
+      memoizedProps: {
+        value: {
+          getScrollElement: () => container,
+          holdViewport: vi.fn(),
+          scrollToBottom,
+        },
+      },
+      memoizedState: null,
+      return: null,
+    };
+
+    const result = scrollChatGptToBottom(container);
+    expect(result).toEqual({ status: 'ok', method: 'native-controller' });
+    expect(scrollToBottom).toHaveBeenCalledOnce();
+
+    cleanup();
+    container.remove();
+  });
+
+  it('fails closed when controller is incompatible or lacks scrollToBottom() and no native button is visible', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+
+    (container as any).__reactFiber$test = {
+      memoizedProps: {
+        value: {
+          getScrollElement: () => container,
+          holdViewport: vi.fn(),
+        },
+      },
+      memoizedState: null,
+      return: null,
+    };
+
+    const result = scrollChatGptToBottom(container);
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'scroll-to-bottom-missing',
+    });
+
+    cleanup();
+    container.remove();
+  });
+
+  it('falls back to unambiguous visible main-thread native button when controller is unavailable', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+
+    const nativeBtn = document.createElement('button');
+    nativeBtn.className = 'group/scroll-to-bottom';
+    nativeBtn.style.opacity = '1';
+    nativeBtn.style.pointerEvents = 'auto';
+    nativeBtn.getBoundingClientRect = () =>
+      ({ width: 32, height: 32, top: 775, left: 874, right: 906, bottom: 807 } as DOMRect);
+    const clickSpy = vi.fn();
+    nativeBtn.addEventListener('click', clickSpy);
+    document.body.appendChild(nativeBtn);
+
+    // An extra button inside a message turn must be ignored so main button stays unambiguous
+    const turn = document.createElement('article');
+    const innerBtn = document.createElement('button');
+    innerBtn.className = 'group/scroll-to-bottom';
+    turn.appendChild(innerBtn);
+    document.body.appendChild(turn);
+
+    const result = scrollChatGptToBottom(container);
+    expect(result).toEqual({ status: 'ok', method: 'native-button' });
+    expect(clickSpy).toHaveBeenCalledOnce();
+
+    cleanup();
+    container.remove();
+    nativeBtn.remove();
+    turn.remove();
+  });
+
+  it('refuses to click hidden or ambiguous native bottom buttons', () => {
+    const cleanup = installVirtualLayoutBridge();
+    const container = document.createElement('div');
+    container.className = 'thread-scroll-container';
+    document.body.appendChild(container);
+
+    const hiddenBtn = document.createElement('button');
+    hiddenBtn.className = 'group/scroll-to-bottom';
+    hiddenBtn.style.opacity = '0';
+    hiddenBtn.style.pointerEvents = 'none';
+    const clickSpy = vi.fn();
+    hiddenBtn.addEventListener('click', clickSpy);
+    document.body.appendChild(hiddenBtn);
+
+    const result = scrollChatGptToBottom(container);
+    expect(result.status).toBe('unavailable');
+    expect(clickSpy).not.toHaveBeenCalled();
+
+    cleanup();
+    container.remove();
+    hiddenBtn.remove();
   });
 });

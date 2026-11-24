@@ -221,6 +221,26 @@ describe('SidebarJumpControls React Component', () => {
     expect(jumpToLastPromptSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores the second click (detail=2) of a genuine browser double-click on Bottom so no competing bottom jump starts', async () => {
+    sidebarController.init();
+    root = createRoot(rootContainer);
+    await act(async () => {
+      root.render(<SidebarJumpControls />);
+    });
+
+    const bottomBtn = document.getElementById('jump-chat-bottom-btn')!;
+    // Genuine browser double-click sequence: click(detail=1) -> click(detail=2) -> dblclick(detail=2)
+    await act(async () => {
+      bottomBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      bottomBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }));
+      bottomBtn.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
+    });
+
+    expect(jumpToEdgeSpy).toHaveBeenCalledTimes(1);
+    expect(jumpToEdgeSpy).toHaveBeenCalledWith('bottom');
+    expect(jumpToLastPromptSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('scrolls the active MyPrompts list smoothly on single-click in MyPrompts mode', async () => {
     sidebarController.init();
     root = createRoot(rootContainer);

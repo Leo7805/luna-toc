@@ -11,8 +11,32 @@ export const CHATGPT_BRIDGE_PROTOCOL = {
     QUERY_RESPONSE: '__LUNATOC_CHATGPT_VIRTUAL_LAYOUT_RES__',
     HOLD_VIEWPORT_REQUEST: '__LUNATOC_CHATGPT_HOLD_VIEWPORT_REQ__',
     HOLD_VIEWPORT_RESPONSE: '__LUNATOC_CHATGPT_HOLD_VIEWPORT_RES__',
+    SCROLL_TO_BOTTOM_REQUEST: '__LUNATOC_CHATGPT_SCROLL_TO_BOTTOM_REQ__',
+    SCROLL_TO_BOTTOM_RESPONSE: '__LUNATOC_CHATGPT_SCROLL_TO_BOTTOM_RES__',
   },
 } as const;
+
+/**
+ * Production request DTO sent from ISOLATED world to MAIN world to invoke
+ * ChatGPT's native scroll-to-bottom controller action.
+ */
+export interface ScrollToBottomBridgeRequest {
+  readonly requestId: string;
+}
+
+/**
+ * Production response DTO returned from MAIN world for a scroll-to-bottom request.
+ */
+export type ScrollToBottomBridgeResponse =
+  | {
+      readonly requestId: string;
+      readonly status: 'ok';
+    }
+  | {
+      readonly requestId: string;
+      readonly status: 'unavailable';
+      readonly reason?: string;
+    };
 
 /**
  * Production request DTO sent from ISOLATED world to MAIN world to hold the viewport

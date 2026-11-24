@@ -3,7 +3,12 @@
  * Tests edgeNavigation functionality including column-reverse edge math, top-band detection, and retry settle loops.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { executeAbsoluteEdgeJump, isPageAtBottom } from '@/navigation/jump/edgeNavigation';
+import {
+  cancelActiveEdgeJump,
+  executeAbsoluteEdgeJump,
+  isPageAtBottom,
+} from '@/navigation/jump/edgeNavigation';
+import { getActivePlatform } from '@/platforms';
 
 describe('edgeNavigation', () => {
   let container: HTMLElement;
@@ -191,6 +196,57 @@ describe('edgeNavigation', () => {
       // Attempt 1 settle verified
       await vi.advanceTimersByTimeAsync(1600);
       expect(container.scrollTop).toBe(1200);
+    });
+
+    it('delegates bottom jump to platform native scrollToBottom() without running raw-scroll fallback loop', async () => {
+      container.style.flexDirection = 'column';
+      const platform = getActivePlatform();
+      const scrollSpy = vi
+        .spyOn(platform.navigation, 'scrollToBottom')
+        .mockReturnValue({ status: 'ok', method: 'native-controller' });
+
+      container.scrollTop = 100;
+      executeAbsoluteEdgeJump('bottom', { container });
+
+      expect(scrollSpy).toHaveBeenCalledWith(container);
+      // Native controller owns the scroll; fallback must not overwrite scrollTop
+      expect(container.scrollTop).toBe(100);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(container.scrollTop).toBe(100);
+
+      scrollSpy.mockRestore();
+    });
+
+    it('handles dynamic scrollHeight growth in bottom fallback and cancels on user wheel or cancelActiveEdgeJump', async () => {
+      container.style.flexDirection = 'column';
+      let currentHeight = 2000;
+      Object.defineProperty(container, 'scrollHeight', {
+        get: () => currentHeight,
+        configurable: true,
+      });
+
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(1200);
+
+      // Virtual list expands dynamically during fallback
+      currentHeight = 5000;
+      await vi.advanceTimersByTimeAsync(250);
+      expect(container.scrollTop).toBe(4200);
+
+      // User wheel cancels fallback immediately
+      container.dispatchEvent(new Event('wheel'));
+      container.scrollTop = 2000;
+      currentHeight = 7000;
+      await vi.advanceTimersByTimeAsync(500);
+      expect(container.scrollTop).toBe(2000);
+
+      // Explicit cancelActiveEdgeJump cancels an active fallback too
+      executeAbsoluteEdgeJump('bottom', { container });
+      expect(container.scrollTop).toBe(6200);
+      cancelActiveEdgeJump();
+      container.scrollTop = 1000;
+      await vi.advanceTimersByTimeAsync(500);
+      expect(container.scrollTop).toBe(1000);
     });
   });
 

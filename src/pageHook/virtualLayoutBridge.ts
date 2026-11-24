@@ -5,6 +5,8 @@ import {
   CHATGPT_BRIDGE_PROTOCOL,
   type HoldViewportBridgeRequest,
   type HoldViewportBridgeResponse,
+  type ScrollToBottomBridgeRequest,
+  type ScrollToBottomBridgeResponse,
   type VirtualLayoutBridgeRequest,
   type VirtualLayoutBridgeResponse,
 } from '@/platforms/chatgpt/virtualLayoutBridgeProtocol';
@@ -15,6 +17,7 @@ import {
 export interface ChatGptScrollController {
   getScrollElement: () => unknown;
   holdViewport: () => void;
+  scrollToBottom?: () => void;
 }
 
 /**
@@ -527,6 +530,80 @@ export function handleHoldViewportRequest(event: Event): void {
 }
 
 /**
+ * Handles incoming scroll-to-bottom requests in the page MAIN world.
+ * Invokes ChatGPT's validated native `controller.scrollToBottom()` when available.
+ *
+ * @param event The dispatched CustomEvent from ISOLATED world.
+ */
+export function handleScrollToBottomRequest(event: Event): void {
+  try {
+    const target = event.target;
+    if (
+      !(target instanceof HTMLElement) ||
+      !target.isConnected ||
+      !target.classList.contains('thread-scroll-container')
+    ) {
+      return;
+    }
+
+    const customEvent = event as CustomEvent;
+    if (typeof customEvent.detail !== 'string') {
+      return;
+    }
+
+    let request: ScrollToBottomBridgeRequest;
+    try {
+      request = JSON.parse(customEvent.detail) as ScrollToBottomBridgeRequest;
+    } catch {
+      return;
+    }
+
+    if (!request || typeof request.requestId !== 'string' || !request.requestId) {
+      return;
+    }
+
+    let response: ScrollToBottomBridgeResponse;
+    const controller = findMainWorldScrollController(target);
+    if (!controller) {
+      response = {
+        requestId: request.requestId,
+        status: 'unavailable',
+        reason: 'controller-unavailable',
+      };
+    } else if (typeof controller.scrollToBottom !== 'function') {
+      response = {
+        requestId: request.requestId,
+        status: 'unavailable',
+        reason: 'scroll-to-bottom-missing',
+      };
+    } else {
+      try {
+        controller.scrollToBottom();
+        response = {
+          requestId: request.requestId,
+          status: 'ok',
+        };
+      } catch {
+        response = {
+          requestId: request.requestId,
+          status: 'unavailable',
+          reason: 'scroll-to-bottom-failed',
+        };
+      }
+    }
+
+    target.dispatchEvent(
+      new CustomEvent(CHATGPT_BRIDGE_PROTOCOL.EVENTS.SCROLL_TO_BOTTOM_RESPONSE, {
+        bubbles: false,
+        detail: JSON.stringify(response),
+      })
+    );
+  } catch {
+    // Fail closed: never leak exceptions outward into host page
+  }
+}
+
+/**
  * Installs the MAIN-world production virtual layout bridge listener on document in the capture phase.
  *
  * @returns Cleanup function to remove the listener.
@@ -534,6 +611,8 @@ export function handleHoldViewportRequest(event: Event): void {
 export function installVirtualLayoutBridge(): () => void {
   const layoutListener = (event: Event) => handleVirtualLayoutRequest(event);
   const holdListener = (event: Event) => handleHoldViewportRequest(event);
+  const scrollToBottomListener = (event: Event) =>
+    handleScrollToBottomRequest(event);
   document.addEventListener(
     CHATGPT_BRIDGE_PROTOCOL.EVENTS.QUERY_REQUEST,
     layoutListener,
@@ -542,6 +621,11 @@ export function installVirtualLayoutBridge(): () => void {
   document.addEventListener(
     CHATGPT_BRIDGE_PROTOCOL.EVENTS.HOLD_VIEWPORT_REQUEST,
     holdListener,
+    { capture: true }
+  );
+  document.addEventListener(
+    CHATGPT_BRIDGE_PROTOCOL.EVENTS.SCROLL_TO_BOTTOM_REQUEST,
+    scrollToBottomListener,
     { capture: true }
   );
   return () => {
@@ -553,6 +637,11 @@ export function installVirtualLayoutBridge(): () => void {
     document.removeEventListener(
       CHATGPT_BRIDGE_PROTOCOL.EVENTS.HOLD_VIEWPORT_REQUEST,
       holdListener,
+      { capture: true }
+    );
+    document.removeEventListener(
+      CHATGPT_BRIDGE_PROTOCOL.EVENTS.SCROLL_TO_BOTTOM_REQUEST,
+      scrollToBottomListener,
       { capture: true }
     );
   };

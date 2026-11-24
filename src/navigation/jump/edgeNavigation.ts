@@ -16,6 +16,16 @@ const EDGE_JUMP_HARD_CAP = 30;
 const EDGE_JUMP_SETTLE_MS = 1500;
 const EDGE_JUMP_HEIGHT_GROWTH_EPSILON = 50;
 const EDGE_JUMP_BOTTOM_TOLERANCE_PX = 2;
+const BOTTOM_FALLBACK_MAX_ATTEMPTS = 12;
+const BOTTOM_FALLBACK_STEP_MS = 200;
+const BOTTOM_FALLBACK_REQUIRED_QUIET_CHECKS = 2;
+
+/**
+ * Cancels any in-flight absolute edge navigation loop.
+ */
+export function cancelActiveEdgeJump(): void {
+  activeEdgeJumpVersion += 1;
+}
 
 /**
  * How close to the visible top of the scroll container the first prompt
@@ -60,13 +70,12 @@ function findFirstPromptInTopBand(
 }
 
 /**
- * Iteratively re-asserts the edge scroll position while ChatGPT's mount
+ * Iteratively re-asserts the top edge scroll position while ChatGPT's mount
  * window keeps growing. Exits when the first prompt reaches the visible
  * top band, when cancelled, or once `EDGE_JUMP_HARD_CAP` retries have been exhausted.
  */
-async function retryEdgeUntilSettled(
+async function retryTopEdgeUntilSettled(
   container: HTMLElement,
-  edge: 'top' | 'bottom',
   isReverse: boolean,
   jumpVersion: number,
   firstPromptId: string | null,
@@ -83,11 +92,7 @@ async function retryEdgeUntilSettled(
 
     const beforeHeight = container.scrollHeight;
     const maxScrollTop = beforeHeight - container.clientHeight;
-    const targetTop = edge === 'top'
-      ? (isReverse ? -maxScrollTop : 0)
-      : (isReverse ? 0 : maxScrollTop);
-
-    container.scrollTop = targetTop;
+    container.scrollTop = isReverse ? -maxScrollTop : 0;
 
     await new Promise<void>(function (resolve) {
       setTimeout(resolve, EDGE_JUMP_SETTLE_MS);
@@ -109,11 +114,6 @@ async function retryEdgeUntilSettled(
       return;
     }
 
-    if (edge === 'bottom') {
-      if (isPageAtBottom(container, EDGE_JUMP_BOTTOM_TOLERANCE_PX)) return;
-      continue;
-    }
-
     const afterHeight = container.scrollHeight;
     const grown = afterHeight > beforeHeight + EDGE_JUMP_HEIGHT_GROWTH_EPSILON;
     // Convergence signal 2: scrollHeight stopped growing, meaning
@@ -124,7 +124,82 @@ async function retryEdgeUntilSettled(
 }
 
 /**
- * Initiates an absolute edge scroll loop to the top or bottom of the conversation feed.
+ * Bounded fallback bottom-scroll loop used only when the host's native
+ * scroll-to-bottom capability is unavailable. Re-asserts the physical bottom
+ * across dynamic `scrollHeight` changes and cancels immediately on user
+ * interaction or a superseding navigation.
+ */
+async function retryBottomFallbackUntilSettled(
+  container: HTMLElement,
+  isReverse: boolean,
+  jumpVersion: number,
+  isCancelled?: () => boolean
+): Promise<void> {
+  let userInterrupted = false;
+  const markInterrupted = (): void => {
+    userInterrupted = true;
+  };
+  const passiveOpts: AddEventListenerOptions = { passive: true, capture: true };
+  container.addEventListener('wheel', markInterrupted, passiveOpts);
+  container.addEventListener('touchstart', markInterrupted, passiveOpts);
+  container.addEventListener('pointerdown', markInterrupted, passiveOpts);
+
+  let quietBottomChecks = 0;
+  try {
+    for (let attempt = 0; attempt < BOTTOM_FALLBACK_MAX_ATTEMPTS; attempt++) {
+      if (
+        userInterrupted ||
+        jumpVersion !== activeEdgeJumpVersion ||
+        isCancelled?.() ||
+        !container.isConnected
+      ) {
+        return;
+      }
+
+      const beforeHeight = container.scrollHeight;
+      const maxScrollTop = Math.max(0, beforeHeight - container.clientHeight);
+      container.scrollTop = isReverse ? 0 : maxScrollTop;
+
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, BOTTOM_FALLBACK_STEP_MS);
+      });
+
+      if (
+        userInterrupted ||
+        jumpVersion !== activeEdgeJumpVersion ||
+        isCancelled?.() ||
+        !container.isConnected
+      ) {
+        return;
+      }
+
+      const afterHeight = container.scrollHeight;
+      const heightStable =
+        Math.abs(afterHeight - beforeHeight) <= EDGE_JUMP_HEIGHT_GROWTH_EPSILON;
+      const atBottom = isPageAtBottom(container, EDGE_JUMP_BOTTOM_TOLERANCE_PX);
+
+      if (atBottom && heightStable) {
+        quietBottomChecks += 1;
+        if (quietBottomChecks >= BOTTOM_FALLBACK_REQUIRED_QUIET_CHECKS) {
+          return;
+        }
+      } else {
+        quietBottomChecks = 0;
+      }
+    }
+  } finally {
+    container.removeEventListener('wheel', markInterrupted, passiveOpts);
+    container.removeEventListener('touchstart', markInterrupted, passiveOpts);
+    container.removeEventListener('pointerdown', markInterrupted, passiveOpts);
+  }
+}
+
+/**
+ * Initiates an absolute edge scroll to the top or bottom of the conversation feed.
+ *
+ * For `'bottom'`, delegates first to `platform().navigation.scrollToBottom()`
+ * (native scroll controller, then unambiguous native bottom button) and only
+ * runs the bounded fallback loop when native bottom navigation is unavailable.
  *
  * @param edge Target edge: 'top' or 'bottom'.
  * @param options Execution configuration options including container and cancellation hook.
@@ -148,13 +223,30 @@ export function executeAbsoluteEdgeJump(
   const container = options.container ?? (threadContainer ?? scrollContainer);
   if (!container) return;
 
-  const isReverse =
-    window.getComputedStyle(container).flexDirection === 'column-reverse';
   const jumpVersion = ++activeEdgeJumpVersion;
 
-  void retryEdgeUntilSettled(
+  if (edge === 'bottom') {
+    const nativeResult = platform().navigation.scrollToBottom?.(container);
+    if (nativeResult?.status === 'ok') {
+      return;
+    }
+
+    const isReverse =
+      window.getComputedStyle(container).flexDirection === 'column-reverse';
+    void retryBottomFallbackUntilSettled(
+      container,
+      isReverse,
+      jumpVersion,
+      options.isCancelled
+    );
+    return;
+  }
+
+  const isReverse =
+    window.getComputedStyle(container).flexDirection === 'column-reverse';
+
+  void retryTopEdgeUntilSettled(
     container,
-    edge,
     isReverse,
     jumpVersion,
     options.firstPromptId ?? null,
