@@ -19,18 +19,27 @@ import {
 
 const EXTERNAL_SCROLL_THRESHOLD_PX = 4;
 
-function getScrollContainer(root?: ParentNode): HTMLElement | null {
+/**
+ * Resolves the active platform's scroll container.
+ */
+export function getScrollContainer(root?: ParentNode): HTMLElement | null {
   return getActivePlatform().navigation.getScrollContainer(root);
 }
 
-function findRenderedPrompt(
+/**
+ * Finds a rendered prompt element by message ID via the active platform adapter.
+ */
+export function findRenderedPrompt(
   promptId: string,
   root?: ParentNode
 ): HTMLElement | null {
   return getActivePlatform().navigation.findRenderedPrompt(promptId, root);
 }
 
-function highlightMatchedElement(
+/**
+ * Displays a temporary independent highlight overlay over a matched prompt element.
+ */
+export function highlightMatchedElement(
   element: HTMLElement,
   messageId?: string
 ): void {

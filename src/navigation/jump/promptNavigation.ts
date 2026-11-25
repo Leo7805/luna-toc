@@ -21,34 +21,23 @@ import {
   logJumpFailedDiagnostic,
   logNavigationEvent,
 } from './jumpDiagnostics';
-import {
-  attachSessionUserInputListeners,
-  cleanupPromptJumpSession,
-  createPromptJumpSession,
-  emitSessionAlignmentMeasurement,
-  scheduleSessionFrame,
-  type DisplacementKind,
-} from './prompt/promptJumpSession';
-import {
-  applyTargetLandingAlignment,
-  classifyDisplacement as classifySessionDisplacement,
-  performFinalTopScroll as performSessionFinalTopScroll,
-} from './prompt/promptLanding';
-import {
-  executeDisconnectRecovery,
-  type DisconnectRecoveryContext,
-  type MountTargetOptions,
-  type MountTargetOutcome,
+import { applyTargetLandingAlignment } from './prompt/promptLanding';
+import type {
+  DisconnectRecoveryContext,
+  MountTargetOptions,
+  MountTargetOutcome,
 } from './prompt/promptRecovery';
+import {
+  getMonotonicNowMs,
+  LAYOUT_HEIGHT_CHANGE_THRESHOLD_PX,
+  runPostLandingStabilization,
+} from './prompt/promptStabilization';
 import {
   alignElementInContainer,
   computePromptLandingOffset,
-  evaluateElementAlignment,
   measureAlignmentErrorPx,
-  resolvePromptLandingOffset,
   SUBPIXEL_TOLERANCE_PX,
   type AlignElementResult,
-  type AlignmentEvaluation,
   type PromptLandingOffsetInput,
   type PromptLandingOffsetResult,
 } from './promptAlignment';
@@ -180,17 +169,7 @@ export function jumpToMessage(
   jumpWithIndependentVirtualNavigation(message, index, options);
 }
 
-const MIN_STABLE_DURATION_MS = 120;
-const LAYOUT_SETTLED_QUIET_MS = 350;
-const MAX_STABILIZE_DURATION_MS = 1200;
-const REALIGN_COOLDOWN_MS = 50;
-const MAX_REALIGN_ATTEMPTS = 3;
-const REQUIRED_STABLE_FRAMES = 3;
-const DISCONNECT_GRACE_FRAMES = 2;
-const DISCONNECT_GRACE_MS = 50;
 const MAX_DISCONNECT_RECOVERIES = 2;
-const FRAME_TIMEOUT_MS = 50;
-const LAYOUT_HEIGHT_CHANGE_THRESHOLD_PX = 2;
 const BOTTOM_FIRST_POLL_MS = 40;
 const BOTTOM_FIRST_QUIET_MS = 120;
 const BOTTOM_FIRST_MAX_WAIT_MS = 1200;
@@ -269,13 +248,6 @@ async function waitForNativeBottomSettle(
 
   platform().navigation.holdViewport?.(container);
   return 'settled';
-}
-
-function getMonotonicNowMs(): number {
-  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-    return performance.now();
-  }
-  return Date.now();
 }
 
 /**
@@ -619,410 +591,58 @@ function finishIndependentVirtualJump(
   recovery?: DisconnectRecoveryContext,
   initialScrollTopPx: number | null = null
 ): void {
-  const mode = options.mode ?? 'target-driven';
   const isCancelled = (): boolean => jumpVersion !== navigationJumpVersion;
-  const session = createPromptJumpSession({
+  const deferredRepollSession = runPostLandingStabilization({
     target,
-    targetMessageId: message.id,
-    targetIndex: index,
+    message,
+    index,
     jumpId,
-    mode,
-    initialStrategy: recovery?.initialStrategy,
-    remainingRecoveries: recovery?.remainingRecoveries,
-    initialVirtualTopOffsetPx: recovery?.initialVirtualTopOffsetPx,
+    mode: options.mode ?? 'target-driven',
+    alignToTopEdge: options.alignToTopEdge,
+    recovery,
     initialScrollTopPx,
-    isCancelled,
+    hooks: {
+      isCancelled,
+      registerCleanup: (cleanup) => {
+        activeStabilizationCleanup = cleanup;
+      },
+      clearCleanupIfActive: (cleanup) => {
+        if (activeStabilizationCleanup === cleanup) {
+          activeStabilizationCleanup = null;
+        }
+      },
+      onJumpComplete: (targetIndex) => onJumpComplete?.(targetIndex),
+      onTargetDrivenFailure: (targetIndex) => {
+        if (onJumpFailed) {
+          onJumpFailed(targetIndex);
+        } else {
+          notifyJumpFailed?.();
+          clearJumpProgress?.();
+        }
+      },
+      clearJumpProgress: () => clearJumpProgress?.(),
+    },
   });
 
-  const cleanupStabilization = (): void => {
-    cleanupPromptJumpSession(session);
-    if (activeStabilizationCleanup === cleanupStabilization) {
-      activeStabilizationCleanup = null;
-    }
-  };
-  activeStabilizationCleanup = cleanupStabilization;
-
-  const notifyFailure = (
-    status: string,
-    displacementKind: DisplacementKind = 'none',
-    el: HTMLElement | null = null
-  ): void => {
-    cleanupStabilization();
-    if (isCancelled()) return;
-    const container = platform().navigation.getScrollContainer();
-    const alignmentErrorPx = measureAlignmentErrorPx(el, container);
-    if (el) {
-      const containerTop = container ? container.getBoundingClientRect().top : 0;
-      const { expectedContainerOffsetPx } = resolvePromptLandingOffset(container);
-      emitSessionAlignmentMeasurement(
-        session,
-        'failed',
-        el,
-        container,
-        containerTop + expectedContainerOffsetPx,
-        session.alignment.lastAlignClamped,
-        undefined,
-        displacementKind
-      );
-    }
-    logNavigationEvent(jumpId, 'JUMP_FINISHED', {
-      status,
-      strategy: session.recovery.activeStrategy,
-      realignAttempts: session.stabilization.realignAttempts,
-      recoveryAttempts: session.recovery.attemptsUsed,
-      alignmentErrorPx,
-      clamped: session.alignment.lastAlignClamped,
-      displacementKind,
-    });
-    logJumpFailedDiagnostic({
-      targetIndex: index,
-      targetMessageId: message.id,
-      reason: status,
-      strategy: session.recovery.activeStrategy,
-      recoveryAttempts: session.recovery.attemptsUsed,
-      container,
-    });
-    if (mode === 'target-driven') {
-      if (onJumpFailed) {
-        onJumpFailed(index);
-      } else {
-        notifyJumpFailed?.();
-        clearJumpProgress?.();
-      }
-    }
-  };
-
-  const scrollTargetIntoView = (
-    el: HTMLElement,
-    stage: 'after-align' | 'realign' = 'after-align'
-  ): AlignElementResult | null =>
-    applyTargetLandingAlignment(session, el, stage);
-
-  const performFinalTopScroll = () => {
-    performSessionFinalTopScroll(
-      session,
-      options.alignToTopEdge,
-      FRAME_TIMEOUT_MS
-    );
-  };
-
-  const classifyDisplacement = (
-    container: HTMLElement | null,
-    scrollHeightChanged: boolean
-  ): DisplacementKind =>
-    classifySessionDisplacement(session, container, scrollHeightChanged);
-
-  const initialAlignResult = scrollTargetIntoView(target, 'after-align');
-  if (initialAlignResult) {
-    if (isCancelled()) {
-      cleanupStabilization();
-      return;
-    }
-
-    keepFollowing(1800);
-    attachSessionUserInputListeners(session);
-
-    // Shared post-landing stabilization loop for Mounted Fast Path, Virtual
-    // Layout, and Viewport Walker: verifies alignment stability against
-    // virtual-list layout shifts and unexpected external scroll changes using
-    // a monotonic wall-clock budget (600ms per pass) and bounded disconnect
-    // recovery (up to 2 attempts).
-    session.stabilization.startedAtMs = getMonotonicNowMs();
-
-    const resetStabilizationPass = (nextTarget: HTMLElement): void => {
-      session.stabilization.activeTarget = nextTarget;
-      session.stabilization.startedAtMs = getMonotonicNowMs();
-      session.stabilization.realignAttempts = 0;
-      session.stabilization.lastRealignAtMs = null;
-      session.stabilization.consecutiveAlignedFrames = 0;
-      session.stabilization.stableSinceMs = null;
-      session.stabilization.lastAlignedViewportTopPx = null;
-      session.stabilization.consecutiveDisconnectedFrames = 0;
-      session.stabilization.disconnectedSinceMs = null;
-      session.stabilization.layoutMutatedDuringPass = false;
-    };
-
-    const scheduleStabilizeStep = (): void => {
-      session.lifecycle.cancelScheduledFrame = scheduleSessionFrame(
-        session,
-        () => {
-          session.lifecycle.cancelScheduledFrame = null;
-          stabilizeStep();
-        },
-        FRAME_TIMEOUT_MS
-      );
-    };
-
-    const runDisconnectRecovery = async (): Promise<void> => {
-      const result = await executeDisconnectRecovery(session, recovery);
-      if (result.status === 'skipped') {
-        return;
-      }
-      if (result.status === 'cancelled' || isCancelled()) {
-        cleanupStabilization();
-        return;
-      }
-      if (result.status === 'recovered' && result.element.isConnected) {
-        resetStabilizationPass(result.element);
-        if (scrollTargetIntoView(result.element, 'realign')) {
-          if (isCancelled()) {
-            cleanupStabilization();
-            return;
-          }
-          keepFollowing(1800);
-          scheduleStabilizeStep();
-          return;
-        }
-      }
-
-      notifyFailure('target-disconnected');
-    };
-
-    const stabilizeStep = () => {
-      if (isCancelled() || session.recovery.isRecovering) return;
-
-      if (session.lifecycle.userInterrupted) {
-        cleanupStabilization();
-        logNavigationEvent(jumpId, 'JUMP_FINISHED', {
-          status: 'cancelled-by-user',
-          strategy: session.recovery.activeStrategy,
-          realignAttempts: session.stabilization.realignAttempts,
-          recoveryAttempts: session.recovery.attemptsUsed,
-          displacementKind: 'user-scroll',
-        });
-        clearJumpProgress?.();
-        return;
-      }
-
-      const now = getMonotonicNowMs();
-      const elapsedPassMs = now - session.stabilization.startedAtMs;
-      const container = platform().navigation.getScrollContainer();
-
-      const scrollHeightChanged = Boolean(
-        container &&
-          container.isConnected &&
-          session.alignment.lastObservedScrollHeight !== null &&
-          Math.abs(
-            container.scrollHeight - session.alignment.lastObservedScrollHeight
-          ) > LAYOUT_HEIGHT_CHANGE_THRESHOLD_PX
-      );
-      if (scrollHeightChanged && container) {
-        session.stabilization.layoutMutatedDuringPass = true;
-        session.alignment.lastObservedScrollHeight = container.scrollHeight;
-      }
-
-      // Re-resolve by stable message ID; never reuse a disconnected node as connected.
-      const resolvedById = findRenderedChatGptPrompt(message.id);
-      let liveTarget: HTMLElement | null = null;
-      if (resolvedById && resolvedById.isConnected) {
-        if (resolvedById !== session.stabilization.activeTarget) {
-          session.stabilization.activeTarget = resolvedById;
-          highlightMatchedElement(resolvedById, message.id);
-        }
-        liveTarget = resolvedById;
-      } else if (
-        session.stabilization.activeTarget &&
-        session.stabilization.activeTarget.isConnected
-      ) {
-        liveTarget = session.stabilization.activeTarget;
-      } else {
-        session.stabilization.activeTarget = null;
-      }
-
-      const evalResult: AlignmentEvaluation = liveTarget
-        ? evaluateElementAlignment(liveTarget)
-        : 'disconnected';
-
-      if (evalResult === 'disconnected') {
-        session.stabilization.stableSinceMs = null;
-        session.stabilization.consecutiveAlignedFrames = 0;
-        session.stabilization.lastAlignedViewportTopPx = null;
-        if (session.stabilization.disconnectedSinceMs === null) {
-          session.stabilization.disconnectedSinceMs = now;
-        }
-        session.stabilization.consecutiveDisconnectedFrames += 1;
-
-        const graceElapsed =
-          session.stabilization.consecutiveDisconnectedFrames >=
-            DISCONNECT_GRACE_FRAMES &&
-          now - session.stabilization.disconnectedSinceMs >= DISCONNECT_GRACE_MS;
-
-        if (graceElapsed) {
-          if (recovery && session.recovery.remainingRecoveries > 0) {
-            void runDisconnectRecovery();
-            return;
-          }
-          notifyFailure('target-disconnected');
-          return;
-        }
-
-        if (elapsedPassMs < MAX_STABILIZE_DURATION_MS) {
-          scheduleStabilizeStep();
-          return;
-        }
-
-        notifyFailure('target-disconnected');
-        return;
-      }
-
-      session.stabilization.disconnectedSinceMs = null;
-      session.stabilization.consecutiveDisconnectedFrames = 0;
-
-      if (evalResult === 'correctable' && liveTarget) {
-        session.stabilization.stableSinceMs = null;
-        session.stabilization.consecutiveAlignedFrames = 0;
-        session.stabilization.lastAlignedViewportTopPx = null;
-
-        const displacementKind = classifyDisplacement(container, scrollHeightChanged);
-        if (displacementKind === 'external-scroll-suspected') {
-          notifyFailure(
-            'external-scroll-suspected',
-            'external-scroll-suspected',
-            liveTarget
-          );
-          return;
-        }
-
-        const cooldownElapsed =
-          session.stabilization.lastRealignAtMs === null ||
-          now - session.stabilization.lastRealignAtMs >= REALIGN_COOLDOWN_MS;
-        const withinPassBudget = elapsedPassMs < MAX_STABILIZE_DURATION_MS;
-
-        if (
-          session.stabilization.realignAttempts < MAX_REALIGN_ATTEMPTS &&
-          withinPassBudget
-        ) {
-          if (cooldownElapsed) {
-            session.stabilization.realignAttempts += 1;
-            session.stabilization.lastRealignAtMs = now;
-            scrollTargetIntoView(liveTarget, 'realign');
-          }
-          scheduleStabilizeStep();
-          return;
-        }
-
-        if (
-          withinPassBudget &&
-          session.stabilization.lastRealignAtMs !== null &&
-          now - session.stabilization.lastRealignAtMs < REALIGN_COOLDOWN_MS
-        ) {
-          scheduleStabilizeStep();
-          return;
-        }
-
-        performFinalTopScroll();
-        notifyFailure('alignment-unstable', displacementKind, liveTarget);
-        return;
-      }
-
-      // evalResult is 'aligned' or 'bounded'
-      if (container && container.isConnected) {
-        session.alignment.lastAppliedScrollTop = container.scrollTop;
-        session.alignment.lastObservedScrollHeight = container.scrollHeight;
-        session.alignment.lastAppliedDistanceFromBottom = Math.max(
-          0,
-          container.scrollHeight - container.scrollTop - container.clientHeight
-        );
-      }
-
-      const currentTargetViewportTopPx = liveTarget
-        ? liveTarget.getBoundingClientRect().top
-        : null;
-      const targetMovedInViewport =
-        currentTargetViewportTopPx !== null &&
-        session.stabilization.lastAlignedViewportTopPx !== null &&
-        Math.abs(
-          currentTargetViewportTopPx -
-            session.stabilization.lastAlignedViewportTopPx
-        ) > SUBPIXEL_TOLERANCE_PX;
-      session.stabilization.lastAlignedViewportTopPx = currentTargetViewportTopPx;
-
-      if (targetMovedInViewport) {
-        session.stabilization.stableSinceMs = null;
-        session.stabilization.consecutiveAlignedFrames = 0;
-      } else {
-        // Target itself is connected, aligned/bounded, and visually stationary.
-        // Offscreen scrollHeight changes that are compensated by the host do
-        // not reset stability while the target stays locked at its landing offset.
-        if (session.stabilization.stableSinceMs === null) {
-          session.stabilization.stableSinceMs = now;
-        }
-        session.stabilization.consecutiveAlignedFrames += 1;
-      }
-
-      const requiredStableDurationMs =
-        session.alignment.didScrollFar ||
-        session.stabilization.layoutMutatedDuringPass
-          ? LAYOUT_SETTLED_QUIET_MS
-          : MIN_STABLE_DURATION_MS;
-
-      if (
-        session.stabilization.consecutiveAlignedFrames >=
-          REQUIRED_STABLE_FRAMES &&
-        session.stabilization.stableSinceMs !== null &&
-        now - session.stabilization.stableSinceMs >= requiredStableDurationMs
-      ) {
-        cleanupStabilization();
-        performFinalTopScroll();
-        const finalErrorPx = measureAlignmentErrorPx(liveTarget, container);
-        if (liveTarget) {
-          // Refresh highlight on the final connected target once alignment has
-          // settled so the full visibility window begins after navigation completes
-          // and recovers from any mid-stabilization unmount/offscreen teardown.
-          highlightMatchedElement(liveTarget, message.id);
-          const containerTop = container ? container.getBoundingClientRect().top : 0;
-          const { expectedContainerOffsetPx } = resolvePromptLandingOffset(container);
-          emitSessionAlignmentMeasurement(
-            session,
-            'settled',
-            liveTarget,
-            container,
-            containerTop + expectedContainerOffsetPx,
-            session.alignment.lastAlignClamped,
-            undefined,
-            'none'
-          );
-        }
-        logNavigationEvent(jumpId, 'JUMP_FINISHED', {
-          status: 'found',
-          strategy: session.recovery.activeStrategy,
-          realignAttempts: session.stabilization.realignAttempts,
-          recoveryAttempts: session.recovery.attemptsUsed,
-          alignmentErrorPx: finalErrorPx,
-          clamped: session.alignment.lastAlignClamped,
-        });
-        if (mode === 'target-driven') {
-          onJumpComplete?.(index);
-        }
-        return;
-      }
-
-      if (elapsedPassMs < MAX_STABILIZE_DURATION_MS) {
-        scheduleStabilizeStep();
-      } else {
-        performFinalTopScroll();
-        notifyFailure('alignment-unstable', 'layout-shift', liveTarget);
-      }
-    };
-
-    scheduleStabilizeStep();
+  if (!deferredRepollSession) {
     return;
   }
 
   // Re-poll briefly in case ChatGPT replaces the bubble during virtual
-  // scroll. Each attempt polls once; bail after the budget.
+  // scroll. Retained here temporarily until Phase 5E addresses its timer
+  // cleanup ownership.
   setTimeout(() => {
     if (isCancelled()) return;
     const latest = findRenderedChatGptPrompt(message.id);
     if (latest && latest.isConnected) {
-      if (!scrollTargetIntoView(latest, 'realign')) {
+      if (!applyTargetLandingAlignment(deferredRepollSession, latest, 'realign')) {
         if (!isCancelled()) {
           logJumpFailedDiagnostic({
             targetIndex: index,
             targetMessageId: message.id,
             reason: 'scroll-failed-after-repoll',
-            strategy: session.recovery.activeStrategy,
-            recoveryAttempts: session.recovery.attemptsUsed,
+            strategy: deferredRepollSession.recovery.activeStrategy,
+            recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
           });
           onJumpFailed?.(index);
         }
@@ -1036,11 +656,11 @@ function finishIndependentVirtualJump(
 
       logNavigationEvent(jumpId, 'JUMP_FINISHED', {
         status: 'found-after-repoll',
-        strategy: session.recovery.activeStrategy,
-        realignAttempts: session.stabilization.realignAttempts,
-        recoveryAttempts: session.recovery.attemptsUsed,
+        strategy: deferredRepollSession.recovery.activeStrategy,
+        realignAttempts: deferredRepollSession.stabilization.realignAttempts,
+        recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
         alignmentErrorPx: measureAlignmentErrorPx(latest, container),
-        clamped: session.alignment.lastAlignClamped,
+        clamped: deferredRepollSession.alignment.lastAlignClamped,
       });
 
       onJumpComplete?.(index);
@@ -1048,17 +668,17 @@ function finishIndependentVirtualJump(
     }
     logNavigationEvent(jumpId, 'JUMP_FINISHED', {
       status: 'target-disappeared-after-search',
-      strategy: session.recovery.activeStrategy,
-      realignAttempts: session.stabilization.realignAttempts,
-      recoveryAttempts: session.recovery.attemptsUsed,
+      strategy: deferredRepollSession.recovery.activeStrategy,
+      realignAttempts: deferredRepollSession.stabilization.realignAttempts,
+      recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
     });
     if (!isCancelled()) {
       logJumpFailedDiagnostic({
         targetIndex: index,
         targetMessageId: message.id,
         reason: 'target-disappeared-after-search',
-        strategy: session.recovery.activeStrategy,
-        recoveryAttempts: session.recovery.attemptsUsed,
+        strategy: deferredRepollSession.recovery.activeStrategy,
+        recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
       });
       onJumpFailed?.(index);
     }
