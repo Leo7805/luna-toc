@@ -247,8 +247,7 @@ export const navigatorController = (() => {
     onTitleChanged = options.onTitleChanged || onTitleChanged;
     conversationStore.setCurrentConversationKey(getCurrentConversationKey());
     initMarkedPrompts();
-    listenForConversationData();
-    listenForRouteChanges();
+    listenForWindowEvents();
     isInitialized = true;
   }
 
@@ -608,19 +607,6 @@ export const navigatorController = (() => {
     flushPendingNewChatMessage();
   }
 
-  function listenForRouteChanges(): void {
-    window.addEventListener('popstate', syncRouteState);
-    window.addEventListener('message', (event) => {
-      if (event.source !== window) return;
-      if (
-        event.data?.type ===
-        getActivePlatform().pageHook.messages.routeChanged
-      ) {
-        syncRouteState();
-      }
-    });
-  }
-
   function handleConversationData(data: ConversationData): void {
     const incomingMessages = data?.messages;
     if (!Array.isArray(incomingMessages)) return;
@@ -634,15 +620,32 @@ export const navigatorController = (() => {
     render({ refreshObservers: true });
   }
 
-  function listenForConversationData(): void {
+  /**
+   * Registers module-lifetime `popstate` and filtered `window.message`
+   * listeners for the five recognized controller Page Hook message types.
+   */
+  function listenForWindowEvents(): void {
+    window.addEventListener('popstate', syncRouteState);
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
+
+      const type = event.data?.type;
+      if (typeof type !== 'string') return;
+
+      const messages = getActivePlatform().pageHook.messages;
+      const isRecognizedMessage =
+        type === messages.routeChanged ||
+        type === messages.conversationData ||
+        type === messages.conversationEnded ||
+        type === messages.newUserMessage ||
+        type === messages.titleChanged;
+      if (!isRecognizedMessage) return;
+
       syncRouteState();
 
-      if (
-        event.data?.type ===
-        getActivePlatform().pageHook.messages.conversationData
-      ) {
+      if (type === messages.routeChanged) return;
+
+      if (type === messages.conversationData) {
         const routeKey = event.data.routeKey;
         if (routeKey && routeKey !== getCurrentConversationKey()) return;
         conversationStore.clearPendingNewChat();
@@ -653,12 +656,10 @@ export const navigatorController = (() => {
         }
         restartSettleTimer();
         handleConversationData(event.data.payload);
+        return;
       }
 
-      if (
-        event.data?.type ===
-        getActivePlatform().pageHook.messages.conversationEnded
-      ) {
+      if (type === messages.conversationEnded) {
         const routeKey = event.data.routeKey;
         if (!routeKey || routeKey !== getCurrentConversationKey()) return;
         const isComplete = event.data.complete === true;
@@ -666,12 +667,10 @@ export const navigatorController = (() => {
           conversationStore.markConversationComplete(routeKey);
         }
         markLoadingComplete({ isComplete });
+        return;
       }
 
-      if (
-        event.data?.type ===
-        getActivePlatform().pageHook.messages.newUserMessage
-      ) {
+      if (type === messages.newUserMessage) {
         const newMessage = event.data.payload as ChatMessage;
         if (!newMessage?.id) return;
 
@@ -691,12 +690,10 @@ export const navigatorController = (() => {
           markLoadingComplete({ isComplete: false });
         }
         render({ refreshObservers: true });
+        return;
       }
 
-      if (
-        event.data?.type ===
-        getActivePlatform().pageHook.messages.titleChanged
-      ) {
+      if (type === messages.titleChanged) {
         onTitleChanged();
       }
     });

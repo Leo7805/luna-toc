@@ -2569,4 +2569,275 @@ describe('navigatorController lifecycle and coordination', () => {
       externalDispose();
     });
   });
+
+  describe('window.message routing and filtering (Finding #3B)', () => {
+    it('ignores unrelated, malformed, and non-window messages without invoking route synchronization', () => {
+      const platform = getActivePlatform();
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-filter-a',
+        },
+      });
+      navigatorController.init();
+      navigatorController.attach();
+
+      // Sync initial route cleanly, then change pathname WITHOUT sending a controller message
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-filter-b',
+        },
+      });
+
+      const routeKeySpy = vi.spyOn(platform.routing, 'getCurrentRouteKey');
+
+      const unrelatedPayloads: unknown[] = [
+        { type: 'UNRELATED_HOST_EVENT' },
+        { type: platform.pageHook.messages.setWidthSpoof, enabled: true },
+        { type: platform.pageHook.messages.configUpdate, config: {} },
+        { type: platform.pageHook.messages.contractMismatch, slot: 'x' },
+        null,
+        undefined,
+        {},
+        { type: 123 },
+        'raw-string-payload',
+      ];
+
+      for (const payload of unrelatedPayloads) {
+        window.dispatchEvent(
+          new MessageEvent('message', { data: payload, source: window })
+        );
+      }
+
+      // Event whose source is not window must also be ignored
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: null,
+        })
+      );
+
+      expect(routeKeySpy).not.toHaveBeenCalled();
+    });
+
+    it('invokes route synchronization exactly once on CHATGPT_ROUTE_CHANGED (no duplicate handler)', () => {
+      const platform = getActivePlatform();
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-single-sync',
+        },
+      });
+      navigatorController.init();
+      navigatorController.attach();
+
+      // Ensure store is already on conv-single-sync so syncRouteState does not trigger extra reset calls
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+
+      const routeKeySpy = vi.spyOn(platform.routing, 'getCurrentRouteKey');
+
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+
+      // Fixed consolidated listener calls syncRouteState() once (original called it twice).
+      expect(routeKeySpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('synchronizes route before applying conversationData arriving before routeChanged and ignores redundant follow-up routeChanged', () => {
+      const platform = getActivePlatform();
+      const list = document.getElementById('navigator-list')!;
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-early-a',
+        },
+      });
+      navigatorController.init();
+      navigatorController.attach();
+
+      // Seed Conversation A with a prompt
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey: 'conv-early-a',
+            payload: {
+              messages: [
+                {
+                  id: 'a-1',
+                  author: { role: 'user' },
+                  content: { parts: ['Prompt in A'] },
+                  create_time: 100,
+                },
+              ],
+            },
+          },
+          source: window,
+        })
+      );
+      expect(list.textContent).toContain('Prompt in A');
+
+      // Change pathname to Conversation B WITHOUT dispatching routeChanged first
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-early-b',
+        },
+      });
+
+      // Conversation B data arrives before routeChanged
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationData,
+            routeKey: 'conv-early-b',
+            payload: {
+              messages: [
+                {
+                  id: 'b-1',
+                  author: { role: 'user' },
+                  content: { parts: ['Prompt in B'] },
+                  create_time: 200,
+                },
+              ],
+            },
+          },
+          source: window,
+        })
+      );
+
+      expect(list.children.length).toBe(1);
+      expect(list.textContent).toContain('Prompt in B');
+      expect(list.textContent).not.toContain('Prompt in A');
+
+      // Delayed CHATGPT_ROUTE_CHANGED for B must not reset or wipe B's prompts
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+      expect(list.children.length).toBe(1);
+      expect(list.textContent).toContain('Prompt in B');
+
+      // Switching back to A via popstate restores A's cached prompt without B's prompt
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-early-a',
+        },
+      });
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      expect(list.children.length).toBe(1);
+      expect(list.textContent).toContain('Prompt in A');
+      expect(list.textContent).not.toContain('Prompt in B');
+    });
+
+    it('handles conversationEnded, newUserMessage, titleChanged, and pre-attach messages cleanly', () => {
+      const platform = getActivePlatform();
+      const list = document.getElementById('navigator-list')!;
+
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: {
+          ...window.location,
+          host: 'chatgpt.com',
+          pathname: '/c/conv-preattach',
+        },
+      });
+
+      // Detach to simulate pre-attach window (init already ran, sidebar not attached yet)
+      navigatorController.detach();
+      navigatorController.init();
+
+      // Early Page Hook message arrives before attach()
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.newUserMessage,
+            routeKey: 'conv-preattach',
+            payload: {
+              id: 'early-1',
+              author: { role: 'user' },
+              content: { parts: ['Early Prompt'] },
+              create_time: 50,
+            },
+          },
+          source: window,
+        })
+      );
+
+      navigatorController.attach();
+      expect(list.textContent).toContain('Early Prompt');
+
+      // conversationEnded marks loading complete
+      setLoading(true);
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: platform.pageHook.messages.conversationEnded,
+            routeKey: 'conv-preattach',
+            complete: true,
+          },
+          source: window,
+        })
+      );
+      expect(isLoading()).toBe(false);
+
+      // titleChanged dispatches cleanly without error
+      expect(() => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              type: platform.pageHook.messages.titleChanged,
+              title: 'Updated Title',
+            },
+            source: window,
+          })
+        );
+      }).not.toThrow();
+
+      // Repeated detach/attach does not duplicate message handling
+      navigatorController.detach();
+      navigatorController.attach();
+      const routeKeySpy = vi.spyOn(platform.routing, 'getCurrentRouteKey');
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: platform.pageHook.messages.routeChanged },
+          source: window,
+        })
+      );
+      expect(routeKeySpy).toHaveBeenCalledTimes(1);
+    });
+  });
 });
