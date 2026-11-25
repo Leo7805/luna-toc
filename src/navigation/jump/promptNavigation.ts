@@ -18,7 +18,6 @@ import {
 } from './promptHighlightOverlay';
 import {
   createNavigationJumpId,
-  isNavigationDebugEnabled,
   logJumpFailedDiagnostic,
   logNavigationEvent,
 } from './jumpDiagnostics';
@@ -30,6 +29,11 @@ import {
   scheduleSessionFrame,
   type DisplacementKind,
 } from './prompt/promptJumpSession';
+import {
+  applyTargetLandingAlignment,
+  classifyDisplacement as classifySessionDisplacement,
+  performFinalTopScroll as performSessionFinalTopScroll,
+} from './prompt/promptLanding';
 import {
   executeDisconnectRecovery,
   type DisconnectRecoveryContext,
@@ -186,7 +190,6 @@ const DISCONNECT_GRACE_FRAMES = 2;
 const DISCONNECT_GRACE_MS = 50;
 const MAX_DISCONNECT_RECOVERIES = 2;
 const FRAME_TIMEOUT_MS = 50;
-const EXTERNAL_SCROLL_THRESHOLD_PX = 4;
 const LAYOUT_HEIGHT_CHANGE_THRESHOLD_PX = 2;
 const BOTTOM_FIRST_POLL_MS = 40;
 const BOTTOM_FIRST_QUIET_MS = 120;
@@ -689,125 +692,16 @@ function finishIndependentVirtualJump(
     }
   };
 
-  // Scroll the target to the computed landing coordinate inside the active
-  // scroll container, emit debug-only alignment measurements if enabled,
-  // then highlight it.
-  const scrollTargetIntoView = function (
+  const scrollTargetIntoView = (
     el: HTMLElement,
     stage: 'after-align' | 'realign' = 'after-align'
-  ): AlignElementResult | null {
-    if (isCancelled() || !el.isConnected) return null;
-    const container = platform().navigation.getScrollContainer();
-    const debugEnabled = isNavigationDebugEnabled();
-
-    if (debugEnabled && stage === 'after-align') {
-      const containerTop = container ? container.getBoundingClientRect().top : 0;
-      const { expectedContainerOffsetPx } = resolvePromptLandingOffset(container);
-      emitSessionAlignmentMeasurement(
-        session,
-        'before-align',
-        el,
-        container,
-        containerTop + expectedContainerOffsetPx,
-        false
-      );
-    }
-
-    // Re-arm viewport hold before post-mount alignment and realignment writes
-    // because coarse virtual jumps or height collapses can briefly touch
-    // distanceFromBottom=0 and re-enable ChatGPT's native bottom compensation.
-    if (
-      container &&
-      container.isConnected &&
-      (stage === 'realign' || session.recovery.activeStrategy !== 'fast-path')
-    ) {
-      platform().navigation.holdViewport?.(container);
-    }
-
-    const scrollTopBefore =
-      container && container.isConnected ? container.scrollTop : null;
-    const alignResult = alignElementInContainer(el, container);
-    session.alignment.lastAlignClamped = alignResult.clamped;
-    if (container && container.isConnected) {
-      session.alignment.lastAppliedScrollTop = container.scrollTop;
-      session.alignment.lastObservedScrollHeight = container.scrollHeight;
-      session.alignment.lastAppliedDistanceFromBottom = Math.max(
-        0,
-        container.scrollHeight - container.scrollTop - container.clientHeight
-      );
-      const baselineScrollTop =
-        initialScrollTopPx !== null ? initialScrollTopPx : scrollTopBefore;
-      if (
-        stage === 'after-align' &&
-        baselineScrollTop !== null &&
-        container.clientHeight > 0 &&
-        Math.abs(container.scrollTop - baselineScrollTop) > container.clientHeight
-      ) {
-        session.alignment.didScrollFar = true;
-      }
-    }
-
-    if (debugEnabled) {
-      emitSessionAlignmentMeasurement(
-        session,
-        stage,
-        el,
-        container,
-        alignResult.expectedViewportTopPx,
-        alignResult.clamped,
-        alignResult.method
-      );
-      if (stage === 'after-align' && typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => {
-          if (isCancelled()) return;
-          const resolved = findRenderedChatGptPrompt(message.id);
-          const liveEl =
-            resolved && resolved.isConnected ? resolved : el;
-          const liveContainer = platform().navigation.getScrollContainer();
-          emitSessionAlignmentMeasurement(
-            session,
-            'next-frame',
-            liveEl,
-            liveContainer,
-            alignResult.expectedViewportTopPx,
-            alignResult.clamped,
-            alignResult.method
-          );
-        });
-      }
-    }
-
-    if (stage === 'after-align') {
-      highlightMatchedElement(el, message.id);
-    }
-    return alignResult;
-  };
+  ): AlignElementResult | null =>
+    applyTargetLandingAlignment(session, el, stage);
 
   const performFinalTopScroll = () => {
-    if (!options.alignToTopEdge) return;
-    if (isCancelled()) return;
-    const scrollContainer = platform().navigation.getScrollContainer();
-    if (!scrollContainer || !scrollContainer.isConnected) return;
-
-    const targetElement = findRenderedChatGptPrompt(message.id);
-    if (!targetElement || !targetElement.isConnected) return;
-
-    scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
-
-    scheduleSessionFrame(
+    performSessionFinalTopScroll(
       session,
-      () => {
-        if (isCancelled()) return;
-        if (!scrollContainer.isConnected) return;
-
-        const verifiedPrompt = findRenderedChatGptPrompt(message.id);
-        if (!verifiedPrompt || !verifiedPrompt.isConnected) return;
-
-        if (scrollContainer.scrollTop > 0) {
-          scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
-        }
-        highlightMatchedElement(verifiedPrompt, message.id);
-      },
+      options.alignToTopEdge,
       FRAME_TIMEOUT_MS
     );
   };
@@ -815,38 +709,8 @@ function finishIndependentVirtualJump(
   const classifyDisplacement = (
     container: HTMLElement | null,
     scrollHeightChanged: boolean
-  ): DisplacementKind => {
-    if (session.lifecycle.userInterrupted) return 'user-scroll';
-    if (container && session.alignment.lastAppliedScrollTop !== null) {
-      if (scrollHeightChanged) {
-        const currentDistFromBottom = Math.max(
-          0,
-          container.scrollHeight - container.scrollTop - container.clientHeight
-        );
-        // Only classify as an external bottom-snap when scrollTop actively
-        // jumped downward toward the bottom. If scrollHeight shrank and
-        // clamped scrollTop (scrollTop <= lastAppliedScrollTop), it is a
-        // layout-induced clamp that should be realigned.
-        const isDownwardSnapToBottom =
-          currentDistFromBottom <= 2 &&
-          session.alignment.lastAppliedDistanceFromBottom !== null &&
-          session.alignment.lastAppliedDistanceFromBottom > 24 &&
-          container.scrollTop >
-            session.alignment.lastAppliedScrollTop + EXTERNAL_SCROLL_THRESHOLD_PX;
-        if (isDownwardSnapToBottom) {
-          return 'external-scroll-suspected';
-        }
-        return 'layout-shift';
-      }
-      const scrollTopDrift = Math.abs(
-        container.scrollTop - session.alignment.lastAppliedScrollTop
-      );
-      if (scrollTopDrift > EXTERNAL_SCROLL_THRESHOLD_PX) {
-        return 'external-scroll-suspected';
-      }
-    }
-    return 'layout-shift';
-  };
+  ): DisplacementKind =>
+    classifySessionDisplacement(session, container, scrollHeightChanged);
 
   const initialAlignResult = scrollTargetIntoView(target, 'after-align');
   if (initialAlignResult) {
