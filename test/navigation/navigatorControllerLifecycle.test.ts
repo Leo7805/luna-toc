@@ -2515,5 +2515,58 @@ describe('navigatorController lifecycle and coordination', () => {
         { mode: 'viewport-driven', alignToTopEdge: false }
       );
     });
+
+    it('detach removes Follow listeners and detach->attach leaves exactly one active Follow set', async () => {
+      const followModule = await import('@/navigation/follow/follow');
+      const list = document.getElementById('navigator-list') as HTMLDivElement;
+      const chatArea = document.createElement('div');
+      document.body.appendChild(chatArea);
+
+      controller.detach();
+      followModule.stopFollowing();
+
+      const addListSpy = vi.spyOn(list, 'addEventListener');
+      const remListSpy = vi.spyOn(list, 'removeEventListener');
+
+      controller.init();
+      controller.attach();
+
+      // Follow works while attached
+      chatArea.dispatchEvent(new Event('scroll', { bubbles: true }));
+      expect(followModule.isFollowing()).toBe(true);
+      list.dispatchEvent(new Event('wheel'));
+      expect(followModule.isFollowing()).toBe(false);
+
+      // Detach removes Follow's 4 list listeners cleanly
+      controller.detach();
+      expect(remListSpy).toHaveBeenCalledTimes(4);
+      chatArea.dispatchEvent(new Event('scroll', { bubbles: true }));
+      expect(followModule.isFollowing()).toBe(false);
+
+      // Re-attach binds exactly one fresh Follow listener set and restores Follow behavior
+      addListSpy.mockClear();
+      remListSpy.mockClear();
+      controller.attach();
+      expect(addListSpy).toHaveBeenCalledTimes(4);
+      expect(remListSpy).toHaveBeenCalledTimes(0);
+
+      chatArea.dispatchEvent(new Event('scroll', { bubbles: true }));
+      expect(followModule.isFollowing()).toBe(true);
+      list.dispatchEvent(new Event('wheel'));
+      expect(followModule.isFollowing()).toBe(false);
+
+      // External reinitialization is NOT disposed by a stale controller.detach()
+      const externalDispose = followModule.initializeFollow({
+        listSelector: '#navigator-list',
+        ignoredScrollSelector: '#luna-toc-sidebar',
+      });
+      remListSpy.mockClear();
+      controller.detach();
+      expect(remListSpy).not.toHaveBeenCalled();
+
+      chatArea.dispatchEvent(new Event('scroll', { bubbles: true }));
+      expect(followModule.isFollowing()).toBe(true);
+      externalDispose();
+    });
   });
 });

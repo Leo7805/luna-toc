@@ -77,6 +77,7 @@ export const navigatorController = (() => {
   let onSavePrompt: (message: NavigatorMessage) => void = () => {};
   let onTitleChanged = () => {};
   let unsubscribeNavigationState: (() => void) | null = null;
+  let disposeFollow: (() => void) | null = null;
 
   /**
    * Returns the route key shared with prompt marking and page-hook messages.
@@ -269,7 +270,7 @@ export const navigatorController = (() => {
       markLoadingComplete({ isComplete: false });
     });
 
-    initializeFollow({
+    disposeFollow = initializeFollow({
       listSelector: '#navigator-list',
       ignoredScrollSelector:
         '#luna-toc-sidebar, #luna-toc-preview-tooltip, #luna-toc-button-tooltip',
@@ -361,6 +362,10 @@ export const navigatorController = (() => {
     if (unsubscribeNavigationState) {
       unsubscribeNavigationState();
       unsubscribeNavigationState = null;
+    }
+    if (disposeFollow) {
+      disposeFollow();
+      disposeFollow = null;
     }
     activePromptTracker.disconnect();
     isAttached = false;

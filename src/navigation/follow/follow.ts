@@ -11,33 +11,75 @@ interface FollowOptions {
 }
 const SCROLL_SETTLE_DELAY_MS = 300;
 const FOLLOW_AFTER_JUMP_MS = 1800;
+const NAVIGATOR_BROWSE_EVENTS = [
+  'wheel',
+  'pointerdown',
+  'touchstart',
+  'keydown',
+] as const;
 
 let followUntil = 0;
-let ignoredScrollSelector = '';
+let activeFollowCleanup: (() => void) | null = null;
 
 /**
  * Starts tracking chat scrolls and sidebar browsing.
+ * Idempotent: cleans up any previous Follow listeners before registering new
+ * ones, and returns an identity-safe, idempotent disposer for this registration.
+ *
  * @param {Object} options
  * @param {string} options.listSelector
  * @param {string} options.ignoredScrollSelector
+ * @returns {() => void} Disposer that removes the listeners created by this call.
+ * @example
+ * const disposeFollow = initializeFollow({
+ *   listSelector: '#navigator-list',
+ *   ignoredScrollSelector: '#luna-toc-sidebar',
+ * });
+ * disposeFollow();
  */
-export function initializeFollow(options: FollowOptions): void {
-  ignoredScrollSelector = options.ignoredScrollSelector;
+export function initializeFollow(options: FollowOptions): () => void {
+  activeFollowCleanup?.();
 
-  document.addEventListener(
-    'scroll',
-    (event) => {
-      if (isIgnoredScrollEvent(event)) return;
+  const ignoredScrollSelector = options.ignoredScrollSelector;
+  const handleDocumentScroll = (event: Event): void => {
+    if (isIgnoredScrollEvent(event, ignoredScrollSelector)) return;
+    handleChatScroll();
+  };
 
-      handleChatScroll();
-    },
-    {
+  document.addEventListener('scroll', handleDocumentScroll, {
+    capture: true,
+    passive: true,
+  });
+
+  const list = document.querySelector(options.listSelector);
+  if (list) {
+    NAVIGATOR_BROWSE_EVENTS.forEach((eventName) => {
+      list.addEventListener(eventName, stopFollowing, {
+        passive: true,
+      });
+    });
+  }
+
+  let disposed = false;
+  const dispose = (): void => {
+    if (disposed) return;
+    disposed = true;
+
+    document.removeEventListener('scroll', handleDocumentScroll, {
       capture: true,
-      passive: true,
+    });
+    if (list) {
+      NAVIGATOR_BROWSE_EVENTS.forEach((eventName) => {
+        list.removeEventListener(eventName, stopFollowing);
+      });
     }
-  );
+    if (activeFollowCleanup === dispose) {
+      activeFollowCleanup = null;
+    }
+  };
 
-  initNavigatorBrowseTracking(options.listSelector);
+  activeFollowCleanup = dispose;
+  return dispose;
 }
 
 /**
@@ -65,31 +107,16 @@ export function stopFollowing(): void {
 }
 
 /**
- * Stops following when the user directly scrolls or interacts with the TOC.
- * @param {string} listSelector
- */
-function initNavigatorBrowseTracking(listSelector: string): void {
-  const list = document.querySelector(listSelector);
-
-  if (!list) return;
-
-  ['wheel', 'pointerdown', 'touchstart', 'keydown'].forEach((eventName) => {
-    list.addEventListener(eventName, stopFollowing, {
-      passive: true,
-    });
-  });
-}
-
-/**
  * Returns true for scroll events from ChatTOC UI instead of the chat page.
  * @param {Event} event
+ * @param {string} ignoredSelector
  * @returns {boolean}
  */
-function isIgnoredScrollEvent(event: Event): boolean {
+function isIgnoredScrollEvent(event: Event, ignoredSelector: string): boolean {
   const target = event.target;
 
   return (
-    target instanceof Element && Boolean(target.closest(ignoredScrollSelector))
+    target instanceof Element && Boolean(target.closest(ignoredSelector))
   );
 }
 
