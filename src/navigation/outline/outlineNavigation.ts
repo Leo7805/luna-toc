@@ -20,6 +20,17 @@ const OUTLINE_JUMP_MAX_ATTEMPTS = 16;
 
 let highlightedHeadingElement: HTMLElement | null = null;
 let outlineJumpVersion = 0;
+let activeJumpTimerId: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Synchronously clears any pending outline-jump retry timer.
+ */
+function clearPendingJumpTimer(): void {
+  if (activeJumpTimerId !== null) {
+    clearTimeout(activeJumpTimerId);
+    activeJumpTimerId = null;
+  }
+}
 
 /**
  * Navigates to an already displayed outline entry, restoring its parent
@@ -30,6 +41,7 @@ export function jumpToOutlineEntry(
   promptIndex: number,
   resolveCurrentHeading: OutlineHeadingResolver
 ): void {
+  clearPendingJumpTimer();
   const jumpVersion = outlineJumpVersion + 1;
   outlineJumpVersion = jumpVersion;
 
@@ -61,6 +73,7 @@ export function jumpToOutlineEntry(
 
 /** Cancels pending child-outline navigation and clears its heading highlight. */
 export function cancelOutlineNavigation(): void {
+  clearPendingJumpTimer();
   outlineJumpVersion += 1;
   clearHighlightedHeading();
 }
@@ -75,6 +88,7 @@ function retryOutlineEntryJump(
   if (jumpVersion !== outlineJumpVersion) return;
 
   const heading = resolveOutlineHeading(entry, resolveCurrentHeading);
+  if (jumpVersion !== outlineJumpVersion) return;
   if (heading) {
     finishOutlineEntryJump(heading, promptIndex, jumpVersion);
     return;
@@ -90,7 +104,11 @@ function retryOutlineEntryJump(
     return;
   }
 
-  setTimeout(() => {
+  clearPendingJumpTimer();
+  const timerId = setTimeout(() => {
+    if (activeJumpTimerId === timerId) {
+      activeJumpTimerId = null;
+    }
     retryOutlineEntryJump(
       entry,
       promptIndex,
@@ -99,6 +117,7 @@ function retryOutlineEntryJump(
       resolveCurrentHeading
     );
   }, OUTLINE_JUMP_RETRY_DELAY_MS);
+  activeJumpTimerId = timerId;
 }
 
 function finishOutlineEntryJump(

@@ -40,6 +40,17 @@ const expandedPromptOutlines = new Set<number>();
 const promptItems = new Map<number, PromptItemEntry>();
 let currentPromptIndex: number | null = null;
 let outlineBuildVersion = 0;
+let activeBuildTimerId: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Synchronously clears any pending outline-build retry timer.
+ */
+function clearPendingBuildTimer(): void {
+  if (activeBuildTimerId !== null) {
+    clearTimeout(activeBuildTimerId);
+    activeBuildTimerId = null;
+  }
+}
 
 /**
  * Extracts the two-level heading outline from a rendered prompt answer.
@@ -55,6 +66,7 @@ export function getPromptOutline(index: number): OutlineEntry[] {
  */
 export function resetOutline(): void {
   cancelOutlineNavigation();
+  clearPendingBuildTimer();
   outlineBuildVersion += 1;
   outlineCache.clearOutlineCache();
   expandedPromptOutlines.clear();
@@ -148,6 +160,7 @@ export function handlePromptNavigation(
         })
       ),
     });
+    clearPendingBuildTimer();
     currentPromptIndex = index;
     togglePromptOutline(index);
     updateAllPromptItems();
@@ -182,6 +195,9 @@ export function syncActivePrompt(index: number): void {
  * @param {number} index Prompt index.
  */
 function setCurrentPrompt(index: number): void {
+  if (index !== currentPromptIndex) {
+    clearPendingBuildTimer();
+  }
   currentPromptIndex = index;
   collapseAllExcept(index);
   updateAllPromptItems();
@@ -235,6 +251,7 @@ export function scheduleBuild(
   index: number,
   attempts = OUTLINE_BUILD_MAX_ATTEMPTS
 ): void {
+  clearPendingBuildTimer();
   const buildVersion = outlineBuildVersion + 1;
 
   logOutlineDiagnostic('OUTLINE_BUILD_SCHEDULED', {
@@ -257,16 +274,21 @@ function runBuild(index: number, attempts: number, buildVersion: number): void {
 
   const outline = getPromptOutline(index);
 
-  if (!outline.length) {
-    if (attempts <= 1) return;
-
-    setTimeout(() => {
-      runBuild(index, attempts - 1, buildVersion);
-    }, OUTLINE_BUILD_RETRY_DELAY_MS);
+  if (buildVersion !== outlineBuildVersion || index !== currentPromptIndex) {
     return;
   }
 
-  if (buildVersion !== outlineBuildVersion || index !== currentPromptIndex) {
+  if (!outline.length) {
+    if (attempts <= 1) return;
+
+    clearPendingBuildTimer();
+    const timerId = setTimeout(() => {
+      if (activeBuildTimerId === timerId) {
+        activeBuildTimerId = null;
+      }
+      runBuild(index, attempts - 1, buildVersion);
+    }, OUTLINE_BUILD_RETRY_DELAY_MS);
+    activeBuildTimerId = timerId;
     return;
   }
 
