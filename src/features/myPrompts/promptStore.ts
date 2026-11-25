@@ -31,6 +31,8 @@ function isContextValid(): boolean {
 
 export function createPromptStore(): PromptStore {
   let cache: SavedPrompt[] = [];
+  let hasAuthoritativeState = false;
+  let storageGeneration = 0;
   let hydratePromise: Promise<SavedPrompt[]> | null = null;
   const listeners = new Set<PromptsChangedListener>();
 
@@ -82,27 +84,53 @@ export function createPromptStore(): PromptStore {
   }
 
   async function hydrateFromStorage(maxAttempts = 3): Promise<SavedPrompt[]> {
+    let lastError: unknown;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         const result = await readPromptsRecord();
         return readPromptsList(result);
       } catch (error) {
+        lastError = error;
         if (attempt < maxAttempts) {
           await wait(80 * attempt);
         }
       }
     }
 
-    return getCacheCopy();
+    throw lastError ?? new Error('Failed to hydrate prompts from storage');
   }
 
   function hydrate(): Promise<SavedPrompt[]> {
+    if (hasAuthoritativeState) {
+      return Promise.resolve(getCacheCopy());
+    }
+
     if (!hydratePromise) {
-      hydratePromise = hydrateFromStorage().then((prompts) => {
-        setCache(prompts);
-        notifyListeners();
-        return getCacheCopy();
-      });
+      const readGeneration = storageGeneration;
+      const pending = hydrateFromStorage().then(
+        (prompts) => {
+          if (hydratePromise === pending) {
+            hydratePromise = null;
+          }
+          if (storageGeneration !== readGeneration) {
+            return getCacheCopy();
+          }
+          setCache(prompts);
+          hasAuthoritativeState = true;
+          notifyListeners();
+          return getCacheCopy();
+        },
+        (error: unknown) => {
+          if (hydratePromise === pending) {
+            hydratePromise = null;
+          }
+          if (hasAuthoritativeState) {
+            return getCacheCopy();
+          }
+          throw error;
+        }
+      );
+      hydratePromise = pending;
     }
 
     return hydratePromise;
@@ -116,6 +144,8 @@ export function createPromptStore(): PromptStore {
         const promptChange = changes[storageKey];
         if (!promptChange) return;
 
+        storageGeneration += 1;
+        hasAuthoritativeState = true;
         setCache(
           Array.isArray(promptChange.newValue)
             ? (promptChange.newValue as SavedPrompt[])
@@ -152,6 +182,7 @@ export function createPromptStore(): PromptStore {
             return;
           }
 
+          storageGeneration += 1;
           notifyListeners();
           resolve();
         });
@@ -163,7 +194,7 @@ export function createPromptStore(): PromptStore {
       }
 
       listeners.add(listener);
-      void hydrate();
+      void hydrate().catch(() => undefined);
       return () => {
         listeners.delete(listener);
       };
