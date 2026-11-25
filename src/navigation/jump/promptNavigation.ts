@@ -29,8 +29,13 @@ import {
   emitSessionAlignmentMeasurement,
   scheduleSessionFrame,
   type DisplacementKind,
-  type NavigationStrategyName,
 } from './prompt/promptJumpSession';
+import {
+  executeDisconnectRecovery,
+  type DisconnectRecoveryContext,
+  type MountTargetOptions,
+  type MountTargetOutcome,
+} from './prompt/promptRecovery';
 import {
   alignElementInContainer,
   computePromptLandingOffset,
@@ -169,31 +174,6 @@ export function jumpToMessage(
   clearPromptHighlightOverlay();
   cancelActiveNavigationSearch();
   jumpWithIndependentVirtualNavigation(message, index, options);
-}
-
-type MountTargetOutcome =
-  | {
-      status: 'mounted';
-      element: HTMLElement;
-      strategy: 'virtual-layout' | 'viewport-walker';
-      virtualTopOffsetPx?: number;
-    }
-  | { status: 'cancelled' }
-  | {
-      status: 'failed';
-      reason: 'virtual-exhausted' | 'step-2-exhausted';
-      strategy: 'virtual-layout' | 'viewport-walker';
-    };
-
-interface MountTargetOptions {
-  skipVirtualLayout?: boolean;
-}
-
-interface DisconnectRecoveryContext {
-  recoverTarget: (options?: MountTargetOptions) => Promise<MountTargetOutcome>;
-  remainingRecoveries: number;
-  initialStrategy: NavigationStrategyName;
-  initialVirtualTopOffsetPx?: number;
 }
 
 const MIN_STABLE_DURATION_MS = 120;
@@ -910,73 +890,17 @@ function finishIndependentVirtualJump(
     };
 
     const runDisconnectRecovery = async (): Promise<void> => {
-      if (
-        session.recovery.isRecovering ||
-        isCancelled() ||
-        !recovery ||
-        session.recovery.remainingRecoveries <= 0
-      ) {
+      const result = await executeDisconnectRecovery(session, recovery);
+      if (result.status === 'skipped') {
         return;
       }
-      session.recovery.isRecovering = true;
-      session.recovery.remainingRecoveries -= 1;
-      session.recovery.attemptsUsed += 1;
-
-      const recoveryAttempt = session.recovery.attemptsUsed;
-      logNavigationEvent(jumpId, 'JUMP_DISCONNECT_RECOVERY_START', {
-        targetPromptIndex: index,
-        recoveryAttempt,
-      });
-
-      // Progress-aware recovery strategy selection:
-      // Switch to Viewport Walker when a direct virtual-layout leap collapsed
-      // scrollHeight (clamped scrollTop), OR on a repeated recovery when the
-      // prior virtual-layout recovery did not shift topOffsetPx meaningfully
-      // (repeating the same static coordinate). When topOffsetPx is still
-      // converging during cold-start measurement, stay on virtual-layout
-      // instead of forcing a viewport walk that fights host scroll compensation.
-      const skipVirtualLayout =
-        session.recovery.activeStrategy === 'virtual-layout' &&
-        (session.alignment.lastAlignClamped ||
-          (recoveryAttempt >= 2 && !session.recovery.lastVirtualOffsetShifted));
-
-      let outcome: MountTargetOutcome;
-      try {
-        outcome = await recovery.recoverTarget({ skipVirtualLayout });
-      } catch {
-        outcome = {
-          status: 'failed',
-          reason: skipVirtualLayout ? 'step-2-exhausted' : 'virtual-exhausted',
-          strategy: skipVirtualLayout ? 'viewport-walker' : 'virtual-layout',
-        };
-      } finally {
-        session.recovery.isRecovering = false;
-      }
-
-      if (isCancelled() || outcome.status === 'cancelled') {
+      if (result.status === 'cancelled' || isCancelled()) {
         cleanupStabilization();
         return;
       }
-
-      session.recovery.activeStrategy = outcome.strategy;
-
-      if (outcome.status === 'mounted' && outcome.element.isConnected) {
-        if (
-          outcome.strategy === 'virtual-layout' &&
-          typeof outcome.virtualTopOffsetPx === 'number' &&
-          Number.isFinite(outcome.virtualTopOffsetPx)
-        ) {
-          session.recovery.lastVirtualOffsetShifted =
-            session.recovery.lastVirtualOffsetPx !== null &&
-            Math.abs(
-              outcome.virtualTopOffsetPx - session.recovery.lastVirtualOffsetPx
-            ) > 4;
-          session.recovery.lastVirtualOffsetPx = outcome.virtualTopOffsetPx;
-        } else {
-          session.recovery.lastVirtualOffsetShifted = false;
-        }
-        resetStabilizationPass(outcome.element);
-        if (scrollTargetIntoView(outcome.element, 'realign')) {
+      if (result.status === 'recovered' && result.element.isConnected) {
+        resetStabilizationPass(result.element);
+        if (scrollTargetIntoView(result.element, 'realign')) {
           if (isCancelled()) {
             cleanupStabilization();
             return;
