@@ -244,61 +244,86 @@ function finishIndependentVirtualJump(
     return;
   }
 
+  const disposeDeferredRepoll = activeStabilizationCleanup;
+  let repollDisposed = false;
+  const disposeSession = (): void => {
+    if (repollDisposed) return;
+    repollDisposed = true;
+    disposeDeferredRepoll?.();
+  };
+
+  if (isCancelled()) {
+    disposeSession();
+    return;
+  }
+
   // Re-poll briefly in case ChatGPT replaces the bubble during virtual
-  // scroll. Retained here temporarily until Phase 5E addresses its timer
-  // cleanup ownership.
-  setTimeout(() => {
-    if (isCancelled()) return;
-    const latest = findRenderedPrompt(message.id);
-    if (latest && latest.isConnected) {
-      if (!applyTargetLandingAlignment(deferredRepollSession, latest, 'realign')) {
-        if (!isCancelled()) {
-          logJumpFailedDiagnostic({
-            targetIndex: index,
-            targetMessageId: message.id,
-            reason: 'scroll-failed-after-repoll',
-            strategy: deferredRepollSession.recovery.activeStrategy,
-            recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
-          });
-          onJumpFailed?.(index);
+  // scroll. Owned by `deferredRepollSession.lifecycle.cancelRepollTimer` so
+  // cancellation or supersession clears the timer immediately.
+  const repollTimerId = setTimeout(() => {
+    deferredRepollSession.lifecycle.cancelRepollTimer = null;
+    try {
+      if (isCancelled()) return;
+      const latest = findRenderedPrompt(message.id);
+      if (latest && latest.isConnected) {
+        if (!applyTargetLandingAlignment(deferredRepollSession, latest, 'realign')) {
+          if (!isCancelled()) {
+            logJumpFailedDiagnostic({
+              targetIndex: index,
+              targetMessageId: message.id,
+              reason: 'scroll-failed-after-repoll',
+              strategy: deferredRepollSession.recovery.activeStrategy,
+              recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
+            });
+            disposeSession();
+            onJumpFailed?.(index);
+          }
+          return;
         }
+
+        if (isCancelled()) return;
+
+        keepFollowing(1800);
+        const container = getScrollContainer();
+
+        logNavigationEvent(jumpId, 'JUMP_FINISHED', {
+          status: 'found-after-repoll',
+          strategy: deferredRepollSession.recovery.activeStrategy,
+          realignAttempts: deferredRepollSession.stabilization.realignAttempts,
+          recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
+          alignmentErrorPx: measureAlignmentErrorPx(latest, container),
+          clamped: deferredRepollSession.alignment.lastAlignClamped,
+        });
+
+        disposeSession();
+        onJumpComplete?.(index);
         return;
       }
-
-      if (isCancelled()) return;
-
-      keepFollowing(1800);
-      const container = getScrollContainer();
-
       logNavigationEvent(jumpId, 'JUMP_FINISHED', {
-        status: 'found-after-repoll',
+        status: 'target-disappeared-after-search',
         strategy: deferredRepollSession.recovery.activeStrategy,
         realignAttempts: deferredRepollSession.stabilization.realignAttempts,
         recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
-        alignmentErrorPx: measureAlignmentErrorPx(latest, container),
-        clamped: deferredRepollSession.alignment.lastAlignClamped,
       });
-
-      onJumpComplete?.(index);
-      return;
-    }
-    logNavigationEvent(jumpId, 'JUMP_FINISHED', {
-      status: 'target-disappeared-after-search',
-      strategy: deferredRepollSession.recovery.activeStrategy,
-      realignAttempts: deferredRepollSession.stabilization.realignAttempts,
-      recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
-    });
-    if (!isCancelled()) {
-      logJumpFailedDiagnostic({
-        targetIndex: index,
-        targetMessageId: message.id,
-        reason: 'target-disappeared-after-search',
-        strategy: deferredRepollSession.recovery.activeStrategy,
-        recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
-      });
-      onJumpFailed?.(index);
+      if (!isCancelled()) {
+        logJumpFailedDiagnostic({
+          targetIndex: index,
+          targetMessageId: message.id,
+          reason: 'target-disappeared-after-search',
+          strategy: deferredRepollSession.recovery.activeStrategy,
+          recoveryAttempts: deferredRepollSession.recovery.attemptsUsed,
+        });
+        disposeSession();
+        onJumpFailed?.(index);
+      }
+    } finally {
+      disposeSession();
     }
   }, 600);
+
+  deferredRepollSession.lifecycle.cancelRepollTimer = () => {
+    clearTimeout(repollTimerId);
+  };
 }
 
 /**

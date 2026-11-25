@@ -33,6 +33,7 @@ export type DisplacementKind =
 export interface PromptJumpSessionLifecycleState {
   userInterrupted: boolean;
   cancelScheduledFrame: (() => void) | null;
+  cancelRepollTimer: (() => void) | null;
   removeUserInputListeners: (() => void) | null;
 }
 
@@ -143,6 +144,7 @@ export function createPromptJumpSession(
     lifecycle: {
       userInterrupted: false,
       cancelScheduledFrame: null,
+      cancelRepollTimer: null,
       removeUserInputListeners: null,
     },
     alignment: {
@@ -176,8 +178,9 @@ export function createPromptJumpSession(
 }
 
 /**
- * Releases any active scheduled frame handle and user-input listeners owned by
- * `session`. Safe and idempotent when invoked multiple times.
+ * Releases any active scheduled frame handle, deferred repoll timer, and
+ * user-input listeners owned by `session`. Safe and idempotent when invoked
+ * multiple times.
  *
  * @param session Active prompt jump session to dispose.
  */
@@ -186,6 +189,11 @@ export function cleanupPromptJumpSession(session: PromptJumpSession): void {
     const cancel = session.lifecycle.cancelScheduledFrame;
     session.lifecycle.cancelScheduledFrame = null;
     cancel();
+  }
+  if (session.lifecycle.cancelRepollTimer) {
+    const cancelRepoll = session.lifecycle.cancelRepollTimer;
+    session.lifecycle.cancelRepollTimer = null;
+    cancelRepoll();
   }
   if (session.lifecycle.removeUserInputListeners) {
     const remove = session.lifecycle.removeUserInputListeners;

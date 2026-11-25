@@ -54,6 +54,7 @@ describe('promptJumpSession', () => {
     expect(session.lifecycle).toEqual({
       userInterrupted: false,
       cancelScheduledFrame: null,
+      cancelRepollTimer: null,
       removeUserInputListeners: null,
     });
     expect(session.alignment).toEqual({
@@ -130,6 +131,29 @@ describe('promptJumpSession', () => {
     version = 2; // simulate navigationJumpVersion bump
     vi.advanceTimersByTime(100);
     expect(cb2).not.toHaveBeenCalled();
+  });
+
+  it('disposes cancelRepollTimer exactly once, nulls its handle, and is idempotent', () => {
+    const session = createPromptJumpSession({
+      target: document.createElement('div'),
+      targetMessageId: 'msg-repoll',
+      targetIndex: 4,
+      jumpId: 'jump-repoll',
+      mode: 'target-driven',
+      isCancelled: () => false,
+    });
+
+    const cancelRepoll = vi.fn(() => {
+      // Handle must already be nulled before disposer executes (reentrancy safe).
+      expect(session.lifecycle.cancelRepollTimer).toBeNull();
+    });
+    session.lifecycle.cancelRepollTimer = cancelRepoll;
+
+    cleanupPromptJumpSession(session);
+    cleanupPromptJumpSession(session);
+
+    expect(cancelRepoll).toHaveBeenCalledTimes(1);
+    expect(session.lifecycle.cancelRepollTimer).toBeNull();
   });
 
   it('tracks wheel, touch, pointer, and scroll-key interruptions and removes listeners idempotently', () => {
