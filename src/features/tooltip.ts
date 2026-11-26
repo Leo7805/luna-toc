@@ -91,6 +91,10 @@ export const previewTooltip = (() => {
     const clientY = event.clientY;
 
     showTimer = setTimeout(() => {
+      showTimer = null;
+      if (!tooltip.isConnected) return;
+      if (anchorElement && !anchorElement.isConnected) return;
+
       tooltip.innerHTML = '';
       if (typeof text === 'object' && text !== null) {
         if (text.customTitle && text.originalPrompt) {
@@ -224,82 +228,112 @@ export const previewTooltip = (() => {
 export const buttonTooltip = (() => {
   let tooltipElement: HTMLDivElement | null = null;
   let activeTarget: HTMLElement | null = null;
+  let boundBody: HTMLElement | null = null;
 
   /**
-   * Creates the button tooltip element.
+   * Creates or rebinds the button tooltip element.
    */
   function create(): void {
-    if (document.getElementById('luna-toc-button-tooltip')) return;
+    const existing = document.getElementById('luna-toc-button-tooltip');
+    if (existing instanceof HTMLDivElement && existing.isConnected) {
+      tooltipElement = existing;
+      return;
+    }
 
     tooltipElement = document.createElement('div');
     tooltipElement.id = 'luna-toc-button-tooltip';
     document.documentElement.appendChild(tooltipElement);
   }
 
+  function handleMouseOver(event: MouseEvent): void {
+    if (activeTarget && !activeTarget.isConnected) {
+      hide();
+    }
+
+    const target = getClosestElement(event, '[title], [data-tooltip]');
+    if (!target) {
+      if (activeTarget) {
+        hide();
+      }
+      return;
+    }
+
+    // Ignore elements outside our extension sidebar and toggle buttons
+    const isInsideSidebar = target.closest('#luna-toc-sidebar');
+    const isSidebarToggle = target.closest('#luna-toc-toggle-btn');
+    const isControls = target.closest('.navigator-jump-controls');
+    if (!isInsideSidebar && !isSidebarToggle && !isControls) {
+      if (activeTarget) {
+        hide();
+      }
+      return;
+    }
+
+    if (
+      target.dataset.tooltipOverflowOnly === 'true' &&
+      !isElementTextTruncated(target)
+    ) {
+      if (activeTarget) {
+        hide();
+      }
+      return;
+    }
+
+    if (target === activeTarget) return;
+    activeTarget = target;
+
+    // Extract title and convert to data-tooltip to disable native slow tooltip
+    if (target.hasAttribute('title')) {
+      const titleText = target.getAttribute('title');
+      if (titleText) target.setAttribute('data-tooltip', titleText);
+      target.removeAttribute('title');
+    }
+
+    const text = target.getAttribute('data-tooltip');
+    if (!text) return;
+
+    show(target, text);
+  }
+
+  function handleMouseOut(event: MouseEvent): void {
+    const target = getClosestElement(event, '[data-tooltip]');
+    if (
+      target &&
+      target === activeTarget &&
+      !(event.relatedTarget instanceof Node && target.contains(event.relatedTarget))
+    ) {
+      hide();
+    }
+  }
+
+  function handleClick(event: MouseEvent): void {
+    const target = getClosestElement(event, '[data-tooltip]');
+    if (target) {
+      hide();
+    }
+  }
+
   /**
-   * Sets up event delegation for button tooltips.
+   * Sets up event delegation for button tooltips, idempotent per document.body.
    */
   function init(): void {
     create();
 
-    // Listen globally for mouseover to implement instant popup
-    document.body.addEventListener('mouseover', (event) => {
-      const target = getClosestElement(event, '[title], [data-tooltip]');
-      if (!target) {
-        if (activeTarget) {
-          hide();
-          activeTarget = null;
-        }
-        return;
-      }
+    const body = document.body;
+    if (!body) return;
+    if (boundBody === body) return;
 
-      // Ignore elements outside our extension sidebar and toggle buttons
-      const isInsideSidebar = target.closest('#luna-toc-sidebar');
-      const isSidebarToggle = target.closest('#luna-toc-toggle-btn');
-      const isControls = target.closest('.navigator-jump-controls');
-      if (!isInsideSidebar && !isSidebarToggle && !isControls) return;
+    if (boundBody) {
+      boundBody.removeEventListener('mouseover', handleMouseOver);
+      boundBody.removeEventListener('mouseout', handleMouseOut);
+      boundBody.removeEventListener('click', handleClick);
+      hide();
+    }
 
-      if (
-        target.dataset.tooltipOverflowOnly === 'true' &&
-        !isElementTextTruncated(target)
-      ) {
-        if (activeTarget) hide();
-        activeTarget = null;
-        return;
-      }
-
-      if (target === activeTarget) return;
-      activeTarget = target;
-
-      // Extract title and convert to data-tooltip to disable native slow tooltip
-      if (target.hasAttribute('title')) {
-        const titleText = target.getAttribute('title');
-        if (titleText) target.setAttribute('data-tooltip', titleText);
-        target.removeAttribute('title');
-      }
-
-      const text = target.getAttribute('data-tooltip');
-      if (!text) return;
-
-      show(target, text);
-    });
-
-    document.body.addEventListener('mouseout', (event) => {
-      const target = getClosestElement(event, '[data-tooltip]');
-      if (target && target === activeTarget) {
-        hide();
-        activeTarget = null;
-      }
-    });
-
-    // Instantly hide tooltip if the user clicks the button
-    document.body.addEventListener('click', (event) => {
-      const target = getClosestElement(event, '[data-tooltip]');
-      if (target) {
-        hide();
-        activeTarget = null;
-      }
-    });
+    body.addEventListener('mouseover', handleMouseOver);
+    body.addEventListener('mouseout', handleMouseOut);
+    body.addEventListener('click', handleClick);
+    boundBody = body;
   }
 
   /**
@@ -308,7 +342,7 @@ export const buttonTooltip = (() => {
    * @param {string} text
    */
   function show(element: HTMLElement, text: string): void {
-    if (!tooltipElement) create();
+    if (!tooltipElement || !tooltipElement.isConnected) create();
 
     if (!tooltipElement) return;
 
@@ -319,12 +353,13 @@ export const buttonTooltip = (() => {
   }
 
   /**
-   * Hides the button tooltip instantly.
+   * Hides the button tooltip instantly and clears activeTarget so re-hover works.
    */
   function hide(): void {
     if (tooltipElement) {
       tooltipElement.classList.remove('luna-toc-tooltip-visible');
     }
+    activeTarget = null;
   }
 
   /**
