@@ -23,6 +23,7 @@ interface MockChromeStorage {
   failNextSets: number;
   deferNextGet: boolean;
   deferNextSet: boolean;
+  persistImmediatelyOnDeferredSet: boolean;
   emitOnChangedOnSet: boolean;
   resolveDeferredGet: (() => void) | null;
   pendingSets: Array<() => void>;
@@ -43,18 +44,36 @@ function makePrompt(id: string, title: string, content = `Body ${id}`): SavedPro
   };
 }
 
-function installMockChromeStorage(initialPrompts?: SavedPrompt[]): MockChromeStorage {
+function cloneTestValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      item && typeof item === 'object' && !Array.isArray(item)
+        ? { ...(item as Record<string, unknown>) }
+        : item
+    );
+  }
+  if (value && typeof value === 'object') {
+    return { ...(value as Record<string, unknown>) };
+  }
+  return value;
+}
+
+function installMockChromeStorage(initialValue?: unknown): MockChromeStorage {
   const listeners = new Set<StorageChangedListener>();
   let lastError: { message: string } | undefined;
 
   const state: MockChromeStorage = {
-    persisted: initialPrompts !== undefined ? { [STORAGE_KEY]: initialPrompts.map((p) => ({ ...p })) } : {},
+    persisted:
+      initialValue !== undefined
+        ? { [STORAGE_KEY]: cloneTestValue(initialValue) }
+        : {},
     getCalls: 0,
     setCalls: 0,
     failNextGets: 0,
     failNextSets: 0,
     deferNextGet: false,
     deferNextSet: false,
+    persistImmediatelyOnDeferredSet: false,
     emitOnChangedOnSet: false,
     resolveDeferredGet: null,
     pendingSets: [],
@@ -63,9 +82,7 @@ function installMockChromeStorage(initialPrompts?: SavedPrompt[]): MockChromeSto
       if (newValue === undefined) {
         delete state.persisted[key];
       } else {
-        state.persisted[key] = Array.isArray(newValue)
-          ? (newValue as SavedPrompt[]).map((p) => ({ ...p }))
-          : newValue;
+        state.persisted[key] = cloneTestValue(newValue);
       }
       for (const listener of listeners) {
         listener({ [key]: { oldValue, newValue } }, areaName);
@@ -132,12 +149,20 @@ function installMockChromeStorage(initialPrompts?: SavedPrompt[]): MockChromeSto
               : v;
           }
 
+          const persistBeforeCallback =
+            state.deferNextSet && state.persistImmediatelyOnDeferredSet;
+          if (persistBeforeCallback && !shouldFail) {
+            Object.assign(state.persisted, clonedItems);
+          }
+
           const finish = () => {
             lastError = shouldFail
               ? { message: 'Simulated storage.local.set failure' }
               : undefined;
             if (!shouldFail) {
-              Object.assign(state.persisted, clonedItems);
+              if (!persistBeforeCallback) {
+                Object.assign(state.persisted, clonedItems);
+              }
               if (state.emitOnChangedOnSet && STORAGE_KEY in clonedItems) {
                 for (const listener of listeners) {
                   listener(
@@ -156,6 +181,7 @@ function installMockChromeStorage(initialPrompts?: SavedPrompt[]): MockChromeSto
 
           if (state.deferNextSet) {
             state.deferNextSet = false;
+            state.persistImmediatelyOnDeferredSet = false;
             state.pendingSets.push(finish);
             return;
           }
@@ -514,6 +540,300 @@ describe('promptStore immutable snapshots, rollback, and write serialization (Fi
       'p-1',
       'p-ext',
       'p-echo',
+    ]);
+  });
+});
+
+describe('promptStore malformed storage preservation and validation (Finding #4C.1)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['object', { version: 2, items: [] }],
+    ['string', 'corrupted-payload'],
+    ['number', 42],
+    ['null', null],
+  ])(
+    'rejects defined non-array root storage value (%s) and blocks overwrites',
+    async (_label, malformedValue) => {
+      const mock = installMockChromeStorage(malformedValue);
+      const store = createPromptStore();
+
+      await expect(store.getAll()).rejects.toThrow();
+      await expect(
+        store.saveAll([makePrompt('p-new', 'New Prompt')])
+      ).rejects.toThrow();
+      await expect(
+        store.update((current) => [...current, makePrompt('p-2', 'Added')])
+      ).rejects.toThrow();
+
+      expect(mock.setCalls).toBe(0);
+      expect(mock.persisted[STORAGE_KEY]).toEqual(malformedValue);
+      expect(store.getSnapshot()).toEqual([]);
+    }
+  );
+
+  it.each([
+    ['null element', [null]],
+    ['primitive elements', ['bad', 123]],
+    ['missing required fields', [{ id: 'p-1', title: 'Missing content' }]],
+    [
+      'non-string required fields',
+      [{ id: 123, title: 'Numeric ID', content: 'Body', createdAt: 1, updatedAt: 1 }],
+    ],
+    [
+      'mixed valid and invalid entries',
+      [makePrompt('p-1', 'Valid One'), { id: 'p-2', title: 99, content: 'Broken' }],
+    ],
+  ])(
+    'rejects array containing invalid prompt records (%s) without filtering or overwriting storage',
+    async (_label, malformedArray) => {
+      const mock = installMockChromeStorage(malformedArray);
+      const store = createPromptStore();
+
+      await expect(store.getAll()).rejects.toThrow();
+      await expect(
+        store.update((current) => [...current, makePrompt('p-new', 'New')])
+      ).rejects.toThrow();
+      await expect(
+        store.saveAll([makePrompt('p-replace', 'Replace')])
+      ).rejects.toThrow();
+
+      expect(mock.setCalls).toBe(0);
+      expect(mock.persisted[STORAGE_KEY]).toEqual(malformedArray);
+    }
+  );
+
+  it('rejects prompt arrays with duplicate IDs and preserves raw storage untouched', async () => {
+    const duplicated = [
+      makePrompt('dup-1', 'First Version', 'Body A'),
+      makePrompt('dup-1', 'Second Version', 'Body B'),
+    ];
+    const mock = installMockChromeStorage(duplicated);
+    const store = createPromptStore();
+
+    await expect(store.getAll()).rejects.toThrow();
+    await expect(
+      store.update((current) => [...current, makePrompt('p-3', 'New')])
+    ).rejects.toThrow();
+
+    expect(mock.setCalls).toBe(0);
+    expect(mock.persisted[STORAGE_KEY]).toEqual(duplicated);
+  });
+
+  it('normalizes recognized legacy timestamp fields in memory without writing back to storage and preserves unknown fields', async () => {
+    const legacyRecords = [
+      {
+        id: 'legacy-1',
+        title: 'Missing updatedAt',
+        content: 'Body 1',
+        createdAt: 1111,
+        extraTag: 'keep-me',
+      },
+      {
+        id: 'legacy-2',
+        title: 'Missing createdAt',
+        content: 'Body 2',
+        updatedAt: 2222,
+      },
+      {
+        id: 'legacy-3',
+        title: 'Both missing or non-finite',
+        content: 'Body 3',
+        createdAt: Number.NaN,
+        updatedAt: 'not-a-number',
+      },
+    ];
+    const mock = installMockChromeStorage(legacyRecords);
+    const store = createPromptStore();
+
+    const prompts = await store.getAll();
+    expect(mock.setCalls).toBe(0);
+    expect(prompts).toEqual([
+      {
+        id: 'legacy-1',
+        title: 'Missing updatedAt',
+        content: 'Body 1',
+        createdAt: 1111,
+        updatedAt: 1111,
+        extraTag: 'keep-me',
+      },
+      {
+        id: 'legacy-2',
+        title: 'Missing createdAt',
+        content: 'Body 2',
+        createdAt: 2222,
+        updatedAt: 2222,
+      },
+      {
+        id: 'legacy-3',
+        title: 'Both missing or non-finite',
+        content: 'Body 3',
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    ]);
+    // Persisted storage remains unmodified by hydration
+    expect(mock.persisted[STORAGE_KEY]).toEqual(legacyRecords);
+  });
+
+  it('revokes authoritative state on malformed onChanged after hydration and blocks subsequent writes until valid state recovers', async () => {
+    const initial = [
+      makePrompt('p-1', 'Existing One'),
+      makePrompt('p-2', 'Existing Two'),
+    ];
+    const mock = installMockChromeStorage(initial);
+    const store = createPromptStore();
+
+    expect(await store.getAll()).toEqual(initial);
+
+    // Malformed external update arrives via onChanged
+    const corruptedPayload = { broken: true };
+    mock.emitOnChanged(corruptedPayload);
+
+    // Subsequent writes must re-validate and reject without calling set()
+    await expect(
+      store.update((current) => [...current, makePrompt('p-3', 'Should Block')])
+    ).rejects.toThrow();
+    await expect(
+      store.saveAll([makePrompt('p-4', 'Should Also Block')])
+    ).rejects.toThrow();
+    expect(mock.setCalls).toBe(0);
+    expect(mock.persisted[STORAGE_KEY]).toEqual(corruptedPayload);
+
+    // Recovery via valid onChanged restores reads and writes
+    const repaired = [makePrompt('p-1', 'Recovered One')];
+    mock.emitOnChanged(repaired);
+    expect(await store.getAll()).toEqual(repaired);
+
+    await store.update((current) => [
+      ...current,
+      makePrompt('p-5', 'Post-Recovery'),
+    ]);
+    expect(mock.setCalls).toBe(1);
+    expect(mock.persisted[STORAGE_KEY]).toEqual([
+      makePrompt('p-1', 'Recovered One'),
+      makePrompt('p-5', 'Post-Recovery'),
+    ]);
+  });
+
+  it('does not let an older in-flight hydration restore authority after a newer malformed onChanged arrives', async () => {
+    const staleValid = [makePrompt('p-1', 'Stale Valid')];
+    const mock = installMockChromeStorage(staleValid);
+    mock.deferNextGet = true;
+
+    const store = createPromptStore();
+    const pendingRead = store.getAll().then(
+      (prompts) => ({ ok: true as const, prompts }),
+      (error: unknown) => ({ ok: false as const, error })
+    );
+    expect(mock.resolveDeferredGet).not.toBeNull();
+
+    // Malformed onChanged arrives while initial hydration is in flight
+    const corruptedPayload = [null, { bad: true }];
+    mock.emitOnChanged(corruptedPayload);
+
+    // Stale valid read now resolves -> must NOT restore write authority
+    mock.resolveDeferredGet!();
+    const readResult = await pendingRead;
+    expect(readResult.ok).toBe(false);
+
+    await expect(
+      store.update((current) => [...current, makePrompt('p-2', 'Blocked')])
+    ).rejects.toThrow();
+    expect(mock.setCalls).toBe(0);
+    expect(mock.persisted[STORAGE_KEY]).toEqual(corruptedPayload);
+
+    // Repair storage directly and confirm next getAll() recovers
+    mock.persisted[STORAGE_KEY] = [makePrompt('p-ok', 'Repaired')];
+    expect(await store.getAll()).toEqual([makePrompt('p-ok', 'Repaired')]);
+  });
+
+  it('keeps write authority revoked if a pending local write fails after an invalid external onChanged', async () => {
+    const initial = [makePrompt('p-1', 'Initial')];
+    const mock = installMockChromeStorage(initial);
+    const store = createPromptStore();
+    await store.getAll();
+
+    mock.failNextSets = 1;
+    mock.deferNextSet = true;
+    const failingWrite = store
+      .update((current) => [...current, makePrompt('p-local', 'Will Fail')])
+      .then(
+        () => ({ ok: true as const }),
+        () => ({ ok: false as const })
+      );
+
+    await flushMicrotasks();
+    expect(mock.pendingSets).toHaveLength(1);
+
+    const corruptedPayload = 'corrupted-external-write';
+    mock.emitOnChanged(corruptedPayload);
+
+    mock.pendingSets.shift()!();
+    expect((await failingWrite).ok).toBe(false);
+
+    // Subsequent write must remain blocked while storage is malformed
+    await expect(
+      store.update((current) => [...current, makePrompt('p-after', 'Blocked')])
+    ).rejects.toThrow();
+    expect(mock.setCalls).toBe(1);
+    expect(mock.persisted[STORAGE_KEY]).toEqual(corruptedPayload);
+  });
+
+  it('does not restore write authority when an earlier local write callback succeeds after a newer malformed onChanged', async () => {
+    const initial = [makePrompt('p-1', 'Initial')];
+    const mock = installMockChromeStorage(initial);
+    const store = createPromptStore();
+    await store.getAll();
+
+    // T1: Local write persists to storage, but its completion callback is deferred
+    mock.deferNextSet = true;
+    mock.persistImmediatelyOnDeferredSet = true;
+    const firstWrite = store.update((current) => [
+      ...current,
+      makePrompt('p-local', 'Earlier Local Write'),
+    ]);
+
+    await flushMicrotasks();
+    expect(mock.setCalls).toBe(1);
+    expect(mock.pendingSets).toHaveLength(1);
+
+    // T2: Newer external malformed write overwrites storage and delivers invalid onChanged
+    const corruptedPayload = { version: 99, corrupted: true };
+    mock.emitOnChanged(corruptedPayload);
+
+    // T3: Earlier local write's stale success callback completes -> must NOT restore authority
+    mock.pendingSets.shift()!();
+    await firstWrite;
+
+    // T4: Next queued update must revalidate persisted storage and reject without another set()
+    const getCallsBeforeNextWrite = mock.getCalls;
+    await expect(
+      store.update((current) => [...current, makePrompt('p-blocked', 'Blocked')])
+    ).rejects.toThrow();
+    expect(mock.getCalls).toBeGreaterThan(getCallsBeforeNextWrite);
+    expect(mock.setCalls).toBe(1);
+    expect(mock.persisted[STORAGE_KEY]).toEqual(corruptedPayload);
+
+    // T5: Recovery after valid authoritative state is re-established
+    const repaired = [makePrompt('p-1', 'Recovered')];
+    mock.emitOnChanged(repaired);
+    await store.update((current) => [
+      ...current,
+      makePrompt('p-recovered', 'After Recovery'),
+    ]);
+    expect(mock.setCalls).toBe(2);
+    expect(mock.persisted[STORAGE_KEY]).toEqual([
+      makePrompt('p-1', 'Recovered'),
+      makePrompt('p-recovered', 'After Recovery'),
     ]);
   });
 });

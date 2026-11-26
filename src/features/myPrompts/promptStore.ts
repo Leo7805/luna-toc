@@ -24,6 +24,102 @@ export interface PromptStore {
   getSnapshot(): SavedPrompt[];
 }
 
+class MalformedPromptsStorageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MalformedPromptsStorageError';
+  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validates and normalizes a single stored prompt record in memory without
+ * mutating the input or discarding extra unknown fields.
+ */
+function parseStoredPromptRecord(
+  entry: unknown,
+  index: number,
+  seenIds: Set<string>
+): SavedPrompt {
+  if (!isPlainRecord(entry)) {
+    throw new MalformedPromptsStorageError(
+      `Invalid My Prompts record at index ${index}: expected an object`
+    );
+  }
+
+  const { id, title, content } = entry;
+  if (typeof id !== 'string' || id.trim().length === 0) {
+    throw new MalformedPromptsStorageError(
+      `Invalid My Prompts record at index ${index}: expected non-empty string id`
+    );
+  }
+  if (typeof title !== 'string') {
+    throw new MalformedPromptsStorageError(
+      `Invalid My Prompts record "${id}": expected string title`
+    );
+  }
+  if (typeof content !== 'string') {
+    throw new MalformedPromptsStorageError(
+      `Invalid My Prompts record "${id}": expected string content`
+    );
+  }
+  if (seenIds.has(id)) {
+    throw new MalformedPromptsStorageError(
+      `Invalid My Prompts storage payload: duplicate prompt id "${id}"`
+    );
+  }
+  seenIds.add(id);
+
+  const hasCreatedAt =
+    typeof entry.createdAt === 'number' && Number.isFinite(entry.createdAt);
+  const hasUpdatedAt =
+    typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt);
+  const createdAt = hasCreatedAt
+    ? (entry.createdAt as number)
+    : hasUpdatedAt
+      ? (entry.updatedAt as number)
+      : 0;
+  const updatedAt = hasUpdatedAt
+    ? (entry.updatedAt as number)
+    : hasCreatedAt
+      ? (entry.createdAt as number)
+      : 0;
+
+  return {
+    ...entry,
+    id,
+    title,
+    content,
+    createdAt,
+    updatedAt,
+  } as SavedPrompt;
+}
+
+/**
+ * Parses a raw Chrome storage value for My Prompts.
+ * Treats `undefined` (missing/removed key) as a valid empty collection,
+ * normalizes recognized legacy timestamp fields in memory, and rejects any
+ * malformed root value, invalid record, or duplicate ID to prevent data loss.
+ */
+function parseStoredPrompts(rawValue: unknown): SavedPrompt[] {
+  if (rawValue === undefined) {
+    return [];
+  }
+  if (!Array.isArray(rawValue)) {
+    throw new MalformedPromptsStorageError(
+      'Invalid My Prompts storage payload: expected an array'
+    );
+  }
+
+  const seenIds = new Set<string>();
+  return rawValue.map((entry, index) =>
+    parseStoredPromptRecord(entry, index, seenIds)
+  );
+}
+
 function clonePrompts(prompts: SavedPrompt[]): SavedPrompt[] {
   return prompts.map((prompt) => ({ ...prompt }));
 }
@@ -107,7 +203,7 @@ export function createPromptStore(): PromptStore {
   }
 
   function readPromptsList(result: Record<string, unknown>): SavedPrompt[] {
-    return Array.isArray(result[storageKey]) ? [...result[storageKey]] : [];
+    return parseStoredPrompts(result[storageKey]);
   }
 
   async function hydrateFromStorage(maxAttempts = 3): Promise<SavedPrompt[]> {
@@ -117,6 +213,9 @@ export function createPromptStore(): PromptStore {
         const result = await readPromptsRecord();
         return readPromptsList(result);
       } catch (error) {
+        if (error instanceof MalformedPromptsStorageError) {
+          throw error;
+        }
         lastError = error;
         if (attempt < maxAttempts) {
           await wait(80 * attempt);
@@ -140,7 +239,12 @@ export function createPromptStore(): PromptStore {
             hydratePromise = null;
           }
           if (storageGeneration !== readGeneration) {
-            return getCacheCopy();
+            if (hasAuthoritativeState) {
+              return getCacheCopy();
+            }
+            throw new MalformedPromptsStorageError(
+              'My Prompts storage became invalid during hydration'
+            );
           }
           setCache(prompts);
           hasAuthoritativeState = true;
@@ -171,9 +275,16 @@ export function createPromptStore(): PromptStore {
         const promptChange = changes[storageKey];
         if (!promptChange) return;
 
-        const nextPrompts = Array.isArray(promptChange.newValue)
-          ? (promptChange.newValue as SavedPrompt[])
-          : [];
+        let nextPrompts: SavedPrompt[];
+        try {
+          nextPrompts = parseStoredPrompts(promptChange.newValue);
+        } catch {
+          storageGeneration += 1;
+          hasAuthoritativeState = false;
+          hydratePromise = null;
+          return;
+        }
+
         const changed =
           !hasAuthoritativeState || !arePromptListsEqual(cache, nextPrompts);
         storageGeneration += 1;
@@ -204,10 +315,19 @@ export function createPromptStore(): PromptStore {
         return;
       }
 
+      const writeGenerationBefore = storageGeneration;
       await new Promise<void>((resolve, reject) => {
         chrome.storage.local.set({ [storageKey]: nextPrompts }, () => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
+            return;
+          }
+
+          if (
+            storageGeneration !== writeGenerationBefore &&
+            !hasAuthoritativeState
+          ) {
+            resolve();
             return;
           }
 
