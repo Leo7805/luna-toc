@@ -169,6 +169,13 @@ export type ScrollToBottomResult =
   | { readonly status: 'unavailable'; readonly reason?: string };
 
 /**
+ * Result of triggering native same-tab SPA navigation to an unmounted message.
+ */
+export type NativeMessageNavigationResult =
+  | { readonly status: 'ok' }
+  | { readonly status: 'unavailable'; readonly reason?: string };
+
+/**
  * Per-platform scroll container / mounted-DOM adapter used by the
  * navigation controller.
  */
@@ -198,6 +205,14 @@ export interface PlatformNavigationAdapter {
    * scroll controller or unambiguous native bottom button). Fails closed when unsupported.
    */
   scrollToBottom?(container: HTMLElement): ScrollToBottomResult;
+  /**
+   * Triggers native same-tab SPA navigation to an unmounted message by ID
+   * (e.g. ChatGPT `?message=<id>` via History API + `popstate`).
+   */
+  navigateToMessage?(
+    conversationKey: string,
+    messageId: string
+  ): NativeMessageNavigationResult;
   findRenderedPrompt(promptId: string, root?: ParentNode): HTMLElement | null;
   /**
    * Finds a currently mounted user message by normalized text prefix.

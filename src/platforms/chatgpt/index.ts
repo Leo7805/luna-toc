@@ -68,9 +68,54 @@ import {
   SPOOFED_VIEWPORT_WIDTH,
 } from './pageHook/matchMediaSpoof';
 import type {
+  NativeMessageNavigationResult,
   Platform,
   PlatformContractTable,
 } from '../platformInterface';
+
+/**
+ * Triggers ChatGPT's native same-tab SPA message navigation (`?message=<id>`)
+ * via History `pushState` + `PopStateEvent` without reloading the document.
+ */
+function navigateChatGptToMessage(
+  conversationKey: string,
+  messageId: string
+): NativeMessageNavigationResult {
+  const trimmedConv = conversationKey.trim();
+  const trimmedMsg = messageId.trim();
+  if (!trimmedConv || !trimmedMsg || trimmedConv.startsWith('new-chat:')) {
+    return { status: 'unavailable', reason: 'invalid-target' };
+  }
+  if (
+    typeof window === 'undefined' ||
+    typeof window.history?.pushState !== 'function'
+  ) {
+    return { status: 'unavailable', reason: 'history-unavailable' };
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(window.location.href);
+  } catch {
+    return { status: 'unavailable', reason: 'invalid-url' };
+  }
+
+  const routeMatch = parsedUrl.pathname.match(/\/c\/([^/]+)/);
+  if (!routeMatch || routeMatch[1] !== trimmedConv) {
+    return { status: 'unavailable', reason: 'route-mismatch' };
+  }
+
+  parsedUrl.searchParams.set('message', trimmedMsg);
+  const nextUrl = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+
+  try {
+    window.history.pushState(null, '', nextUrl);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    return { status: 'ok' };
+  } catch {
+    return { status: 'unavailable', reason: 'push-failed' };
+  }
+}
 
 const CHATGPT_CONTRACT_IDS = Object.keys(CHATGPT_CONTRACT_TABLE) as Array<
   keyof typeof CHATGPT_CONTRACT_TABLE
@@ -128,6 +173,7 @@ export const chatGptPlatform: Platform = {
     queryVirtualJumpTarget: queryChatGptVirtualJumpTarget,
     holdViewport: holdChatGptViewport,
     scrollToBottom: scrollChatGptToBottom,
+    navigateToMessage: navigateChatGptToMessage,
     findRenderedPrompt: findRenderedChatGptPrompt,
     findRenderedPromptByText: findRenderedChatGptPromptByText,
     readMountedWithSidebarIdx,

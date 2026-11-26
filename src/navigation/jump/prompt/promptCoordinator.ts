@@ -16,6 +16,7 @@ import type { JumpStrategyContext } from '@/navigation/jump/strategies/types';
 import { executeViewportWalkerStrategy } from '@/navigation/jump/strategies/viewportWalkerStrategy';
 import { tryVirtualLayoutStrategy } from '@/navigation/jump/strategies/virtualLayoutStrategy';
 import { getActivePlatform } from '@/platforms';
+import { tryNativeMessageJump } from './nativeMessageJump';
 import { findRenderedPrompt, getScrollContainer } from './promptLanding';
 import type {
   DisconnectRecoveryContext,
@@ -66,6 +67,7 @@ export interface PromptCoordinatorHooks {
   onMountFailure: (targetIndex: number) => void;
   clearJumpProgress: () => void;
   onTargetReady: (handoff: MountedTargetHandoff) => void;
+  onJumpComplete?: (targetIndex: number) => void;
 }
 
 /**
@@ -303,16 +305,12 @@ export function coordinatePromptJump(params: CoordinatePromptJumpParams): void {
   const container = getScrollContainer();
 
   const initialScrollTopPx = container ? container.scrollTop : null;
-  const holdResult = container
-    ? getActivePlatform().navigation.holdViewport?.(container)
-    : undefined;
 
   logNavigationEvent(jumpId, 'JUMP_START', {
     conversationKey: context.conversationKey,
     targetPromptId: message.id,
     targetPromptIndex: index,
     promptCount: context.prompts.length,
-    ...(holdResult ? { holdViewportStatus: holdResult.status } : {}),
   });
 
   // Far jumps slide the virtual render window over several seconds. Keep the
@@ -369,6 +367,7 @@ export function coordinatePromptJump(params: CoordinatePromptJumpParams): void {
   const renderedTarget = idHit ?? textHit;
 
   if (renderedTarget) {
+    getActivePlatform().navigation.holdViewport?.(container);
     logNavigationEvent(jumpId, 'JUMP_FAST_PATH_RESULT', {
       idHit: Boolean(idHit),
       textHit: Boolean(textHit),
@@ -392,19 +391,36 @@ export function coordinatePromptJump(params: CoordinatePromptJumpParams): void {
     return;
   }
 
-  // Unmounted target navigation:
-  // For an unmounted LAST prompt, use conditional native bottom-first so ChatGPT's
-  // own scroll controller expands the bottom of the virtual list cleanly instead of
-  // collapsing scrollHeight on a direct downward leap. Then re-arm holdViewport()
-  // and hand off to the standard ID-based Fast Path -> Virtual Layout -> Viewport Walker pipeline.
+  const nav = getActivePlatform().navigation;
   const isUnmountedLastPrompt =
-    context.prompts.length > 0 && index === context.prompts.length - 1;
+    index === context.prompts.length - 1 &&
+    context.prompts[index]?.id === message.id;
+
+  if (
+    !(isUnmountedLastPrompt && typeof nav.scrollToBottom === 'function') &&
+    tryNativeMessageJump({
+      conversationKey: context.conversationKey,
+      message,
+      index,
+      jumpId,
+      mode,
+      container,
+      isCancelled: hooks.isCancelled,
+      onJumpComplete: hooks.onJumpComplete,
+      clearJumpProgress: hooks.clearJumpProgress,
+      onMountFailure: hooks.onMountFailure,
+    })
+  ) {
+    return;
+  }
+
+  nav.holdViewport?.(container);
+
   const activeContainerForBottom = getScrollContainer() ?? container;
   const startedNativeBottomFirst =
     isUnmountedLastPrompt &&
     activeContainerForBottom.isConnected &&
-    getActivePlatform().navigation.scrollToBottom?.(activeContainerForBottom)
-      ?.status === 'ok';
+    nav.scrollToBottom?.(activeContainerForBottom)?.status === 'ok';
 
   void (async () => {
     if (startedNativeBottomFirst) {

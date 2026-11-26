@@ -171,6 +171,7 @@ function jumpWithIndependentVirtualNavigation(
         }
       },
       clearJumpProgress: () => clearJumpProgress?.(),
+      onJumpComplete: (targetIndex) => onJumpComplete?.(targetIndex),
       onTargetReady: (handoff) => {
         finishIndependentVirtualJump(
           handoff.target,
