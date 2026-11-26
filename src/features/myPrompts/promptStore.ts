@@ -19,8 +19,34 @@ export type PromptsChangedListener = (prompts: SavedPrompt[]) => void;
 export interface PromptStore {
   getAll(): Promise<SavedPrompt[]>;
   saveAll(prompts: SavedPrompt[]): Promise<void>;
+  update(updater: (prompts: SavedPrompt[]) => SavedPrompt[]): Promise<void>;
   subscribe(listener: PromptsChangedListener): () => void;
   getSnapshot(): SavedPrompt[];
+}
+
+function clonePrompts(prompts: SavedPrompt[]): SavedPrompt[] {
+  return prompts.map((prompt) => ({ ...prompt }));
+}
+
+function arePromptListsEqual(
+  left: SavedPrompt[],
+  right: SavedPrompt[]
+): boolean {
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    const a = left[i];
+    const b = right[i];
+    if (
+      a.id !== b.id ||
+      a.title !== b.title ||
+      a.content !== b.content ||
+      a.createdAt !== b.createdAt ||
+      a.updatedAt !== b.updatedAt
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isContextValid(): boolean {
@@ -34,14 +60,15 @@ export function createPromptStore(): PromptStore {
   let hasAuthoritativeState = false;
   let storageGeneration = 0;
   let hydratePromise: Promise<SavedPrompt[]> | null = null;
+  let writeQueue: Promise<void> = Promise.resolve();
   const listeners = new Set<PromptsChangedListener>();
 
   function getCacheCopy(): SavedPrompt[] {
-    return [...cache];
+    return clonePrompts(cache);
   }
 
   function setCache(prompts: SavedPrompt[]): void {
-    cache = Array.isArray(prompts) ? [...prompts] : [];
+    cache = Array.isArray(prompts) ? clonePrompts(prompts) : [];
   }
 
   function notifyListeners(): void {
@@ -144,18 +171,60 @@ export function createPromptStore(): PromptStore {
         const promptChange = changes[storageKey];
         if (!promptChange) return;
 
+        const nextPrompts = Array.isArray(promptChange.newValue)
+          ? (promptChange.newValue as SavedPrompt[])
+          : [];
+        const changed =
+          !hasAuthoritativeState || !arePromptListsEqual(cache, nextPrompts);
         storageGeneration += 1;
         hasAuthoritativeState = true;
-        setCache(
-          Array.isArray(promptChange.newValue)
-            ? (promptChange.newValue as SavedPrompt[])
-            : []
-        );
-        notifyListeners();
+        setCache(nextPrompts);
+        if (changed) {
+          notifyListeners();
+        }
       });
     } catch (e) {
       // Ignore listener registration failures.
     }
+  }
+
+  function update(
+    updater: (prompts: SavedPrompt[]) => SavedPrompt[]
+  ): Promise<void> {
+    const operation = writeQueue.catch(() => undefined).then(async () => {
+      await hydrate();
+      const nextPrompts = clonePrompts(updater(getCacheCopy()));
+
+      if (!isContextValid()) {
+        const changed = !arePromptListsEqual(cache, nextPrompts);
+        setCache(nextPrompts);
+        if (changed) {
+          notifyListeners();
+        }
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        chrome.storage.local.set({ [storageKey]: nextPrompts }, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+
+          const changed = !arePromptListsEqual(cache, nextPrompts);
+          setCache(nextPrompts);
+          hasAuthoritativeState = true;
+          storageGeneration += 1;
+          if (changed) {
+            notifyListeners();
+          }
+          resolve();
+        });
+      });
+    });
+
+    writeQueue = operation;
+    return operation;
   }
 
   return {
@@ -163,31 +232,11 @@ export function createPromptStore(): PromptStore {
       await hydrate();
       return getCacheCopy();
     },
-    async saveAll(prompts: SavedPrompt[]): Promise<void> {
-      const nextPrompts = Array.isArray(prompts) ? [...prompts] : [];
-      await hydrate();
-      const previousPrompts = getCacheCopy();
-      setCache(nextPrompts);
-
-      if (!isContextValid()) {
-        notifyListeners();
-        return;
-      }
-
-      return new Promise((resolve, reject) => {
-        chrome.storage.local.set({ [storageKey]: nextPrompts }, () => {
-          if (chrome.runtime.lastError) {
-            setCache(previousPrompts);
-            reject(chrome.runtime.lastError);
-            return;
-          }
-
-          storageGeneration += 1;
-          notifyListeners();
-          resolve();
-        });
-      });
+    saveAll(prompts: SavedPrompt[]): Promise<void> {
+      const replacement = Array.isArray(prompts) ? clonePrompts(prompts) : [];
+      return update(() => replacement);
     },
+    update,
     subscribe(listener: PromptsChangedListener): () => void {
       if (typeof listener !== 'function') {
         return () => {};

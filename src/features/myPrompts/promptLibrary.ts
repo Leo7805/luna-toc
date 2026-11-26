@@ -141,7 +141,6 @@ export function importMyPrompts(onImport?: VoidCallback): void {
         return;
       }
 
-      const existingPrompts = await getMyPrompts();
       const importedAt = Date.now();
       const importedPrompts = promptsToImport.map((prompt, index) => ({
         id: `prompt-${importedAt}-${index}`,
@@ -151,7 +150,10 @@ export function importMyPrompts(onImport?: VoidCallback): void {
         updatedAt: importedAt,
       }));
 
-      await saveMyPrompts([...existingPrompts, ...importedPrompts]);
+      await requirePromptStore().update((existingPrompts) => [
+        ...existingPrompts,
+        ...importedPrompts,
+      ]);
       onImport?.();
       await showPromptModal({
         title: 'Import Prompts',
@@ -190,7 +192,7 @@ export async function clearAllMyPrompts(onRefresh?: VoidCallback): Promise<void>
   if (!shouldClear) return;
 
   try {
-    await saveMyPrompts([]);
+    await requirePromptStore().update(() => []);
     await requirePromptUsageStore().clear();
     onRefresh?.();
   } catch (error) {
@@ -236,9 +238,9 @@ export async function deletePrompt(
   if (!shouldDelete) return;
 
   try {
-    const prompts = await getMyPrompts();
-    const filtered = prompts.filter((p) => p.id !== item.id);
-    await saveMyPrompts(filtered);
+    await requirePromptStore().update((prompts) =>
+      prompts.filter((p) => p.id !== item.id)
+    );
     void requirePromptUsageStore().remove(item.id).catch(() => undefined);
     onRefresh?.();
   } catch (error) {
@@ -272,6 +274,21 @@ export function showDialog(
   });
 }
 
+function createUniquePromptId(
+  existingPrompts: SavedPrompt[],
+  timestamp: number
+): string {
+  const baseId = `prompt-${timestamp}`;
+  const existingIds = new Set(existingPrompts.map((prompt) => prompt.id));
+  if (!existingIds.has(baseId)) return baseId;
+
+  let suffix = 1;
+  while (existingIds.has(`${baseId}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseId}-${suffix}`;
+}
+
 /**
  * Applies values from the React editor to the existing prompt collection.
  */
@@ -280,28 +297,34 @@ async function savePromptEditorValues(
   { title, content }: PromptEditorValues
 ): Promise<void> {
   try {
-    const prompts = await getMyPrompts();
     const isNew = !item?.id;
-
-    if (isNew) {
-      const now = Date.now();
-      prompts.push({
-        id: `prompt-${now}`,
-        title,
-        content,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } else {
-      const existingPrompt = prompts.find((prompt) => prompt.id === item.id);
-      if (existingPrompt) {
-        existingPrompt.title = title;
-        existingPrompt.content = content;
-        existingPrompt.updatedAt = Date.now();
+    await requirePromptStore().update((prompts) => {
+      if (isNew) {
+        const now = Date.now();
+        return [
+          ...prompts,
+          {
+            id: createUniquePromptId(prompts, now),
+            title,
+            content,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
       }
-    }
 
-    await saveMyPrompts(prompts);
+      const updatedAt = Date.now();
+      return prompts.map((prompt) =>
+        prompt.id === item.id
+          ? {
+              ...prompt,
+              title,
+              content,
+              updatedAt,
+            }
+          : prompt
+      );
+    });
   } catch (error) {
     await showPromptModal({
       title: 'Save Prompt',
