@@ -56,7 +56,7 @@ function handleDocumentInput(event: Event): void {
   );
   if (!(composer instanceof HTMLElement)) return;
   currentTextarea = composer;
-  handleTextareaInput(composer);
+  void handleTextareaInput(composer);
 }
 
 /**
@@ -208,10 +208,19 @@ async function handleTextareaInput(textarea: PromptComposer): Promise<void> {
     return;
   }
 
-  const [prompts, usage] = await Promise.all([
-    getMyPrompts(),
-    getPromptUsage(),
-  ]);
+  let prompts: SavedPrompt[];
+  let usage: PromptUsageMap;
+  try {
+    [prompts, usage] = await Promise.all([
+      getMyPrompts(),
+      getPromptUsage(),
+    ]);
+  } catch {
+    if (requestVersion === autocompleteRequestVersion) {
+      closeAutocompleteMenu();
+    }
+    return;
+  }
   if (requestVersion !== autocompleteRequestVersion) return;
 
   const matches = getRankedAutocompletePrompts(prompts, usage, context.query);
